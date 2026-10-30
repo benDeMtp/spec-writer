@@ -1,15 +1,16 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 import { SessionsApi } from '../../core/sessions/sessions.api';
-import { Language, SessionDetail, Specification, UseCase } from '../../core/sessions/sessions.model';
+import { Language, SessionDetail, Specification, UseCase, VersionSummary } from '../../core/sessions/sessions.model';
 import { ScenarioComponent } from '../../shared/ui/scenario.component';
+import { VersionsPanelComponent } from './versions-panel.component';
 
 /** Version de spécification : résumé, use cases, scénarios, hypothèses et exigences (FR-010). */
 @Component({
   selector: 'sw-specification-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, RouterLink, ScenarioComponent],
+  imports: [MatButtonModule, RouterLink, ScenarioComponent, VersionsPanelComponent],
   template: `
     @if (spec(); as v) {
       <header class="head">
@@ -17,6 +18,7 @@ import { ScenarioComponent } from '../../shared/ui/scenario.component';
         <p class="meta">Version {{ v.number }} · {{ session()?.name }}</p>
         <a mat-button [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
       </header>
+      <div class="layout">
       <div class="sheet document">
         <section aria-labelledby="summary">
           <h2 id="summary">Résumé</h2>
@@ -82,6 +84,12 @@ import { ScenarioComponent } from '../../shared/ui/scenario.component';
           <ul>@for (r of technical(); track r.code) {<li><span class="code">{{ r.code }}</span> {{ r.statement }}</li>} @empty {<li>Aucune.</li>}</ul>
         </section>
       </div>
+      @if (versions().length > 1) {
+        <aside class="side">
+          <sw-versions-panel [sessionId]="id()" [versions]="versions()" [current]="v.number" />
+        </aside>
+      }
+      </div>
     } @else {
       <p role="status" aria-live="polite">Chargement de la spécification…</p>
     }
@@ -97,9 +105,27 @@ import { ScenarioComponent } from '../../shared/ui/scenario.component';
       margin: 0.25rem 0 0.75rem;
       color: var(--sw-ink-soft);
     }
-    .sheet {
-      max-width: calc(var(--sw-measure) + 10rem);
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, calc(var(--sw-measure) + 10rem)) 13rem;
+      gap: 1.5rem;
+      align-items: start;
       margin-top: 1rem;
+    }
+    .side {
+      position: sticky;
+      top: 1rem;
+    }
+    @media (max-width: 64rem) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .side {
+        position: static;
+        order: -1;
+      }
+    }
+    .sheet {
       padding: 1.5rem clamp(1rem, 3vw, 2.5rem);
       background: var(--sw-sheet);
       border: 1px solid var(--sw-rule);
@@ -164,7 +190,7 @@ import { ScenarioComponent } from '../../shared/ui/scenario.component';
     }
   `,
 })
-export class SpecificationPage implements OnInit {
+export class SpecificationPage {
   private readonly api = inject(SessionsApi);
 
   readonly id = input.required<string>();
@@ -172,13 +198,24 @@ export class SpecificationPage implements OnInit {
 
   protected readonly spec = signal<Specification | null>(null);
   protected readonly session = signal<SessionDetail | null>(null);
+  protected readonly versions = signal<VersionSummary[]>([]);
   protected readonly language = computed<Language>(() => this.session()?.language ?? 'fr');
   protected readonly functional = computed(() => this.spec()?.requirements.filter((r) => r.category === 'FUNCTIONAL') ?? []);
   protected readonly technical = computed(() => this.spec()?.requirements.filter((r) => r.category === 'TECHNICAL') ?? []);
 
-  async ngOnInit(): Promise<void> {
-    const [spec, session] = await Promise.all([this.api.version(this.id(), Number(this.n())), this.api.get(this.id())]);
+  constructor() {
+    // la même page affiche chaque version : elle se recharge quand le numéro change dans l'URL
+    effect(() => {
+      const id = this.id();
+      const n = Number(this.n());
+      void this.load(id, n);
+    });
+  }
+
+  private async load(id: string, n: number): Promise<void> {
+    const [spec, session, versions] = await Promise.all([this.api.version(id, n), this.api.get(id), this.api.versions(id)]);
     this.session.set(session);
+    this.versions.set(versions);
     this.spec.set(spec);
   }
 

@@ -21,6 +21,8 @@ export interface SessionSummary {
   updatedAt: string;
   latestVersion: number | null;
   jiraKey: string | null;
+  /** Faux si la sauvegarde est endommagée : la session ne peut plus être ouverte. */
+  readable: boolean;
 }
 
 export interface SessionDetail extends SessionSummary {
@@ -30,6 +32,15 @@ export interface SessionDetail extends SessionSummary {
   currentBatch: Question[];
   answeredQuestions: Question[];
   warnings: string[];
+  /** Effet de la dernière réponse modifiée (FR-007). */
+  revision?: { removed: string[]; added: string[] };
+}
+
+export interface VersionSummary {
+  number: number;
+  origin: 'GENERATED' | 'AI_EDIT' | 'JIRA_IMPORT' | 'CONFLICT_MERGE';
+  createdAt: string;
+  pushedToJira: boolean;
 }
 
 export interface SourceRef {

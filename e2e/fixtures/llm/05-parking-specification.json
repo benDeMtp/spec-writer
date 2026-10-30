@@ -1,0 +1,15 @@
+{"operation": "generate-specification", "userContains": ["place de parking"], "response": {
+  "title": "Réservation des places de parking",
+  "summary": "Les employés réservent une place de parking pour une journée.",
+  "useCases": [
+    {"title": "Réserver une place", "actor": "employé", "goal": "Avoir une place pour la journée",
+     "preconditions": [], "nominalFlow": ["Choisir le jour", "Confirmer"], "alternatives": ["Le parking est complet : prévenir l'employé"],
+     "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "réserver une place de parking pour une journée"}}
+  ],
+  "scenarios": [
+    {"useCaseIndex": 0, "title": "Place réservée", "kind": "NOMINAL", "asA": "employé", "given": ["il reste des places lundi"],
+     "when": ["je réserve une place pour lundi"], "then": ["ma place est confirmée"], "assumption": false},
+    {"useCaseIndex": 0, "title": "Parking complet", "kind": "ERROR", "asA": "employé", "given": ["le parking est complet lundi"],
+     "when": ["je réserve une place pour lundi"], "then": ["un message m'indique que le parking est complet"], "assumption": false}
+  ],
+  "assumptions": [], "requirements": [{"category": "FUNCTIONAL", "statement": "Une place n'est attribuée qu'à un employé par jour."}]}}

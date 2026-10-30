@@ -1,0 +1,8 @@
+{"operation": "propose-questions", "userContains": ["place de parking"], "response": {
+  "questions": [
+    {"theme": "BUSINESS_RULES", "label": "Les visiteurs peuvent-ils réserver une place ?", "rationale": "Le besoin ne parle que des employés",
+     "suggestions": ["Oui", "Non"], "defaultValue": "Non", "dependsOnQuestionIds": []},
+    {"theme": "EDGE_CASES", "label": "Que faire pour un visiteur sans badge ?", "rationale": "Cas limite si les visiteurs réservent",
+     "suggestions": [], "defaultValue": "Refuser l'accès", "dependsOnQuestionIds": []}
+  ],
+  "contradictions": [], "coveredThemes": ["ACTORS", "GOAL", "NOMINAL_FLOW", "ERRORS", "NON_FUNCTIONAL"]}}

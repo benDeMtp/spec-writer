@@ -10,7 +10,10 @@ import {
   signal,
   viewChildren,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import { SessionDetail } from '../../core/sessions/sessions.model';
@@ -21,7 +24,7 @@ import { QuestionCardComponent } from './question-card.component';
 @Component({
   selector: 'sw-questionnaire-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, ProgressComponent, QuestionCardComponent],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, ProgressComponent, QuestionCardComponent],
   template: `
     @if (session(); as s) {
       <h1>{{ s.name }}</h1>
@@ -65,21 +68,40 @@ import { QuestionCardComponent } from './question-card.component';
           <p class="hint" role="status" aria-live="polite">{{ busyMessage() }}</p>
         }
 
+        <p class="announce" role="status" aria-live="polite">{{ revisionMessage() }}</p>
+
         @if (s.answeredQuestions.length) {
-          <details class="answered">
-            <summary>Réponses données ({{ s.answeredQuestions.length }})</summary>
-            <dl>
+          <section class="answered" aria-labelledby="answered-title">
+            <h2 id="answered-title">Réponses données</h2>
+            <ul>
               @for (q of s.answeredQuestions; track q.id) {
-                <dt>{{ q.label }}</dt>
-                <dd>
-                  {{ q.answer }}
-                  @if (q.state === 'SKIPPED') {
-                    <span class="badge">Hypothèse</span>
+                <li>
+                  <p class="label">{{ q.label }}</p>
+                  @if (editing() === q.id) {
+                    <mat-form-field appearance="outline" class="edit">
+                      <mat-label>Nouvelle réponse</mat-label>
+                      <textarea matInput rows="3" maxlength="5000" [ngModel]="draft()" (ngModelChange)="draft.set($event)"></textarea>
+                    </mat-form-field>
+                    <div class="edit-actions">
+                      <button mat-flat-button type="button" [disabled]="busy() || !draft().trim()" (click)="revise(q.id)">
+                        Enregistrer la modification
+                      </button>
+                      <button mat-button type="button" (click)="editing.set(null)">Annuler</button>
+                    </div>
+                  } @else {
+                    <p class="value">
+                      {{ q.answer }}
+                      @if (q.state === 'SKIPPED') {
+                        <span class="badge">Hypothèse</span>
+                      }
+                    </p>
+                    <button mat-button type="button" [disabled]="busy()" (click)="startEdit(q.id, q.answer)"
+                      [attr.aria-label]="'Modifier la réponse à : ' + q.label">Modifier</button>
                   }
-                </dd>
+                </li>
               }
-            </dl>
-          </details>
+            </ul>
+          </section>
         }
       </div>
     } @else {
@@ -132,15 +154,41 @@ import { QuestionCardComponent } from './question-card.component';
     .hint {
       color: var(--sw-ink-soft);
     }
+    .announce:empty {
+      display: none;
+    }
     .answered {
       margin-top: 1.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--sw-rule);
     }
-    dt {
-      margin-top: 0.75rem;
+    .answered h2 {
+      margin: 0 0 0.5rem;
+      font-size: var(--sw-step-1);
+    }
+    .answered ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .answered li {
+      margin-bottom: 0.75rem;
+    }
+    .label {
+      margin: 0;
       font-weight: 650;
     }
-    dd {
+    .value {
       margin: 0.25rem 0 0;
+      font-family: var(--sw-font-doc);
+    }
+    .edit {
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+    .edit-actions {
+      display: flex;
+      gap: 0.5rem;
     }
     .badge {
       margin-left: 0.5rem;
@@ -163,6 +211,9 @@ export class QuestionnairePage implements OnInit {
   protected readonly session = signal<SessionDetail | null>(null);
   protected readonly busy = signal(false);
   protected readonly busyMessage = signal('');
+  protected readonly editing = signal<string | null>(null);
+  protected readonly draft = signal('');
+  protected readonly revisionMessage = signal('');
   private readonly cards = viewChildren(QuestionCardComponent);
   private readonly firstPendingId = computed(() => this.session()?.currentBatch[0]?.id ?? null);
 
@@ -176,6 +227,28 @@ export class QuestionnairePage implements OnInit {
 
   protected skip(questionId: string): Promise<void> {
     return this.run(() => this.api.skip(this.id(), questionId), this.isLast());
+  }
+
+  protected startEdit(questionId: string, answer: string | null): void {
+    this.draft.set(answer ?? '');
+    this.editing.set(questionId);
+    this.revisionMessage.set('');
+  }
+
+  /** Modification d'une réponse antérieure : résumé des questions retirées et ajoutées (US3-2). */
+  protected async revise(questionId: string): Promise<void> {
+    this.busy.set(true);
+    this.busyMessage.set('GitHub Copilot réévalue les questions qui dépendent de cette réponse…');
+    try {
+      const updated = await this.api.answer(this.id(), questionId, this.draft().trim());
+      this.editing.set(null);
+      this.revisionMessage.set(summarize(updated.revision));
+      this.show(updated, updated.currentBatch.length > 0);
+    } catch {
+      this.show(await this.api.get(this.id()), false);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected conclude(): Promise<void> {
@@ -235,4 +308,25 @@ export class QuestionnairePage implements OnInit {
       );
     }
   }
+}
+
+function count(n: number, singular: string, plural: string): string {
+  return `${n} ${n > 1 ? plural : singular}`;
+}
+
+/** Message lu par les lecteurs d'écran après une réponse modifiée. */
+export function summarize(revision: { removed: string[]; added: string[] } | undefined): string {
+  const removed = revision?.removed ?? [];
+  const added = revision?.added ?? [];
+  if (!removed.length && !added.length) {
+    return 'Réponse modifiée. Les autres réponses restent valables.';
+  }
+  const parts: string[] = [];
+  if (removed.length) {
+    parts.push(`${count(removed.length, 'question retirée', 'questions retirées')} : ${removed.join(' ; ')}`);
+  }
+  if (added.length) {
+    parts.push(`${count(added.length, 'question ajoutée', 'questions ajoutées')} : ${added.join(' ; ')}`);
+  }
+  return `Réponse modifiée. ${parts.join('. ')}.`;
 }

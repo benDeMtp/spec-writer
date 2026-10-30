@@ -142,4 +142,14 @@ class QuestionnaireTest {
         assertThat(next.active().get(1).dependsOn()).containsExactly(qn.active().getFirst().id());
         assertThat(next.active().get(1).batch()).isEqualTo(2);
     }
+
+    @Test
+    void questionDeRevisionAccepteeMemeSurUnThemeCouvert() {
+        Questionnaire qn = Questionnaire.empty().addBatch(List.of(q(QuestionTheme.GOAL, "A ?")), List.of(),
+                Set.of(QuestionTheme.NON_FUNCTIONAL), ids);
+        Questionnaire revised = qn.addRevisionQuestions(List.of(q(QuestionTheme.NON_FUNCTIONAL, "Délai ?"),
+                q(QuestionTheme.GOAL, "a ?")), ids);
+        assertThat(revised.active()).extracting(Question::label).containsExactly("A ?", "Délai ?");
+        assertThat(revised.coveredByNeed()).containsExactly(QuestionTheme.NON_FUNCTIONAL);
+    }
 }

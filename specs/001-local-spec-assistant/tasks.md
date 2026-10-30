@@ -363,16 +363,16 @@ questions suivantes sont cohérents.
 - [X] T086 [P] [US3] Écrire `BT/application/session/ManageSessionsTest.java` : la liste est triée par `updatedAt` décroissant ; le renommage respecte « 1 à 120 caractères » ; la suppression est physique et entraîne celle des versions (FR-017)
 - [X] T087 [P] [US3] Écrire `BT/infrastructure/persistence/CorruptedSessionIT.java`. Un JSON `depends_on` illisible sur une session la marque « illisible » dans la liste, sans exception, et les autres sessions restent accessibles (edge case « fichier corrompu »).
 - [X] T088 [P] [US3] Écrire `BT/infrastructure/web/SessionManagementIT.java` : `GET /api/sessions`, `PATCH` et `DELETE /api/sessions/{id}`, `GET /api/sessions/{id}/versions`, ainsi que `PUT …/answer` sur une question déjà répondue
-- [ ] T089 [P] [US3] Écrire `E/us3-resume.spec.ts` (Playwright + axe). Scénarios V8 (on arrête le processus du jar par `SIGKILL` pendant le questionnaire, on le relance, la session reprend à la même question), V9 et US3-3 (régénération : la version 2 est créée et la version 1 reste consultable).
+- [X] T089 [P] [US3] Écrire `E/us3-resume.spec.ts` (Playwright + axe). Scénarios V8 (on arrête le processus du jar par `SIGKILL` pendant le questionnaire, on le relance, la session reprend à la même question), V9 et US3-3 (régénération : la version 2 est créée et la version 1 reste consultable).
 
 ### Implementation for User Story 3
 
 - [X] T090 [US3] Implémenter `B/application/session/ReviseAnswer.java` (avec le prompt `BR/prompts/reassess-after-change.txt` et `QuestionAiService.reassess`) pour faire passer T085
 - [X] T091 [US3] Implémenter `B/application/session/ListSessions.java`, `RenameSession.java` et `DeleteSession.java`, ainsi que `B/application/specification/ListVersions.java`, et la gestion des lignes illisibles dans `SessionJpaRepository` pour faire passer T086 et T087
 - [X] T092 [US3] Compléter `B/infrastructure/web/SessionResource.java` (`GET /api/sessions`, `PATCH`, `DELETE`) et `B/infrastructure/web/VersionResource.java` (`GET /api/sessions/{id}/versions`) pour faire passer T088
-- [ ] T093 [P] [US3] Implémenter `F/features/sessions/sessions.page.ts` : liste, reprise, renommage en ligne, suppression avec `MatDialog` de confirmation (sans `window.confirm`), mention des sessions illisibles
-- [ ] T094 [US3] Ajouter dans `F/features/questionnaire/questionnaire.page.ts` la liste des réponses données, avec le bouton « Modifier ». Après modification, un message `aria-live` résume les questions retirées et ajoutées.
-- [ ] T095 [US3] Implémenter `F/features/specification/versions-panel.component.ts` (liste des versions avec leur origine, consultation d'une version antérieure) et l'intégrer à `F/features/specification/specification.page.ts`. Doit faire passer T089.
+- [X] T093 [P] [US3] Implémenter `F/features/sessions/sessions.page.ts` : liste, reprise, renommage en ligne, suppression avec `MatDialog` de confirmation (sans `window.confirm`), mention des sessions illisibles
+- [X] T094 [US3] Ajouter dans `F/features/questionnaire/questionnaire.page.ts` la liste des réponses données, avec le bouton « Modifier ». Après modification, un message `aria-live` résume les questions retirées et ajoutées.
+- [X] T095 [US3] Implémenter `F/features/specification/versions-panel.component.ts` (liste des versions avec leur origine, consultation d'une version antérieure) et l'intégrer à `F/features/specification/specification.page.ts`. Doit faire passer T089.
 
 **Checkpoint** : US1, US2 et US3 fonctionnent. Le travail n'est jamais perdu.
 

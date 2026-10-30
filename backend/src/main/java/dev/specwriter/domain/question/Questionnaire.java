@@ -70,6 +70,19 @@ public record Questionnaire(List<Question> questions, Set<QuestionTheme> covered
         return new Questionnaire(all, allCovered);
     }
 
+    /**
+     * Ajoute les questions issues d'une réponse modifiée (FR-007). Une réponse nouvelle peut rouvrir
+     * un thème que le besoin couvrait : seuls les doublons sont écartés.
+     */
+    public Questionnaire addRevisionQuestions(List<ProposedQuestion> proposed, Supplier<UUID> ids) {
+        return new Questionnaire(questions, Set.of()).addBatch(proposed, List.of(), Set.of(), ids)
+                .withCovered(coveredByNeed);
+    }
+
+    private Questionnaire withCovered(Set<QuestionTheme> covered) {
+        return new Questionnaire(questions, covered);
+    }
+
     public Questionnaire answer(UUID questionId, String value, Instant at) {
         return replace(find(questionId).answered(new Answer(questionId, value, false, at)));
     }

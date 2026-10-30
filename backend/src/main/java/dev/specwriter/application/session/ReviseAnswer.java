@@ -40,7 +40,7 @@ public final class ReviseAnswer {
                 .filter(id -> !id.equals(changed) && cited.contains(id.toString()))
                 .collect(Collectors.toSet());
         Questionnaire withoutObsolete = questionnaire.markObsolete(obsolete);
-        Questionnaire revised = withoutObsolete.addBatch(result.newQuestions(), List.of(), Set.of(), ids::next);
+        Questionnaire revised = withoutObsolete.addRevisionQuestions(result.newQuestions(), ids::next);
 
         Set<UUID> before = withoutObsolete.questions().stream().map(Question::id).collect(Collectors.toSet());
         List<String> removed = questionnaire.active().stream().filter(q -> obsolete.contains(q.id()))

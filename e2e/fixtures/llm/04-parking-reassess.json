@@ -1,0 +1,6 @@
+{"operation": "reassess-after-change", "userContains": ["place de parking"], "response": {
+  "obsoleteQuestionIds": ["__EDGE_CASES__"],
+  "newQuestions": [
+    {"theme": "NON_FUNCTIONAL", "label": "Combien de jours à l'avance peut-on réserver ?", "rationale": "Limite les réservations de précaution",
+     "suggestions": ["1 jour", "7 jours"], "defaultValue": "7 jours", "dependsOnQuestionIds": []}
+  ]}}
