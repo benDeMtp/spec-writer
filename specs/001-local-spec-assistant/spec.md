@@ -30,8 +30,9 @@
   ticket doit-il être structuré ? → A: un seul ticket, au type choisi dans l'aperçu (Story par
   défaut), avec toute la spécification mise en forme dans la description.
 - Q: Comment l'utilisateur doit-il connecter son compte GitHub Copilot dans l'écran de
-  configuration ? → A: par une connexion GitHub depuis le navigateur (code court à saisir sur
-  github.com), le jeton obtenu étant stocké dans le trousseau.
+  configuration ? → A: par une connexion GitHub depuis le navigateur, le jeton obtenu étant
+  stocké dans le trousseau. Le spike S1 a établi que le SDK utilise une page d'autorisation OAuth
+  avec retour automatique, et non un code court (FR-030a reformulé, research.md R4).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -55,9 +56,9 @@ clair après enregistrement.
    **Then** il est dirigé vers l'écran de configuration avec une explication de ce qui est requis,
    et ne peut pas démarrer de questionnaire.
 2. **Given** l'écran de configuration, **When** l'utilisateur clique sur « Se connecter à
-   GitHub », **Then** l'outil affiche un code court et ouvre la page de validation de GitHub ;
-   une fois le code saisi et l'accès autorisé sur github.com, l'état passe à « connecté » sans
-   autre manipulation, et le jeton obtenu est stocké dans le trousseau.
+   GitHub », **Then** l'outil affiche les permissions demandées et ouvre la page d'autorisation
+   de GitHub ; une fois l'accès autorisé, l'état passe à « connecté » avec le login du compte,
+   sans autre manipulation, et le jeton est stocké dans le trousseau du système.
 3. **Given** le compte GitHub connecté ne dispose pas d'un abonnement Copilot actif, **When** la
    connexion aboutit, **Then** l'outil l'indique clairement et explique comment obtenir l'accès.
 4. **Given** l'écran de configuration Jira, **When** l'utilisateur saisit une adresse de serveur,
@@ -341,10 +342,12 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 
 - **FR-030**: Le système DOIT fournir un écran de configuration des accès à GitHub Copilot et à
   Jira on premise.
-- **FR-030a**: La connexion à GitHub Copilot DOIT se faire par une autorisation GitHub depuis le
-  navigateur (code court à saisir sur github.com) ; l'utilisateur NE DOIT PAS avoir à créer ni à
-  copier un jeton. Le code DOIT expirer s'il n'est pas validé dans le délai fixé par GitHub, avec
-  la possibilité d'en demander un nouveau.
+- **FR-030a**: La connexion à GitHub Copilot DOIT se faire par une page d'autorisation GitHub
+  ouverte dans le navigateur, avec un retour automatique vers l'outil. L'utilisateur NE DOIT PAS
+  avoir à créer ni à copier un jeton. Les permissions demandées par GitHub DOIVENT être affichées
+  avant la redirection. Si l'autorisation n'aboutit pas dans les 15 minutes ou est refusée,
+  l'outil DOIT permettre de recommencer. Le compte GitHub effectivement connecté DOIT être
+  affiché.
 - **FR-030b**: L'utilisateur DOIT pouvoir se déconnecter de GitHub Copilot ; le jeton est alors
   supprimé du trousseau.
 - **FR-030c**: L'utilisateur DOIT pouvoir choisir, dans l'écran de configuration, le modèle de

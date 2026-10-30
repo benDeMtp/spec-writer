@@ -82,7 +82,7 @@ persistance, erreurs, port LLM et shell du front.
 
 ### Spikes (risques S1 et S2 de research.md)
 
-- [ ] T010 Spike S1 : écrire `BT/spike/CopilotSdkSpikeIT.java` (tag `spike`, exclu du build). Sur un compte Copilot Business EMU, il doit établir :
+- [X] T010 Spike S1 : écrire `BT/spike/CopilotSdkSpikeIT.java` (tag `spike`, exclu du build). Sur un compte Copilot Business EMU, il doit établir :
   1. si le Copilot SDK Java réutilise la connexion du Copilot CLI (voie A) et comment le code court du device flow est exposé ;
   2. où le CLI stocke son jeton : trousseau ou fichier ;
   3. comment se déconnecter ;
@@ -91,7 +91,7 @@ persistance, erreurs, port LLM et shell du front.
 
   En cas d'échec de la voie A, tester la voie B avec un jeton `ghu_` d'une GitHub App de test. Consigner les résultats et la voie retenue dans `specs/001-local-spec-assistant/research.md` (R3 et R4, avec mention « Résultat du spike S1 »).
 - [ ] T011 Spike S1, packaging : produire avec `jpackage` une app-image macOS du jar du spike et vérifier que le runtime Copilot CLI embarqué par le SDK démarre depuis l'image. Consigner les fichiers ou modules à inclure dans `specs/001-local-spec-assistant/research.md` (R15).
-- [ ] T012 Spike S2 : écrire `BT/spike/SqliteHibernateSpikeIT.java` sous Quarkus 4. Il vérifie le CRUD d'une entité avec `SQLiteDialect` et `db-kind=other`, une migration Flyway, une table FTS5 `unicode61 remove_diacritics 2` (la recherche « regle » doit trouver « règle ») et le mode WAL. Consigner le résultat dans `specs/001-local-spec-assistant/research.md` (R7). En cas d'échec, basculer sur H2 fichier et adapter T019 et T020.
+- [X] T012 Spike S2 : écrire `BT/spike/SqliteHibernateSpikeIT.java` sous Quarkus 4. Il vérifie le CRUD d'une entité avec `SQLiteDialect` et `db-kind=other`, une migration Flyway, une table FTS5 `unicode61 remove_diacritics 2` (la recherche « regle » doit trouver « règle ») et le mode WAL. Consigner le résultat dans `specs/001-local-spec-assistant/research.md` (R7). En cas d'échec, basculer sur H2 fichier et adapter T019 et T020.
 
 ### Plateforme et configuration
 
@@ -155,7 +155,7 @@ persistance, erreurs, port LLM et shell du front.
 - [ ] T031 Implémenter `B/infrastructure/llm/CopilotSdkGateway.java` (enveloppe du Copilot SDK Java, selon la voie retenue en T010) et `B/infrastructure/llm/CopilotSdkChatModel.java`, qui implémente `dev.langchain4j.model.chat.ChatModel`, pour faire passer T030. L'exposer comme modèle par défaut de quarkus-langchain4j par un producteur CDI dans `B/infrastructure/llm/ChatModelProducer.java`.
 - [ ] T032 [P] Créer `BT/support/ScriptedChatModel.java`, un `ChatModel` de test qui rejoue des réponses JSON depuis `BTR/llm-scripts/<scénario>/<n>.json` et échoue si l'appel ne correspond pas au script. Créer aussi `B/infrastructure/llm/ReplayChatModel.java`, actif uniquement si `specwriter.llm.replay-dir` est défini (profil `%e2e`), pour les tests E2E.
 - [ ] T033 [P] Créer `B/infrastructure/github/FakeGitHubAuthenticator.java`, qui implémente le port `GitHubAuthenticator` (T052) :
-  - code `TEST-0000` ;
+  - `authorizationUrl` = `http://127.0.0.1:<port>/e2e/fake-github-authorize` (page locale du profil e2e qui valide immédiatement) ;
   - passage à `CONNECTED` au 2e `poll` ;
   - modèles `["model-a","model-b"]` ;
   - scénario `NO_COPILOT` si `specwriter.github.fake.scenario=no-copilot`.
@@ -178,7 +178,7 @@ persistance, erreurs, port LLM et shell du front.
 
 ## Phase 3: User Story 1 - Configurer les accès à GitHub Copilot et à Jira (Priority: P1) 🎯 MVP
 
-**Goal**: connecter GitHub Copilot (code court), choisir le modèle, configurer et tester Jira,
+**Goal**: connecter GitHub Copilot (autorisation dans le navigateur), choisir le modèle, configurer et tester Jira,
 recueillir les consentements, avec des jetons gardés uniquement dans le trousseau.
 
 **Independent Test**: renseigner des accès valides puis invalides, lancer le test de connexion,
@@ -204,8 +204,7 @@ clair après enregistrement.
   - `serverInfo`, `myself`, `project/{key}` et `mypermissions?projectKey=X&permissions=BROWSE_PROJECTS,CREATE_ISSUES,EDIT_ISSUES` sont appelés.
   - Un serveur en HTTPS avec un certificat signé par une autorité de test est accepté si `caCertificatePath` pointe vers son PEM, et refusé sinon. Il n'y a aucun mode `trust-all`.
 - [ ] T042 [P] [US1] Écrire `BT/infrastructure/github/GitHubAuthenticatorIT.java` pour la voie retenue en T010.
-  - Voie A : CLI simulé.
-  - Voie B : WireMock sur `/login/device/code` et `/login/oauth/access_token`.
+  - Voie A (retenue en T010) : `CopilotSdkGateway` simulé. `begin` renvoie une étape `open-url`, `advance` renvoie `completed` avec le login, une erreur, ou ne répond pas avant 15 minutes (EXPIRED).
   - Cas à couvrir : `authorization_pending`, `slow_down` (+5 s), `expired_token` (EXPIRED), `access_denied` (DENIED), succès (CONNECTED), compte sans Copilot (NO_COPILOT, US1-3) et déconnexion (FR-030b : le jeton est supprimé du trousseau).
 - [ ] T043 [P] [US1] Écrire `BT/infrastructure/web/SettingsResourceIT.java` (`@QuarkusTest`), contrat de [openapi.yaml](contracts/openapi.yaml) :
   - `GET /api/settings` ne contient aucun champ de jeton, seulement `tokenSet` ;
@@ -215,7 +214,7 @@ clair après enregistrement.
   - `PUT /api/settings/copilot/model` avec un modèle hors `availableModels` donne 422 `MODEL_UNAVAILABLE` (FR-030c) ;
   - `PUT /api/consents/COPILOT` est bien enregistré.
 - [ ] T044 [P] [US1] Écrire `F/features/settings/settings.page.spec.ts` (Vitest) :
-  - le code court et le lien de validation s'affichent, et l'état est relu jusqu'à CONNECTED ;
+  - les permissions demandées s'affichent avant le bouton « Ouvrir GitHub », la page d'autorisation s'ouvre dans un nouvel onglet, et l'état est relu jusqu'à CONNECTED avec le login affiché ;
   - le champ jeton est de type `password` et vide après enregistrement, avec un bouton « Remplacer » et « Supprimer », sans « Afficher » (US1-5) ;
   - les causes de test s'affichent ;
   - l'avertissement HTTP est à confirmer (FR-035) ;
@@ -240,13 +239,13 @@ clair après enregistrement.
 - [ ] T049 [US1] Créer `BR/db/migration/V2__settings_consent.sql` : tables `copilot_settings`, `jira_settings` (une seule ligne chacune, **aucune colonne de jeton**) et `consent_record`
 - [ ] T050 [US1] Implémenter `B/infrastructure/persistence/settings/SettingsJpaRepository.java` et `B/infrastructure/persistence/consent/ConsentJpaRepository.java` (entités JPA, puis mapping vers le domaine), derrière les ports `B/domain/port/SettingsRepository.java` et `B/domain/port/ConsentRepository.java`
 - [ ] T051 [US1] Implémenter `B/infrastructure/secrets/KeychainSecretStore.java`, appuyé sur `io.alapierre:credential-secure-storage` (service `spec-writer`). Les appels passent par un exécuteur avec un timeout de 5 s, et un repli en mémoire est prévu. Il n'y a aucun repli fichier. Doit faire passer T040.
-- [ ] T052 [US1] Créer le port `B/domain/port/GitHubAuthenticator.java` (`startConnection()` renvoie `userCode`, `verificationUri`, `expiresAt` et `flowId` ; `poll(flowId)` ; `disconnect()` ; `listModels()`) et l'implémenter dans `B/infrastructure/github/` selon la voie de T010 : `CopilotCliAuthenticator.java` (voie A) ou `DeviceFlowAuthenticator.java` (voie B, jetons dans `SecretStore`, renouvellement par refresh token). Doit faire passer T042.
+- [ ] T052 [US1] Créer le port `B/domain/port/GitHubAuthenticator.java` (`startConnection()` renvoie `flowId`, `authorizationUrl`, `requestedScopes` et `expiresAt` ; `poll(flowId)` ; `disconnect()` ; `listModels()` ; `quota()`) et l'implémenter dans `B/infrastructure/github/CopilotCliAuthenticator.java` (voie A retenue en T010, research.md R4). `COPILOT_HOME` vaut `<dossier de données>/copilot` (droits `rwx------`) ; le login réellement connecté est relu par `getAuthStatus()` ; la déconnexion passe par `account.logout`. Doit faire passer T042.
 - [ ] T053 [US1] Créer le port `B/domain/port/IssueTracker.java`, avec pour cette story `serverInfo()`, `currentUser()`, `project(key)` et `permissions(projectKey, perms)`. L'implémenter dans `B/infrastructure/jira/JiraRestClient.java` (Quarkus REST Client, base URL dynamique, en-tête Bearer lu dans `SecretStore`) et `B/infrastructure/jira/JiraTlsConfigurer.java`, qui ajoute le PEM de `caCertificatePath` au registre TLS du client. Doit faire passer T041.
 - [ ] T054 [US1] Implémenter les cas d'usage `B/application/settings/TestJiraConnection.java`, `SaveJiraSettings.java`, `DeleteJiraSettings.java`, `StartCopilotConnection.java`, `PollCopilotConnection.java`, `DisconnectCopilot.java`, `SelectModel.java` et `B/application/consent/UpdateConsent.java`. Le modèle par défaut est le premier de `modelPreference` présent dans `availableModels`. `TestJiraConnection` commence par `ConsentPolicy.requireGranted(JIRA)`. Doit faire passer T039.
 - [ ] T055 [US1] Implémenter `B/infrastructure/web/SettingsResource.java` et `B/infrastructure/web/ConsentResource.java`, selon les chemins `/api/settings/**` et `/api/consents/{service}` de [openapi.yaml](contracts/openapi.yaml). Doit faire passer T043.
 - [ ] T056 [P] [US1] Implémenter `F/core/settings/settings.store.ts` (signals : état Copilot, état Jira, consentements) et `F/core/settings/copilot-required.guard.ts`, qui redirige vers `/configuration` tant que Copilot n'est pas `CONNECTED` (US1-1)
 - [ ] T057 [US1] Implémenter `F/features/settings/settings.page.ts` avec trois composants :
-  - `copilot-card.component.ts` : bouton « Se connecter à GitHub », code court copiable, lien vers `verificationUri`, compte à rebours, nouveau code si expiré, sélecteur de modèle, déconnexion ;
+  - `copilot-card.component.ts` : bouton « Se connecter à GitHub », liste des permissions demandées, ouverture de `authorizationUrl` dans un nouvel onglet, attente avec possibilité d'annuler et de recommencer, login connecté affiché, sélecteur de modèle, déconnexion ;
   - `jira-card.component.ts` : formulaire avec jeton masqué, chemin du certificat, test de connexion avec la cause et l'action, avertissement HTTP ;
   - `consent-dialog.component.ts` : texte qui indique quelles données partent vers quel service, accepter ou refuser. Le dialogue s'ouvre pour `JIRA` au premier enregistrement de la configuration Jira, si ce consentement n'a pas encore été accordé.
 

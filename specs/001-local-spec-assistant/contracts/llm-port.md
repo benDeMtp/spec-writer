@@ -30,6 +30,10 @@ déterministe.
 5. Avant tout appel, le consentement `COPILOT` doit être accordé. Sinon, l'erreur
    `CONSENT_REQUIRED` est renvoyée (FR-024).
 6. Température à 0.
+6a. Pour le Copilot SDK (research.md R4), chaque appel ouvre une session sans outil
+   (`availableTools` vide, permissions toujours refusées), en `SystemMessageMode.REPLACE`. La
+   session est **supprimée** (`deleteSession`) après l'appel, même en cas d'erreur. Chaque
+   schéma JSON de réponse a `additionalProperties: false` à chaque niveau objet.
 7. Le modèle utilisé est celui de `CopilotSettings.model`. Les erreurs `MODEL_UNAVAILABLE` et
    `QUOTA_EXHAUSTED` sont remontées telles quelles au domaine, sans nouvelle tentative
    (research.md R3).

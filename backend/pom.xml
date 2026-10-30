@@ -101,6 +101,13 @@
       <artifactId>copilot-sdk-java</artifactId>
       <version>${copilot-sdk.version}</version>
     </dependency>
+    <!-- Runtime natif Copilot (runtime.node chargé par JNA), une variante par OS (profils copilot-runtime-*) -->
+    <dependency>
+      <groupId>com.github</groupId>
+      <artifactId>copilot-sdk-java-runtime</artifactId>
+      <version>${copilot-sdk.version}</version>
+      <classifier>${copilot-runtime.classifier}</classifier>
+    </dependency>
 
     <!-- Trousseau du système (research.md R8) -->
     <dependency>
@@ -204,6 +211,10 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${surefire.version}</version>
         <configuration>
+          <includes>
+            <include>**/*Test.java</include>
+            <include>**/*IT.java</include>
+          </includes>
           <excludedGroups>${surefire.excludedGroups}</excludedGroups>
           <groups>${surefire.groups}</groups>
           <systemPropertyVariables>
@@ -298,6 +309,70 @@
   </build>
 
   <profiles>
+    <!-- Sélection automatique de la variante native du runtime Copilot selon l'OS de build.
+         Les installeurs sont donc construits sur chaque OS cible (release.yml, research.md R15). -->
+    <profile>
+      <id>copilot-runtime-darwin-arm64</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>darwin-arm64</copilot-runtime.classifier>
+      </properties>
+    </profile>
+    <profile>
+      <id>copilot-runtime-darwin-x64</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>x86_64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>darwin-x64</copilot-runtime.classifier>
+      </properties>
+    </profile>
+    <profile>
+      <id>copilot-runtime-linux-x64</id>
+      <activation>
+        <os>
+          <family>unix</family>
+          <name>Linux</name>
+          <arch>amd64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>linux-x64</copilot-runtime.classifier>
+      </properties>
+    </profile>
+    <profile>
+      <id>copilot-runtime-linux-arm64</id>
+      <activation>
+        <os>
+          <family>unix</family>
+          <name>Linux</name>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>linux-arm64</copilot-runtime.classifier>
+      </properties>
+    </profile>
+    <profile>
+      <id>copilot-runtime-win32-x64</id>
+      <activation>
+        <os>
+          <family>windows</family>
+          <arch>amd64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>win32-x64</copilot-runtime.classifier>
+      </properties>
+    </profile>
     <!-- Scan des vulnérabilités : haute ou critique bloquante (constitution, Exigences de sécurité).
          Actif par défaut, désactivable en local hors CI avec -DskipDependencyCheck. -->
     <profile>

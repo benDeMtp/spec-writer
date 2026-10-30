@@ -64,6 +64,52 @@ début de l'implémentation (voir [Risques](#risques-et-spikes)).
 
 ## R4. Connexion GitHub (device flow)
 
+**Résultat du spike S1 (2026-10-30, T010) : voie A retenue.**
+
+- SDK : `com.github:copilot-sdk-java:1.0.28-preview.0`. Runtime natif fourni par
+  `com.github:copilot-sdk-java-runtime` avec un classifier par OS (`darwin-arm64`, `darwin-x64`,
+  `linux-x64`, `linux-arm64`, `win32-x64`…). Il est chargé en processus par JNA et extrait dans
+  `~/.copilot/runtime-cache/`. Le SDK dépend de Jackson 2 (`com.fasterxml`), qui cohabite avec
+  Jackson 3 de Quarkus 4.
+- Connexion : `session.getRpc().accounts.login.begin(GITHUBDOTCOM)` renvoie une étape
+  `open-url`. C'est un **OAuth authorization code avec PKCE et un retour sur un port local**
+  (`http://127.0.0.1:<port>/callback`), avec l'application OAuth de la Copilot CLI. Ce n'est pas
+  un code court. L'appel `advance(flowId)` attend la fin du flux et renvoie `completed` avec le
+  login.
+- Portées demandées par cette application, non modifiables : `read:user read:org repo gist
+  codespace write:plugin_gateway_connections`. Elles sont plus larges que nécessaire, ce qui doit
+  être affiché dans le consentement Copilot (FR-024).
+- Stockage : le jeton est dans le **Trousseau macOS** (service `copilot-cli`). Le fichier
+  `COPILOT_HOME/config.json` ne contient que `loggedInUsers` et `lastLoggedInUser`, sans aucun
+  jeton (vérifié, FR-033a).
+- Compte utilisé : sans connexion dans `COPILOT_HOME`, le runtime retombe sur la connexion de la
+  CLI `gh` (ici, le compte personnel `benDeMtp`, Copilot Free). Une fois le compte EMU connecté
+  dans un `COPILOT_HOME` dédié, il est prioritaire au redémarrage (`authType=user`). L'outil doit
+  donc utiliser **son propre `COPILOT_HOME`** dans son dossier de données, et toujours afficher le
+  login effectivement utilisé.
+- Modèles : `client.listModels()` renvoie 13 modèles pour le compte `bscc`, avec leur
+  `policy.state` (`enabled`), ce qui correspond à la politique de l'organisation.
+- Quota : `client.getRpc().account.getQuota()` renvoie des `quotaSnapshots` (`chat`,
+  `premium_interactions`…) avec `remainingPercentage` et `resetDate` (`QUOTA_EXHAUSTED`, R3).
+- Sortie structurée : `MessageOptions.setResponseSchema(...)` fonctionne. Le schéma doit avoir
+  `additionalProperties: false` à chaque niveau objet, sinon on obtient une erreur 400.
+- Injection : avec `SystemMessageMode.REPLACE` et le contenu entre balises, une consigne
+  injectée a été traitée comme une donnée (claude-sonnet-5.5).
+- **Contenu persisté par le SDK** : chaque session écrit la conversation en clair dans
+  `COPILOT_HOME/session-state/<id>/events.jsonl`. L'adaptateur doit appeler
+  `client.deleteSession(id)` après chaque appel, et `COPILOT_HOME` doit hériter des droits
+  `rwx------` du dossier de données (FR-022, FR-025).
+- Outils : la session doit être créée avec `setAvailableTools(List.of())` et un
+  `PermissionHandler` qui refuse tout. L'outil n'a besoin d'aucun outil du runtime.
+- Démarrage du runtime : environ 3 s au premier lancement (extraction), puis de 60 à 120 ms.
+  Temps de réponse observé : de 2,8 à 4,1 s.
+- `CopilotClientOptions.setEnvironment` n'a pas d'effet en mode processus. On ne peut pas
+  masquer la connexion `gh` par variables d'environnement ; c'est le `COPILOT_HOME` dédié qui
+  résout le problème.
+
+**Conséquence sur la spec** : FR-030a (code court) est remplacé par une autorisation dans le
+navigateur, sans jeton à copier.
+
 **Constat sur le compte du mainteneur (2026-10-30, lu sur `github.com/settings/copilot`)** :
 - compte **Enterprise Managed User** (EMU), géré par l'entreprise ;
 - Copilot Business attribué et géré par l'organisation `bscc` ;
@@ -147,6 +193,12 @@ sont possibles, dans cet ordre de préférence. Le choix sera tranché par le sp
 - **Alternatives considered** : Quinoa, à réévaluer quand une version compatible Quarkus 4 sortira.
 
 ## R7. Base de données embarquée
+
+**Résultat du spike S2 (2026-10-30, T012) : SQLite retenu.** Avec Quarkus 4.0.0.Beta2 et
+`hibernate-community-dialects` 8.0.0.Beta3 (géré par le BOM Quarkus), `db-kind=other` et le
+driver `org.sqlite.JDBC`, on obtient : CRUD et JPQL avec `SQLiteDialect`, migration Flyway, FTS5
+avec `unicode61 remove_diacritics 2` (« regle » trouve « Règle », « refuse » trouve « refusé »)
+et le mode WAL. Le test est `BT/spike/SqliteHibernateSpikeIT.java`.
 
 - **Decision** : **SQLite** (`org.xerial:sqlite-jdbc`) en mode fichier, avec Hibernate ORM et le
   dialecte `org.hibernate.community.dialect.SQLiteDialect` (`db-kind=other`). Migrations

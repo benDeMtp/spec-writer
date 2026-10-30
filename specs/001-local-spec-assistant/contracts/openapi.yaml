@@ -42,18 +42,18 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/Settings' } } }
   /api/settings/copilot/device-flow:
     post:
-      summary: Démarre la connexion GitHub (device flow, FR-030a)
+      summary: Démarre la connexion GitHub (autorisation OAuth dans le navigateur, FR-030a, research.md R4)
       responses:
         '200':
           content:
             application/json:
               schema:
                 type: object
-                required: [userCode, verificationUri, expiresAt, flowId]
+                required: [flowId, authorizationUrl, requestedScopes, expiresAt]
                 properties:
                   flowId: { type: string }
-                  userCode: { type: string, example: ABCD-1234 }
-                  verificationUri: { type: string, format: uri }
+                  authorizationUrl: { type: string, format: uri, description: Page d'autorisation GitHub à ouvrir dans le navigateur }
+                  requestedScopes: { type: array, items: { type: string }, description: Permissions demandées, affichées avant redirection }
                   expiresAt: { type: string, format: date-time }
   /api/settings/copilot/device-flow/{flowId}:
     get:
