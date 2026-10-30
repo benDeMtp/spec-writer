@@ -49,27 +49,27 @@ Règles transverses, valables pour toutes les tâches :
 
 **Purpose**: squelette des modules, outillage de build et de qualité
 
-- [ ] T001 Créer le `pom.xml` racine (agrégateur `dev.specwriter:spec-writer-parent`, Java 25, modules `frontend` puis `backend`, encodage UTF-8) et générer le Maven Wrapper (`mvnw`, `mvnw.cmd`, `.mvn/wrapper/`) à la racine du dépôt
-- [ ] T002 Créer `backend/pom.xml`.
+- [X] T001 Créer le `pom.xml` racine (agrégateur `dev.specwriter:spec-writer-parent`, Java 25, modules `frontend` puis `backend`, encodage UTF-8) et générer le Maven Wrapper (`mvnw`, `mvnw.cmd`, `.mvn/wrapper/`) à la racine du dépôt
+- [X] T002 Créer `backend/pom.xml`.
   - BOM Quarkus `4.0.0.Beta2`, version portée par la propriété `quarkus.version` pour la montée vers la finale.
   - Extensions : `quarkus-rest-jackson`, `quarkus-hibernate-orm`, `quarkus-flyway`, `quarkus-agroal`, `quarkus-rest-client-jackson`, `quarkus-smallrye-health`, `quarkus-arc`.
   - Dépendances : `org.xerial:sqlite-jdbc`, `org.hibernate.orm:hibernate-community-dialects`, `io.quarkiverse.langchain4j:quarkus-langchain4j-core` 2.0.0.Beta1, `com.github:copilot-sdk-java`, `io.alapierre:credential-secure-storage`, `com.vladsch.flexmark:flexmark-all` et `flexmark-jira-converter`.
   - Dépendances de test : `quarkus-junit5`, `rest-assured`, `org.wiremock:wiremock-standalone`, `com.tngtech.archunit:archunit-junit5`, `org.assertj:assertj-core`.
-- [ ] T003 Ajouter à `backend/pom.xml` les plugins qualité.
+- [X] T003 Ajouter à `backend/pom.xml` les plugins qualité.
   - JaCoCo : règle `check` à 80 % de lignes sur `dev.specwriter.domain.*` et `dev.specwriter.application.*`, bloquante.
   - SpotBugs et PMD : bloquants.
   - OWASP Dependency-Check : `failBuildOnCVSS=7`.
   - Profil `eval` : exécute uniquement les tests taggés `eval`, exclus du build par défaut.
   - Profil `dist` : JReleaser, configuré en T140.
-- [ ] T004 Générer l'application Angular 22.2 dans `frontend/` avec `ng new spec-writer --directory . --style=scss --routing --ssr=false` (standalone, zoneless, Vitest par défaut), puis ajouter `@angular/material`, `@angular/cdk`, `@angular/aria`, `ngx-markdown`, `ngx-diff`, `diff` et `angular-eslint`. Node.js 24 est épinglé dans `frontend/.nvmrc`.
-- [ ] T005 Créer `frontend/pom.xml` avec `frontend-maven-plugin` (Node 24 LTS installé localement), exécutant `npm ci`, `npm run lint`, `npm test -- --coverage` et `npm run build`. Dans `backend/pom.xml`, ajouter `maven-resources-plugin` pour copier `frontend/dist/spec-writer/browser/**` vers `backend/target/classes/META-INF/resources/` (research.md R6).
-- [ ] T006 [P] Créer `frontend/proxy.conf.json` (proxy `/api` vers `http://127.0.0.1:47615`) et le référencer dans `frontend/angular.json` (cible `serve`)
-- [ ] T007 [P] Initialiser `e2e/`.
+- [X] T004 Générer l'application Angular 22.2 dans `frontend/` avec `ng new spec-writer --directory . --style=scss --routing --ssr=false` (standalone, zoneless, Vitest par défaut), puis ajouter `@angular/material`, `@angular/cdk`, `@angular/aria`, `ngx-markdown`, `ngx-diff`, `diff` et `angular-eslint`. Node.js 24 est épinglé dans `frontend/.nvmrc`.
+- [X] T005 Créer `frontend/pom.xml` avec `frontend-maven-plugin` (Node 24 LTS installé localement), exécutant `npm ci`, `npm run lint`, `npm test -- --coverage` et `npm run build`. Dans `backend/pom.xml`, ajouter `maven-resources-plugin` pour copier `frontend/dist/spec-writer/browser/**` vers `backend/target/classes/META-INF/resources/` (research.md R6).
+- [X] T006 [P] Créer `frontend/proxy.conf.json` (proxy `/api` vers `http://127.0.0.1:47615`) et le référencer dans `frontend/angular.json` (cible `serve`)
+- [X] T007 [P] Initialiser `e2e/`.
   - `e2e/package.json` : `@playwright/test` 1.64 et `@axe-core/playwright` 4.14.
   - `e2e/playwright.config.ts` : la section `webServer` lance `java -Dquarkus.profile=e2e -Dspecwriter.data-dir=<dossier temporaire> -Dspecwriter.github.fake=true -jar ../backend/target/quarkus-app/quarkus-run.jar` et attend `/q/health/ready`.
   - `e2e/tests/support/a11y.ts` : helper `expectNoA11yViolations(page)` sur les tags `wcag2a`, `wcag2aa` et `wcag21aa`.
-- [ ] T008 [P] Créer `.semgrep.yml` (règles `p/java`, `p/typescript`, `p/owasp-top-ten`), `.gitleaks.toml`, `.editorconfig`, puis `ci/verify.sh`. Le script enchaîne `./mvnw verify`, `npm --prefix frontend audit --audit-level=high`, `semgrep --error`, `gitleaks detect`, `ci/check-eval.sh` (créé en T138) et `npm --prefix e2e test`, et s'arrête au premier échec (constitution, quality gates).
-- [ ] T009 [P] Créer `.forgejo/workflows/ci.yml` (Forgejo Actions), déclenché sur `pull_request` et sur `push` vers `main`. Le job `verify` tourne sur un runner Linux (label `docker`, image avec JDK 25 et Node 24) et exécute `ci/verify.sh`. Il est rendu obligatoire pour la fusion par la règle de protection de `main` côté Forgejo (constitution : SAST en CI, quality gates).
+- [X] T008 [P] Créer `.semgrep.yml` (règles `p/java`, `p/typescript`, `p/owasp-top-ten`), `.gitleaks.toml`, `.editorconfig`, puis `ci/verify.sh`. Le script enchaîne `./mvnw verify`, `npm --prefix frontend audit --audit-level=high`, `semgrep --error`, `gitleaks detect`, `ci/check-eval.sh` (créé en T138) et `npm --prefix e2e test`, et s'arrête au premier échec (constitution, quality gates).
+- [X] T009 [P] Créer `.forgejo/workflows/ci.yml` (Forgejo Actions), déclenché sur `pull_request` et sur `push` vers `main`. Le job `verify` tourne sur un runner Linux (label `docker`, image avec JDK 25 et Node 24) et exécute `ci/verify.sh`. Il est rendu obligatoire pour la fusion par la règle de protection de `main` côté Forgejo (constitution : SAST en CI, quality gates).
 
 ---
 
