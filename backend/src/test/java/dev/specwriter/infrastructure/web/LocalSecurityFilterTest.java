@@ -75,7 +75,7 @@ class LocalSecurityFilterTest {
 
     @Test
     void cookieHttpOnlyEtSameSiteStrict() {
-        LaunchTokenService fresh = new LaunchTokenService();
+        LaunchTokenService fresh = new LaunchTokenService((java.nio.file.Path) null);
         String session = fresh.exchange(fresh.launchToken()).orElseThrow();
         assertThat(fresh.isValidSession(session)).isTrue();
         assertThat(fresh.exchange(fresh.launchToken())).isEmpty();

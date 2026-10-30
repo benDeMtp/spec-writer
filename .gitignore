@@ -25,3 +25,6 @@ e2e/playwright-report/
 .idea/
 .vscode/
 *.iml
+
+# Données du dev mode Quarkus (research.md R17)
+.dev-data/

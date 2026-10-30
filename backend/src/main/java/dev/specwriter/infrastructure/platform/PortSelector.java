@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.platform;
 
+import io.quarkus.runtime.LaunchMode;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
@@ -11,6 +12,14 @@ public final class PortSelector {
     public static final int DEFAULT_PORT = 47615;
 
     private PortSelector() {
+    }
+
+    /**
+     * En dev mode, le port configuré est gardé tel quel : le serveur HTTP survit au rechargement à
+     * chaud, et c'est lui qui occupe le port (research.md R17).
+     */
+    public static int choose(int preferred, LaunchMode mode) {
+        return mode == LaunchMode.DEVELOPMENT && preferred > 0 ? preferred : choose(preferred);
     }
 
     public static int choose(int preferred) {

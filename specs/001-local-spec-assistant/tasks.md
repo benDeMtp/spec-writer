@@ -557,6 +557,31 @@ documentation.
 
 ---
 
+## Phase 10: Boucle de développement (amendement du 2026-10-30, research.md R17)
+
+**Goal**: développer en dev mode Quarkus, piloté par le serveur MCP Quarkus, sans compte ni
+crédit et sans toucher aux données de l'outil installé.
+
+- [X] T146 Écrire dans `BT/infrastructure/platform/StartupGuardTest.java` les cas suivants :
+  - simulations acceptées en mode de lancement `DEVELOPMENT` et `TEST`, et avec le profil `e2e` ;
+  - simulations refusées en mode `NORMAL`, même avec le profil `dev`.
+
+  Puis faire reposer `B/infrastructure/platform/StartupGuard.java` sur `LaunchMode`.
+- [X] T147 Ajouter les profils `%dev` et `%live` dans `BR/application.properties` :
+  - `%dev` : GitHub simulé, trousseau simulé, rejeu depuis `../e2e/fixtures/llm`, URL de
+    lancement affichée, `quarkus.hibernate-orm.validate-in-dev-mode=false`,
+    `quarkus.test.continuous-testing=paused` ;
+  - `%live` : annule les trois simulations.
+- [X] T148 Dans `backend/pom.xml`, configurer les `systemProperties` du goal `dev` de `quarkus-maven-plugin` : `specwriter.port=47625` et `specwriter.data-dir=<racine>/.dev-data`. Ajouter `.dev-data/` à `.gitignore`.
+- [X] T149 Dans `frontend/proxy.conf.json`, faire pointer le proxy de `ng serve` vers 47625, avec `changeOrigin: true` et l'en-tête `Origin` récrit. Vérifier qu'un `POST` passe par `localhost:4200` avec le cookie de session.
+- [X] T150 Créer `CLAUDE.md` à la racine. Il fixe la règle de travail des agents : dev mode piloté par le serveur MCP Quarkus pour développer, puis `./mvnw verify` et les E2E sur le jar avant chaque commit. Il donne aussi les pièges connus : `JAVA_TOOL_OPTIONS`, Java 25, ports.
+- [X] T151 Vérifier la boucle de bout en bout :
+  - démarrage en dev mode et Dev MCP sur `/q/dev-mcp` ;
+  - rechargement à chaud d'une modification Java sans redémarrage ;
+  - `./mvnw verify` et E2E inchangés.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

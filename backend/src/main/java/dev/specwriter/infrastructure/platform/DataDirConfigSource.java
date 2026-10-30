@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.platform;
 
+import io.quarkus.runtime.LaunchMode;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
@@ -22,7 +23,7 @@ public class DataDirConfigSource implements ConfigSource {
         Path data = UserDirectories.createPrivateDirectories(dirs.dataDir(), dirs.posix());
         String url = "jdbc:sqlite:" + data.resolve("spec-writer.db")
                 + "?journal_mode=WAL&foreign_keys=true&busy_timeout=5000";
-        int port = PortSelector.choose(Integer.getInteger("specwriter.port", PortSelector.DEFAULT_PORT));
+        int port = PortSelector.choose(Integer.getInteger("specwriter.port", PortSelector.DEFAULT_PORT), LaunchMode.current());
         this.values = Map.of(
                 "quarkus.datasource.jdbc.url", url,
                 "quarkus.http.port", Integer.toString(port),

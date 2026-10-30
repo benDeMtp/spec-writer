@@ -172,6 +172,14 @@
         <artifactId>quarkus-maven-plugin</artifactId>
         <version>${quarkus.version}</version>
         <extensions>true</extensions>
+        <configuration>
+          <!-- Dev mode (research.md R17) : lues avant la configuration Quarkus, donc en propriétés
+               système ; port et données distincts de l'outil installé (47615, dossier de l'OS) -->
+          <systemProperties>
+            <specwriter.port>47625</specwriter.port>
+            <specwriter.data-dir>${project.basedir}/../.dev-data</specwriter.data-dir>
+          </systemProperties>
+        </configuration>
         <executions>
           <execution>
             <goals>
