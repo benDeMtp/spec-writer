@@ -213,13 +213,13 @@ clair après enregistrement.
   - `POST /api/settings/jira/test` renvoie chaque résultat ;
   - `PUT /api/settings/copilot/model` avec un modèle hors `availableModels` donne 422 `MODEL_UNAVAILABLE` (FR-030c) ;
   - `PUT /api/consents/COPILOT` est bien enregistré.
-- [ ] T044 [P] [US1] Écrire `F/features/settings/settings.page.spec.ts` (Vitest) :
+- [X] T044 [P] [US1] Écrire `F/features/settings/settings.page.spec.ts` (Vitest) :
   - les permissions demandées s'affichent avant le bouton « Ouvrir GitHub », la page d'autorisation s'ouvre dans un nouvel onglet, et l'état est relu jusqu'à CONNECTED avec le login affiché ;
   - le champ jeton est de type `password` et vide après enregistrement, avec un bouton « Remplacer » et « Supprimer », sans « Afficher » (US1-5) ;
   - les causes de test s'affichent ;
   - l'avertissement HTTP est à confirmer (FR-035) ;
   - la liste des modèles s'affiche.
-- [ ] T045 [P] [US1] Écrire `E/us1-settings.spec.ts` (Playwright + axe), avec le LLM simulé par `ReplayChatModel` (T032) et GitHub par `FakeGitHubAuthenticator` (T033) et Jira par WireMock lancé dans `globalSetup`. Parcours couverts : US1-1 (redirection vers la configuration si Copilot n'est pas connecté, questionnaire bloqué), US1-2, US1-4, US1-5 et US1-6. Analyse axe sur chaque écran.
+- [X] T045 [P] [US1] Écrire `E/us1-settings.spec.ts` (Playwright + axe), avec le LLM simulé par `ReplayChatModel` (T032) et GitHub par `FakeGitHubAuthenticator` (T033) et Jira par WireMock lancé dans `globalSetup`. Parcours couverts : US1-1 (redirection vers la configuration si Copilot n'est pas connecté, questionnaire bloqué), US1-2, US1-4, US1-5 et US1-6. Analyse axe sur chaque écran.
 
 ### Implementation for User Story 1
 
@@ -243,8 +243,8 @@ clair après enregistrement.
 - [X] T053 [US1] Créer le port `B/domain/port/IssueTracker.java`, avec pour cette story `serverInfo()`, `currentUser()`, `project(key)` et `permissions(projectKey, perms)`. L'implémenter dans `B/infrastructure/jira/JiraRestClient.java` (Quarkus REST Client, base URL dynamique, en-tête Bearer lu dans `SecretStore`) et `B/infrastructure/jira/JiraTlsConfigurer.java`, qui ajoute le PEM de `caCertificatePath` au registre TLS du client. Doit faire passer T041.
 - [X] T054 [US1] Implémenter les cas d'usage `B/application/settings/TestJiraConnection.java`, `SaveJiraSettings.java`, `DeleteJiraSettings.java`, `StartCopilotConnection.java`, `PollCopilotConnection.java`, `DisconnectCopilot.java`, `SelectModel.java` et `B/application/consent/UpdateConsent.java`. Le modèle par défaut est le premier de `modelPreference` présent dans `availableModels`. `TestJiraConnection` commence par `ConsentPolicy.requireGranted(JIRA)`. Doit faire passer T039.
 - [X] T055 [US1] Implémenter `B/infrastructure/web/SettingsResource.java` et `B/infrastructure/web/ConsentResource.java`, selon les chemins `/api/settings/**` et `/api/consents/{service}` de [openapi.yaml](contracts/openapi.yaml). Doit faire passer T043.
-- [ ] T056 [P] [US1] Implémenter `F/core/settings/settings.store.ts` (signals : état Copilot, état Jira, consentements) et `F/core/settings/copilot-required.guard.ts`, qui redirige vers `/configuration` tant que Copilot n'est pas `CONNECTED` (US1-1)
-- [ ] T057 [US1] Implémenter `F/features/settings/settings.page.ts` avec trois composants :
+- [X] T056 [P] [US1] Implémenter `F/core/settings/settings.store.ts` (signals : état Copilot, état Jira, consentements) et `F/core/settings/copilot-required.guard.ts`, qui redirige vers `/configuration` tant que Copilot n'est pas `CONNECTED` (US1-1)
+- [X] T057 [US1] Implémenter `F/features/settings/settings.page.ts` avec trois composants :
   - `copilot-card.component.ts` : bouton « Se connecter à GitHub », liste des permissions demandées, ouverture de `authorizationUrl` dans un nouvel onglet, attente avec possibilité d'annuler et de recommencer, login connecté affiché, sélecteur de modèle, déconnexion ;
   - `jira-card.component.ts` : formulaire avec jeton masqué, chemin du certificat, test de connexion avec la cause et l'action, avertissement HTTP ;
   - `consent-dialog.component.ts` : texte qui indique quelles données partent vers quel service, accepter ou refuser. Le dialogue s'ouvre pour `JIRA` au premier enregistrement de la configuration Jira, si ce consentement n'a pas encore été accordé.

@@ -7,6 +7,7 @@ import dev.specwriter.domain.port.IssueTracker;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.ProcessingException;
+import org.jboss.logging.Logger;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.client.ClientRequestFilter;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -26,6 +27,8 @@ import java.util.function.Function;
  */
 @ApplicationScoped
 public class JiraRestClient implements IssueTracker {
+
+    private static final Logger LOG = Logger.getLogger(JiraRestClient.class);
 
     @Override
     public String serverVersion(JiraEndpoint endpoint) {
@@ -64,10 +67,25 @@ public class JiraRestClient implements IssueTracker {
         } catch (WebApplicationException e) {
             throw fromStatus(e.getResponse() == null ? 0 : e.getResponse().getStatus(), e);
         } catch (ProcessingException e) {
+            LOG.warnf("Jira injoignable (%s)", causes(e));
+            LOG.debug("Détail de l'erreur Jira", e);
             throw new IssueTrackerException(Kind.UNREACHABLE, "Jira injoignable", e);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            LOG.warnf("Configuration Jira invalide (%s)", causes(e));
             throw new IssueTrackerException(Kind.UNREACHABLE, "Configuration Jira invalide", e);
         }
+    }
+
+    /** Chaîne des types d'exception, sans leurs messages (ils peuvent citer l'adresse ou un en-tête). */
+    static String causes(Throwable e) {
+        StringBuilder out = new StringBuilder();
+        for (Throwable t = e; t != null && out.length() < 300; t = t.getCause()) {
+            if (!out.isEmpty()) {
+                out.append(" <- ");
+            }
+            out.append(t.getClass().getSimpleName());
+        }
+        return out.toString();
     }
 
     static IssueTrackerException fromStatus(int status, Throwable cause) {

@@ -29,7 +29,10 @@ Les références renvoient à [spec.md](spec.md), [data-model.md](data-model.md)
 ./mvnw -pl backend quarkus:dev
 npm --prefix frontend start
 
-# Tests E2E et accessibilité (jar démarré par Playwright, LLM et Jira simulés)
+# Tests E2E et accessibilité (jar et WireMock démarrés par le globalSetup, LLM et Jira simulés).
+# Prérequis : jar construit (./mvnw package -DskipTests), JAVA_HOME en Java 25,
+# navigateur installé une fois (npx --prefix e2e playwright install chromium).
+# Journaux du jar et de WireMock : e2e/test-results/.e2e-state/
 npm --prefix e2e test
 
 # Suite d'évaluation LLM (appels réels à Copilot, consomme des AI Credits)

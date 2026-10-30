@@ -1,0 +1,92 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/serverInfo"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "version": "9.12.3",
+          "deploymentType": "Server"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/myself",
+        "headers": {
+          "Authorization": {
+            "equalTo": "Bearer e2e-good-token"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "name": "e2e-user"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "priority": 5,
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/myself"
+      },
+      "response": {
+        "status": 401
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/project/PROJ"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "key": "PROJ",
+          "name": "Projet E2E"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/mypermissions"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "permissions": {
+            "BROWSE_PROJECTS": {
+              "havePermission": true
+            },
+            "CREATE_ISSUES": {
+              "havePermission": true
+            },
+            "EDIT_ISSUES": {
+              "havePermission": true
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    }
+  ]
+}
