@@ -93,17 +93,22 @@ public class LangChainLlmClient implements LlmClient {
 
     @Override
     public DraftSpecification editSpecification(EditRequest request) {
-        throw new UnsupportedOperationException("editSpecification arrive avec la user story 6");
+        String user = UserMessages.edit(request.need(), request.language(), request.answers(), request.currentMarkdown(),
+                request.instruction(), request.correction());
+        return call("edit-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public DraftSpecification mergeConflict(MergeRequest request) {
-        throw new UnsupportedOperationException("mergeConflict arrive avec la user story 6");
+        String user = UserMessages.merge(request.need(), request.language(), request.answers(), request.localMarkdown(),
+                request.jiraMarkdown(), request.correction());
+        return call("merge-conflict", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public DraftSpecification structureImportedText(StructureImportRequest request) {
-        throw new UnsupportedOperationException("structureImportedText arrive avec la user story 5");
+        String user = UserMessages.structure(request.text(), request.language(), request.correction());
+        return call("structure-imported-text", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     private <T> T call(String operation, String user, ResponseFormat format, Function<String, T> parse) {

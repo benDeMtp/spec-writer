@@ -81,7 +81,8 @@ public class JiraRestClient implements IssueTracker {
     }
 
     @Override
-    public JiraSearchPage search(JiraEndpoint endpoint, String jql, int startAt, int maxResults) {
+    public JiraSearchPage searchText(JiraEndpoint endpoint, String projectKey, String terms, int startAt, int maxResults) {
+        String jql = JqlBuilder.textSearch(projectKey, terms);
         Map<String, Object> body = call(endpoint, api -> api.search(jql, startAt, maxResults, SEARCH_FIELDS));
         List<JiraIssueSummary> issues = new ArrayList<>();
         if (body.get("issues") instanceof List<?> list) {

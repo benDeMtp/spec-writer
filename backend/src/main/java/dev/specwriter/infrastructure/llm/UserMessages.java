@@ -32,6 +32,29 @@ final class UserMessages {
                 + "</correction>";
     }
 
+    static String edit(String need, Language language, List<QuestionAndAnswer> answers, String currentMarkdown,
+            String instruction, String correction) {
+        return language(language) + "\n" + need(need) + "\n" + answers(answers) + "\n" + block("specification-actuelle",
+                currentMarkdown) + "\n" + block("instruction", instruction) + "\n<correction>" + data(correction)
+                + "</correction>";
+    }
+
+    static String merge(String need, Language language, List<QuestionAndAnswer> answers, String localMarkdown,
+            String jiraMarkdown, String correction) {
+        return language(language) + "\n" + need(need) + "\n" + answers(answers) + "\n" + block("version-locale",
+                localMarkdown) + "\n" + block("version-jira", jiraMarkdown) + "\n<correction>" + data(correction)
+                + "</correction>";
+    }
+
+    static String structure(String text, Language language, String correction) {
+        return language(language) + "\n" + block("texte-importe", text) + "\n<correction>" + data(correction)
+                + "</correction>";
+    }
+
+    private static String block(String tag, String content) {
+        return "<" + tag + ">\n" + data(content) + "\n</" + tag + ">";
+    }
+
     private static String language(Language language) {
         return "<langue>" + language.code() + "</langue>";
     }

@@ -63,7 +63,7 @@ class JiraIssueClientIT {
                  {"key":"PROJ-1","fields":{"summary":"Réserver","status":{"name":"À faire"},
                   "issuetype":{"name":"Story"},"updated":"2026-10-30T10:15:00.000+0100"}},
                  {"key":"PROJ-2","fields":{"summary":"Payer","updated":"2026-10-29T08:00:00.000+0000"}}]}""")));
-        JiraSearchPage page = client.search(endpoint(), "project = PROJ AND text ~ \"x\"", 20, 2);
+        JiraSearchPage page = client.searchText(endpoint(), "PROJ", "x", 20, 2);
         assertThat(page.total()).isEqualTo(42);
         assertThat(page.startAt()).isEqualTo(20);
         assertThat(page.issues()).hasSize(2);
@@ -126,7 +126,7 @@ class JiraIssueClientIT {
     @Test
     void jetonRefuse() {
         jira.stubFor(get(urlPathEqualTo("/rest/api/2/search")).willReturn(aResponse().withStatus(401)));
-        assertThatThrownBy(() -> client.search(endpoint(), "project = PROJ", 0, 10))
+        assertThatThrownBy(() -> client.searchText(endpoint(), "PROJ", "x", 0, 10))
                 .isInstanceOfSatisfying(IssueTrackerException.class, e -> {
                     assertThat(e.kind()).isEqualTo(IssueTrackerException.Kind.UNAUTHORIZED);
                     assertThat(e.errorCode()).isEqualTo(dev.specwriter.domain.error.ErrorCode.JIRA_TOKEN_REJECTED);

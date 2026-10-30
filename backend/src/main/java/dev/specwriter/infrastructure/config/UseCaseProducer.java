@@ -1,11 +1,19 @@
 package dev.specwriter.infrastructure.config;
 
 import dev.specwriter.application.consent.UpdateConsent;
+import dev.specwriter.application.jira.GetJiraIssue;
+import dev.specwriter.application.jira.ImportJiraIssue;
+import dev.specwriter.application.jira.JiraAccess;
+import dev.specwriter.application.jira.PushToJira;
+import dev.specwriter.application.search.UnifiedSearch;
 import dev.specwriter.application.session.AnswerQuestion;
 import dev.specwriter.application.session.ConcludeQuestionnaire;
 import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.session.StartSession;
+import dev.specwriter.application.specification.AcceptAiEdit;
 import dev.specwriter.application.specification.GenerateSpecification;
+import dev.specwriter.application.specification.ProposalStore;
+import dev.specwriter.application.specification.ProposeAiEdit;
 import dev.specwriter.application.settings.DeleteJiraSettings;
 import dev.specwriter.application.settings.DisconnectCopilot;
 import dev.specwriter.application.settings.PollCopilotConnection;
@@ -19,13 +27,18 @@ import dev.specwriter.domain.port.ConsentRepository;
 import dev.specwriter.domain.port.GitHubAuthenticator;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.IssueTracker;
+import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.LlmClient;
+import dev.specwriter.domain.port.LocalSearch;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SecretStore;
 import dev.specwriter.domain.port.SettingsRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
+import dev.specwriter.domain.port.TextDiff;
+import dev.specwriter.domain.port.WikiMarkup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
+import java.time.Duration;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /** Câblage des cas d'usage, qui restent sans dépendance au framework (plan.md, architecture hexagonale). */
@@ -123,5 +136,62 @@ public class UseCaseProducer {
     @ApplicationScoped
     ManageSessions manageSessions(SessionRepository sessions, SpecificationRepository versions, ClockPort clock) {
         return new ManageSessions(sessions, versions, clock);
+    }
+
+    // ---------- Recherche et Jira (User Story 6) ----------
+
+    @Produces
+    @ApplicationScoped
+    JiraAccess jiraAccess(SettingsRepository settings, SecretStore secrets, ConsentPolicy consent) {
+        return new JiraAccess(settings, secrets, consent);
+    }
+
+    @Produces
+    @ApplicationScoped
+    UnifiedSearch unifiedSearch(LocalSearch local, LinkedTicketRepository tickets, IssueTracker tracker, JiraAccess jira,
+            @ConfigProperty(name = "specwriter.jira.search-timeout", defaultValue = "5s") Duration timeout) {
+        return new UnifiedSearch(local, tickets, tracker, jira, timeout);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ProposalStore proposalStore(TextDiff diff, IdGenerator ids, ClockPort clock) {
+        return new ProposalStore(diff, ids, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ProposeAiEdit proposeAiEdit(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
+            ConsentPolicy consent, ProposalStore proposals) {
+        return new ProposeAiEdit(sessions, versions, llm, consent, proposals);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AcceptAiEdit acceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids) {
+        return new AcceptAiEdit(sessions, versions, tickets, proposals, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    GetJiraIssue getJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup) {
+        return new GetJiraIssue(tracker, jira, markup);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ImportJiraIssue importJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm,
+            ConsentPolicy consent, SessionRepository sessions, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids) {
+        return new ImportJiraIssue(tracker, jira, markup, llm, consent, sessions, versions, tickets, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    PushToJira pushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
+            SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids) {
+        return new PushToJira(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids);
     }
 }

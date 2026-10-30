@@ -57,8 +57,8 @@ public class FakeIssueTracker implements IssueTracker {
     }
 
     @Override
-    public JiraSearchPage search(JiraEndpoint endpoint, String jql, int startAt, int maxResults) {
-        calls.add("search " + jql);
+    public JiraSearchPage searchText(JiraEndpoint endpoint, String projectKey, String terms, int startAt, int maxResults) {
+        calls.add("search " + projectKey + " " + terms);
         if (searchDelayMillis > 0) {
             try {
                 Thread.sleep(searchDelayMillis);

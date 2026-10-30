@@ -21,6 +21,7 @@
     <sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>
     <credential-secure-storage.version>1.0.4</credential-secure-storage.version>
     <flexmark.version>0.64.8</flexmark.version>
+    <java-diff-utils.version>4.15</java-diff-utils.version>
     <wiremock.version>4.0.0-beta.41</wiremock.version>
     <archunit.version>1.5.1</archunit.version>
     <assertj.version>3.27.6</assertj.version>
@@ -117,6 +118,11 @@
     </dependency>
 
     <!-- Markdown et wiki Jira (research.md R10) -->
+    <dependency>
+      <groupId>io.github.java-diff-utils</groupId>
+      <artifactId>java-diff-utils</artifactId>
+      <version>${java-diff-utils.version}</version>
+    </dependency>
     <dependency>
       <groupId>com.vladsch.flexmark</groupId>
       <artifactId>flexmark-all</artifactId>

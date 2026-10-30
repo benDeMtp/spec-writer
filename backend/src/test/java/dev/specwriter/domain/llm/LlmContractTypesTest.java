@@ -80,8 +80,16 @@ class LlmContractTypesTest {
         assertThat(spec.scenarios().getFirst().then()).containsExactly("le besoin est enregistré");
         assertThat(spec.assumptions()).hasSize(1);
         assertThat(spec.requirements()).hasSize(1);
-        assertThat(new EditRequest(spec, "Ajoute un cas d'erreur", Language.FR).instruction()).isNotBlank();
-        assertThat(new MergeRequest("local", "jira", Language.FR).jiraMarkdown()).isEqualTo("jira");
-        assertThat(new StructureImportRequest("texte", Language.FR).language()).isEqualTo(Language.FR);
+        List<QuestionAndAnswer> answers = new ArrayList<>();
+        EditRequest edit = new EditRequest("besoin", Language.FR, answers, "# Spec", "Ajoute un cas d'erreur", null);
+        answers.add(new QuestionAndAnswer("q1", dev.specwriter.domain.question.QuestionTheme.GOAL, "Objectif ?", "x", false));
+        assertThat(edit.answers()).isEmpty();
+        assertThat(edit.withCorrection("écart").correction()).isEqualTo("écart");
+        assertThat(edit.withCorrection("écart").instruction()).isEqualTo("Ajoute un cas d'erreur");
+        MergeRequest merge = new MergeRequest("besoin", Language.FR, answers, "local", "jira", null);
+        assertThat(merge.withCorrection("écart").jiraMarkdown()).isEqualTo("jira");
+        assertThat(merge.withCorrection("écart").correction()).isEqualTo("écart");
+        StructureImportRequest structure = new StructureImportRequest("texte", Language.FR, null);
+        assertThat(structure.withCorrection("écart")).isEqualTo(new StructureImportRequest("texte", Language.FR, "écart"));
     }
 }

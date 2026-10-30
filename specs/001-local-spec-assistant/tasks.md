@@ -396,7 +396,7 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   - les triggers mettent l'index à jour à chaque nouvelle version ;
   - la recherche répond en moins de 300 ms sur 1 000 sessions générées.
 - [X] T097 [P] [US6] Écrire `BT/infrastructure/jira/JqlBuilderTest.java`. La requête produite est `project = X AND text ~ "<termes>"`. Les caractères Lucene `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` sont retirés de la saisie et les guillemets échappés en `\"`. Une saisie malveillante (`") OR project != X OR text ~ ("`) reste enfermée dans un seul littéral (OWASP A03).
-- [ ] T098 [P] [US6] Écrire `BT/application/search/UnifiedSearchTest.java` :
+- [X] T098 [P] [US6] Écrire `BT/application/search/UnifiedSearchTest.java` :
   - fusion des résultats locaux et Jira ;
   - un élément lié n'apparaît qu'une fois, avec la provenance `BOTH` (FR-042) ;
   - les colonnes `id`, `title`, `provenance` et `updatedAt` sont présentes ;
@@ -413,15 +413,15 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   - `PUT /issue/{key}` avec seulement `fields.description` ;
   - un 429 avec `Retry-After: 2` attend la durée indiquée, plafonnée à 30 s, et tente 3 fois au maximum ;
   - un 401 donne `TOKEN_REJECTED`.
-- [ ] T101 [P] [US6] Écrire `BT/application/jira/ImportJiraIssueTest.java` :
+- [X] T101 [P] [US6] Écrire `BT/application/jira/ImportJiraIssueTest.java` :
   - l'import crée une session `JIRA_IMPORT` dont le `need` est la description Jira convertie en Markdown, tronquée à 10 000 caractères avec avertissement ;
   - une version `JIRA_IMPORT` est produite par `LlmClient.structureImportedText` et passe le contrôle de structure ;
   - un `LinkedJiraTicket` est créé avec `lastKnownUpdated` et `lastKnownDescriptionHash` (SHA-256) ;
   - si la structuration échoue après les tentatives, l'erreur est `IMPORT_UNSTRUCTURABLE` et rien n'est créé ;
   - sans consentement `JIRA`, l'erreur est `CONSENT_REQUIRED` ;
   - **aucun appel en écriture vers Jira** n'est fait, ce que vérifie un `IssueTracker` espion (FR-046).
-- [ ] T102 [P] [US6] Écrire `BT/application/specification/AiEditTest.java` : la proposition est renvoyée avec un diff unifié, **sans nouvelle version** tant que l'utilisateur n'a pas accepté. L'acceptation crée une version `AI_EDIT`, puis `syncState=LOCAL_AHEAD` si un ticket est lié. Un `proposalId` expiré ou inconnu donne 404 (FR-044, US6-4, US6-5).
-- [ ] T103 [P] [US6] Écrire `BT/application/jira/PushToJiraTest.java` :
+- [X] T102 [P] [US6] Écrire `BT/application/specification/AiEditTest.java` : la proposition est renvoyée avec un diff unifié, **sans nouvelle version** tant que l'utilisateur n'a pas accepté. L'acceptation crée une version `AI_EDIT`, puis `syncState=LOCAL_AHEAD` si un ticket est lié. Un `proposalId` expiré ou inconnu donne 404 (FR-044, US6-4, US6-5).
+- [X] T103 [P] [US6] Écrire `BT/application/jira/PushToJiraTest.java` :
   - sans `confirm=true`, refus ;
   - Jira relu juste avant le `PUT` ;
   - un `updated` ou un hash différent donne 409 `JIRA_CONFLICT` avec les deux versions et `syncState=CONFLICT`, sans écriture ;
@@ -445,9 +445,9 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 - [X] T109 [US6] Implémenter `B/infrastructure/persistence/jira/LinkedTicketJpaRepository.java` (port `B/domain/port/LinkedTicketRepository.java`) et `B/infrastructure/persistence/search/FtsLocalSearch.java` (port `B/domain/port/LocalSearch.java`, requêtes `MATCH` paramétrées) pour faire passer T096
 - [X] T110 [US6] Implémenter `B/infrastructure/jira/JqlBuilder.java` et `B/infrastructure/jira/JiraFormatConverter.java` pour faire passer T097 et T099
 - [X] T111 [US6] Étendre `B/domain/port/IssueTracker.java` et `B/infrastructure/jira/JiraRestClient.java` avec `search`, `getIssue` et `updateDescription`. Créer `B/infrastructure/jira/RateLimitHandler.java` : lecture de `Retry-After`, des en-têtes `X-RateLimit-*` et `X-RateLimiting-*` sans tenir compte de la casse. Doit faire passer T100.
-- [ ] T112 [US6] Implémenter `B/application/search/UnifiedSearch.java`, avec un délai de 5 s pour l'appel Jira. Jira n'est interrogé que si le consentement `JIRA` est accordé (`ConsentPolicy`). Doit faire passer T098.
-- [ ] T113 [US6] Écrire les prompts `BR/prompts/edit-specification.txt`, `BR/prompts/merge-conflict.txt` et `BR/prompts/structure-imported-text.txt` (même règle de séparation que T078), puis implémenter `B/application/specification/ProposeAiEdit.java` et `AcceptAiEdit.java`. Les propositions sont gardées en mémoire pendant 30 minutes, et le diff unifié est calculé sur le Markdown. Doit faire passer T102.
-- [ ] T114 [US6] Implémenter `B/application/jira/ImportJiraIssue.java`, `GetJiraIssue.java` et `PushToJira.java`. Chacun commence par `ConsentPolicy.requireGranted(JIRA)`. L'import et `TAKE_JIRA` passent par `LlmClient.structureImportedText`. Doit faire passer T101 et T103.
+- [X] T112 [US6] Implémenter `B/application/search/UnifiedSearch.java`, avec un délai de 5 s pour l'appel Jira. Jira n'est interrogé que si le consentement `JIRA` est accordé (`ConsentPolicy`). Doit faire passer T098.
+- [X] T113 [US6] Écrire les prompts `BR/prompts/edit-specification.txt`, `BR/prompts/merge-conflict.txt` et `BR/prompts/structure-imported-text.txt` (même règle de séparation que T078), puis implémenter `B/application/specification/ProposeAiEdit.java` et `AcceptAiEdit.java`. Les propositions sont gardées en mémoire pendant 30 minutes, et le diff unifié est calculé sur le Markdown. Doit faire passer T102.
+- [X] T114 [US6] Implémenter `B/application/jira/ImportJiraIssue.java`, `GetJiraIssue.java` et `PushToJira.java`. Chacun commence par `ConsentPolicy.requireGranted(JIRA)`. L'import et `TAKE_JIRA` passent par `LlmClient.structureImportedText`. Doit faire passer T101 et T103.
 - [ ] T115 [US6] Implémenter `B/infrastructure/web/SearchResource.java`, `B/infrastructure/web/JiraIssueResource.java` et `B/infrastructure/web/AiEditResource.java`, et ajouter `PUT /api/sessions/{id}/jira` dans `B/infrastructure/web/JiraLinkResource.java` pour faire passer T104
 - [ ] T116 [P] [US6] Implémenter `F/features/search/search.page.ts` et `results-table.component.ts`.
   - `mat-table` accessible, avec les colonnes identifiant, titre, provenance (puce « spec-writer », « Jira » ou « les deux », avec texte et pas seulement une couleur) et date.

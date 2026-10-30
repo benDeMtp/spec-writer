@@ -26,6 +26,14 @@ public class StubLlm implements LlmClient {
     public final List<ReassessRequest> reassessRequests = new ArrayList<>();
     public final List<ProposeQuestionsRequest> questionRequests = new ArrayList<>();
     public final List<GenerationRequest> generationRequests = new ArrayList<>();
+    public final Deque<DraftSpecification> edits = new ArrayDeque<>();
+    public final Deque<DraftSpecification> merges = new ArrayDeque<>();
+    public final Deque<DraftSpecification> structures = new ArrayDeque<>();
+    public final List<EditRequest> editRequests = new ArrayList<>();
+    public final List<MergeRequest> mergeRequests = new ArrayList<>();
+    public final List<StructureImportRequest> structureRequests = new ArrayList<>();
+    /** Erreur levée par {@code structureImportedText} à la place d'une réponse. */
+    public ErrorCode structureFailure;
 
     public static ProposeQuestionsResult none() {
         return new ProposeQuestionsResult(List.of(), List.of(), Set.of());
@@ -60,16 +68,35 @@ public class StubLlm implements LlmClient {
 
     @Override
     public DraftSpecification editSpecification(EditRequest request) {
-        throw new UnsupportedOperationException();
+        editRequests.add(request);
+        return next(edits);
     }
 
     @Override
     public DraftSpecification mergeConflict(MergeRequest request) {
-        throw new UnsupportedOperationException();
+        mergeRequests.add(request);
+        return next(merges);
     }
 
     @Override
     public DraftSpecification structureImportedText(StructureImportRequest request) {
-        throw new UnsupportedOperationException();
+        structureRequests.add(request);
+        if (structureFailure != null) {
+            throw new DomainException(structureFailure);
+        }
+        return next(structures);
+    }
+
+    private static DraftSpecification next(Deque<DraftSpecification> queue) {
+        if (queue.isEmpty()) {
+            throw new DomainException(ErrorCode.LLM_UNAVAILABLE);
+        }
+        return queue.poll();
+    }
+
+    /** Nombre total d'appels au LLM. */
+    public int calls() {
+        return questionRequests.size() + reassessRequests.size() + generationRequests.size() + editRequests.size()
+                + mergeRequests.size() + structureRequests.size();
     }
 }

@@ -11,8 +11,8 @@ déterministe.
 | `proposeQuestions` | besoin, langue, questions et réponses déjà connues, thèmes encore couverts | `{ questions: [{ theme, label, rationale, suggestions[≤5], defaultValue?, dependsOnQuestionIds[] }], contradictions: [{ description, questionLabel }] }`, 5 questions au maximum par lot |
 | `reassessAfterChange` | idem, avec la réponse modifiée | `{ obsoleteQuestionIds[], newQuestions[] }` |
 | `generateSpecification` | besoin, langue, réponses (avec drapeau hypothèse) | `{ title, summary, useCases[], scenarios[], assumptions[], requirements[] }`, **sans identifiants** (le code les attribue) |
-| `editSpecification` | spécification courante (structure), instruction de l'utilisateur | même structure que `generateSpecification` |
-| `mergeConflict` | version locale, version Jira (Markdown) | même structure |
+| `editSpecification` | besoin, langue, réponses, spécification courante (Markdown rendu), instruction de l'utilisateur | même structure que `generateSpecification` |
+| `mergeConflict` | besoin, langue, réponses, version locale, version Jira (Markdown) | même structure |
 | `structureImportedText` | texte importé d'un ticket Jira (Markdown), langue | même structure que `generateSpecification`. Tout élément déduit et absent du texte est une hypothèse (`isAssumption`). |
 
 ## Règles de sécurité (principe V)
@@ -25,6 +25,10 @@ déterministe.
    consigne.
 3. La sortie est rejetée si elle ne respecte pas le schéma JSON. On fait alors 2 nouvelles
    tentatives au maximum, puis on renvoie l'erreur `LLM_INVALID_OUTPUT`.
+3a. Pour les quatre opérations qui produisent une spécification, une sortie conforme au schéma qui
+   échoue au contrôle de structure ou de traçabilité est redemandée avec ses écarts (balise
+   `<correction>`), 2 fois au maximum. Ensuite, l'erreur est `LLM_INVALID_OUTPUT`, ou
+   `IMPORT_UNSTRUCTURABLE` pour `structureImportedText`.
 4. Aucune entrée ni sortie du LLM n'est journalisée. On ne journalise que l'opération, la durée,
    le nombre de tentatives et le code d'erreur (FR-025).
 5. Avant tout appel, le consentement `COPILOT` doit être accordé. Sinon, l'erreur

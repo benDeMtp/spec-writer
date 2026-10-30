@@ -28,8 +28,11 @@ public interface IssueTracker {
     /** Droits accordés sur le projet ({@code mypermissions}). */
     Map<String, Boolean> permissions(JiraEndpoint endpoint, String projectKey, Set<String> permissions);
 
-    /** Recherche JQL paginée ({@code search}, champs {@code summary,status,issuetype,updated}). */
-    JiraSearchPage search(JiraEndpoint endpoint, String jql, int startAt, int maxResults);
+    /**
+     * Recherche plein texte dans un projet ({@code search}, champs {@code summary,status,issuetype,updated}).
+     * La requête JQL est construite par l'adaptateur : {@code terms} n'est jamais interprété.
+     */
+    JiraSearchPage searchText(JiraEndpoint endpoint, String projectKey, String terms, int startAt, int maxResults);
 
     /** Lecture d'un ticket ({@code issue/{key}}, champs {@code summary,description,updated}). */
     JiraIssue getIssue(JiraEndpoint endpoint, String issueKey);

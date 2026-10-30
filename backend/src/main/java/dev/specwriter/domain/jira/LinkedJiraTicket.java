@@ -41,8 +41,15 @@ public record LinkedJiraTicket(
     }
 
     /** Une version locale plus récente que la dernière envoyée ou importée. */
+    /** Nouvelle version locale. Un conflit en cours le reste : seule sa résolution le lève. */
     public LinkedJiraTicket localAhead() {
-        return with(linkedVersionNumber, lastKnownUpdated, lastKnownDescriptionHash, lastPushedAt, SyncState.LOCAL_AHEAD);
+        SyncState next = syncState == SyncState.CONFLICT ? SyncState.CONFLICT : SyncState.LOCAL_AHEAD;
+        return with(linkedVersionNumber, lastKnownUpdated, lastKnownDescriptionHash, lastPushedAt, next);
+    }
+
+    /** Fusion acceptée : l'état Jira lu pour la fusion devient la référence, la version locale reste à envoyer. */
+    public LinkedJiraTicket merged(Instant updated, String descriptionHash) {
+        return with(linkedVersionNumber, updated, descriptionHash, lastPushedAt, SyncState.LOCAL_AHEAD);
     }
 
     public LinkedJiraTicket conflict() {

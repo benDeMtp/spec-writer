@@ -28,6 +28,13 @@ public record Session(
                 SessionState.QUESTIONING, now, now);
     }
 
+    /** Session créée depuis un ticket Jira (FR-046) : sans questionnaire, sa première version vient de l'import. */
+    public static Session imported(UUID id, Need need, String name, Instant now) {
+        String chosen = name == null || name.isBlank() ? need.defaultName() : name;
+        return new Session(id, chosen.length() > MAX_NAME ? chosen.substring(0, MAX_NAME) : chosen, need,
+                LanguageDetector.detect(need.text()), SessionOrigin.JIRA_IMPORT, SessionState.GENERATED, now, now);
+    }
+
     public Session rename(String newName, Instant now) {
         return new Session(id, newName, need, language, origin, state, createdAt, now);
     }

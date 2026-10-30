@@ -12,6 +12,7 @@ import com.vladsch.flexmark.html.renderer.NodeRenderingHandler;
 import com.vladsch.flexmark.util.data.MutableDataHolder;
 import java.util.Set;
 import com.vladsch.flexmark.util.data.MutableDataSet;
+import dev.specwriter.domain.port.WikiMarkup;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -23,7 +24,7 @@ import java.util.regex.Pattern;
  * aux titres, listes, gras, italique et code : tout autre bloc est rendu tel quel en bloc de code.
  */
 @ApplicationScoped
-public class JiraFormatConverter {
+public class JiraFormatConverter implements WikiMarkup {
 
     private static final Pattern HEADING = Pattern.compile("^h([1-6])\\.\\s+(.*)$");
     private static final Pattern BULLET = Pattern.compile("^([*#]+)\\s+(.*)$");
@@ -44,6 +45,7 @@ public class JiraFormatConverter {
         renderer = HtmlRenderer.builder(options).build();
     }
 
+    @Override
     public String toWiki(String markdown) {
         return renderer.render(parser.parse(markdown == null ? "" : markdown)).replace("{code:lang=", "{code:").strip()
                 + "\n";
@@ -75,6 +77,7 @@ public class JiraFormatConverter {
         }
     }
 
+    @Override
     public String toMarkdown(String wiki) {
         if (wiki == null || wiki.isBlank()) {
             return "";
