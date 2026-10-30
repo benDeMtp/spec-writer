@@ -36,10 +36,11 @@ class LlmContractTypesTest {
 
         List<ProposedQuestion> questions = mutable(question);
         ProposeQuestionsResult result = new ProposeQuestionsResult(questions,
-                mutable(new Contradiction("A et non A", "Qui ?")));
+                mutable(new Contradiction("A et non A", "Qui ?")), new HashSet<>(Set.of(QuestionTheme.ACTORS)));
         questions.clear();
         assertThat(result.questions()).hasSize(1);
         assertThat(result.contradictions()).hasSize(1);
+        assertThat(result.coveredThemes()).containsExactly(QuestionTheme.ACTORS);
 
         ReassessResult reassess = new ReassessResult(mutable("q1"), mutable(question));
         assertThat(reassess.obsoleteQuestionIds()).containsExactly("q1");
@@ -59,6 +60,8 @@ class LlmContractTypesTest {
         assertThat(propose.known()).containsExactly(qa);
         assertThat(propose.remainingThemes()).containsExactly(QuestionTheme.GOAL);
         assertThat(generation.answers()).containsExactly(qa);
+        assertThat(generation.correction()).isEmpty();
+        assertThat(generation.withCorrection("UC-01 : source").correction()).isEqualTo("UC-01 : source");
         assertThat(reassess.known()).containsExactly(qa);
     }
 

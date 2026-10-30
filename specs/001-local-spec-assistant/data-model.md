@@ -93,6 +93,9 @@ une nouvelle version.
 
 Contient des **UseCase**, des **Assumption** et des **Requirement**.
 
+Stockage : une version étant immuable et toujours lue en entier, son contenu structuré est
+enregistré en un document JSON (colonne `content`), à côté du Markdown qui sert à la recherche.
+
 Une version `JIRA_IMPORT` (import d'un ticket, ou résolution de conflit `TAKE_JIRA`) est produite
 par l'opération `structureImportedText` du port LLM
 ([contracts/llm-port.md](contracts/llm-port.md)). Elle passe le même contrôle de structure que
