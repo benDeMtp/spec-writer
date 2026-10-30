@@ -441,6 +441,7 @@ components:
         provenance: { enum: [SPEC_WRITER, JIRA, BOTH] }
         jiraKey: { type: string, nullable: true }
         sessionId: { type: string, nullable: true }
+        latestVersion: { type: integer, nullable: true, description: Dernière version de la session, pour ouvrir sa spécification }
         updatedAt: { type: string, format: date-time }
         excerpt: { type: string }
     LinkedTicket:

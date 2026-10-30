@@ -33,7 +33,7 @@ class UnifiedSearchTest {
 
     @BeforeEach
     void setUp() {
-        search = new UnifiedSearch(w.local, w.tickets, w.tracker, w.jira, Duration.ofMillis(300));
+        search = new UnifiedSearch(w.local, w.versions, w.tickets, w.tracker, w.jira, Duration.ofMillis(300));
         linked = w.generatedSession();
         w.link(linked, "PROJ-2", "d");
         w.local.hits.add(new LocalSearch.Hit(localOnly, "Facturation", "…règle…", T1));
@@ -56,6 +56,9 @@ class UnifiedSearchTest {
         assertThat(both.jiraKey()).isEqualTo("PROJ-2");
         assertThat(both.sessionId()).isEqualTo(linked.id());
         assertThat(both.updatedAt()).isEqualTo(T2);
+        assertThat(both.latestVersion()).isEqualTo(1);
+        assertThat(r.items()).filteredOn(i -> i.id().equals(localOnly.toString())).singleElement()
+                .satisfies(i -> assertThat(i.latestVersion()).isNull());
         assertThat(r.items()).allSatisfy(i -> {
             assertThat(i.id()).isNotBlank();
             assertThat(i.title()).isNotBlank();

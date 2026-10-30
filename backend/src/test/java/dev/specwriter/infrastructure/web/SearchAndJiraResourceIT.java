@@ -153,6 +153,12 @@ class SearchAndJiraResourceIT {
         api().get("/api/sessions/" + id).then().body("linkedTicket.syncState", equalTo("LOCAL_AHEAD"));
         jira.verify(0, putRequestedFor(urlPathEqualTo("/rest/api/2/issue/" + key)));
 
+        // aperçu : la description wiki que Jira recevra, sans appel à Jira
+        api().body(Map.of("versionNumber", 2)).post("/api/sessions/" + id + "/jira/preview").then().statusCode(200)
+                .body("mode", equalTo("UPDATE")).body("issueKey", equalTo(key))
+                .body("descriptionWiki", containsString("h1. Réservation de salles avec annulation"));
+        api().body(Map.of()).post("/api/sessions/" + id + "/jira/preview").then().statusCode(422);
+
         // envoi : confirmation obligatoire, puis conflit car le ticket a changé dans Jira
         api().body(Map.of("versionNumber", 2)).put("/api/sessions/" + id + "/jira").then().statusCode(422);
         api().body(Map.of("confirm", true, "versionNumber", 2, "conflictResolution", "AU_HASARD"))

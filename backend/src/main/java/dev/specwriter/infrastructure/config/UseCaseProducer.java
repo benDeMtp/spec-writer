@@ -4,6 +4,7 @@ import dev.specwriter.application.consent.UpdateConsent;
 import dev.specwriter.application.jira.GetJiraIssue;
 import dev.specwriter.application.jira.ImportJiraIssue;
 import dev.specwriter.application.jira.JiraAccess;
+import dev.specwriter.application.jira.PreviewJiraPush;
 import dev.specwriter.application.jira.PushToJira;
 import dev.specwriter.application.search.UnifiedSearch;
 import dev.specwriter.application.session.AnswerQuestion;
@@ -148,9 +149,10 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    UnifiedSearch unifiedSearch(LocalSearch local, LinkedTicketRepository tickets, IssueTracker tracker, JiraAccess jira,
+    UnifiedSearch unifiedSearch(LocalSearch local, SpecificationRepository versions, LinkedTicketRepository tickets,
+            IssueTracker tracker, JiraAccess jira,
             @ConfigProperty(name = "specwriter.jira.search-timeout", defaultValue = "5s") Duration timeout) {
-        return new UnifiedSearch(local, tickets, tracker, jira, timeout);
+        return new UnifiedSearch(local, versions, tickets, tracker, jira, timeout);
     }
 
     @Produces
@@ -193,5 +195,11 @@ public class UseCaseProducer {
             SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             ProposalStore proposals, ClockPort clock, IdGenerator ids) {
         return new PushToJira(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    PreviewJiraPush previewJiraPush(SpecificationRepository versions, LinkedTicketRepository tickets, WikiMarkup markup) {
+        return new PreviewJiraPush(versions, tickets, markup);
     }
 }

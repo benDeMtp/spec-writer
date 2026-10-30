@@ -10,6 +10,7 @@ import dev.specwriter.domain.jira.LinkedJiraTicket;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.LocalSearch;
+import dev.specwriter.domain.port.SpecificationRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,9 +44,12 @@ public class UnifiedSearch {
 
     public enum JiraStatus { OK, NOT_CONFIGURED, UNAVAILABLE, TOKEN_REJECTED, CONSENT_REQUIRED }
 
-    /** {@code id} : identifiant de session, ou clé Jira pour un ticket non lié. */
-    public record Item(String id, String title, Provenance provenance, String jiraKey, UUID sessionId, Instant updatedAt,
-            String excerpt) {
+    /**
+     * {@code id} : identifiant de session, ou clé Jira pour un ticket non lié. {@code latestVersion} :
+     * dernière version de la session, pour ouvrir directement sa spécification (FR-043).
+     */
+    public record Item(String id, String title, Provenance provenance, String jiraKey, UUID sessionId,
+            Integer latestVersion, Instant updatedAt, String excerpt) {
     }
 
     /** {@code jiraTotal} : nombre de tickets Jira trouvés, pour paginer (0 si Jira n'a pas répondu). */
@@ -57,14 +61,16 @@ public class UnifiedSearch {
     }
 
     private final LocalSearch local;
+    private final SpecificationRepository versions;
     private final LinkedTicketRepository tickets;
     private final IssueTracker tracker;
     private final JiraAccess jira;
     private final Duration jiraTimeout;
 
-    public UnifiedSearch(LocalSearch local, LinkedTicketRepository tickets, IssueTracker tracker, JiraAccess jira,
-            Duration jiraTimeout) {
+    public UnifiedSearch(LocalSearch local, SpecificationRepository versions, LinkedTicketRepository tickets,
+            IssueTracker tracker, JiraAccess jira, Duration jiraTimeout) {
         this.local = local;
+        this.versions = versions;
         this.tickets = tickets;
         this.tracker = tracker;
         this.jira = jira;
@@ -93,7 +99,7 @@ public class UnifiedSearch {
                 LinkedJiraTicket t = bySession.get(hit.sessionId());
                 items.put(hit.sessionId().toString(), new Item(hit.sessionId().toString(), hit.title(),
                         t == null ? Provenance.SPEC_WRITER : Provenance.BOTH, t == null ? null : t.issueKey(),
-                        hit.sessionId(), hit.updatedAt(), hit.excerpt()));
+                        hit.sessionId(), latest(hit.sessionId()), hit.updatedAt(), hit.excerpt()));
             }
         }
 
@@ -101,14 +107,14 @@ public class UnifiedSearch {
         for (JiraIssueSummary issue : outcome.issues()) {
             LinkedJiraTicket t = byKey.get(issue.key());
             if (t == null) {
-                items.put(issue.key(), new Item(issue.key(), issue.summary(), Provenance.JIRA, issue.key(), null,
+                items.put(issue.key(), new Item(issue.key(), issue.summary(), Provenance.JIRA, issue.key(), null, null,
                         issue.updated(), null));
             } else {
                 Item known = items.get(t.sessionId().toString());
                 Instant updated = latest(known == null ? null : known.updatedAt(), issue.updated());
                 items.put(t.sessionId().toString(), new Item(t.sessionId().toString(),
                         known == null ? issue.summary() : known.title(), Provenance.BOTH, issue.key(), t.sessionId(),
-                        updated, known == null ? null : known.excerpt()));
+                        latest(t.sessionId()), updated, known == null ? null : known.excerpt()));
             }
         }
         List<Item> sorted = new ArrayList<>(items.values());
@@ -154,6 +160,11 @@ public class UnifiedSearch {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    private Integer latest(UUID sessionId) {
+        int n = versions.lastNumber(sessionId);
+        return n == 0 ? null : n;
     }
 
     private static Instant latest(Instant a, Instant b) {

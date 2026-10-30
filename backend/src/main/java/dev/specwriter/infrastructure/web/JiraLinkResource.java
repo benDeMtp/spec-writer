@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.web;
 
+import dev.specwriter.application.jira.PreviewJiraPush;
 import dev.specwriter.application.jira.PushToJira;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorAction;
@@ -7,6 +8,7 @@ import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.jira.ConflictResolution;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -35,8 +37,24 @@ public class JiraLinkResource {
         }
     }
 
+    public record PreviewRequest(Integer versionNumber) {
+    }
+
     @Inject
     PushToJira pushToJira;
+    @Inject
+    PreviewJiraPush previewJiraPush;
+
+    /** Ce que Jira recevra ; rien n'est envoyé. */
+    @POST
+    @Path("/preview")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public PreviewJiraPush.Preview preview(@PathParam("id") String id, PreviewRequest request) {
+        if (request == null || request.versionNumber() == null) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Indiquez la version à envoyer.");
+        }
+        return previewJiraPush.run(Ids.parse(id), request.versionNumber());
+    }
 
     /**
      * 200 et le ticket lié après un envoi ou une reprise de la version Jira ; 202 et la proposition
