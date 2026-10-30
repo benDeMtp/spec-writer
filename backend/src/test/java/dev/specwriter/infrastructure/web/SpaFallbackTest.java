@@ -14,7 +14,7 @@ class SpaFallbackTest {
 
     @Test
     void routeDuFrontRenvoieIndexHtml() {
-        given().get("/questionnaire/123").then().statusCode(200).body(containsString("<app-root>"));
+        given().get("/questionnaire/123").then().statusCode(200).body(containsString("<sw-root>"));
     }
 
     @Test

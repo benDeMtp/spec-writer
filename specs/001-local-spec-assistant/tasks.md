@@ -164,10 +164,10 @@ persistance, erreurs, port LLM et shell du front.
 
 ### Shell du front
 
-- [ ] T034 Définir la direction visuelle avec le skill `frontend-design` : palette, typographie et espacements, sous forme de tokens Material 3 dans `frontend/src/styles/_theme.scss` et `frontend/src/styles.scss`. Contraste AA vérifié en clair et en sombre. Mettre en évidence les mots-clés En tant que / Étant donné / Quand / Alors (FR-027a).
-- [ ] T035 [P] Écrire `F/core/launch/launch-token.service.spec.ts` : au démarrage, le paramètre `launch` de l'URL est échangé par `POST /api/session-auth`, puis retiré de l'URL par `history.replaceState`. Puis implémenter `F/core/launch/launch-token.service.ts` et l'`APP_INITIALIZER` correspondant dans `frontend/src/app/app.config.ts`.
-- [ ] T036 [P] Écrire `F/core/http/problem.interceptor.spec.ts`. Un `Problem` reçu s'affiche avec son `userMessage` et un bouton d'action selon `action` (`RETRY`, `OPEN_SETTINGS`, `RECONNECT`, `EDIT_INPUT`), annoncé par `aria-live`. Puis implémenter `F/core/http/problem.interceptor.ts` et `F/shared/ui/problem-banner.component.ts`.
-- [ ] T037 Implémenter le shell `F/app.component.ts` et `F/app.routes.ts`.
+- [X] T034 Définir la direction visuelle avec le skill `frontend-design` : palette, typographie et espacements, sous forme de tokens Material 3 dans `frontend/src/styles/_theme.scss` et `frontend/src/styles.scss`. Contraste AA vérifié en clair et en sombre. Mettre en évidence les mots-clés En tant que / Étant donné / Quand / Alors (FR-027a).
+- [X] T035 [P] Écrire `F/core/launch/launch-token.service.spec.ts` : au démarrage, le paramètre `launch` de l'URL est échangé par `POST /api/session-auth`, puis retiré de l'URL par `history.replaceState`. Puis implémenter `F/core/launch/launch-token.service.ts` et l'`APP_INITIALIZER` correspondant dans `frontend/src/app/app.config.ts`.
+- [X] T036 [P] Écrire `F/core/http/problem.interceptor.spec.ts`. Un `Problem` reçu s'affiche avec son `userMessage` et un bouton d'action selon `action` (`RETRY`, `OPEN_SETTINGS`, `RECONNECT`, `EDIT_INPUT`), annoncé par `aria-live`. Puis implémenter `F/core/http/problem.interceptor.ts` et `F/shared/ui/problem-banner.component.ts`.
+- [X] T037 Implémenter le shell `F/app.component.ts` et `F/app.routes.ts`.
   - Lien d'évitement, landmarks et navigation latérale : Accueil / Recherche, Nouveau besoin, Sessions, Configuration.
   - Gestion du focus à chaque changement de route.
   - Les routes sont chargées en lazy loading, une par dossier de `F/features/`.

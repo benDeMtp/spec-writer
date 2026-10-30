@@ -18,6 +18,10 @@ public class BrowserOpener {
     @ConfigProperty(name = "specwriter.open-browser", defaultValue = "true")
     boolean openBrowser;
 
+    /** Affiche l'URL de lancement dans la console au lieu d'ouvrir le navigateur (poste sans bureau). */
+    @ConfigProperty(name = "specwriter.print-launch-url", defaultValue = "false")
+    boolean printLaunchUrl;
+
     @ConfigProperty(name = "quarkus.http.port")
     int port;
 
@@ -25,10 +29,13 @@ public class BrowserOpener {
     LaunchTokenService tokens;
 
     void onStart(@Observes StartupEvent event) {
+        URI url = URI.create("http://127.0.0.1:" + port + "/?launch=" + tokens.launchToken());
         if (!openBrowser) {
+            if (printLaunchUrl) {
+                System.out.println("Ouvrez spec-writer dans votre navigateur : " + url);
+            }
             return;
         }
-        URI url = URI.create("http://127.0.0.1:" + port + "/?launch=" + tokens.launchToken());
         if (!BrowserLauncher.system().open(url)) {
             // Le jeton n'est affiché que dans la console locale, jamais dans le fichier de journal.
             System.out.println("Ouvrez spec-writer dans votre navigateur : " + url);
