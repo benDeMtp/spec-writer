@@ -1,0 +1,9 @@
+# Système
+.DS_Store
+
+# Réglages locaux de Claude Code
+.claude/settings.local.json
+
+# Environnement et secrets locaux
+.env
+.env.*
