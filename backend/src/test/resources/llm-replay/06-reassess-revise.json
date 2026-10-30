@@ -1,0 +1,5 @@
+{"operation": "reassess-after-change", "userContains": ["IT-REVISE", "RÉVISÉ"], "response": {
+  "obsoleteQuestionIds": ["__ERRORS__"],
+  "newQuestions": [
+    {"theme": "BUSINESS_RULES", "label": "Combien de personnes au maximum ?", "rationale": "Nouvelle règle de capacité", "suggestions": [], "defaultValue": "", "dependsOnQuestionIds": []}
+  ]}}

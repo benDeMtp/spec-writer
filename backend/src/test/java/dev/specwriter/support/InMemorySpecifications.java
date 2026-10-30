@@ -31,6 +31,11 @@ public class InMemorySpecifications implements SpecificationRepository {
     }
 
     @Override
+    public void deleteAll(UUID sessionId) {
+        versions.removeIf(v -> v.sessionId().equals(sessionId));
+    }
+
+    @Override
     public int lastNumber(UUID sessionId) {
         return list(sessionId).stream().mapToInt(SpecificationVersion::number).max().orElse(0);
     }

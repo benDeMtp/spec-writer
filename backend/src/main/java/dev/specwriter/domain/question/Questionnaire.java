@@ -150,7 +150,8 @@ public record Questionnaire(List<Question> questions, Set<QuestionTheme> covered
 
     private boolean isDuplicate(String label, List<Question> added) {
         String normalized = label == null ? "" : label.strip().toLowerCase(Locale.ROOT);
-        return java.util.stream.Stream.concat(active().stream(), added.stream())
+        // les questions retirées comptent aussi : une question devenue sans objet ne revient pas
+        return java.util.stream.Stream.concat(questions.stream(), added.stream())
                 .anyMatch(q -> q.label().toLowerCase(Locale.ROOT).equals(normalized));
     }
 

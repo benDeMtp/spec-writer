@@ -22,6 +22,8 @@ import java.util.Set;
 public class StubLlm implements LlmClient {
     public final Deque<ProposeQuestionsResult> questions = new ArrayDeque<>();
     public final Deque<DraftSpecification> drafts = new ArrayDeque<>();
+    public final Deque<ReassessResult> reassessments = new ArrayDeque<>();
+    public final List<ReassessRequest> reassessRequests = new ArrayList<>();
     public final List<ProposeQuestionsRequest> questionRequests = new ArrayList<>();
     public final List<GenerationRequest> generationRequests = new ArrayList<>();
 
@@ -49,7 +51,11 @@ public class StubLlm implements LlmClient {
 
     @Override
     public ReassessResult reassessAfterChange(ReassessRequest request) {
-        throw new UnsupportedOperationException();
+        reassessRequests.add(request);
+        if (reassessments.isEmpty()) {
+            throw new DomainException(ErrorCode.LLM_UNAVAILABLE);
+        }
+        return reassessments.poll();
     }
 
     @Override

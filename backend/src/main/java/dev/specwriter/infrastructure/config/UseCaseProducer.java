@@ -3,6 +3,7 @@ package dev.specwriter.infrastructure.config;
 import dev.specwriter.application.consent.UpdateConsent;
 import dev.specwriter.application.session.AnswerQuestion;
 import dev.specwriter.application.session.ConcludeQuestionnaire;
+import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.session.StartSession;
 import dev.specwriter.application.specification.GenerateSpecification;
 import dev.specwriter.application.settings.DeleteJiraSettings;
@@ -116,5 +117,11 @@ public class UseCaseProducer {
     GenerateSpecification generateSpecification(SessionRepository sessions, SpecificationRepository versions,
             LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids) {
         return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageSessions manageSessions(SessionRepository sessions, SpecificationRepository versions, ClockPort clock) {
+        return new ManageSessions(sessions, versions, clock);
     }
 }

@@ -19,6 +19,8 @@ public enum ErrorCode {
             ErrorAction.EDIT_INPUT),
     NEED_TOO_LONG(422, "Le besoin dépasse 10 000 caractères. Raccourcissez-le ou découpez-le en plusieurs sessions.",
             ErrorAction.EDIT_INPUT),
+    SESSION_UNREADABLE(422, "Cette session est illisible : sa sauvegarde est endommagée. Vous pouvez la supprimer.",
+            ErrorAction.NONE),
     CONTRADICTION_UNRESOLVED(422, "Une contradiction doit être tranchée avant de générer la spécification.",
             ErrorAction.EDIT_INPUT),
 

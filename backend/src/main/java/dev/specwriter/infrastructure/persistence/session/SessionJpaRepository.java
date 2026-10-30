@@ -1,5 +1,7 @@
 package dev.specwriter.infrastructure.persistence.session;
 
+import dev.specwriter.domain.error.DomainException;
+import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.question.Answer;
 import dev.specwriter.domain.question.Question;
@@ -9,21 +11,34 @@ import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Language;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SessionListing;
 import dev.specwriter.domain.session.SessionOrigin;
 import dev.specwriter.domain.session.SessionState;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.jboss.logging.Logger;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 @ApplicationScoped
 public class SessionJpaRepository implements SessionRepository {
+
+    private static final Logger LOG = Logger.getLogger(SessionJpaRepository.class);
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final TypeReference<List<String>> STRINGS = new TypeReference<>() {
+    };
 
     @Inject
     EntityManager em;
@@ -63,12 +78,26 @@ public class SessionJpaRepository implements SessionRepository {
     @Override
     @Transactional
     public Optional<Session> find(UUID id) {
-        return Optional.ofNullable(em.find(SessionEntity.class, id.toString())).map(SessionJpaRepository::toDomain);
+        try {
+            return Optional.ofNullable(em.find(SessionEntity.class, id.toString())).map(SessionJpaRepository::toDomain);
+        } catch (RuntimeException e) {
+            throw unreadable(id, e);
+        }
     }
 
     @Override
     @Transactional
     public Optional<Questionnaire> questionnaire(UUID sessionId) {
+        try {
+            return loadQuestionnaire(sessionId);
+        } catch (DomainException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw unreadable(sessionId, e);
+        }
+    }
+
+    private Optional<Questionnaire> loadQuestionnaire(UUID sessionId) {
         SessionEntity session = em.find(SessionEntity.class, sessionId.toString());
         if (session == null) {
             return Optional.empty();
@@ -85,11 +114,79 @@ public class SessionJpaRepository implements SessionRepository {
                 session.coveredThemes.stream().map(QuestionTheme::valueOf).collect(Collectors.toSet())));
     }
 
+    /**
+     * Lecture brute, sans entités : une ligne endommagée ne fait pas échouer la requête et la session
+     * est listée comme illisible (edge case « fichier corrompu »).
+     */
     @Override
     @Transactional
-    public List<Session> list() {
-        return em.createQuery("select s from SessionEntity s order by s.updatedAt desc", SessionEntity.class)
-                .getResultList().stream().map(SessionJpaRepository::toDomain).toList();
+    @SuppressWarnings("unchecked")
+    public List<SessionListing> list() {
+        List<Object[]> rows = em.createNativeQuery(
+                "select id, name, need, language, origin, state, covered_themes, updated_at from session"
+                        + " order by updated_at desc").getResultList();
+        Set<String> damaged = new HashSet<>();
+        List<Object[]> questions = em.createNativeQuery(
+                "select session_id, suggestions, depends_on, theme, state from question").getResultList();
+        for (Object[] q : questions) {
+            if (!readableQuestion(q)) {
+                damaged.add((String) q[0]);
+            }
+        }
+        List<SessionListing> out = new ArrayList<>();
+        for (Object[] r : rows) {
+            String id = (String) r[0];
+            Instant updatedAt = parseInstant((String) r[7]);
+            SessionState state = parseEnum(SessionState.class, (String) r[5]);
+            boolean readable = !damaged.contains(id) && state != null && updatedAt != null && readableSession(r);
+            out.add(new SessionListing(UUID.fromString(id), (String) r[1], state, updatedAt, readable));
+        }
+        return out;
+    }
+
+    private static boolean readableSession(Object[] r) {
+        try {
+            new Need((String) r[2]);
+            Language.valueOf((String) r[3]);
+            SessionOrigin.valueOf((String) r[4]);
+            JSON.readValue((String) r[6], STRINGS).forEach(QuestionTheme::valueOf);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private static boolean readableQuestion(Object[] q) {
+        try {
+            JSON.readValue((String) q[1], STRINGS);
+            JSON.readValue((String) q[2], STRINGS).forEach(UUID::fromString);
+            QuestionTheme.valueOf((String) q[3]);
+            QuestionState.valueOf((String) q[4]);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private static Instant parseInstant(String value) {
+        try {
+            return value == null ? null : Instant.parse(value);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static <E extends Enum<E>> E parseEnum(Class<E> type, String value) {
+        try {
+            return value == null ? null : Enum.valueOf(type, value);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static DomainException unreadable(UUID id, RuntimeException e) {
+        LOG.warnf("Session %s illisible (%s)", id, e.getClass().getSimpleName());
+        return new DomainException(ErrorCode.SESSION_UNREADABLE, ErrorCode.SESSION_UNREADABLE.defaultMessage(), e);
     }
 
     @Override

@@ -22,6 +22,11 @@ final class UserMessages {
                 + remaining.stream().map(Enum::name).sorted().collect(Collectors.joining(" ")) + "</themes-restants>";
     }
 
+    static String reassess(String need, Language language, List<QuestionAndAnswer> known, String changedQuestionId) {
+        return language(language) + "\n" + need(need) + "\n" + answers(known) + "\n<question-modifiee>"
+                + data(changedQuestionId) + "</question-modifiee>";
+    }
+
     static String generation(String need, Language language, List<QuestionAndAnswer> answers, String correction) {
         return language(language) + "\n" + need(need) + "\n" + answers(answers) + "\n<correction>" + data(correction)
                 + "</correction>";

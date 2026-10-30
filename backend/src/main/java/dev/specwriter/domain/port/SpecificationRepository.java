@@ -18,6 +18,8 @@ public interface SpecificationRepository {
     /** Par numéro croissant. */
     List<SpecificationVersion> list(UUID sessionId);
 
+    void deleteAll(UUID sessionId);
+
     /** 0 si la session n'a pas encore de version. */
     int lastNumber(UUID sessionId);
 }

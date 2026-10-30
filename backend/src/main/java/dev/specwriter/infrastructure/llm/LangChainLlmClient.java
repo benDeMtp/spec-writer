@@ -56,6 +56,9 @@ public class LangChainLlmClient implements LlmClient {
     record QuestionsDto(List<QuestionDto> questions, List<Contradiction> contradictions, List<String> coveredThemes) {
     }
 
+    record ReassessDto(List<String> obsoleteQuestionIds, List<QuestionDto> newQuestions) {
+    }
+
     record QuestionDto(String theme, String label, String rationale, List<String> suggestions, String defaultValue,
             List<String> dependsOnQuestionIds) {
     }
@@ -83,7 +86,9 @@ public class LangChainLlmClient implements LlmClient {
 
     @Override
     public ReassessResult reassessAfterChange(ReassessRequest request) {
-        throw new UnsupportedOperationException("reassessAfterChange arrive avec la user story 3");
+        String user = UserMessages.reassess(request.need(), request.language(), request.known(),
+                request.changedQuestionId());
+        return call("reassess-after-change", user, LlmSchemas.REASSESS, LangChainLlmClient::toReassess);
     }
 
     @Override
@@ -137,7 +142,25 @@ public class LangChainLlmClient implements LlmClient {
         if (dto == null || dto.questions() == null) {
             throw new IllegalArgumentException("liste de questions absente");
         }
-        List<ProposedQuestion> questions = dto.questions().stream()
+        List<ProposedQuestion> questions = proposed(dto.questions());
+        Set<QuestionTheme> covered = EnumSet.noneOf(QuestionTheme.class);
+        if (dto.coveredThemes() != null) {
+            dto.coveredThemes().forEach(t -> covered.add(theme(t)));
+        }
+        return new ProposeQuestionsResult(questions, dto.contradictions() == null ? List.of() : dto.contradictions(),
+                covered);
+    }
+
+    private static ReassessResult toReassess(String json) {
+        ReassessDto dto = JSON.readValue(json, ReassessDto.class);
+        if (dto == null || dto.obsoleteQuestionIds() == null || dto.newQuestions() == null) {
+            throw new IllegalArgumentException("réévaluation incomplète");
+        }
+        return new ReassessResult(dto.obsoleteQuestionIds(), proposed(dto.newQuestions()));
+    }
+
+    private static List<ProposedQuestion> proposed(List<QuestionDto> dtos) {
+        List<ProposedQuestion> questions = dtos.stream()
                 .map(q -> new ProposedQuestion(theme(q.theme()), q.label(), q.rationale(),
                         q.suggestions() == null ? List.of() : q.suggestions().stream().limit(5).toList(),
                         q.defaultValue(), q.dependsOnQuestionIds() == null ? List.of() : q.dependsOnQuestionIds()))
@@ -145,12 +168,7 @@ public class LangChainLlmClient implements LlmClient {
         if (questions.stream().anyMatch(q -> blank(q.label()) || blank(q.rationale()))) {
             throw new IllegalArgumentException("question sans libellé ou sans justification");
         }
-        Set<QuestionTheme> covered = EnumSet.noneOf(QuestionTheme.class);
-        if (dto.coveredThemes() != null) {
-            dto.coveredThemes().forEach(t -> covered.add(theme(t)));
-        }
-        return new ProposeQuestionsResult(questions, dto.contradictions() == null ? List.of() : dto.contradictions(),
-                covered);
+        return questions;
     }
 
     /** Thème inconnu ou absent : sortie non conforme, redemandée. */

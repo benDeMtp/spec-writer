@@ -377,6 +377,7 @@ components:
         updatedAt: { type: string, format: date-time }
         latestVersion: { type: integer, nullable: true }
         jiraKey: { type: string, nullable: true }
+        readable: { type: boolean, description: Faux si la sauvegarde de la session est endommagée (SESSION_UNREADABLE à l'ouverture) }
     SessionDetail:
       allOf:
         - $ref: '#/components/schemas/SessionSummary'
@@ -388,6 +389,12 @@ components:
             currentBatch: { type: array, items: { $ref: '#/components/schemas/Question' } }
             answeredQuestions: { type: array, items: { $ref: '#/components/schemas/Question' } }
             warnings: { type: array, items: { type: string } }
+            revision:
+              type: object
+              description: Effet de la dernière réponse modifiée (FR-007) ; listes vides sinon
+              properties:
+                removed: { type: array, items: { type: string }, description: Libellés des questions devenues sans objet }
+                added: { type: array, items: { type: string }, description: Libellés des questions ajoutées }
     Question:
       type: object
       properties:

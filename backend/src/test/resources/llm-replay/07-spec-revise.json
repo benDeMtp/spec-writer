@@ -1,0 +1,7 @@
+{"operation": "generate-specification", "userContains": ["IT-REVISE"], "response": {
+  "title": "Réservation révisée", "summary": "Réserver une salle",
+  "useCases": [{"title": "Réserver", "actor": "employé", "goal": "réserver", "preconditions": [], "nominalFlow": ["réserver"],
+    "alternatives": [], "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "réserver une salle"}}],
+  "scenarios": [{"useCaseIndex": 0, "title": "Réservation", "kind": "NOMINAL", "asA": "employé", "given": [],
+    "when": ["je réserve"], "then": ["c'est réservé"], "assumption": false}],
+  "assumptions": [], "requirements": []}}

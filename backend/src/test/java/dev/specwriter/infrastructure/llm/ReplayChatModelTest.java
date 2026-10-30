@@ -48,4 +48,11 @@ class ReplayChatModelTest {
         assertThatThrownBy(() -> scripted.chat(SystemMessage.from("[operation:a]"), UserMessage.from("x")))
                 .isInstanceOf(AssertionError.class);
     }
+
+    @Test
+    void identifiantsDeQuestionResolusDepuisLeMessage() {
+        String user = "<reponse id=\"abc-1\" theme=\"GOAL\" hypothese=\"false\"><reponse id=\"def-2\" theme=\"ERRORS\" x";
+        assertThat(ReplayChatModel.resolveQuestionIds("{\"ids\":[\"__ERRORS__\",\"__GOAL__\",\"__EDGE_CASES__\"]}", user))
+                .isEqualTo("{\"ids\":[\"def-2\",\"abc-1\",\"EDGE_CASES\"]}");
+    }
 }

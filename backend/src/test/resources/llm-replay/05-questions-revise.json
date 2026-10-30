@@ -1,0 +1,6 @@
+{"operation": "propose-questions", "userContains": ["IT-REVISE"], "response": {
+  "questions": [
+    {"theme": "GOAL", "label": "Quel est l'objectif principal ?", "rationale": "Pour cadrer", "suggestions": [], "defaultValue": "", "dependsOnQuestionIds": []},
+    {"theme": "ERRORS", "label": "Que se passe-t-il si la salle est déjà prise ?", "rationale": "Cas d'erreur", "suggestions": [], "defaultValue": "", "dependsOnQuestionIds": []}
+  ],
+  "contradictions": [], "coveredThemes": []}}

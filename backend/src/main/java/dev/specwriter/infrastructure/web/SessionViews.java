@@ -1,12 +1,14 @@
 package dev.specwriter.infrastructure.web;
 
 import dev.specwriter.application.session.ConcludeQuestionnaire;
+import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.session.SessionSnapshot;
 import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.QuestionState;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SessionListing;
 import dev.specwriter.domain.specification.Assumption;
 import dev.specwriter.domain.specification.Requirement;
 import dev.specwriter.domain.specification.SpecificationVersion;
@@ -27,12 +29,15 @@ final class SessionViews {
     }
 
     record SessionSummary(UUID id, String name, String state, Instant updatedAt, Integer latestVersion,
-            String jiraKey) {
+            String jiraKey, boolean readable) {
+    }
+
+    record RevisionView(List<String> removed, List<String> added) {
     }
 
     record SessionDetail(UUID id, String name, String state, Instant updatedAt, Integer latestVersion, String jiraKey,
             String need, String language, Progress progress, List<QuestionView> currentBatch,
-            List<QuestionView> answeredQuestions, List<String> warnings) {
+            List<QuestionView> answeredQuestions, List<String> warnings, RevisionView revision) {
     }
 
     record VersionSummary(int number, String origin, Instant createdAt, boolean pushedToJira) {
@@ -48,7 +53,13 @@ final class SessionViews {
 
     static SessionSummary summary(Session s, int latestVersion) {
         return new SessionSummary(s.id(), s.name(), s.state().name(), s.updatedAt(),
-                latestVersion == 0 ? null : latestVersion, null);
+                latestVersion == 0 ? null : latestVersion, null, true);
+    }
+
+    static SessionSummary summary(ManageSessions.Entry e) {
+        SessionListing s = e.session();
+        return new SessionSummary(s.id(), s.name(), s.state() == null ? null : s.state().name(), s.updatedAt(),
+                e.latestVersion() == 0 ? null : e.latestVersion(), null, s.readable());
     }
 
     static SessionDetail detail(SessionSnapshot snapshot, int latestVersion) {
@@ -60,7 +71,8 @@ final class SessionViews {
         return new SessionDetail(s.id(), s.name(), s.state().name(), s.updatedAt(), latestVersion == 0 ? null : latestVersion,
                 null, s.need().text(), s.language().code(), new Progress(p.answered(), p.skipped(), p.total()),
                 q.currentBatch().stream().map(SessionViews::question).toList(),
-                q.treated().stream().map(SessionViews::question).toList(), warnings);
+                q.treated().stream().map(SessionViews::question).toList(), warnings,
+                new RevisionView(snapshot.revision().removed(), snapshot.revision().added()));
     }
 
     static QuestionView question(Question q) {

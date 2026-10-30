@@ -3,6 +3,7 @@ package dev.specwriter.support;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SessionListing;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -34,10 +35,10 @@ public class InMemorySessions implements SessionRepository {
     }
 
     @Override
-    public List<Session> list() {
+    public List<SessionListing> list() {
         List<Session> all = new ArrayList<>(sessions.values());
         all.sort(Comparator.comparing(Session::updatedAt).reversed());
-        return all;
+        return all.stream().map(s -> new SessionListing(s.id(), s.name(), s.state(), s.updatedAt(), true)).toList();
     }
 
     @Override

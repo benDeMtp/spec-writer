@@ -23,20 +23,27 @@ final class LlmSchemas {
     private static final List<String> THEMES = Arrays.stream(QuestionTheme.values())
             .filter(t -> t != QuestionTheme.CONTRADICTION).map(Enum::name).toList();
 
+    private static final JsonObjectSchema QUESTION = JsonObjectSchema.builder()
+            .addProperty("theme", JsonEnumSchema.builder().enumValues(THEMES).build())
+            .addStringProperty("label")
+            .addStringProperty("rationale")
+            .addProperty("suggestions", array(string()))
+            .addStringProperty("defaultValue")
+            .addProperty("dependsOnQuestionIds", array(string()))
+            .build();
+
     static final ResponseFormat QUESTIONS = format("questions", JsonObjectSchema.builder()
-            .addProperty("questions", array(JsonObjectSchema.builder()
-                    .addProperty("theme", JsonEnumSchema.builder().enumValues(THEMES).build())
-                    .addStringProperty("label")
-                    .addStringProperty("rationale")
-                    .addProperty("suggestions", array(string()))
-                    .addStringProperty("defaultValue")
-                    .addProperty("dependsOnQuestionIds", array(string()))
-                    .build()))
+            .addProperty("questions", array(QUESTION))
             .addProperty("contradictions", array(JsonObjectSchema.builder()
                     .addStringProperty("description")
                     .addStringProperty("questionLabel")
                     .build()))
             .addProperty("coveredThemes", array(JsonEnumSchema.builder().enumValues(THEMES).build()))
+            .build());
+
+    static final ResponseFormat REASSESS = format("reassess", JsonObjectSchema.builder()
+            .addProperty("obsoleteQuestionIds", array(string()))
+            .addProperty("newQuestions", array(QUESTION))
             .build());
 
     static final ResponseFormat SPECIFICATION = format("specification", JsonObjectSchema.builder()

@@ -2,6 +2,7 @@ package dev.specwriter.infrastructure.web;
 
 import dev.specwriter.application.session.AnswerQuestion;
 import dev.specwriter.application.session.ConcludeQuestionnaire;
+import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.session.SessionSnapshot;
 import dev.specwriter.application.session.StartSession;
 import dev.specwriter.domain.error.DomainException;
@@ -11,7 +12,9 @@ import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.session.Session;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
@@ -33,6 +36,9 @@ public class SessionResource {
     public record AnswerRequest(String value, Boolean skip) {
     }
 
+    public record RenameRequest(String name) {
+    }
+
     @Inject
     SessionRepository sessions;
     @Inject
@@ -43,10 +49,27 @@ public class SessionResource {
     AnswerQuestion answerQuestion;
     @Inject
     ConcludeQuestionnaire concludeQuestionnaire;
+    @Inject
+    ManageSessions manageSessions;
 
     @GET
     public List<SessionViews.SessionSummary> list() {
-        return sessions.list().stream().map(s -> SessionViews.summary(s, versions.lastNumber(s.id()))).toList();
+        return manageSessions.list().stream().map(SessionViews::summary).toList();
+    }
+
+    @PATCH
+    @Path("/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public SessionViews.SessionSummary rename(@PathParam("id") String id, RenameRequest request) {
+        UUID sessionId = Ids.parse(id);
+        Session renamed = manageSessions.rename(sessionId, request == null ? null : request.name());
+        return SessionViews.summary(renamed, versions.lastNumber(sessionId));
+    }
+
+    @DELETE
+    @Path("/{id}")
+    public void delete(@PathParam("id") String id) {
+        manageSessions.delete(Ids.parse(id));
     }
 
     @POST

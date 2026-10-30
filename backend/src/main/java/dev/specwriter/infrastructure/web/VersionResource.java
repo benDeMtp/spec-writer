@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.web;
 
+import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.specification.GenerateSpecification;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
@@ -28,10 +29,12 @@ public class VersionResource {
     @Inject
     GenerateSpecification generateSpecification;
 
+    @Inject
+    ManageSessions manageSessions;
+
     @GET
     public List<SessionViews.VersionSummary> list(@PathParam("id") String id) {
-        UUID sessionId = existing(id);
-        return versions.list(sessionId).stream().map(SessionViews::versionSummary).toList();
+        return manageSessions.versions(Ids.parse(id)).stream().map(SessionViews::versionSummary).toList();
     }
 
     /** 201 pour une nouvelle version, 200 quand la version existante est réutilisée. */

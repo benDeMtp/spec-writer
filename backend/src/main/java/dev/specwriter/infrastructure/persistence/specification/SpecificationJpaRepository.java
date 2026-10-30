@@ -63,6 +63,13 @@ public class SpecificationJpaRepository implements SpecificationRepository {
 
     @Override
     @Transactional
+    public void deleteAll(UUID sessionId) {
+        em.createQuery("delete from SpecificationVersionEntity v where v.sessionId = :s")
+                .setParameter("s", sessionId.toString()).executeUpdate();
+    }
+
+    @Override
+    @Transactional
     public int lastNumber(UUID sessionId) {
         Integer max = em.createQuery("select max(v.number) from SpecificationVersionEntity v where v.sessionId = :s",
                 Integer.class).setParameter("s", sessionId.toString()).getSingleResult();
