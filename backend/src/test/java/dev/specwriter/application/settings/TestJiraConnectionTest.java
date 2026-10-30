@@ -13,6 +13,7 @@ import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.settings.JiraSettings;
 import dev.specwriter.domain.settings.JiraTestResult;
 import dev.specwriter.domain.settings.SecretPersistence;
+import dev.specwriter.support.FakeIssueTracker;
 import dev.specwriter.support.FixedClock;
 import dev.specwriter.support.InMemoryConsents;
 import dev.specwriter.support.InMemorySecrets;
@@ -26,7 +27,7 @@ import org.junit.jupiter.api.Test;
 
 class TestJiraConnectionTest {
 
-    static class FakeTracker implements IssueTracker {
+    static class FakeTracker extends FakeIssueTracker {
         final List<String> calls = new ArrayList<>();
         String version = "9.12.3";
         Kind failOn;

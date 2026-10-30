@@ -395,7 +395,7 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   - « regle » trouve « règle » ;
   - les triggers mettent l'index à jour à chaque nouvelle version ;
   - la recherche répond en moins de 300 ms sur 1 000 sessions générées.
-- [ ] T097 [P] [US6] Écrire `BT/infrastructure/jira/JqlBuilderTest.java`. La requête produite est `project = X AND text ~ "<termes>"`. Les caractères Lucene `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` sont retirés de la saisie et les guillemets échappés en `\"`. Une saisie malveillante (`") OR project != X OR text ~ ("`) reste enfermée dans un seul littéral (OWASP A03).
+- [X] T097 [P] [US6] Écrire `BT/infrastructure/jira/JqlBuilderTest.java`. La requête produite est `project = X AND text ~ "<termes>"`. Les caractères Lucene `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` sont retirés de la saisie et les guillemets échappés en `\"`. Une saisie malveillante (`") OR project != X OR text ~ ("`) reste enfermée dans un seul littéral (OWASP A03).
 - [ ] T098 [P] [US6] Écrire `BT/application/search/UnifiedSearchTest.java` :
   - fusion des résultats locaux et Jira ;
   - un élément lié n'apparaît qu'une fois, avec la provenance `BOTH` (FR-042) ;
@@ -403,11 +403,11 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   - si Jira n'est pas configuré, `jiraStatus=NOT_CONFIGURED` ;
   - si Jira est en erreur ou dépasse son délai, les résultats locaux restent et `jiraStatus=UNAVAILABLE` (FR-045) ;
   - sans consentement `JIRA`, seuls les résultats locaux sont renvoyés, avec `jiraStatus=CONSENT_REQUIRED`, et Jira n'est pas appelé (FR-024).
-- [ ] T099 [P] [US6] Écrire `BT/infrastructure/jira/JiraFormatConverterTest.java` :
+- [X] T099 [P] [US6] Écrire `BT/infrastructure/jira/JiraFormatConverterTest.java` :
   - Markdown vers wiki markup par flexmark-jira-converter : titres, listes, gras, italique, code, tableaux, texte barré ;
   - échappement de `* _ - + ^ ~ { } [ ] |` ;
   - wiki vers Markdown pour l'affichage : titres, listes, gras et code ; tout bloc inconnu est rendu en bloc de code brut.
-- [ ] T100 [P] [US6] Écrire `BT/infrastructure/jira/JiraIssueClientIT.java` (WireMock) :
+- [X] T100 [P] [US6] Écrire `BT/infrastructure/jira/JiraIssueClientIT.java` (WireMock) :
   - `search` avec pagination (`startAt`, `maxResults`) et `fields=summary,status,issuetype,updated` ;
   - `GET /issue/{key}?fields=summary,description,updated` ;
   - `PUT /issue/{key}` avec seulement `fields.description` ;
@@ -443,8 +443,8 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 - [X] T107 [P] [US6] Créer `B/domain/jira/ConflictDetector.java` (comparaison de `updated` et du hash) et `B/domain/jira/ConflictResolution.java` (`OVERWRITE`, `TAKE_JIRA`, `AI_MERGE`)
 - [X] T108 [US6] Créer `BR/db/migration/V5__linked_jira_ticket.sql` (contraintes uniques sur `session_id` et `issue_key`) et `BR/db/migration/V6__fts5_search.sql`. Ce dernier crée la table virtuelle `spec_search(session_id, title, need, markdown)` avec `tokenize='unicode61 remove_diacritics 2'` et les triggers d'insertion, de mise à jour et de suppression sur `session` et `specification_version`.
 - [X] T109 [US6] Implémenter `B/infrastructure/persistence/jira/LinkedTicketJpaRepository.java` (port `B/domain/port/LinkedTicketRepository.java`) et `B/infrastructure/persistence/search/FtsLocalSearch.java` (port `B/domain/port/LocalSearch.java`, requêtes `MATCH` paramétrées) pour faire passer T096
-- [ ] T110 [US6] Implémenter `B/infrastructure/jira/JqlBuilder.java` et `B/infrastructure/jira/JiraFormatConverter.java` pour faire passer T097 et T099
-- [ ] T111 [US6] Étendre `B/domain/port/IssueTracker.java` et `B/infrastructure/jira/JiraRestClient.java` avec `search`, `getIssue` et `updateDescription`. Créer `B/infrastructure/jira/RateLimitHandler.java` : lecture de `Retry-After`, des en-têtes `X-RateLimit-*` et `X-RateLimiting-*` sans tenir compte de la casse. Doit faire passer T100.
+- [X] T110 [US6] Implémenter `B/infrastructure/jira/JqlBuilder.java` et `B/infrastructure/jira/JiraFormatConverter.java` pour faire passer T097 et T099
+- [X] T111 [US6] Étendre `B/domain/port/IssueTracker.java` et `B/infrastructure/jira/JiraRestClient.java` avec `search`, `getIssue` et `updateDescription`. Créer `B/infrastructure/jira/RateLimitHandler.java` : lecture de `Retry-After`, des en-têtes `X-RateLimit-*` et `X-RateLimiting-*` sans tenir compte de la casse. Doit faire passer T100.
 - [ ] T112 [US6] Implémenter `B/application/search/UnifiedSearch.java`, avec un délai de 5 s pour l'appel Jira. Jira n'est interrogé que si le consentement `JIRA` est accordé (`ConsentPolicy`). Doit faire passer T098.
 - [ ] T113 [US6] Écrire les prompts `BR/prompts/edit-specification.txt`, `BR/prompts/merge-conflict.txt` et `BR/prompts/structure-imported-text.txt` (même règle de séparation que T078), puis implémenter `B/application/specification/ProposeAiEdit.java` et `AcceptAiEdit.java`. Les propositions sont gardées en mémoire pendant 30 minutes, et le diff unifié est calculé sur le Markdown. Doit faire passer T102.
 - [ ] T114 [US6] Implémenter `B/application/jira/ImportJiraIssue.java`, `GetJiraIssue.java` et `PushToJira.java`. Chacun commence par `ConsentPolicy.requireGranted(JIRA)`. L'import et `TAKE_JIRA` passent par `LlmClient.structureImportedText`. Doit faire passer T101 et T103.

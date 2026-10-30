@@ -1,6 +1,8 @@
 package dev.specwriter.domain.port;
 
 import dev.specwriter.domain.jira.JiraEndpoint;
+import dev.specwriter.domain.jira.JiraIssue;
+import dev.specwriter.domain.jira.JiraSearchPage;
 import java.util.Map;
 import java.util.Set;
 
@@ -25,4 +27,13 @@ public interface IssueTracker {
 
     /** Droits accordés sur le projet ({@code mypermissions}). */
     Map<String, Boolean> permissions(JiraEndpoint endpoint, String projectKey, Set<String> permissions);
+
+    /** Recherche JQL paginée ({@code search}, champs {@code summary,status,issuetype,updated}). */
+    JiraSearchPage search(JiraEndpoint endpoint, String jql, int startAt, int maxResults);
+
+    /** Lecture d'un ticket ({@code issue/{key}}, champs {@code summary,description,updated}). */
+    JiraIssue getIssue(JiraEndpoint endpoint, String issueKey);
+
+    /** Remplace la description du ticket, et rien d'autre. {@code wikiDescription} est en wiki markup. */
+    void updateDescription(JiraEndpoint endpoint, String issueKey, String wikiDescription);
 }

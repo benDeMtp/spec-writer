@@ -1,6 +1,8 @@
 package dev.specwriter.infrastructure.jira;
 
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -29,6 +31,20 @@ public interface JiraApi extends AutoCloseable {
     @Path("/mypermissions")
     Map<String, Object> myPermissions(@QueryParam("projectKey") String projectKey,
             @QueryParam("permissions") String permissions);
+
+    @GET
+    @Path("/search")
+    Map<String, Object> search(@QueryParam("jql") String jql, @QueryParam("startAt") int startAt,
+            @QueryParam("maxResults") int maxResults, @QueryParam("fields") String fields);
+
+    @GET
+    @Path("/issue/{key}")
+    Map<String, Object> issue(@PathParam("key") String key, @QueryParam("fields") String fields);
+
+    @PUT
+    @Path("/issue/{key}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    void updateIssue(@PathParam("key") String key, Map<String, Object> body);
 
     @Override
     void close();
