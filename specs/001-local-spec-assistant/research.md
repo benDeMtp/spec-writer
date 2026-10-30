@@ -370,6 +370,87 @@ et le mode WAL. Le test est `BT/spike/SqliteHibernateSpikeIT.java`.
   - test SC-009 : après un parcours E2E complet, une recherche de motifs de jetons (`gho_`, `ghu_`,
     jeton Jira factice) dans le dossier de données, les journaux et les exports doit revenir vide.
 
+## R17. Boucle de développement : dev mode Quarkus et serveur MCP Quarkus
+
+Demande du mainteneur (2026-10-30) : développer avec le dev mode et le serveur MCP Quarkus, pour
+que le rechargement à chaud évite les redémarrages. Constats d'un essai du dev mode sur le
+projet (4.0.0.Beta2) :
+
+- Dev MCP existe en Quarkus 4 sous la forme d'une extension de développement à part,
+  `quarkus-devmcp`, ajoutée automatiquement en dev mode. Elle est servie sur `/q/dev-mcp` sans
+  dépendance à déclarer dans le pom.
+- Le serveur MCP `quarkus-agent-mcp` (1.0.10, via jbang) pilote le dev mode : démarrage, arrêt,
+  journaux, outils Dev MCP de l'application, recherche dans la documentation Quarkus et skills par
+  extension. Sa recherche documentaire démarre un conteneur pgvector par Docker.
+- Le proxy local (`127.0.0.1:8118`), imposé à toute JVM par `JAVA_TOOL_OPTIONS`, présente un
+  certificat que Java refuse : jbang ne télécharge plus son catalogue, et Maven ne pourrait plus
+  résoudre les dépendances du dev mode. L'accès direct fonctionne.
+- `StartupGuard` refuse GitHub simulé et le rejeu du LLM hors des profils `test` et `e2e` :
+  le dev mode ne démarre pas avec eux.
+- La validation du schéma par Hibernate après démarrage, propre au dev mode, échoue sur les
+  tables virtuelles FTS5 (`NoSuchElementException` dans l'extraction des colonnes). L'erreur est
+  journalisée sans bloquer le démarrage.
+- `specwriter.port` et `specwriter.data-dir` sont lues comme propriétés système de la JVM (avant
+  la configuration Quarkus) : un réglage `%dev` dans `application.properties` est sans effet.
+- Le proxy de `ng serve` (`changeOrigin: false`) garde l'en-tête `Host: localhost:4200` et
+  l'`Origin` du serveur Angular : `LocalSecurityFilter` refuse alors toutes les requêtes (R14).
+  Le parcours `npm start` de quickstart.md n'a donc jamais fonctionné.
+
+- **Decision** :
+  - **Serveur MCP** enregistré pour le projet (portée locale) avec `JAVA_HOME` en Java 25 et sans
+    `JAVA_TOOL_OPTIONS` (`env -u JAVA_TOOL_OPTIONS jbang quarkus-agent-mcp@quarkusio`). Le dev
+    mode qu'il lance hérite de cet environnement.
+  - **Dev mode déterministe par défaut**, sans aucun compte ni crédit :
+    - GitHub simulé, LLM rejoué depuis `e2e/fixtures/llm` et trousseau simulé, comme en E2E ;
+    - dossier de données `.dev-data/` à la racine du dépôt, ignoré par git, pour ne jamais
+      toucher aux données ni à la base de l'outil installé ;
+    - port 47625, pour cohabiter avec l'outil installé sur 47615 ;
+    - URL de lancement affichée dans le journal, pour obtenir le cookie de session.
+
+    Port et dossier de données passent par la configuration `systemProperties` du goal `dev` de
+    `quarkus-maven-plugin`.
+  - **Profil `live`**, à cumuler avec `dev` (`-Dquarkus.profile=dev,live`, le dernier profil
+    l'emporte) : vrai Copilot, vrai trousseau, aucun rejeu. Il sert aux essais manuels du
+    mainteneur, avec ses propres comptes.
+  - **`StartupGuard`** se fonde sur le mode de lancement de Quarkus (`LaunchMode.DEVELOPMENT` ou
+    `TEST`, ou le profil `e2e`) plutôt que sur le seul nom de profil. Le jar installé tourne
+    toujours en mode `NORMAL` : un simple `-Dquarkus.profile=dev` n'y active pas les simulations.
+  - **Validation Hibernate en dev mode** désactivée (`%dev.quarkus.hibernate-orm.validate-in-dev-mode=false`).
+    Le schéma reste garanti par Flyway et par les tests d'intégration.
+  - **Front** : `ng serve` (rechargement à chaud natif) avec un proxy vers 47625. Le proxy récrit
+    `Host` (`changeOrigin: true`) et `Origin` vers l'adresse du backend : le backend n'a aucune
+    exception de sécurité pour le dev. Le cookie `sw_launch` (`SameSite=Strict`) reste la
+    protection contre les requêtes venues d'autres sites.
+  - **Dev MCP** activé en `%dev` (`quarkus.dev-mcp.enabled=true`) : il est désactivé par défaut,
+    et `/q/dev-mcp` répond « Method Not Found » sans ce réglage.
+  - **Sessions et port stables au rechargement**, deux défauts apparus à la vérification :
+    - chaque rechargement recréait `LaunchTokenService`, ce qui déconnectait le navigateur. En dev
+      mode seul, les cookies de session sont gardés dans `.dev-data/dev-sessions` (`rw-------`) ;
+      le jeton de lancement n'y est jamais écrit ;
+    - `PortSelector` voyait 47625 occupé par le serveur du dev mode lui-même, qui survit au
+      rechargement, et choisissait un autre port pour l'URL affichée. En dev mode, le port
+      configuré est gardé tel quel.
+  - **Tests continus** en pause au démarrage (`%dev.quarkus.test.continuous-testing=paused`).
+    Pendant le TDD, on les relance par les outils Dev MCP, sur les seules classes touchées.
+  - **La gate de commit ne change pas** : `./mvnw verify` (JaCoCo, ArchUnit, SpotBugs, PMD,
+    front), plus la suite E2E sur le jar empaqueté, jamais sur le dev mode.
+- **Rationale** :
+  - le rechargement à chaud évite le cycle « package puis redémarrage » (environ 1 minute) à
+    chaque essai d'un endpoint ou d'un écran ;
+  - les journaux, les exceptions structurées et les tests deviennent accessibles par Dev MCP sans
+    relancer Maven ;
+  - le mode déterministe évite toute consommation d'AI Credits et toute écriture dans le vrai
+    trousseau ou dans la base de l'outil installé.
+- **Alternatives considered** :
+  - dev mode avec le vrai Copilot par défaut : il consomme des crédits et exige la connexion
+    GitHub du mainteneur à chaque session de développement ;
+  - données du dev mode dans `backend/target/` : effacées par chaque `mvn clean`, ce qui perd la
+    configuration Jira de test ;
+  - autoriser l'origine `localhost:4200` dans `LocalSecurityFilter` en dev : c'est une exception de
+    sécurité dans le code livré, là où le proxy de développement suffit ;
+  - tests continus actifs en permanence : chaque modification relancerait les 275 tests, dont
+    les tests d'intégration WireMock, et ralentirait le rechargement.
+
 ## Risques et spikes
 
 | # | Risque | Spike / mitigation |

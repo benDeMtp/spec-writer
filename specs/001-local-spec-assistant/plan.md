@@ -46,6 +46,17 @@ R9). Secrets dans le trousseau du système.
 - golden set rejoué avec un `ChatModel` factice ;
 - suite `eval` (vrai Copilot) dans un profil Maven dédié.
 
+**Development Loop** (research.md R17) :
+- backend en dev mode Quarkus, piloté par le serveur MCP `quarkus-agent-mcp` (démarrage,
+  journaux, outils Dev MCP sur `/q/dev-mcp`, documentation). Le rechargement à chaud remplace le
+  cycle « package puis redémarrage » ;
+- dev mode déterministe par défaut : LLM rejoué, GitHub et trousseau simulés, données dans
+  `.dev-data/`, port 47625. Le profil `live` (`dev,live`) passe au vrai Copilot et au vrai
+  trousseau ;
+- front en `ng serve` (rechargement à chaud), proxy vers 47625 qui récrit `Host` et `Origin` ;
+- tests continus en pause, relancés par Dev MCP pendant le TDD ;
+- gate de commit inchangée : `./mvnw verify`, puis E2E sur le jar empaqueté.
+
 **Target Platform**: poste de travail macOS (arm64 et x64), Windows 10/11 x64, Linux x64 (deb et
 tar.gz). Navigateurs evergreen récents.
 
@@ -88,6 +99,7 @@ Constitution v2.0.0.
 | Sécurité : stockage | Chiffrement au repos « lorsque l'hébergement le permet », rétention définie, suppression | ✅ | ✅ | Droits `rwx------` sur le dossier. Le chiffrement du disque (FileVault, BitLocker, LUKS) est recommandé dans le guide utilisateur. Rétention jusqu'à suppression par l'utilisateur, suppression physique des versions |
 | Sécurité : OWASP | Top 10 et Top 10 LLM | ✅ | ✅ | A01 et A05 (R14), A03 (échappement, JQL nettoyé), LLM01 (séparation des prompts et corpus d'injection), LLM02 (sortie validée par schéma), LLM06 (aucun secret dans les prompts) |
 | Workflow : complexité justifiée | Toute nouvelle couche ou dépendance justifiée | ⚠️ justifiée | ⚠️ justifiée | Voir Complexity Tracking |
+| Workflow : quality gates (amendement R17) | La boucle de développement ne contourne aucune gate | ✅ | ✅ | Dev mode réservé à l'essai : `./mvnw verify` et E2E sur le jar restent obligatoires avant commit. Simulations autorisées par `LaunchMode`, jamais dans le jar installé ; données de dev séparées (`.dev-data/`) ; aucune exception dans `LocalSecurityFilter`. `quarkus-devmcp` est ajouté par le dev mode, aucune dépendance au pom |
 
 **Résultat** : la gate est franchie. Aucune violation n'est laissée sans justification.
 
@@ -116,7 +128,7 @@ specs/001-local-spec-assistant/
 pom.xml                              # Agrégateur Maven (modules frontend, backend)
 frontend/                            # Angular 22, construit par frontend-maven-plugin
 ├── pom.xml
-├── angular.json  package.json  proxy.conf.json
+├── angular.json  package.json  proxy.conf.json   # proxy ng serve vers le dev mode (47625)
 └── src/app/
     ├── core/                        # client HTTP, intercepteur Problem, état des services
     ├── features/
@@ -145,7 +157,7 @@ backend/
     │       ├── secrets/             # adaptateur trousseau, avec timeout et repli mémoire
     │       └── platform/            # dossiers utilisateur OS, ouverture du navigateur, port
     ├── main/resources/
-    │   ├── application.properties
+    │   ├── application.properties   # profils %dev (déterministe) et %live (vrais services)
     │   └── db/migration/            # Flyway (V1__schema.sql, V2__fts5.sql…)
     └── test/
         ├── java/…                   # unit (domain), application, @QuarkusTest, ArchUnit
@@ -155,6 +167,7 @@ backend/
 e2e/                                 # Playwright + axe, démarre le jar (profil e2e)
 ├── package.json  playwright.config.ts
 └── tests/                           # un fichier par user story
+.dev-data/                           # données du dev mode (ignoré par git)
 dist/                                # JReleaser (jpackage dmg / msi / deb / tar.gz), scripts de lancement
 .forgejo/workflows/                  # ci.yml (verify, Linux) et release.yml (matrice 3 OS)
 ci/                                  # verify.sh, check-eval.sh
@@ -169,6 +182,36 @@ l'architecture hexagonale :
 
 Cette structure isole les deux dépendances les plus instables (Copilot SDK en preview, Jira DC
 en fin de vie) et permet des tests déterministes.
+
+## Boucle de développement (amendement du 2026-10-30)
+
+Demandée par le mainteneur : tout développement passe par le dev mode Quarkus et le serveur MCP
+Quarkus (research.md R17). Changements à apporter au dépôt :
+
+| Fichier | Changement |
+|---|---|
+| `backend/pom.xml` | `quarkus-maven-plugin`, goal `dev` : `systemProperties` `specwriter.port=47625` et `specwriter.data-dir=${maven.multiModuleProjectDirectory}/.dev-data` |
+| `application.properties` | `%dev` : GitHub simulé, trousseau simulé, rejeu depuis `../e2e/fixtures/llm`, URL de lancement affichée, `quarkus.hibernate-orm.validate-in-dev-mode=false`, `quarkus.test.continuous-testing=paused`, `quarkus.dev-mcp.enabled=true`. `%live` : annule les trois simulations |
+| `StartupGuard` | autorise les simulations en `LaunchMode.DEVELOPMENT` et `TEST`, ou avec le profil `e2e` ; test unitaire du refus en mode `NORMAL`, y compris avec `-Dquarkus.profile=dev` |
+| `LaunchTokenService`, `PortSelector` | en dev mode, sessions gardées dans `.dev-data/dev-sessions` et port configuré gardé tel quel, pour survivre au rechargement |
+| `frontend/proxy.conf.json` | cible 47625, `changeOrigin: true`, en-tête `Origin` récrit |
+| `.gitignore` | `.dev-data/` |
+| `quickstart.md` | commandes de la boucle de développement |
+| `CLAUDE.md` (racine) | règle de travail : dev mode via le serveur MCP Quarkus pour développer, `./mvnw verify` et E2E avant commit |
+
+Usage pendant l'implémentation :
+1. démarrer le backend avec `quarkus_start`, puis vérifier `quarkus_status` ;
+2. écrire le test, puis le code ; le dev mode recharge au premier accès HTTP ;
+3. exécuter les tests ciblés par les outils Dev MCP (`quarkus_searchTools` pour les découvrir), et
+   lire erreurs et exceptions par `quarkus_logs` ;
+4. essayer les endpoints sur `http://127.0.0.1:47625`, avec le cookie obtenu par l'URL de lancement
+   du journal ;
+5. avant chaque commit : arrêter le dev mode, lancer `./mvnw verify`, puis les E2E sur le jar.
+
+Hors du rechargement à chaud, un redémarrage reste nécessaire pour : une modification du pom, une
+nouvelle extension, une propriété de build (`quarkus_restart`). Une migration Flyway déjà
+appliquée à `.dev-data/` n'est jamais modifiée : on en ajoute une nouvelle, ou on vide
+`.dev-data/`.
 
 ## Complexity Tracking
 

@@ -25,9 +25,21 @@ Les références renvoient à [spec.md](spec.md), [data-model.md](data-model.md)
 # Build complet : front + back + tests unitaires et d'intégration + couverture
 ./mvnw verify
 
-# Mode développement : backend avec rechargement à chaud, et front séparé avec proxy
-./mvnw -pl backend quarkus:dev
+# Mode développement (research.md R17) : backend avec rechargement à chaud sur 127.0.0.1:47625,
+# données dans .dev-data/, LLM rejoué, GitHub et trousseau simulés. L'URL de lancement
+# (cookie de session) est affichée dans le journal.
+# Sans le proxy local de JAVA_TOOL_OPTIONS, que Java refuse ; JAVA_HOME en Java 25.
+env -u JAVA_TOOL_OPTIONS ./mvnw -pl backend quarkus:dev
+# Même chose avec le vrai Copilot et le vrai trousseau (consomme des AI Credits)
+env -u JAVA_TOOL_OPTIONS ./mvnw -pl backend quarkus:dev -Dquarkus.profile=dev,live
+# Front avec rechargement à chaud sur http://localhost:4200 (proxy /api vers 47625) ;
+# ouvrir l'URL de lancement du journal en remplaçant 127.0.0.1:47625 par localhost:4200.
+# La session survit aux rechargements à chaud du backend (.dev-data/dev-sessions).
 npm --prefix frontend start
+
+# Pilotage par un agent : serveur MCP Quarkus, enregistré pour le projet
+claude mcp add quarkus-agent -s local -e JAVA_HOME=$HOME/.sdkman/candidates/java/25.0.2.r25-mandrel \
+  -- env -u JAVA_TOOL_OPTIONS jbang quarkus-agent-mcp@quarkusio
 
 # Tests E2E et accessibilité (jar et WireMock démarrés par le globalSetup, LLM et Jira simulés).
 # Prérequis : jar construit (./mvnw package -DskipTests), JAVA_HOME en Java 25,
