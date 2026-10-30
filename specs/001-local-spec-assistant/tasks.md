@@ -470,16 +470,16 @@ contient le résumé, les use cases, les scénarios d'acceptation et les hypoth�
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T120 [P] [US4] Écrire `BT/infrastructure/web/ExportResourceIT.java`. `GET /api/sessions/{id}/versions/{n}/export` renvoie `text/markdown; charset=UTF-8`, avec un `Content-Disposition` contenant un nom de fichier nettoyé (`<nom-session>-v<n>.md`, sans `/`, `\` ni `..`) et le corps identique à `SpecificationVersion.markdown`.
-- [ ] T121 [P] [US4] Écrire `F/features/specification/export.service.spec.ts` :
+- [X] T120 [P] [US4] Écrire `BT/infrastructure/web/ExportResourceIT.java`. `GET /api/sessions/{id}/versions/{n}/export` renvoie `text/markdown; charset=UTF-8`, avec un `Content-Disposition` contenant un nom de fichier nettoyé (`<nom-session>-v<n>.md`, sans `/`, `\` ni `..`) et le corps identique à `SpecificationVersion.markdown`.
+- [X] T121 [P] [US4] Écrire `F/features/specification/export.service.spec.ts` :
   - avec `showSaveFilePicker` disponible, le sélecteur s'ouvre avec le nom proposé ; le navigateur gère la confirmation d'écrasement (FR-020) ;
   - sinon, repli sur un téléchargement classique.
-- [ ] T122 [P] [US4] Écrire `E/us4-export.spec.ts` (Playwright + axe) : scénario V10, avec vérification du contenu du fichier téléchargé (résumé, use cases, scénarios et hypothèses)
+- [X] T122 [P] [US4] Écrire `E/us4-export.spec.ts` (Playwright + axe) : scénario V10, avec vérification du contenu du fichier téléchargé (résumé, use cases, scénarios et hypothèses)
 
 ### Implementation for User Story 4
 
-- [ ] T123 [US4] Implémenter `B/infrastructure/web/ExportResource.java` pour faire passer T120
-- [ ] T124 [US4] Implémenter `F/features/specification/export.service.ts` et le bouton « Exporter en Markdown » dans `F/features/specification/specification.page.ts` pour faire passer T121 et T122
+- [X] T123 [US4] Implémenter l'export pour faire passer T120 : route ajoutée à `B/infrastructure/web/VersionResource.java`, qui sert déjà `/api/sessions/{id}/versions`, et nom de fichier dans `B/infrastructure/web/ExportFileName.java`
+- [X] T124 [US4] Implémenter `F/features/specification/export.service.ts` et le bouton « Exporter en Markdown » dans `F/features/specification/specification.page.ts` pour faire passer T121 et T122
 
 **Checkpoint** : la spécification sort de l'outil.
 

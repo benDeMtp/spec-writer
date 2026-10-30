@@ -19,6 +19,7 @@ import { ScenarioComponent } from '../../shared/ui/scenario.component';
 import { AiEditPanelComponent } from '../ai-edit/ai-edit.panel';
 import { ConflictDialogComponent } from '../jira/conflict-dialog.component';
 import { PushDialogComponent, PushDialogData } from '../jira/push-dialog.component';
+import { ExportService } from './export.service';
 import { VersionsPanelComponent } from './versions-panel.component';
 
 const SYNC: Record<SyncState, string> = {
@@ -50,6 +51,9 @@ const SYNC: Record<SyncState, string> = {
         <div class="actions">
           <button mat-flat-button type="button" [attr.aria-expanded]="editing()" (click)="toggleEdit()">
             Faire évoluer avec l'IA
+          </button>
+          <button mat-stroked-button type="button" [disabled]="exporting()" (click)="exportMarkdown(v.number)">
+            Exporter en Markdown
           </button>
           @if (session()?.linkedTicket) {
             <button mat-stroked-button type="button" [disabled]="pushing()" (click)="push(v.number)">Envoyer vers Jira</button>
@@ -268,6 +272,7 @@ export class SpecificationPage {
   private readonly dialog = inject(MatDialog);
   private readonly consent = inject(ConsentGate);
   private readonly router = inject(Router);
+  private readonly exporter = inject(ExportService);
 
   readonly id = input.required<string>();
   readonly n = input.required<string>();
@@ -277,6 +282,7 @@ export class SpecificationPage {
   protected readonly editing = signal(false);
   protected readonly mergeProposal = signal<Proposal | null>(null);
   protected readonly pushing = signal(false);
+  protected readonly exporting = signal(false);
   protected readonly status = signal('');
   /** Avertissements transmis par la page précédente (description Jira tronquée à l'import). */
   protected readonly warnings = signal<string[]>(
@@ -302,6 +308,23 @@ export class SpecificationPage {
         untracked(() => this.editing.set(true));
       }
     });
+  }
+
+  /** Export Markdown (FR-019) ; le navigateur confirme avant d'écraser un fichier existant (FR-020). */
+  protected async exportMarkdown(versionNumber: number): Promise<void> {
+    this.exporting.set(true);
+    try {
+      const outcome = await this.exporter.exportMarkdown(this.id(), versionNumber);
+      this.status.set(
+        outcome === 'cancelled'
+          ? 'Export annulé.'
+          : `Version ${versionNumber} exportée en Markdown${outcome === 'downloaded' ? ' dans vos téléchargements' : ''}.`,
+      );
+    } catch {
+      this.status.set('');
+    } finally {
+      this.exporting.set(false);
+    }
   }
 
   protected syncLabel(state: SyncState): string {

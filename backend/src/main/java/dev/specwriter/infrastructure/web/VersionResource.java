@@ -8,6 +8,8 @@ import dev.specwriter.domain.jira.LinkedJiraTicket;
 import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
+import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.specification.SpecificationVersion;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -57,6 +59,20 @@ public class VersionResource {
         UUID sessionId = existing(id);
         return versions.find(sessionId, number).map(SessionViews::specification)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+    }
+
+    /** Markdown de la version, en pièce jointe (FR-019). La confirmation d'écrasement revient au navigateur. */
+    @GET
+    @Path("/{n}/export")
+    @Produces("text/markdown; charset=UTF-8")
+    public Response export(@PathParam("id") String id, @PathParam("n") int number) {
+        UUID sessionId = Ids.parse(id);
+        Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationVersion version = versions.find(sessionId, number)
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        return Response.ok(version.markdown(), "text/markdown; charset=UTF-8")
+                .header("Content-Disposition", ExportFileName.contentDisposition(ExportFileName.of(session.name(), number)))
+                .build();
     }
 
     private UUID existing(String id) {
