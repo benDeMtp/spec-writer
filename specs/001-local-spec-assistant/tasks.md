@@ -267,11 +267,11 @@ chaque scénario est rattaché à un use case lui-même rattaché au besoin ou �
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T058 [P] [US2] Écrire `BT/domain/session/NeedTest.java` :
+- [X] T058 [P] [US2] Écrire `BT/domain/session/NeedTest.java` :
   - « 10 mots minimum, 10 000 caractères maximum » : sinon `NEED_TOO_SHORT` ou `NEED_TOO_LONG`, avec l'exemple de besoin bien formulé dans le `userMessage` ;
   - le texte reste non modifiable après le début du questionnaire.
-- [ ] T059 [P] [US2] Écrire `BT/domain/session/LanguageDetectorTest.java` : un besoin en français donne `fr`, un besoin en anglais donne `en`, et un cas ambigu donne `fr` par défaut (FR-015)
-- [ ] T060 [P] [US2] Écrire `BT/domain/question/QuestionnaireTest.java` :
+- [X] T059 [P] [US2] Écrire `BT/domain/session/LanguageDetectorTest.java` : un besoin en français donne `fr`, un besoin en anglais donne `en`, et un cas ambigu donne `fr` par défaut (FR-015)
+- [X] T060 [P] [US2] Écrire `BT/domain/question/QuestionnaireTest.java` :
   - états « `PENDING`, `ANSWERED`, `SKIPPED`, `OBSOLETE` » et leurs transitions ;
   - lot de « 5 questions au maximum » ;
   - `rationale` obligatoire, `label` de 500 caractères au maximum, `suggestions` « 0 à 5 entrées » ;
@@ -280,13 +280,13 @@ chaque scénario est rattaché à un use case lui-même rattaché au besoin ou �
   - une question dont le thème est déjà couvert par le besoin n'est pas ajoutée (FR-002) ;
   - une question `CONTRADICTION` doit avoir une réponse avant la génération (FR-008) ;
   - la progression compte les questions répondues, passées et totales.
-- [ ] T061 [P] [US2] Écrire `BT/domain/scenario/ScenarioStructureValidatorTest.java`, avec un cas par règle 1 à 8 de [contracts/scenario-format.md](contracts/scenario-format.md) : `asA` non vide, `when` et `then` non vides, `given` facultatif mais sans entrée vide, `useCaseCode` existant, code `SC-<nn>-<nn>` unique, 1 000 caractères au maximum par champ, mention Hypothèse
-- [ ] T062 [P] [US2] Écrire `BT/domain/specification/TraceabilityValidatorTest.java` :
+- [X] T061 [P] [US2] Écrire `BT/domain/scenario/ScenarioStructureValidatorTest.java`, avec un cas par règle 1 à 8 de [contracts/scenario-format.md](contracts/scenario-format.md) : `asA` non vide, `when` et `then` non vides, `given` facultatif mais sans entrée vide, `useCaseCode` existant, code `SC-<nn>-<nn>` unique, 1 000 caractères au maximum par champ, mention Hypothèse
+- [X] T062 [P] [US2] Écrire `BT/domain/specification/TraceabilityValidatorTest.java` :
   - chaque use case a un `SourceRef` (`NEED_EXCERPT | ANSWER | ASSUMPTION`) ;
   - une source `ASSUMPTION` est aussi listée dans les hypothèses ;
   - chaque scénario référence un use case de la version (FR-011, FR-013).
-- [ ] T063 [P] [US2] Écrire `BT/domain/specification/IdentifierAssignerTest.java` (codes `UC-01`, `SC-01-01`, `H-01`, `EF-01` et `ET-01` attribués dans l'ordre, quelle que soit la sortie du LLM) et `BT/domain/specification/InputFingerprintTest.java` (SHA-256 stable de besoin, réponses, version de l'outil et langue, indépendant de l'ordre de stockage)
-- [ ] T064 [P] [US2] Écrire `BT/domain/specification/MarkdownRendererTest.java`. Vérifier :
+- [X] T063 [P] [US2] Écrire `BT/domain/specification/IdentifierAssignerTest.java` (codes `UC-01`, `SC-01-01`, `H-01`, `EF-01` et `ET-01` attribués dans l'ordre, quelle que soit la sortie du LLM) et `BT/domain/specification/InputFingerprintTest.java` (SHA-256 stable de besoin, réponses, version de l'outil et langue, indépendant de l'ordre de stockage)
+- [X] T064 [P] [US2] Écrire `BT/domain/specification/MarkdownRendererTest.java`. Vérifier :
   - le rendu exact de l'exemple de [contracts/scenario-format.md](contracts/scenario-format.md) ;
   - les mots-clés en français et en anglais ;
   - l'échappement Markdown des caractères `|`, `*`, `#`, `{` et `[` dans le texte saisi ;
@@ -309,16 +309,16 @@ chaque scénario est rattaché à un use case lui-même rattaché au besoin ou �
 
 ### Implementation for User Story 2
 
-- [ ] T072 [P] [US2] Créer `B/domain/session/Session.java`, `Need.java`, `SessionState.java` et `LanguageDetector.java`.
+- [X] T072 [P] [US2] Créer `B/domain/session/Session.java`, `Need.java`, `SessionState.java` et `LanguageDetector.java`.
   - `name` fait 1 à 120 caractères ; par défaut, les premiers mots du besoin.
   - `language` vaut `fr` ou `en`.
   - `origin` vaut `LOCAL` ou `JIRA_IMPORT`.
   - États : `QUESTIONING` → `READY_TO_GENERATE` → `GENERATED`, et retour à `QUESTIONING` quand une réponse change.
 
   Doit faire passer T058 et T059.
-- [ ] T073 [P] [US2] Créer `B/domain/question/Question.java`, `QuestionTheme.java` (`ACTORS`, `GOAL`, `NOMINAL_FLOW`, `BUSINESS_RULES`, `ERRORS`, `EDGE_CASES`, `NON_FUNCTIONAL`, `CONTRADICTION`), `Answer.java` et `Questionnaire.java` (lots, progression, couverture des thèmes de FR-003) pour faire passer T060
-- [ ] T074 [P] [US2] Créer `B/domain/specification/SpecificationVersion.java` (origine `GENERATED`, `AI_EDIT`, `JIRA_IMPORT` ou `CONFLICT_MERGE` ; jamais modifiée), `UseCase.java`, `SourceRef.java`, `Assumption.java` (origine `SKIPPED_QUESTION` ou `TOOL_INFERENCE`), `Requirement.java` (`FUNCTIONAL` ou `TECHNICAL`) et `B/domain/scenario/AcceptanceScenario.java` (type `NOMINAL`, `ERROR` ou `EDGE`)
-- [ ] T075 [US2] Implémenter `B/domain/scenario/ScenarioStructureValidator.java`, `B/domain/specification/TraceabilityValidator.java`, `IdentifierAssigner.java`, `InputFingerprint.java` et `MarkdownRenderer.java` pour faire passer T061 à T064
+- [X] T073 [P] [US2] Créer `B/domain/question/Question.java`, `QuestionTheme.java` (`ACTORS`, `GOAL`, `NOMINAL_FLOW`, `BUSINESS_RULES`, `ERRORS`, `EDGE_CASES`, `NON_FUNCTIONAL`, `CONTRADICTION`), `Answer.java` et `Questionnaire.java` (lots, progression, couverture des thèmes de FR-003) pour faire passer T060
+- [X] T074 [P] [US2] Créer `B/domain/specification/SpecificationVersion.java` (origine `GENERATED`, `AI_EDIT`, `JIRA_IMPORT` ou `CONFLICT_MERGE` ; jamais modifiée), `UseCase.java`, `SourceRef.java`, `Assumption.java` (origine `SKIPPED_QUESTION` ou `TOOL_INFERENCE`), `Requirement.java` (`FUNCTIONAL` ou `TECHNICAL`) et `B/domain/scenario/AcceptanceScenario.java` (type `NOMINAL`, `ERROR` ou `EDGE`)
+- [X] T075 [US2] Implémenter `B/domain/scenario/ScenarioStructureValidator.java`, `B/domain/specification/TraceabilityValidator.java`, `IdentifierAssigner.java`, `InputFingerprint.java` et `MarkdownRenderer.java` pour faire passer T061 à T064
 - [ ] T076 [US2] Créer `BR/db/migration/V3__session_question.sql` (tables `session`, `question` avec la colonne `depends_on` en JSON, `answer` avec la contrainte unique `question_id`) et `BR/db/migration/V4__specification.sql` (tables `specification_version` avec `unique(session_id, number)` et l'index `input_fingerprint`, puis `use_case`, `acceptance_scenario`, `assumption` et `requirement`), avec suppression en cascade à partir de `session`
 - [ ] T077 [US2] Implémenter `B/infrastructure/persistence/session/SessionJpaRepository.java` et `B/infrastructure/persistence/specification/SpecificationJpaRepository.java`, derrière les ports `B/domain/port/SessionRepository.java` et `B/domain/port/SpecificationRepository.java`
 - [ ] T078 [US2] Écrire les messages système `BR/prompts/propose-questions.txt` et `BR/prompts/generate-specification.txt`.
