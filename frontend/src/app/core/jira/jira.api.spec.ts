@@ -57,3 +57,29 @@ describe('JiraApi.push', () => {
     expect(show).toHaveBeenCalledWith(expect.objectContaining({ code: 'JIRA_UNREACHABLE', status: 503 }));
   });
 });
+
+describe('JiraApi création', () => {
+  let api: JiraApi;
+  let ctrl: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    api = TestBed.inject(JiraApi);
+    ctrl = TestBed.inject(HttpTestingController);
+  });
+
+  it("l'aperçu transmet le type choisi, et seulement s'il l'est", async () => {
+    void api.preview('s1', 1);
+    expect(ctrl.expectOne('/api/sessions/s1/jira/preview').request.body).toEqual({ versionNumber: 1 });
+    void api.preview('s1', 1, '10002');
+    expect(ctrl.expectOne('/api/sessions/s1/jira/preview').request.body).toEqual({ versionNumber: 1, issueTypeId: '10002' });
+  });
+
+  it('crée le ticket avec la confirmation, le type et les champs obligatoires', async () => {
+    const result = api.create('s1', 1, '10001', { customfield_1: '1' });
+    const req = ctrl.expectOne({ method: 'POST', url: '/api/sessions/s1/jira' });
+    expect(req.request.body).toEqual({ confirm: true, versionNumber: 1, issueTypeId: '10001', extraFields: { customfield_1: '1' } });
+    req.flush({ issueKey: 'PROJ-42', issueUrl: 'u', syncState: 'IN_SYNC', linkedVersionNumber: 1 });
+    expect((await result).issueKey).toBe('PROJ-42');
+  });
+});

@@ -40,7 +40,7 @@ public class GetJiraIssue {
         try {
             return tracker.getIssue(target.endpoint(), issueKey);
         } catch (IssueTrackerException e) {
-            throw new DomainException(e.errorCode());
+            throw e.toDomain();
         }
     }
 }

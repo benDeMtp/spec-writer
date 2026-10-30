@@ -8,6 +8,7 @@ import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import {
   Language,
+  LinkedTicket,
   SessionDetail,
   Specification,
   SyncState,
@@ -17,7 +18,9 @@ import {
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ScenarioComponent } from '../../shared/ui/scenario.component';
 import { AiEditPanelComponent } from '../ai-edit/ai-edit.panel';
+import { SettingsStore } from '../../core/settings/settings.store';
 import { ConflictDialogComponent } from '../jira/conflict-dialog.component';
+import { CreateTicketDialogComponent, CreateTicketDialogData } from '../jira/create-ticket-dialog.component';
 import { PushDialogComponent, PushDialogData } from '../jira/push-dialog.component';
 import { ExportService } from './export.service';
 import { VersionsPanelComponent } from './versions-panel.component';
@@ -57,11 +60,27 @@ const SYNC: Record<SyncState, string> = {
           </button>
           @if (session()?.linkedTicket) {
             <button mat-stroked-button type="button" [disabled]="pushing()" (click)="push(v.number)">Envoyer vers Jira</button>
+          } @else if (session()) {
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="!jiraReady() || pushing()"
+              [attr.aria-describedby]="jiraReady() ? null : 'jira-missing'"
+              (click)="createTicket(v.number)"
+            >
+              Créer un ticket Jira
+            </button>
           }
           @if (session()?.origin !== 'JIRA_IMPORT') {
             <a mat-button [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
           }
         </div>
+        @if (session() && !session()?.linkedTicket && !jiraReady()) {
+          <p id="jira-missing" class="hint">
+            Pour créer un ticket, renseignez le serveur, le projet et le jeton Jira dans
+            <a routerLink="/configuration">la configuration</a>.
+          </p>
+        }
         <p role="status" aria-live="polite" class="announce">{{ status() }}</p>
         @if (editing()) {
           <sw-ai-edit-panel
@@ -178,6 +197,10 @@ const SYNC: Record<SyncState, string> = {
       flex-wrap: wrap;
       gap: 0.5rem;
     }
+    .hint {
+      margin: 0.5rem 0 0;
+      color: var(--sw-ink-soft);
+    }
     .announce:empty {
       display: none;
     }
@@ -273,6 +296,7 @@ export class SpecificationPage {
   private readonly consent = inject(ConsentGate);
   private readonly router = inject(Router);
   private readonly exporter = inject(ExportService);
+  private readonly settings = inject(SettingsStore);
 
   readonly id = input.required<string>();
   readonly n = input.required<string>();
@@ -292,6 +316,11 @@ export class SpecificationPage {
   protected readonly spec = signal<Specification | null>(null);
   protected readonly session = signal<SessionDetail | null>(null);
   protected readonly versions = signal<VersionSummary[]>([]);
+  /** Jira configuré : serveur, projet par défaut et jeton (FR-036). */
+  protected readonly jiraReady = computed(() => {
+    const j = this.settings.jira();
+    return !!j && j.enabled && j.tokenSet && !!j.defaultProjectKey;
+  });
   protected readonly language = computed<Language>(() => this.session()?.language ?? 'fr');
   protected readonly functional = computed(() => this.spec()?.requirements.filter((r) => r.category === 'FUNCTIONAL') ?? []);
   protected readonly technical = computed(() => this.spec()?.requirements.filter((r) => r.category === 'TECHNICAL') ?? []);
@@ -303,6 +332,7 @@ export class SpecificationPage {
       const n = Number(this.n());
       void this.load(id, n);
     });
+    void this.settings.ensureLoaded();
     effect(() => {
       if (this.edit()) {
         untracked(() => this.editing.set(true));
@@ -345,6 +375,30 @@ export class SpecificationPage {
     this.closeEdit();
     this.status.set(`Version ${version.number} créée. Jira n'a pas été modifié.`);
     await this.router.navigate(['/sessions', this.id(), 'versions', String(version.number)]);
+  }
+
+  /** Aperçu (type, champs obligatoires) puis création sur confirmation (FR-036 à FR-038). */
+  protected async createTicket(versionNumber: number): Promise<void> {
+    if (!(await this.consent.ensure('JIRA'))) {
+      return;
+    }
+    this.pushing.set(true);
+    try {
+      const data: CreateTicketDialogData = { sessionId: this.id(), versionNumber };
+      const ticket = await firstValueFrom(
+        this.dialog.open<CreateTicketDialogComponent, CreateTicketDialogData, LinkedTicket>(CreateTicketDialogComponent, {
+          data,
+          width: '48rem',
+        }).afterClosed(),
+      );
+      if (ticket) {
+        this.status.set(`Ticket ${ticket.issueKey} créé depuis la version ${versionNumber}.`);
+        this.session.set(await this.api.get(this.id()));
+        this.versions.set(await this.api.versions(this.id()));
+      }
+    } finally {
+      this.pushing.set(false);
+    }
   }
 
   /** Aperçu puis envoi ; en cas de conflit, l'utilisateur choisit entre trois issues (FR-047, FR-048). */

@@ -16,11 +16,32 @@ export interface Proposal {
   unifiedDiff: string;
 }
 
+export interface IssueType {
+  id: string;
+  name: string;
+}
+
+export type RequiredFieldKind = 'TEXT' | 'NUMBER' | 'DATE' | 'OPTION' | 'OPTIONS' | 'UNSUPPORTED';
+
+/** Champ obligatoire du type de ticket, à remplir avant la création (FR-036b). */
+export interface RequiredField {
+  id: string;
+  name: string;
+  kind: RequiredFieldKind;
+  options: { id: string; label: string }[];
+}
+
+/** En mode UPDATE, seuls mode, issueKey, summary et descriptionWiki sont renseignés. */
 export interface PushPreview {
   mode: 'CREATE' | 'UPDATE';
-  issueKey: string;
+  issueKey: string | null;
+  projectKey: string | null;
+  issueTypes: IssueType[] | null;
+  defaultIssueTypeId: string | null;
+  issueTypeId: string | null;
   summary: string;
   descriptionWiki: string;
+  requiredFields: RequiredField[] | null;
 }
 
 export type ConflictResolution = 'OVERWRITE' | 'TAKE_JIRA' | 'AI_MERGE';

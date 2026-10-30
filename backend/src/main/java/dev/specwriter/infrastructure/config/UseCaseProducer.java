@@ -1,10 +1,11 @@
 package dev.specwriter.infrastructure.config;
 
 import dev.specwriter.application.consent.UpdateConsent;
+import dev.specwriter.application.jira.CreateJiraTicket;
 import dev.specwriter.application.jira.GetJiraIssue;
 import dev.specwriter.application.jira.ImportJiraIssue;
 import dev.specwriter.application.jira.JiraAccess;
-import dev.specwriter.application.jira.PreviewJiraPush;
+import dev.specwriter.application.jira.PreviewJiraTicket;
 import dev.specwriter.application.jira.PushToJira;
 import dev.specwriter.application.search.UnifiedSearch;
 import dev.specwriter.application.session.AnswerQuestion;
@@ -199,7 +200,15 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    PreviewJiraPush previewJiraPush(SpecificationRepository versions, LinkedTicketRepository tickets, WikiMarkup markup) {
-        return new PreviewJiraPush(versions, tickets, markup);
+    PreviewJiraTicket previewJiraTicket(SpecificationRepository versions, LinkedTicketRepository tickets, WikiMarkup markup,
+            IssueTracker tracker, JiraAccess jira) {
+        return new PreviewJiraTicket(versions, tickets, markup, tracker, jira);
+    }
+
+    @Produces
+    @ApplicationScoped
+    CreateJiraTicket createJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SessionRepository sessions,
+            SpecificationRepository versions, LinkedTicketRepository tickets, ClockPort clock) {
+        return new CreateJiraTicket(tracker, jira, markup, sessions, versions, tickets, clock);
     }
 }

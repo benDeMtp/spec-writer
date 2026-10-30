@@ -1,12 +1,15 @@
 package dev.specwriter.infrastructure.jira;
 
+import dev.specwriter.domain.jira.CreatedIssue;
 import dev.specwriter.domain.jira.IssueTrackerException;
 import dev.specwriter.domain.jira.IssueTrackerException.Kind;
 import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
 import dev.specwriter.domain.jira.JiraIssueSummary;
+import dev.specwriter.domain.jira.IssueType;
 import dev.specwriter.domain.jira.JiraSearchPage;
 import dev.specwriter.domain.jira.LinkedJiraTicket;
+import dev.specwriter.domain.jira.RequiredField;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IssueTracker;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
@@ -26,11 +29,13 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -114,6 +119,118 @@ public class JiraRestClient implements IssueTracker {
             api.updateIssue(issueKey, Map.of("fields", Map.of("description", wikiDescription)));
             return null;
         });
+    }
+
+    static final int META_PAGE = 100;
+    /** Garde-fou : un projet n'a pas des milliers de types ou de champs. */
+    static final int META_MAX_PAGES = 10;
+
+    @Override
+    public List<IssueType> issueTypes(JiraEndpoint endpoint, String projectKey) {
+        List<IssueType> types = new ArrayList<>();
+        for (Map<?, ?> v : pages(endpoint, (api, start) -> api.createMetaIssueTypes(projectKey, start, META_PAGE))) {
+            if (!Boolean.TRUE.equals(v.get("subtask"))) {
+                types.add(new IssueType(String.valueOf(v.get("id")), text(v.get("name"))));
+            }
+        }
+        return types;
+    }
+
+    @Override
+    public List<RequiredField> requiredFields(JiraEndpoint endpoint, String projectKey, String issueTypeId) {
+        List<RequiredField> fields = new ArrayList<>();
+        for (Map<?, ?> v : pages(endpoint, (api, start) -> api.createMetaFields(projectKey, issueTypeId, start, META_PAGE))) {
+            if (Boolean.TRUE.equals(v.get("required")) && !Boolean.TRUE.equals(v.get("hasDefaultValue"))) {
+                fields.add(field(v));
+            }
+        }
+        return fields;
+    }
+
+    @Override
+    public CreatedIssue createIssue(JiraEndpoint endpoint, String projectKey, String issueTypeId, String summary,
+            String wikiDescription, Map<String, Object> extraFields) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("project", Map.of("key", projectKey));
+        fields.put("issuetype", Map.of("id", issueTypeId));
+        fields.put("summary", summary);
+        fields.put("description", wikiDescription);
+        fields.putAll(extraFields);
+        Map<String, Object> created = call(endpoint, api -> {
+            try {
+                return api.createIssue(Map.of("fields", fields));
+            } catch (WebApplicationException e) {
+                if (e.getResponse() != null && e.getResponse().getStatus() == 400) {
+                    throw new IssueTrackerException(Kind.REJECTED, "Jira a refusé la création", e, rejection(e));
+                }
+                throw e;
+            }
+        });
+        return new CreatedIssue(String.valueOf(created.get("id")), String.valueOf(created.get("key")));
+    }
+
+    /** Causes d'un 400 de Jira : {@code errorMessages} et {@code errors} (champ : message). Jamais journalisées. */
+    private static List<String> rejection(WebApplicationException e) {
+        List<String> details = new ArrayList<>();
+        try {
+            Map<?, ?> body = e.getResponse().readEntity(Map.class);
+            if (body.get("errorMessages") instanceof List<?> messages) {
+                messages.forEach(m -> details.add(String.valueOf(m)));
+            }
+            if (body.get("errors") instanceof Map<?, ?> errors) {
+                errors.forEach((field, message) -> details.add(field + " : " + message));
+            }
+        } catch (RuntimeException unreadable) {
+            LOG.debug("Corps d'erreur Jira illisible", unreadable);
+        }
+        return details;
+    }
+
+    private static RequiredField field(Map<?, ?> v) {
+        Map<?, ?> schema = map(v.get("schema"));
+        String type = text(schema.get("type"));
+        List<RequiredField.Option> options = new ArrayList<>();
+        if (v.get("allowedValues") instanceof List<?> allowed) {
+            for (Object o : allowed) {
+                if (o instanceof Map<?, ?> m) {
+                    Object label = m.get("name") != null ? m.get("name") : m.get("value");
+                    options.add(new RequiredField.Option(String.valueOf(m.get("id")), String.valueOf(label)));
+                }
+            }
+        }
+        RequiredField.Kind kind;
+        if (!options.isEmpty()) {
+            kind = "array".equals(type) ? RequiredField.Kind.OPTIONS : RequiredField.Kind.OPTION;
+        } else if ("string".equals(type)) {
+            kind = RequiredField.Kind.TEXT;
+        } else if ("number".equals(type)) {
+            kind = RequiredField.Kind.NUMBER;
+        } else if ("date".equals(type)) {
+            kind = RequiredField.Kind.DATE;
+        } else {
+            kind = RequiredField.Kind.UNSUPPORTED;
+        }
+        return new RequiredField(String.valueOf(v.get("fieldId")), text(v.get("name")), kind, options);
+    }
+
+    /** Valeurs ({@code values}) de toutes les pages d'une ressource createmeta. */
+    private List<Map<?, ?>> pages(JiraEndpoint endpoint, BiFunction<JiraApi, Integer, Map<String, Object>> page) {
+        List<Map<?, ?>> values = new ArrayList<>();
+        for (int i = 0, start = 0; i < META_MAX_PAGES; i++) {
+            int from = start;
+            Map<String, Object> body = call(endpoint, api -> page.apply(api, from));
+            List<?> list = body.get("values") instanceof List<?> l ? l : List.of();
+            list.forEach(o -> {
+                if (o instanceof Map<?, ?> m) {
+                    values.add(m);
+                }
+            });
+            start += list.size();
+            if (list.isEmpty() || start >= number(body.get("total"), start)) {
+                break;
+            }
+        }
+        return values;
     }
 
     private static void requireKey(String issueKey) {

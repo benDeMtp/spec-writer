@@ -263,21 +263,40 @@ paths:
     parameters: [{ $ref: '#/components/parameters/SessionId' }]
     post:
       summary: Aperçu de création ou d'envoi (FR-036, FR-037, FR-047) ; types de ticket et champs obligatoires du projet
-      requestBody: { content: { application/json: { schema: { type: object, properties: { versionNumber: { type: integer } } } } } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                versionNumber: { type: integer }
+                issueTypeId: { type: string, description: Type choisi ; absent, le type par défaut (création seulement) }
       responses:
         '200':
           content:
             application/json:
               schema:
                 type: object
+                description: En mode UPDATE (session liée), seuls mode, issueKey, summary et descriptionWiki sont renseignés, sans appel à Jira.
                 properties:
                   mode: { enum: [CREATE, UPDATE] }
                   projectKey: { type: string }
+                  issueKey: { type: string, nullable: true }
+                  issueTypeId: { type: string, description: Type dont les champs obligatoires sont listés }
                   issueTypes: { type: array, items: { type: object, properties: { id: { type: string }, name: { type: string } } } }
                   defaultIssueTypeId: { type: string, description: Story si disponible (FR-036a) }
                   summary: { type: string }
                   descriptionWiki: { type: string }
-                  requiredFields: { type: array, items: { type: object, properties: { id: { type: string }, name: { type: string }, schema: { type: object } } } }
+                  requiredFields:
+                    type: array
+                    description: Champs obligatoires sans valeur par défaut, hors résumé, description, projet, type et rapporteur
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        kind: { enum: [TEXT, NUMBER, DATE, OPTION, OPTIONS, UNSUPPORTED] }
+                        options: { type: array, items: { type: object, properties: { id: { type: string }, label: { type: string } } } }
   /api/sessions/{id}/jira:
     parameters: [{ $ref: '#/components/parameters/SessionId' }]
     post:

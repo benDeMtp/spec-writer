@@ -9,17 +9,17 @@ import dev.specwriter.domain.session.Session;
 import dev.specwriter.support.JiraWorld;
 import org.junit.jupiter.api.Test;
 
-class PreviewJiraPushTest {
+class PreviewJiraTicketTest {
 
     final JiraWorld w = new JiraWorld();
-    final PreviewJiraPush preview = new PreviewJiraPush(w.versions, w.tickets, w.markup);
+    final PreviewJiraTicket preview = new PreviewJiraTicket(w.versions, w.tickets, w.markup, w.tracker, w.jira);
 
     @Test
     void descriptionWikiDuTicketLieSansAppelAJira() {
         Session s = w.generatedSession();
         w.link(s, "PROJ-8", "wiki:d");
-        PreviewJiraPush.Preview p = preview.run(s.id(), 1);
-        assertThat(p.mode()).isEqualTo(PreviewJiraPush.Mode.UPDATE);
+        PreviewJiraTicket.Preview p = preview.run(s.id(), 1, null);
+        assertThat(p.mode()).isEqualTo(PreviewJiraTicket.Mode.UPDATE);
         assertThat(p.issueKey()).isEqualTo("PROJ-8");
         assertThat(p.summary()).isEqualTo(w.versions.find(s.id(), 1).orElseThrow().content().title());
         assertThat(p.descriptionWiki()).isEqualTo("wiki:" + w.versions.find(s.id(), 1).orElseThrow().markdown());
@@ -29,10 +29,10 @@ class PreviewJiraPushTest {
     @Test
     void versionOuTicketAbsent() {
         Session s = w.generatedSession();
-        assertThatThrownBy(() -> preview.run(s.id(), 1)).isInstanceOfSatisfying(DomainException.class,
-                e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+        assertThatThrownBy(() -> preview.run(s.id(), 1, null)).isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.code()).isEqualTo(ErrorCode.CONSENT_REQUIRED));
         w.link(s, "PROJ-9", "wiki:d");
-        assertThatThrownBy(() -> preview.run(s.id(), 7)).isInstanceOfSatisfying(DomainException.class,
+        assertThatThrownBy(() -> preview.run(s.id(), 7, null)).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 }

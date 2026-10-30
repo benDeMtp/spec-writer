@@ -16,6 +16,9 @@ Pendant le développement, travailler en **dev mode Quarkus piloté par le serve
 3. Tests ciblés par Dev MCP : `quarkus_searchTools`, puis `quarkus_callTool` sur
    `devui-testing_runTest` (`className`, `methodName`). Lire les listes `passing` et `failing` de
    la réponse : les compteurs cumulent tous les lancements depuis le démarrage.
+   Exception : les IT qui appellent WireMock (`Jira*IT`, `JiraLinkResourceIT`…) échouent en dev
+   mode (« Internal Privoxy Error ») car la JVM de dev reçoit le proxy Maven de `settings.xml`.
+   Les lancer sous Maven : `./mvnw -B test -DskipDependencyCheck -Dtest=… -Dsurefire.failIfNoSpecifiedTests=false`.
 4. Erreurs : `quarkus_logs` et `devui-exceptions_getLastException`. Base : `quarkus-agroal_executeSQL`.
 5. Appels d'API : cookie obtenu en échangeant le jeton de l'URL de lancement du journal
    (`POST /api/session-auth`, en-tête `Origin: http://127.0.0.1:47625`). Le cookie survit aux

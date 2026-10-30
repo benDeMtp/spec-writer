@@ -1,6 +1,7 @@
 package dev.specwriter.infrastructure.web;
 
-import dev.specwriter.application.jira.PreviewJiraPush;
+import dev.specwriter.application.jira.CreateJiraTicket;
+import dev.specwriter.application.jira.PreviewJiraTicket;
 import dev.specwriter.application.jira.PushToJira;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorAction;
@@ -17,8 +18,13 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
-/** {@code /api/sessions/{id}/jira} : envoi de la description vers le ticket lié (FR-047, FR-048). */
+/**
+ * {@code /api/sessions/{id}/jira} : création du ticket (FR-036 à FR-038) et envoi de la description vers
+ * le ticket lié (FR-047, FR-048), toujours après aperçu et confirmation.
+ */
 @Path("/api/sessions/{id}/jira")
 @Produces(MediaType.APPLICATION_JSON)
 public class JiraLinkResource {
@@ -37,23 +43,44 @@ public class JiraLinkResource {
         }
     }
 
-    public record PreviewRequest(Integer versionNumber) {
+    public record PreviewRequest(Integer versionNumber, String issueTypeId) {
+    }
+
+    /** {@code extraFields} : valeurs saisies pour les champs obligatoires du projet (FR-036b). */
+    public record CreateRequest(Boolean confirm, Integer versionNumber, String issueTypeId, Map<String, Object> extraFields) {
     }
 
     @Inject
     PushToJira pushToJira;
     @Inject
-    PreviewJiraPush previewJiraPush;
+    PreviewJiraTicket previewJiraTicket;
+    @Inject
+    CreateJiraTicket createJiraTicket;
+
+    /** 201 et le ticket lié ; 409 si la session est déjà liée ; 502 si Jira refuse, avec la cause. */
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response create(@PathParam("id") String id, CreateRequest request) {
+        if (request == null || request.versionNumber() == null) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Indiquez la version à envoyer.");
+        }
+        Map<String, String> extra = new HashMap<>();
+        if (request.extraFields() != null) {
+            request.extraFields().forEach((field, value) -> extra.put(field, value == null ? null : String.valueOf(value)));
+        }
+        return Response.status(Response.Status.CREATED).entity(SessionViews.ticket(createJiraTicket.run(Ids.parse(id),
+                request.versionNumber(), Boolean.TRUE.equals(request.confirm()), request.issueTypeId(), extra))).build();
+    }
 
     /** Ce que Jira recevra ; rien n'est envoyé. */
     @POST
     @Path("/preview")
     @Consumes(MediaType.APPLICATION_JSON)
-    public PreviewJiraPush.Preview preview(@PathParam("id") String id, PreviewRequest request) {
+    public PreviewJiraTicket.Preview preview(@PathParam("id") String id, PreviewRequest request) {
         if (request == null || request.versionNumber() == null) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "Indiquez la version à envoyer.");
         }
-        return previewJiraPush.run(Ids.parse(id), request.versionNumber());
+        return previewJiraTicket.run(Ids.parse(id), request.versionNumber(), request.issueTypeId());
     }
 
     /**

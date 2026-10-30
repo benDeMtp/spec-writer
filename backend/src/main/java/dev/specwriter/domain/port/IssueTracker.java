@@ -1,8 +1,12 @@
 package dev.specwriter.domain.port;
 
+import dev.specwriter.domain.jira.CreatedIssue;
+import dev.specwriter.domain.jira.IssueType;
 import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
 import dev.specwriter.domain.jira.JiraSearchPage;
+import dev.specwriter.domain.jira.RequiredField;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -39,4 +43,17 @@ public interface IssueTracker {
 
     /** Remplace la description du ticket, et rien d'autre. {@code wikiDescription} est en wiki markup. */
     void updateDescription(JiraEndpoint endpoint, String issueKey, String wikiDescription);
+
+    /** Types de ticket créables dans le projet, sous-tâches exclues ({@code createmeta/{project}/issuetypes}). */
+    List<IssueType> issueTypes(JiraEndpoint endpoint, String projectKey);
+
+    /** Champs obligatoires sans valeur par défaut d'un type de ticket ({@code createmeta/{project}/issuetypes/{id}}). */
+    List<RequiredField> requiredFields(JiraEndpoint endpoint, String projectKey, String issueTypeId);
+
+    /**
+     * Crée un ticket. {@code extraFields} contient des valeurs déjà au format de Jira (voir
+     * {@link RequiredField#toJiraValue(String)}).
+     */
+    CreatedIssue createIssue(JiraEndpoint endpoint, String projectKey, String issueTypeId, String summary,
+            String wikiDescription, Map<String, Object> extraFields);
 }

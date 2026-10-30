@@ -1,11 +1,14 @@
 package dev.specwriter.support;
 
+import dev.specwriter.domain.jira.CreatedIssue;
 import dev.specwriter.domain.jira.IssueTrackerException;
+import dev.specwriter.domain.jira.IssueType;
 import dev.specwriter.domain.jira.IssueTrackerException.Kind;
 import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
 import dev.specwriter.domain.jira.JiraIssueSummary;
 import dev.specwriter.domain.jira.JiraSearchPage;
+import dev.specwriter.domain.jira.RequiredField;
 import dev.specwriter.domain.port.IssueTracker;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,6 +24,10 @@ public class FakeIssueTracker implements IssueTracker {
     public final List<String> calls = new ArrayList<>();
     public final List<String> writes = new ArrayList<>();
     public Kind failure;
+    public final List<IssueType> types = new ArrayList<>(List.of(new IssueType("10002", "Bug"), new IssueType("10001", "Story")));
+    public final Map<String, List<RequiredField>> required = new LinkedHashMap<>();
+    public final List<Map<String, Object>> created = new ArrayList<>();
+    public IssueTrackerException createFailure;
     public long searchDelayMillis;
 
     private void fail() {
@@ -89,5 +96,37 @@ public class FakeIssueTracker implements IssueTracker {
         JiraIssue old = issues.get(issueKey);
         issues.put(issueKey, new JiraIssue(issueKey, old == null ? issueKey : old.summary(), wikiDescription,
                 old == null ? java.time.Instant.EPOCH : old.updated().plusSeconds(1)));
+    }
+
+    @Override
+    public List<IssueType> issueTypes(JiraEndpoint endpoint, String projectKey) {
+        calls.add("issuetypes " + projectKey);
+        fail();
+        return types;
+    }
+
+    @Override
+    public List<RequiredField> requiredFields(JiraEndpoint endpoint, String projectKey, String issueTypeId) {
+        calls.add("fields " + projectKey + " " + issueTypeId);
+        fail();
+        return required.getOrDefault(issueTypeId, List.of());
+    }
+
+    @Override
+    public CreatedIssue createIssue(JiraEndpoint endpoint, String projectKey, String issueTypeId, String summary,
+            String wikiDescription, Map<String, Object> extraFields) {
+        calls.add("create " + projectKey + " " + issueTypeId);
+        fail();
+        if (createFailure != null) {
+            throw createFailure;
+        }
+        Map<String, Object> fields = new LinkedHashMap<>(extraFields);
+        fields.put("summary", summary);
+        fields.put("description", wikiDescription);
+        created.add(fields);
+        String key = projectKey + "-" + (100 + created.size());
+        writes.add(key);
+        issues.put(key, new JiraIssue(key, summary, wikiDescription, java.time.Instant.parse("2026-10-30T12:00:00Z")));
+        return new CreatedIssue(String.valueOf(20000 + created.size()), key);
     }
 }

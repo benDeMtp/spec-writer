@@ -117,7 +117,7 @@ public class PushToJira {
         try {
             tracker.updateDescription(target.endpoint(), ticket.issueKey(), markup.toWiki(version.markdown()));
         } catch (IssueTrackerException e) {
-            throw new DomainException(e.errorCode());
+            throw e.toDomain();
         }
         // Jira date et peut normaliser la description : la référence est ce qu'il renvoie après l'écriture
         JiraIssue written = GetJiraIssue.read(tracker, target, ticket.issueKey());

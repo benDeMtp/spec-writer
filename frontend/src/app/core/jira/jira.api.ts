@@ -37,8 +37,22 @@ export class JiraApi {
     );
   }
 
-  preview(sessionId: string, versionNumber: number): Promise<PushPreview> {
-    return firstValueFrom(this.http.post<PushPreview>(`${session(sessionId)}/jira/preview`, { versionNumber }));
+  /** Sans session liée : aperçu de création pour le type indiqué, sinon le type par défaut. */
+  preview(sessionId: string, versionNumber: number, issueTypeId?: string): Promise<PushPreview> {
+    const body = { versionNumber, ...(issueTypeId ? { issueTypeId } : {}) };
+    return firstValueFrom(this.http.post<PushPreview>(`${session(sessionId)}/jira/preview`, body));
+  }
+
+  /** Crée le ticket et lie la session (FR-036 à FR-038). */
+  create(
+    sessionId: string,
+    versionNumber: number,
+    issueTypeId: string,
+    extraFields: Record<string, string>,
+  ): Promise<LinkedTicket> {
+    return firstValueFrom(
+      this.http.post<LinkedTicket>(`${session(sessionId)}/jira`, { confirm: true, versionNumber, issueTypeId, extraFields }),
+    );
   }
 
   /** Le conflit (409) est un résultat attendu : lui seul ne passe pas par le bandeau d'erreur. */

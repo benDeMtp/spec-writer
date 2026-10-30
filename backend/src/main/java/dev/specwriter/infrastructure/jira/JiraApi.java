@@ -2,6 +2,7 @@ package dev.specwriter.infrastructure.jira;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -45,6 +46,21 @@ public interface JiraApi extends AutoCloseable {
     @Path("/issue/{key}")
     @Consumes(MediaType.APPLICATION_JSON)
     void updateIssue(@PathParam("key") String key, Map<String, Object> body);
+
+    @GET
+    @Path("/issue/createmeta/{project}/issuetypes")
+    Map<String, Object> createMetaIssueTypes(@PathParam("project") String project, @QueryParam("startAt") int startAt,
+            @QueryParam("maxResults") int maxResults);
+
+    @GET
+    @Path("/issue/createmeta/{project}/issuetypes/{issueTypeId}")
+    Map<String, Object> createMetaFields(@PathParam("project") String project, @PathParam("issueTypeId") String issueTypeId,
+            @QueryParam("startAt") int startAt, @QueryParam("maxResults") int maxResults);
+
+    @POST
+    @Path("/issue")
+    @Consumes(MediaType.APPLICATION_JSON)
+    Map<String, Object> createIssue(Map<String, Object> body);
 
     @Override
     void close();

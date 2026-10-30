@@ -498,8 +498,8 @@ et vérifier son contenu, sa clé et le lien enregistré dans la session.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T125 [P] [US5] Écrire `BT/infrastructure/jira/JiraCreateMetaIT.java` (WireMock) : `GET /rest/api/2/issue/createmeta/{project}/issuetypes`, puis `…/issuetypes/{id}` (champs `required=true` sans valeur par défaut), et `POST /rest/api/2/issue`, qui renvoie `id`, `key` et `self`. Les réponses 400 avec `errors` donnent un `userMessage` qui nomme les champs en cause ; un 403 donne `MISSING_PERMISSION`.
-- [ ] T126 [P] [US5] Écrire `BT/application/jira/CreateJiraTicketTest.java` :
+- [X] T125 [P] [US5] Écrire `BT/infrastructure/jira/JiraCreateMetaIT.java` (WireMock) : `GET /rest/api/2/issue/createmeta/{project}/issuetypes`, puis `…/issuetypes/{id}` (champs `required=true` sans valeur par défaut), et `POST /rest/api/2/issue`, qui renvoie `id`, `key` et `self`. Les réponses 400 avec `errors` donnent un `userMessage` qui nomme les champs en cause ; un 403 donne `MISSING_PERMISSION`.
+- [X] T126 [P] [US5] Écrire `BT/application/jira/CreateJiraTicketTest.java` :
   - l'aperçu propose `Story` par défaut s'il existe, sinon le premier type (FR-036a) ;
   - `summary` reprend le titre de la spécification ;
   - la description contient toute la spécification en wiki, sans pièce jointe (FR-036) ;
@@ -508,15 +508,15 @@ et vérifier son contenu, sa clé et le lien enregistré dans la session.
   - une session déjà liée donne 409 ;
   - un succès crée un `LinkedJiraTicket` `IN_SYNC` (FR-038) ;
   - sans consentement `JIRA`, l'erreur est `CONSENT_REQUIRED` et rien n'est appelé.
-- [ ] T127 [P] [US5] Écrire `BT/infrastructure/web/JiraLinkResourceIT.java` : `POST /api/sessions/{id}/jira/preview` (modes `CREATE` et `UPDATE`) et `POST /api/sessions/{id}/jira` (201, 409, 502), selon [openapi.yaml](contracts/openapi.yaml)
-- [ ] T128 [P] [US5] Écrire `E/us5-create-ticket.spec.ts` (Playwright + axe, WireMock Jira) : scénario V11, US5-1 à US5-4, et option désactivée avec explication quand Jira n'est pas configuré (US5-3)
+- [X] T127 [P] [US5] Écrire `BT/infrastructure/web/JiraLinkResourceIT.java` : `POST /api/sessions/{id}/jira/preview` (modes `CREATE` et `UPDATE`) et `POST /api/sessions/{id}/jira` (201, 409, 502), selon [openapi.yaml](contracts/openapi.yaml)
+- [X] T128 [P] [US5] Écrire `E/us5-create-ticket.spec.ts` (Playwright + axe, WireMock Jira) : scénario V11, US5-1 à US5-4, et option désactivée avec explication quand Jira n'est pas configuré (US5-3)
 
 ### Implementation for User Story 5
 
-- [ ] T129 [US5] Étendre `B/domain/port/IssueTracker.java` et `B/infrastructure/jira/JiraRestClient.java` avec `issueTypes(project)`, `fields(project, issueTypeId)` et `createIssue(...)` pour faire passer T125
-- [ ] T130 [US5] Implémenter `B/application/jira/PreviewJiraTicket.java` et `B/application/jira/CreateJiraTicket.java`. Chacun commence par `ConsentPolicy.requireGranted(JIRA)`. Doit faire passer T126.
-- [ ] T131 [US5] Compléter `B/infrastructure/web/JiraLinkResource.java` (`POST …/jira/preview` et `POST …/jira`) pour faire passer T127
-- [ ] T132 [US5] Implémenter `F/features/jira/create-ticket-dialog.component.ts`.
+- [X] T129 [US5] Étendre `B/domain/port/IssueTracker.java` et `B/infrastructure/jira/JiraRestClient.java` avec `issueTypes(project)`, `fields(project, issueTypeId)` et `createIssue(...)` pour faire passer T125
+- [X] T130 [US5] Implémenter `B/application/jira/PreviewJiraTicket.java` et `B/application/jira/CreateJiraTicket.java`. Chacun commence par `ConsentPolicy.requireGranted(JIRA)`. Doit faire passer T126.
+- [X] T131 [US5] Compléter `B/infrastructure/web/JiraLinkResource.java` (`POST …/jira/preview` et `POST …/jira`) pour faire passer T127
+- [X] T132 [US5] Implémenter `F/features/jira/create-ticket-dialog.component.ts`.
   - Projet, type de ticket (Story présélectionnée), titre, aperçu de la description.
   - Formulaire dynamique des champs obligatoires, à partir de leur `schema` : texte, nombre, liste d'options ou date.
   - Bouton « Créer le ticket ».

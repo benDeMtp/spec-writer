@@ -390,6 +390,10 @@ projet (4.0.0.Beta2) :
 - La validation du schéma par Hibernate après démarrage, propre au dev mode, échoue sur les
   tables virtuelles FTS5 (`NoSuchElementException` dans l'extraction des colonnes). L'erreur est
   journalisée sans bloquer le démarrage.
+- Les tests lancés par Dev MCP tournent dans la JVM du dev mode, qui reçoit le proxy déclaré dans
+  `~/.m2/settings.xml`. Les appels vers WireMock (`127.0.0.1`) y passent par ce proxy et échouent
+  (« Internal Privoxy Error »), alors que surefire n'est pas concerné. Neutraliser ces propriétés
+  dans le pom produit `-Dhttp.proxyHost=null` : abandonné. Les IT WireMock se lancent sous Maven.
 - `specwriter.port` et `specwriter.data-dir` sont lues comme propriétés système de la JVM (avant
   la configuration Quarkus) : un réglage `%dev` dans `application.properties` est sans effet.
 - Le proxy de `ng serve` (`changeOrigin: false`) garde l'en-tête `Host: localhost:4200` et
