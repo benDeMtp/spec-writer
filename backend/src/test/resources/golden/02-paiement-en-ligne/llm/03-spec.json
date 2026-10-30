@@ -1,0 +1,21 @@
+{"operation": "generate-specification", "userContains": ["theme=\"CONTRADICTION\""], "response": {
+  "title": "Paiement en ligne par carte",
+  "summary": "Les clients paient leur panier par carte bancaire, sans frais pour eux.",
+  "useCases": [
+    {"title": "Payer le panier", "actor": "client de la boutique", "goal": "Régler son panier par carte bancaire",
+     "preconditions": ["Le panier contient au moins un article"], "nominalFlow": ["Valider le panier", "Saisir la carte", "Confirmer le paiement"],
+     "alternatives": ["La banque refuse : le panier est conservé"],
+     "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "payer leur panier en ligne par carte bancaire"}}
+  ],
+  "scenarios": [
+    {"useCaseIndex": 0, "title": "Paiement accepté", "kind": "NOMINAL", "asA": "client de la boutique",
+     "given": ["un panier de 3 articles pour 45 €"], "when": ["je valide le paiement"], "then": ["la commande est confirmée", "le montant débité est de 45 €, sans frais"], "assumption": false},
+    {"useCaseIndex": 0, "title": "Paiement refusé", "kind": "ERROR", "asA": "client de la boutique",
+     "given": ["un panier de 3 articles"], "when": ["je valide le paiement", "ma banque refuse la transaction"],
+     "then": ["un message m'indique que le paiement a échoué et me propose de réessayer", "mon panier est conservé"], "assumption": false}
+  ],
+  "assumptions": [{"statement": "La boutique accepte les cartes des réseaux Visa et Mastercard.", "origin": "TOOL_INFERENCE", "questionId": ""}],
+  "requirements": [
+    {"category": "FUNCTIONAL", "statement": "Aucun frais de traitement n'est facturé au client."},
+    {"category": "TECHNICAL", "statement": "Les données de carte ne sont pas conservées par la boutique."}
+  ]}}

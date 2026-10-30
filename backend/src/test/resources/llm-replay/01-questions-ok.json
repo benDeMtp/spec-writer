@@ -1,0 +1,14 @@
+{
+  "operation": "propose-questions",
+  "userContains": ["IT-OK"],
+  "response": {
+    "questions": [
+      {"theme": "GOAL", "label": "Quel est l'objectif principal ?", "rationale": "Pour cadrer la spécification",
+       "suggestions": ["Éviter les doublons", "Gagner du temps"], "defaultValue": "Éviter les doublons", "dependsOnQuestionIds": []},
+      {"theme": "ERRORS", "label": "Que se passe-t-il si la salle est déjà prise ?", "rationale": "Pour décrire le cas d'erreur",
+       "suggestions": [], "defaultValue": "", "dependsOnQuestionIds": []}
+    ],
+    "contradictions": [],
+    "coveredThemes": ["ACTORS"]
+  }
+}

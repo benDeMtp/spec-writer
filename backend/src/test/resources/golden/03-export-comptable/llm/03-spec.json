@@ -1,0 +1,20 @@
+{"operation": "generate-specification", "userContains": ["<langue>en</langue>"], "response": {
+  "title": "Monthly accounting export",
+  "summary": "Accountants export closed months to the ERP as CSV.",
+  "useCases": [
+    {"title": "Export a closed month", "actor": "accountant", "goal": "Send the month's entries to the ERP",
+     "preconditions": ["The month is closed by the chief accountant"], "nominalFlow": ["Select the month", "Start the export", "Download the CSV file"],
+     "alternatives": ["The month is not closed: the export is refused"],
+     "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "export the monthly accounting entries to the ERP as a CSV file"}}
+  ],
+  "scenarios": [
+    {"useCaseIndex": 0, "title": "Export of a closed month", "kind": "NOMINAL", "asA": "accountant",
+     "given": ["September is closed"], "when": ["I export September"], "then": ["a CSV file with September's entries is produced", "the separator is a semicolon"], "assumption": true},
+    {"useCaseIndex": 0, "title": "Month not closed", "kind": "ERROR", "asA": "accountant",
+     "given": ["October is not closed"], "when": ["I export October"], "then": ["the export is refused with a message saying the month is not closed"], "assumption": false}
+  ],
+  "assumptions": [],
+  "requirements": [
+    {"category": "FUNCTIONAL", "statement": "Only closed months can be exported."},
+    {"category": "TECHNICAL", "statement": "The CSV file is UTF-8 encoded."}
+  ]}}

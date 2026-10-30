@@ -16,17 +16,17 @@ public final class MarkdownRenderer {
     private record Labels(String summary, String useCases, String scenarios, String assumptions, String functional,
             String technical, String actor, String goal, String preconditions, String flow, String alternatives,
             String source, String needExcerpt, String answer, String assumption, String asA, String given,
-            String when, String then, String and, String none) {
+            String when, String then, String and, String none, String colon) {
     }
 
     private static final Labels FR = new Labels("Résumé", "Use cases", "Scénarios d'acceptation", "Hypothèses",
             "Exigences fonctionnelles", "Exigences techniques", "Acteur", "Objectif", "Préconditions",
             "Déroulement nominal", "Alternatives", "Source", "extrait du besoin", "réponse", "Hypothèse",
-            "En tant que", "Étant donné", "Quand", "Alors", "Et", "Aucune.");
+            "En tant que", "Étant donné", "Quand", "Alors", "Et", "Aucune.", " : ");
     private static final Labels EN = new Labels("Summary", "Use cases", "Acceptance scenarios", "Assumptions",
             "Functional requirements", "Technical requirements", "Actor", "Goal", "Preconditions", "Main flow",
             "Alternatives", "Source", "need excerpt", "answer", "Assumption", "As a", "Given", "When", "Then", "And",
-            "None.");
+            "None.", ": ");
 
     private MarkdownRenderer() {
     }
@@ -39,14 +39,14 @@ public final class MarkdownRenderer {
 
         md.append("## ").append(l.useCases()).append("\n\n");
         for (UseCase uc : spec.useCases()) {
-            md.append("### ").append(uc.code()).append(" : ").append(escape(uc.title())).append("\n\n");
-            md.append("- **").append(l.actor()).append("** : ").append(escape(uc.actor())).append('\n');
-            md.append("- **").append(l.goal()).append("** : ").append(escape(uc.goal())).append('\n');
-            list(md, l.preconditions(), uc.preconditions(), false);
-            list(md, l.flow(), uc.nominalFlow(), true);
-            list(md, l.alternatives(), uc.alternatives(), false);
+            md.append("### ").append(uc.code()).append(l.colon()).append(escape(uc.title())).append("\n\n");
+            md.append("- **").append(l.actor()).append("**" + l.colon()).append(escape(uc.actor())).append('\n');
+            md.append("- **").append(l.goal()).append("**" + l.colon()).append(escape(uc.goal())).append('\n');
+            list(md, l.preconditions(), uc.preconditions(), false, l);
+            list(md, l.flow(), uc.nominalFlow(), true, l);
+            list(md, l.alternatives(), uc.alternatives(), false, l);
             if (uc.source() != null) {
-                md.append("- **").append(l.source()).append("** : ").append(sourceLabel(uc.source(), l));
+                md.append("- **").append(l.source()).append("**" + l.colon()).append(sourceLabel(uc.source(), l));
                 if (uc.source().excerpt() != null && !uc.source().excerpt().isBlank()) {
                     md.append(" « ").append(escape(uc.source().excerpt())).append(" »");
                 }
@@ -62,7 +62,7 @@ public final class MarkdownRenderer {
             if (scenarios.isEmpty()) {
                 continue;
             }
-            md.append("### ").append(uc.code()).append(" : ").append(escape(uc.title())).append("\n\n");
+            md.append("### ").append(uc.code()).append(l.colon()).append(escape(uc.title())).append("\n\n");
             for (AcceptanceScenario s : scenarios) {
                 scenario(md, s, l);
             }
@@ -72,7 +72,7 @@ public final class MarkdownRenderer {
         if (spec.assumptions().isEmpty()) {
             md.append(l.none()).append("\n\n");
         } else {
-            spec.assumptions().forEach(a -> md.append("- **").append(a.code()).append("** : ")
+            spec.assumptions().forEach(a -> md.append("- **").append(a.code()).append("**" + l.colon())
                     .append(escape(a.statement())).append('\n'));
             md.append('\n');
         }
@@ -83,7 +83,7 @@ public final class MarkdownRenderer {
 
     /** Rendu d'un scénario, conforme à l'exemple de contracts/scenario-format.md. */
     static void scenario(StringBuilder md, AcceptanceScenario s, Labels l) {
-        md.append("#### ").append(s.code()).append(" : ").append(escape(s.title()));
+        md.append("#### ").append(s.code()).append(l.colon()).append(escape(s.title()));
         if (s.assumption()) {
             md.append(" *(").append(l.assumption()).append(")*");
         }
@@ -101,11 +101,11 @@ public final class MarkdownRenderer {
         }
     }
 
-    private static void list(StringBuilder md, String label, List<String> items, boolean ordered) {
+    private static void list(StringBuilder md, String label, List<String> items, boolean ordered, Labels l) {
         if (items.isEmpty()) {
             return;
         }
-        md.append("- **").append(label).append("** :\n");
+        md.append("- **").append(label).append("**").append(l.colon().stripTrailing()).append('\n');
         for (int i = 0; i < items.size(); i++) {
             md.append("  ").append(ordered ? (i + 1) + ". " : "- ").append(escape(items.get(i))).append('\n');
         }
@@ -119,7 +119,7 @@ public final class MarkdownRenderer {
             md.append(l.none()).append("\n\n");
             return;
         }
-        selected.forEach(r -> md.append("- **").append(r.code()).append("** : ").append(escape(r.statement())).append('\n'));
+        selected.forEach(r -> md.append("- **").append(r.code()).append("**" + l.colon()).append(escape(r.statement())).append('\n'));
         md.append('\n');
     }
 

@@ -1,0 +1,10 @@
+{"operation": "propose-questions", "userContains": ["réserver une salle de réunion"], "response": {
+  "questions": [
+    {"theme": "GOAL", "label": "Quel problème la réservation doit-elle résoudre ?", "rationale": "L'objectif guide les règles de gestion",
+     "suggestions": ["Éviter les doubles réservations", "Mieux remplir les salles"], "defaultValue": "Éviter les doubles réservations", "dependsOnQuestionIds": []},
+    {"theme": "BUSINESS_RULES", "label": "Quelle est la durée maximale d'une réservation ?", "rationale": "Une limite évite qu'une salle soit bloquée toute la journée",
+     "suggestions": ["2 heures", "4 heures", "Une journée"], "defaultValue": "4 heures", "dependsOnQuestionIds": []},
+    {"theme": "ERRORS", "label": "Que proposer quand la salle demandée est prise ?", "rationale": "Le besoin cite ce cas sans dire comment le traiter",
+     "suggestions": [], "defaultValue": "", "dependsOnQuestionIds": []}
+  ],
+  "contradictions": [], "coveredThemes": ["ACTORS", "NOMINAL_FLOW"]}}

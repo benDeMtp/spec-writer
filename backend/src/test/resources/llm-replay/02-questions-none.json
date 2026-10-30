@@ -1,0 +1,5 @@
+{
+  "operation": "propose-questions",
+  "userContains": ["IT-INVALID"],
+  "response": {"questions": [], "contradictions": [], "coveredThemes": []}
+}

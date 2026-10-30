@@ -66,7 +66,9 @@ class MarkdownRendererTest {
         assertThat(md).contains("- **As a** client connecté\n- **Given** un panier")
                 .contains("- **When** je valide").contains("- **And** ma banque").contains("- **Then** un message")
                 .contains("*(Assumption)*").contains("## Summary").contains("## Acceptance scenarios")
-                .contains("## Assumptions\n\nNone.").contains("## Functional requirements");
+                .contains("## Assumptions\n\nNone.").contains("## Functional requirements")
+                .contains("### UC-01: Payer la commande").contains("#### SC-01-02: Paiement refusé")
+                .contains("- **Actor**: client connecté");
     }
 
     @Test

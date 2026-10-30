@@ -21,7 +21,9 @@ final class NextBatch {
 
     static Questionnaire ask(LlmClient llm, IdGenerator ids, Session session, Questionnaire questionnaire) {
         int batches = questionnaire.questions().stream().mapToInt(Question::batch).max().orElse(0);
-        if (batches >= MAX_BATCHES || questionnaire.remainingThemes().isEmpty() && batches > 0) {
+        // Même quand tous les thèmes sont couverts, le LLM est consulté : il détecte les
+        // contradictions entre le besoin et les réponses (FR-008).
+        if (batches >= MAX_BATCHES) {
             return questionnaire;
         }
         ProposeQuestionsResult result = llm.proposeQuestions(new ProposeQuestionsRequest(session.need().text(),

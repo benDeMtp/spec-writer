@@ -1,0 +1,6 @@
+{"operation": "propose-questions", "userContains": ["<langue>en</langue>"], "response": {
+  "questions": [
+    {"theme": "ACTORS", "label": "Who closes the accounting month?", "rationale": "The export depends on the closing", "suggestions": ["The chief accountant", "Any accountant"], "defaultValue": "The chief accountant", "dependsOnQuestionIds": []},
+    {"theme": "NON_FUNCTIONAL", "label": "What CSV separator does the ERP expect?", "rationale": "A wrong separator breaks the import", "suggestions": ["Semicolon", "Comma"], "defaultValue": "Semicolon", "dependsOnQuestionIds": []}
+  ],
+  "contradictions": [], "coveredThemes": ["GOAL", "NOMINAL_FLOW", "ERRORS"]}}
