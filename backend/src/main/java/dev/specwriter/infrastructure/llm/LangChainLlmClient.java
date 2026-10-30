@@ -78,8 +78,7 @@ public class LangChainLlmClient implements LlmClient {
     public DraftSpecification generateSpecification(GenerationRequest request) {
         String user = UserMessages.generation(request.need(), request.language(), request.answers(),
                 request.correction());
-        return call("generate-specification", user, LlmSchemas.SPECIFICATION,
-                json -> JSON.readValue(json, DraftSpecification.class));
+        return call("generate-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
@@ -116,7 +115,7 @@ public class LangChainLlmClient implements LlmClient {
                 T result = parse.apply(text);
                 LOG.infof("LLM %s : %d ms, %d tentative(s)", operation, (System.nanoTime() - start) / 1_000_000, attempt);
                 return result;
-            } catch (JacksonException | IllegalArgumentException | NullPointerException | DomainException e) {
+            } catch (JacksonException | IllegalArgumentException | DomainException e) {
                 LOG.warnf("LLM %s : sortie invalide à la tentative %d (%s)", operation, attempt, e.getClass().getSimpleName());
                 feedback = "\n<correction>La réponse précédente n'était pas un JSON conforme au schéma demandé."
                         + "</correction>";
@@ -125,10 +124,21 @@ public class LangChainLlmClient implements LlmClient {
         throw new DomainException(ErrorCode.LLM_INVALID_OUTPUT);
     }
 
+    private static DraftSpecification toDraft(String json) {
+        DraftSpecification draft = JSON.readValue(json, DraftSpecification.class);
+        if (draft == null) {
+            throw new IllegalArgumentException("spécification absente");
+        }
+        return draft;
+    }
+
     private static ProposeQuestionsResult toQuestions(String json) {
         QuestionsDto dto = JSON.readValue(json, QuestionsDto.class);
+        if (dto == null || dto.questions() == null) {
+            throw new IllegalArgumentException("liste de questions absente");
+        }
         List<ProposedQuestion> questions = dto.questions().stream()
-                .map(q -> new ProposedQuestion(QuestionTheme.valueOf(q.theme()), q.label(), q.rationale(),
+                .map(q -> new ProposedQuestion(theme(q.theme()), q.label(), q.rationale(),
                         q.suggestions() == null ? List.of() : q.suggestions().stream().limit(5).toList(),
                         q.defaultValue(), q.dependsOnQuestionIds() == null ? List.of() : q.dependsOnQuestionIds()))
                 .toList();
@@ -137,10 +147,18 @@ public class LangChainLlmClient implements LlmClient {
         }
         Set<QuestionTheme> covered = EnumSet.noneOf(QuestionTheme.class);
         if (dto.coveredThemes() != null) {
-            dto.coveredThemes().forEach(t -> covered.add(QuestionTheme.valueOf(t)));
+            dto.coveredThemes().forEach(t -> covered.add(theme(t)));
         }
         return new ProposeQuestionsResult(questions, dto.contradictions() == null ? List.of() : dto.contradictions(),
                 covered);
+    }
+
+    /** Thème inconnu ou absent : sortie non conforme, redemandée. */
+    private static QuestionTheme theme(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("thème absent");
+        }
+        return QuestionTheme.valueOf(value);
     }
 
     private static boolean blank(String value) {

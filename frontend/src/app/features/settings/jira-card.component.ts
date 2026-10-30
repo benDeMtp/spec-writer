@@ -10,7 +10,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { firstValueFrom } from 'rxjs';
 import { JiraTestOutcome } from '../../core/settings/settings.model';
 import { SettingsStore } from '../../core/settings/settings.store';
-import { ConsentDialogComponent } from './consent-dialog.component';
+import { ConsentDialogComponent } from '../../shared/ui/consent-dialog.component';
 
 const PROJECT_KEY = /^[A-Z][A-Z0-9_]+$/;
 

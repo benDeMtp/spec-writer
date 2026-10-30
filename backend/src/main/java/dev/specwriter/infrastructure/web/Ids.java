@@ -11,9 +11,12 @@ final class Ids {
     }
 
     static UUID parse(String raw) {
+        if (raw == null) {
+            throw new DomainException(ErrorCode.NOT_FOUND);
+        }
         try {
             return UUID.fromString(raw);
-        } catch (IllegalArgumentException | NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             throw new DomainException(ErrorCode.NOT_FOUND);
         }
     }
