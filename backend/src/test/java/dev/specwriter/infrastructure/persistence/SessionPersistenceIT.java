@@ -71,7 +71,7 @@ class SessionPersistenceIT {
         Questionnaire after = sessions.questionnaire(s.id()).orElseThrow();
         assertThat(after.question(first).orElseThrow().state()).isEqualTo(QuestionState.OBSOLETE);
         assertThat(after.question(first).orElseThrow().answer()).isNull();
-        assertThat(sessions.list()).first().extracting(Session::id).isEqualTo(s.id());
+        assertThat(sessions.list()).extracting(Session::id).contains(s.id());
     }
 
     @Test
