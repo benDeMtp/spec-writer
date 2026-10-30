@@ -302,7 +302,7 @@ et le mode WAL. Le test est `BT/spike/SqliteHibernateSpikeIT.java`.
 ## R12. Déterminisme de la génération (FR-014)
 
 - **Decision** :
-  - température à 0 ;
+  - température à 0 quand le fournisseur le permet. Le Copilot SDK ne l'expose pas (spike S1), donc les deux points suivants sont décisifs ;
   - sortie structurée en JSON validée par un schéma, puis rendue en Markdown par du code
     déterministe ;
   - identifiants des use cases et scénarios attribués par le code (`UC-01`, `SC-01-01`), pas par

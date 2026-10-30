@@ -29,7 +29,7 @@ déterministe.
    le nombre de tentatives et le code d'erreur (FR-025).
 5. Avant tout appel, le consentement `COPILOT` doit être accordé. Sinon, l'erreur
    `CONSENT_REQUIRED` est renvoyée (FR-024).
-6. Température à 0.
+6. Température à 0 quand le fournisseur l'expose. Ce n'est pas le cas du Copilot SDK (spike S1) : le déterminisme repose sur l'empreinte des entrées (research.md R12).
 6a. Pour le Copilot SDK (research.md R4), chaque appel ouvre une session sans outil
    (`availableTools` vide, permissions toujours refusées), en `SystemMessageMode.REPLACE`. La
    session est **supprimée** (`deleteSession`) après l'appel, même en cas d'erreur. Chaque

@@ -95,66 +95,66 @@ persistance, erreurs, port LLM et shell du front.
 
 ### Plateforme et configuration
 
-- [ ] T013 [P] Écrire `BT/infrastructure/platform/UserDirectoriesTest.java`. Pour chaque OS simulé (propriétés `os.name`, `user.home`, variables `APPDATA`, `LOCALAPPDATA`, `XDG_DATA_HOME`, `XDG_CONFIG_HOME`), il vérifie les chemins de research.md R9 :
+- [X] T013 [P] Écrire `BT/infrastructure/platform/UserDirectoriesTest.java`. Pour chaque OS simulé (propriétés `os.name`, `user.home`, variables `APPDATA`, `LOCALAPPDATA`, `XDG_DATA_HOME`, `XDG_CONFIG_HOME`), il vérifie les chemins de research.md R9 :
   - macOS : `~/Library/Application Support/spec-writer/` ;
   - Windows : `%LOCALAPPDATA%\spec-writer\data\` et `\config\` ;
   - Linux : `$XDG_DATA_HOME/spec-writer/` (défaut `~/.local/share`) et `$XDG_CONFIG_HOME/spec-writer/` (défaut `~/.config`).
 
   Il vérifie aussi la création en `rwx------` sous POSIX et l'absence d'attribut POSIX sous Windows.
-- [ ] T014 Implémenter `B/infrastructure/platform/UserDirectories.java` (environnement injecté pour les tests ; la propriété `specwriter.data-dir` est prioritaire) pour faire passer T013
-- [ ] T015 Implémenter `B/infrastructure/platform/DataDirConfigSource.java`, un `ConfigSource` qui fournit `quarkus.datasource.jdbc.url=jdbc:sqlite:<data>/spec-writer.db`. L'enregistrer dans `BR/META-INF/services/org.eclipse.microprofile.config.spi.ConfigSource`.
-- [ ] T016 Écrire `BR/application.properties`.
+- [X] T014 Implémenter `B/infrastructure/platform/UserDirectories.java` (environnement injecté pour les tests ; la propriété `specwriter.data-dir` est prioritaire) pour faire passer T013
+- [X] T015 Implémenter `B/infrastructure/platform/DataDirConfigSource.java`, un `ConfigSource` qui fournit `quarkus.datasource.jdbc.url=jdbc:sqlite:<data>/spec-writer.db`. L'enregistrer dans `BR/META-INF/services/org.eclipse.microprofile.config.spi.ConfigSource`.
+- [X] T016 Écrire `BR/application.properties`.
   - HTTP : `quarkus.http.host=127.0.0.1`, `quarkus.http.port=${specwriter.port:47615}`, `quarkus.http.cors.enabled=false`, validation du header Host active (`quarkus.http.host-validation.*`, R14).
   - Base : `quarkus.datasource.db-kind=other`, driver `org.sqlite.JDBC`, `quarkus.hibernate-orm.dialect=org.hibernate.community.dialect.SQLiteDialect`, `quarkus.flyway.migrate-at-start=true`.
   - Journaux : niveau `INFO`, aucun log des corps HTTP.
   - Profils `%test` et `%e2e`.
-- [ ] T017 [P] Écrire `BT/infrastructure/platform/PortSelectorTest.java` : le port configuré est utilisé s'il est libre, sinon un port libre est choisi. Puis implémenter `B/infrastructure/platform/PortSelector.java`.
-- [ ] T018 [P] Écrire `BT/infrastructure/platform/BrowserLauncherTest.java`, qui vérifie l'ordre de repli (`Desktop.browse`, puis `open`, `xdg-open`, `rundll32 url.dll,FileProtocolHandler`) avec un exécuteur de commandes simulé. Puis implémenter `B/infrastructure/platform/BrowserLauncher.java`. Au `StartupEvent`, hors profils `test` et `e2e`, il ouvre `http://127.0.0.1:<port>/?launch=<jeton>`.
+- [X] T017 [P] Écrire `BT/infrastructure/platform/PortSelectorTest.java` : le port configuré est utilisé s'il est libre, sinon un port libre est choisi. Puis implémenter `B/infrastructure/platform/PortSelector.java`.
+- [X] T018 [P] Écrire `BT/infrastructure/platform/BrowserLauncherTest.java`, qui vérifie l'ordre de repli (`Desktop.browse`, puis `open`, `xdg-open`, `rundll32 url.dll,FileProtocolHandler`) avec un exécuteur de commandes simulé. Puis implémenter `B/infrastructure/platform/BrowserLauncher.java`. Au `StartupEvent`, hors profils `test` et `e2e`, il ouvre `http://127.0.0.1:<port>/?launch=<jeton>`.
 
 ### Persistance
 
-- [ ] T019 Implémenter `B/infrastructure/persistence/SqlitePragmas.java`, exécuté à l'ouverture de chaque connexion : `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`. Après création, le fichier `spec-writer.db` passe en `rw-------` sous POSIX (FR-022, SC-006).
-- [ ] T020 Créer `BR/db/migration/V1__baseline.sql`, qui contient uniquement la table technique `app_meta(key TEXT PRIMARY KEY, value TEXT)` avec la version du schéma. Chaque story ajoute ensuite sa propre migration.
+- [X] T019 Implémenter `B/infrastructure/persistence/SqlitePragmas.java`, exécuté à l'ouverture de chaque connexion : `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`. Après création, le fichier `spec-writer.db` passe en `rw-------` sous POSIX (FR-022, SC-006).
+- [X] T020 Créer `BR/db/migration/V1__baseline.sql`, qui contient uniquement la table technique `app_meta(key TEXT PRIMARY KEY, value TEXT)` avec la version du schéma. Chaque story ajoute ensuite sa propre migration.
 
 ### Sécurité HTTP locale (R14)
 
-- [ ] T021 [P] Écrire `BT/infrastructure/web/LocalSecurityFilterTest.java` (`@QuarkusTest`). Cas attendus :
+- [X] T021 [P] Écrire `BT/infrastructure/web/LocalSecurityFilterTest.java` (`@QuarkusTest`). Cas attendus :
   - sans cookie `sw_launch`, réponse 403 ;
   - avec un `Origin: https://evil.example`, réponse 403 ;
   - avec `Origin: http://127.0.0.1:<port>` et un cookie valide, la requête passe ;
   - un `POST` en `text/plain`, réponse 415 ;
   - un `POST /api/session-auth` avec un mauvais jeton, réponse 403 ; avec le bon jeton, réponse 204 avec le cookie `HttpOnly; SameSite=Strict` ;
   - un jeton de lancement ne peut être échangé qu'une fois.
-- [ ] T022 Implémenter `B/infrastructure/web/LaunchTokenService.java` (256 bits `SecureRandom`, en mémoire, usage unique), `B/infrastructure/web/LocalSecurityFilter.java` (contrôles d'Origin, du cookie et du `Content-Type: application/json` sur `/api/**`) et `B/infrastructure/web/SessionAuthResource.java` (`POST /api/session-auth`) pour faire passer T021
-- [ ] T023 [P] Écrire `BT/infrastructure/web/SpaFallbackTest.java` : `GET /questionnaire/123` renvoie `index.html`, `GET /api/inconnu` renvoie 404 au format `Problem`. Puis implémenter `B/infrastructure/web/SpaFallbackRoute.java`.
+- [X] T022 Implémenter `B/infrastructure/web/LaunchTokenService.java` (256 bits `SecureRandom`, en mémoire, usage unique), `B/infrastructure/web/LocalSecurityFilter.java` (contrôles d'Origin, du cookie et du `Content-Type: application/json` sur `/api/**`) et `B/infrastructure/web/SessionAuthResource.java` (`POST /api/session-auth`) pour faire passer T021
+- [X] T023 [P] Écrire `BT/infrastructure/web/SpaFallbackTest.java` : `GET /questionnaire/123` renvoie `index.html`, `GET /api/inconnu` renvoie 404 au format `Problem`. Puis implémenter `B/infrastructure/web/SpaFallbackRoute.java`.
 
 ### Erreurs et journalisation
 
-- [ ] T024 [P] Écrire `BT/infrastructure/web/ProblemMapperTest.java`. Une `DomainException` (code, userMessage, action) devient un `application/problem+json` conforme à `Problem`. Une exception inattendue devient un 500 générique « Une erreur inattendue est survenue, réessayez », sans message d'origine ni trace de pile. Puis implémenter `B/domain/error/DomainException.java`, `B/domain/error/ErrorCode.java` (enum de tous les `code` de [contracts/openapi.yaml](contracts/openapi.yaml) et [contracts/llm-port.md](contracts/llm-port.md)) et `B/infrastructure/web/ProblemMapper.java`.
-- [ ] T025 [P] Écrire `BT/architecture/HexagonalArchitectureTest.java` (ArchUnit) :
+- [X] T024 [P] Écrire `BT/infrastructure/web/ProblemMapperTest.java`. Une `DomainException` (code, userMessage, action) devient un `application/problem+json` conforme à `Problem`. Une exception inattendue devient un 500 générique « Une erreur inattendue est survenue, réessayez », sans message d'origine ni trace de pile. Puis implémenter `B/domain/error/DomainException.java`, `B/domain/error/ErrorCode.java` (enum de tous les `code` de [contracts/openapi.yaml](contracts/openapi.yaml) et [contracts/llm-port.md](contracts/llm-port.md)) et `B/infrastructure/web/ProblemMapper.java`.
+- [X] T025 [P] Écrire `BT/architecture/HexagonalArchitectureTest.java` (ArchUnit) :
   - `domain` ne dépend d'aucun framework (liste de la section Path Conventions) ;
   - `application` ne dépend que de `domain` ;
   - seul `infrastructure` dépend des frameworks ;
   - aucun appel à `java.time.Instant.now()` ni à `UUID.randomUUID()` hors de `infrastructure/platform`.
-- [ ] T026 [P] Écrire `BT/infrastructure/logging/LogRedactionTest.java`. On envoie une requête dont le corps contient `SECRET-NEED-MARKER` et un en-tête `Authorization: Bearer gho_TEST`, puis on capture les journaux : aucun des deux marqueurs ne doit y apparaître. Puis implémenter `B/infrastructure/logging/RedactingLogFilter.java` et le référencer dans `BR/application.properties`.
+- [X] T026 [P] Écrire `BT/infrastructure/logging/LogRedactionTest.java`. On envoie une requête dont le corps contient `SECRET-NEED-MARKER` et un en-tête `Authorization: Bearer gho_TEST`, puis on capture les journaux : aucun des deux marqueurs ne doit y apparaître. Puis implémenter `B/infrastructure/logging/RedactingLogFilter.java` et le référencer dans `BR/application.properties`.
 
 ### Ports du domaine et services transverses
 
-- [ ] T027 [P] Créer les ports `B/domain/port/ClockPort.java` et `B/domain/port/IdGenerator.java`, puis leurs adaptateurs `B/infrastructure/platform/SystemClock.java` et `B/infrastructure/platform/UuidGenerator.java`. Côté tests, créer `BT/support/FixedClock.java` et `BT/support/SequentialIdGenerator.java`.
-- [ ] T028 [P] Créer le port `B/domain/port/LlmClient.java`, avec les 6 opérations de [contracts/llm-port.md](contracts/llm-port.md) (`proposeQuestions`, `reassessAfterChange`, `generateSpecification`, `editSpecification`, `mergeConflict`, `structureImportedText`). Les records d'entrée et de sortie vont dans `B/domain/llm/`.
-- [ ] T029 [P] Créer le port `B/domain/port/SecretStore.java` : `put(key, value)`, `get(key)`, `delete(key)` et `persistence()`. La persistance vaut `KEYCHAIN` ou `MEMORY_ONLY`. Clés : `jira.pat`, `copilot.access`, `copilot.refresh`.
+- [X] T027 [P] Créer les ports `B/domain/port/ClockPort.java` et `B/domain/port/IdGenerator.java`, puis leurs adaptateurs `B/infrastructure/platform/SystemClock.java` et `B/infrastructure/platform/UuidGenerator.java`. Côté tests, créer `BT/support/FixedClock.java` et `BT/support/SequentialIdGenerator.java`.
+- [X] T028 [P] Créer le port `B/domain/port/LlmClient.java`, avec les 6 opérations de [contracts/llm-port.md](contracts/llm-port.md) (`proposeQuestions`, `reassessAfterChange`, `generateSpecification`, `editSpecification`, `mergeConflict`, `structureImportedText`). Les records d'entrée et de sortie vont dans `B/domain/llm/`.
+- [X] T029 [P] Créer le port `B/domain/port/SecretStore.java` : `put(key, value)`, `get(key)`, `delete(key)` et `persistence()`. La persistance vaut `KEYCHAIN` ou `MEMORY_ONLY`. Clés : `jira.pat`, `copilot.access`, `copilot.refresh`.
 
 ### Adaptateur LLM (research.md R3 et R12)
 
-- [ ] T030 Écrire `BT/infrastructure/llm/CopilotSdkChatModelTest.java`, avec un client SDK simulé derrière une interface `CopilotSdkGateway`. Cas attendus :
+- [X] T030 Écrire `BT/infrastructure/llm/CopilotSdkChatModelTest.java`, avec un client SDK simulé derrière une interface `CopilotSdkGateway`. Cas attendus :
   - les messages système et utilisateur sont transmis séparément ;
-  - la température est à 0 ;
+  - aucune température n'est transmise : le SDK ne l'expose pas, et le déterminisme repose sur l'empreinte des entrées (research.md R12) ;
   - le modèle vient de `CopilotSettings.model` ;
   - les erreurs SDK « modèle désactivé » et « quota » deviennent `MODEL_UNAVAILABLE` et `QUOTA_EXHAUSTED`, sans nouvelle tentative ;
   - aucun contenu n'est journalisé.
-- [ ] T031 Implémenter `B/infrastructure/llm/CopilotSdkGateway.java` (enveloppe du Copilot SDK Java, selon la voie retenue en T010) et `B/infrastructure/llm/CopilotSdkChatModel.java`, qui implémente `dev.langchain4j.model.chat.ChatModel`, pour faire passer T030. L'exposer comme modèle par défaut de quarkus-langchain4j par un producteur CDI dans `B/infrastructure/llm/ChatModelProducer.java`.
-- [ ] T032 [P] Créer `BT/support/ScriptedChatModel.java`, un `ChatModel` de test qui rejoue des réponses JSON depuis `BTR/llm-scripts/<scénario>/<n>.json` et échoue si l'appel ne correspond pas au script. Créer aussi `B/infrastructure/llm/ReplayChatModel.java`, actif uniquement si `specwriter.llm.replay-dir` est défini (profil `%e2e`), pour les tests E2E.
-- [ ] T033 [P] Créer `B/infrastructure/github/FakeGitHubAuthenticator.java`, qui implémente le port `GitHubAuthenticator` (T052) :
+- [X] T031 Implémenter `B/infrastructure/llm/CopilotSdkGateway.java` (enveloppe du Copilot SDK Java, selon la voie retenue en T010) et `B/infrastructure/llm/CopilotSdkChatModel.java`, qui implémente `dev.langchain4j.model.chat.ChatModel`, pour faire passer T030. L'exposer comme modèle par défaut de quarkus-langchain4j par un producteur CDI dans `B/infrastructure/llm/ChatModelProducer.java`.
+- [X] T032 [P] Créer `BT/support/ScriptedChatModel.java`, un `ChatModel` de test qui rejoue des réponses JSON depuis `BTR/llm-scripts/<scénario>/<n>.json` et échoue si l'appel ne correspond pas au script. Créer aussi `B/infrastructure/llm/ReplayChatModel.java`, actif uniquement si `specwriter.llm.replay-dir` est défini (profil `%e2e`), pour les tests E2E.
+- [X] T033 [P] Créer `B/infrastructure/github/FakeGitHubAuthenticator.java`, qui implémente le port `GitHubAuthenticator` (T052) :
   - `authorizationUrl` = `http://127.0.0.1:<port>/e2e/fake-github-authorize` (page locale du profil e2e qui valide immédiatement) ;
   - passage à `CONNECTED` au 2e `poll` ;
   - modèles `["model-a","model-b"]` ;

@@ -219,6 +219,7 @@
           <groups>${surefire.groups}</groups>
           <systemPropertyVariables>
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+            <specwriter.data-dir>${project.build.directory}/test-data</specwriter.data-dir>
           </systemPropertyVariables>
           <argLine>@{argLine}</argLine>
         </configuration>
