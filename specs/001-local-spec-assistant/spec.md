@@ -304,8 +304,10 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 
 - **FR-016**: Le système DOIT sauvegarder automatiquement la session après chaque réponse.
 - **FR-017**: L'utilisateur DOIT pouvoir lister, reprendre, renommer et supprimer ses sessions.
-- **FR-018**: Chaque génération DOIT créer une nouvelle version de la spécification ; les versions
-  précédentes d'une session DOIVENT rester consultables.
+- **FR-018**: Chaque génération dont les entrées (besoin, réponses, langue) ont changé depuis la
+  dernière version DOIT créer une nouvelle version de la spécification. À entrées identiques, la
+  version existante DOIT être renvoyée sans nouvelle génération. Les versions précédentes d'une
+  session DOIVENT rester consultables.
 
 **Export**
 

@@ -29,7 +29,7 @@ Un travail de spécification. Contient le besoin initial.
 |---|---|---|
 | id | UUID | |
 | name | texte | 1 à 120 caractères ; par défaut, les premiers mots du besoin. Renommable (FR-017). |
-| need | texte | 10 mots minimum, 10 000 caractères maximum (FR-001, edge cases). Non modifiable après le début du questionnaire : pour le changer, on crée une nouvelle session. |
+| need | texte | 10 mots minimum, 10 000 caractères maximum (FR-001, edge cases). Non modifiable après le début du questionnaire : pour le changer, on crée une nouvelle session. Pour une session `JIRA_IMPORT`, `need` est la description Jira convertie en Markdown, tronquée à 10 000 caractères avec un avertissement. |
 | language | `fr` ou `en` | Détectée à partir du besoin (FR-015), modifiable avant la génération. |
 | origin | `LOCAL` ou `JIRA_IMPORT` | `JIRA_IMPORT` quand la session est créée à partir d'un ticket (FR-046). |
 | state | enum | voir le cycle de vie ci-dessous |
@@ -92,6 +92,12 @@ une nouvelle version.
 | createdAt | date | |
 
 Contient des **UseCase**, des **Assumption** et des **Requirement**.
+
+Une version `JIRA_IMPORT` (import d'un ticket, ou résolution de conflit `TAKE_JIRA`) est produite
+par l'opération `structureImportedText` du port LLM
+([contracts/llm-port.md](contracts/llm-port.md)). Elle passe le même contrôle de structure que
+les autres versions. Si la structuration échoue après les tentatives, l'import est refusé avec
+l'erreur `IMPORT_UNSTRUCTURABLE`, et Jira n'est pas modifié.
 
 ## UseCase
 

@@ -243,7 +243,7 @@ paths:
                 type: object
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/SearchItem' } }
-                  jiraStatus: { enum: [OK, NOT_CONFIGURED, UNAVAILABLE, TOKEN_REJECTED] }
+                  jiraStatus: { enum: [OK, NOT_CONFIGURED, UNAVAILABLE, TOKEN_REJECTED, CONSENT_REQUIRED] }
   /api/jira/issues/{key}:
     get:
       summary: Détail d'un ticket Jira non lié (description convertie en Markdown pour l'affichage)
@@ -251,7 +251,7 @@ paths:
       responses: { '200': { content: { application/json: { schema: { type: object, properties: { key: { type: string }, summary: { type: string }, descriptionMarkdown: { type: string }, updated: { type: string, format: date-time }, url: { type: string } } } } } } }
   /api/jira/issues/{key}/import:
     post:
-      summary: Crée une session liée au ticket (origine JIRA_IMPORT), sans modifier Jira
+      summary: Crée une session liée au ticket (origine JIRA_IMPORT), structurée par le LLM (structureImportedText), sans modifier Jira
       parameters: [{ name: key, in: path, required: true, schema: { type: string } }]
       responses: { '201': { content: { application/json: { schema: { $ref: '#/components/schemas/SessionDetail' } } } } }
 

@@ -13,6 +13,7 @@ déterministe.
 | `generateSpecification` | besoin, langue, réponses (avec drapeau hypothèse) | `{ title, summary, useCases[], scenarios[], assumptions[], requirements[] }`, **sans identifiants** (le code les attribue) |
 | `editSpecification` | spécification courante (structure), instruction de l'utilisateur | même structure que `generateSpecification` |
 | `mergeConflict` | version locale, version Jira (Markdown) | même structure |
+| `structureImportedText` | texte importé d'un ticket Jira (Markdown), langue | même structure que `generateSpecification`. Tout élément déduit et absent du texte est une hypothèse (`isAssumption`). |
 
 ## Règles de sécurité (principe V)
 
