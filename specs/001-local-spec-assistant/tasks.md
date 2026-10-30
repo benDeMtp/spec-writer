@@ -390,7 +390,7 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T096 [P] [US6] Écrire `BT/infrastructure/persistence/search/LocalSearchIT.java` :
+- [X] T096 [P] [US6] Écrire `BT/infrastructure/persistence/search/LocalSearchIT.java` :
   - FTS5 sur le titre, le besoin et le Markdown de la dernière version ;
   - « regle » trouve « règle » ;
   - les triggers mettent l'index à jour à chaque nouvelle version ;
@@ -435,14 +435,14 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 
 ### Implementation for User Story 6
 
-- [ ] T106 [P] [US6] Créer `B/domain/jira/LinkedJiraTicket.java`.
+- [X] T106 [P] [US6] Créer `B/domain/jira/LinkedJiraTicket.java`.
   - `issueKey` au format « `[A-Z][A-Z0-9_]+-\d+` », unique.
   - Un ticket au plus par session et une session au plus par ticket.
   - Champs `issueUrl`, `issueType`, `linkedVersionNumber`, `lastKnownUpdated`, `lastKnownDescriptionHash`, `createdOrImportedAt` et `lastPushedAt`.
   - `syncState` vaut « `IN_SYNC`, `LOCAL_AHEAD`, `CONFLICT` ».
-- [ ] T107 [P] [US6] Créer `B/domain/jira/ConflictDetector.java` (comparaison de `updated` et du hash) et `B/domain/jira/ConflictResolution.java` (`OVERWRITE`, `TAKE_JIRA`, `AI_MERGE`)
-- [ ] T108 [US6] Créer `BR/db/migration/V5__linked_jira_ticket.sql` (contraintes uniques sur `session_id` et `issue_key`) et `BR/db/migration/V6__fts5_search.sql`. Ce dernier crée la table virtuelle `spec_search(session_id, title, need, markdown)` avec `tokenize='unicode61 remove_diacritics 2'` et les triggers d'insertion, de mise à jour et de suppression sur `session` et `specification_version`.
-- [ ] T109 [US6] Implémenter `B/infrastructure/persistence/jira/LinkedTicketJpaRepository.java` (port `B/domain/port/LinkedTicketRepository.java`) et `B/infrastructure/persistence/search/FtsLocalSearch.java` (port `B/domain/port/LocalSearch.java`, requêtes `MATCH` paramétrées) pour faire passer T096
+- [X] T107 [P] [US6] Créer `B/domain/jira/ConflictDetector.java` (comparaison de `updated` et du hash) et `B/domain/jira/ConflictResolution.java` (`OVERWRITE`, `TAKE_JIRA`, `AI_MERGE`)
+- [X] T108 [US6] Créer `BR/db/migration/V5__linked_jira_ticket.sql` (contraintes uniques sur `session_id` et `issue_key`) et `BR/db/migration/V6__fts5_search.sql`. Ce dernier crée la table virtuelle `spec_search(session_id, title, need, markdown)` avec `tokenize='unicode61 remove_diacritics 2'` et les triggers d'insertion, de mise à jour et de suppression sur `session` et `specification_version`.
+- [X] T109 [US6] Implémenter `B/infrastructure/persistence/jira/LinkedTicketJpaRepository.java` (port `B/domain/port/LinkedTicketRepository.java`) et `B/infrastructure/persistence/search/FtsLocalSearch.java` (port `B/domain/port/LocalSearch.java`, requêtes `MATCH` paramétrées) pour faire passer T096
 - [ ] T110 [US6] Implémenter `B/infrastructure/jira/JqlBuilder.java` et `B/infrastructure/jira/JiraFormatConverter.java` pour faire passer T097 et T099
 - [ ] T111 [US6] Étendre `B/domain/port/IssueTracker.java` et `B/infrastructure/jira/JiraRestClient.java` avec `search`, `getIssue` et `updateDescription`. Créer `B/infrastructure/jira/RateLimitHandler.java` : lecture de `Retry-After`, des en-têtes `X-RateLimit-*` et `X-RateLimiting-*` sans tenir compte de la casse. Doit faire passer T100.
 - [ ] T112 [US6] Implémenter `B/application/search/UnifiedSearch.java`, avec un délai de 5 s pour l'appel Jira. Jira n'est interrogé que si le consentement `JIRA` est accordé (`ConsentPolicy`). Doit faire passer T098.
