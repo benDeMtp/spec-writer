@@ -345,6 +345,10 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   la possibilité d'en demander un nouveau.
 - **FR-030b**: L'utilisateur DOIT pouvoir se déconnecter de GitHub Copilot ; le jeton est alors
   supprimé du trousseau.
+- **FR-030c**: L'utilisateur DOIT pouvoir choisir, dans l'écran de configuration, le modèle de
+  langage utilisé parmi ceux que son organisation autorise ; un modèle par défaut DOIT être
+  proposé. Si le modèle choisi devient indisponible ou si le quota du compte est épuisé, l'outil
+  DOIT l'indiquer avec l'action à mener, sans perdre le travail en cours.
 - **FR-031**: Pour Jira, l'utilisateur DOIT pouvoir renseigner l'adresse du serveur, un jeton
   utilisateur personnel et un projet par défaut.
 - **FR-032**: Le système DOIT proposer un test de connexion pour chaque service et afficher l'état
