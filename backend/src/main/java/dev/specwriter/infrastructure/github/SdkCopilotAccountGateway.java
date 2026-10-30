@@ -53,7 +53,13 @@ public class SdkCopilotAccountGateway implements CopilotAccountGateway {
             AtomicBoolean cancelled = new AtomicBoolean();
             CompletableFuture<LoginResult> completion = CompletableFuture
                     .supplyAsync(() -> advanceUntilDone(session, begin.flowId(), cancelled))
-                    .whenComplete((r, e) -> closeAndDelete(client, session));
+                    .whenComplete((r, e) -> closeAndDelete(client, session))
+                    .thenApply(result -> {
+                        if (result.outcome() == LoginResult.Outcome.COMPLETED) {
+                            runtime.restart();
+                        }
+                        return result;
+                    });
             Runnable cancel = () -> {
                 cancelled.set(true);
                 session.getRpc().accounts.login.cancel(new SessionAccountsLoginCancelParams(null, begin.flowId()));

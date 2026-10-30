@@ -61,6 +61,17 @@ public class CopilotRuntime implements CopilotSdkGateway {
         return client;
     }
 
+    /**
+     * Redémarre le client. Un client démarré avant la connexion garde une liste de modèles vide
+     * après celle-ci (spike S1) : il est relancé dès que la connexion aboutit.
+     */
+    public synchronized void restart() {
+        if (client != null) {
+            client.close();
+            client = null;
+        }
+    }
+
     /** Session sans outil : permissions toujours refusées (contracts/llm-port.md, règle 6a). */
     public static SessionConfig toolLessSession(String model, String systemPrompt) {
         SessionConfig config = new SessionConfig()
