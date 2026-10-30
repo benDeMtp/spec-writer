@@ -25,7 +25,7 @@ import tools.jackson.databind.json.JsonMapper;
  * une réponse : {@code {"operation": "...", "userContains": ["..."], "response": {...}}}. La première
  * entrée dont l'opération et tous les fragments correspondent est renvoyée.
  */
-public class ReplayChatModel implements ChatModel {
+public final class ReplayChatModel implements ChatModel {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -65,7 +65,7 @@ public class ReplayChatModel implements ChatModel {
                 JsonNode node = JSON.readTree(Files.readString(f));
                 List<String> contains = new ArrayList<>();
                 node.path("userContains").forEach(n -> contains.add(n.asString()));
-                out.add(new Entry(f.getFileName().toString(), node.path("operation").asString(), contains,
+                out.add(new Entry(String.valueOf(f.getFileName()), node.path("operation").asString(), contains,
                         JSON.writeValueAsString(node.get("response"))));
             }
         } catch (IOException e) {

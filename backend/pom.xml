@@ -293,10 +293,7 @@
           <printFailingErrors>true</printFailingErrors>
           <targetJdk>25</targetJdk>
           <rulesets>
-            <ruleset>/category/java/bestpractices.xml/UnusedPrivateMethod</ruleset>
-            <ruleset>/category/java/bestpractices.xml/UnusedLocalVariable</ruleset>
-            <ruleset>/category/java/errorprone.xml/EmptyCatchBlock</ruleset>
-            <ruleset>/category/java/security.xml</ruleset>
+            <ruleset>${project.basedir}/pmd-ruleset.xml</ruleset>
           </rulesets>
         </configuration>
         <executions>

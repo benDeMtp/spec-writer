@@ -44,7 +44,7 @@ public final class BrowserLauncher {
             try {
                 desktop.browse(uri);
                 return true;
-            } catch (Exception e) {
+            } catch (Exception ignored) {
                 // repli sur la commande de l'OS
             }
         }
