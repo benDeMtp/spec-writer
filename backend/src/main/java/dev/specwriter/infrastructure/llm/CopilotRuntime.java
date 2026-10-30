@@ -116,7 +116,7 @@ public class CopilotRuntime implements CopilotSdkGateway {
      * Classe une erreur du SDK d'après son message, sans le journaliser (il peut citer la requête).
      * Les libellés ont été observés pendant le spike S1 ; un message inconnu donne UNAVAILABLE.
      */
-    static GatewayException classify(Throwable error) {
+    public static GatewayException classify(Throwable error) {
         Throwable root = error;
         if (root instanceof ExecutionException && root.getCause() != null) {
             root = root.getCause();

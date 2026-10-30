@@ -189,24 +189,24 @@ clair après enregistrement.
 
 > Écrire ces tests d'abord et vérifier qu'ils échouent.
 
-- [ ] T038 [P] [US1] Écrire `BT/domain/settings/JiraSettingsTest.java`. Règles vérifiées :
+- [X] T038 [P] [US1] Écrire `BT/domain/settings/JiraSettingsTest.java`. Règles vérifiées :
   - `serverUrl` est une URL sans chemin de requête ni fragment ;
   - une adresse `http://` est refusée sans `acceptInsecureHttp=true` (FR-035) ;
   - `defaultProjectKey` doit correspondre à « `[A-Z][A-Z0-9_]+` » ;
   - une `serverVersion` inférieure à 8.14 donne `UNSUPPORTED_VERSION`.
-- [ ] T039 [P] [US1] Écrire `BT/application/settings/TestJiraConnectionTest.java`, avec un `IssueTracker` simulé. Vérifier l'ordre des 4 étapes (`serverInfo`, `myself`, `project/{key}`, `mypermissions`) et la correspondance des résultats : injoignable donne `UNREACHABLE`, 401 donne `TOKEN_REJECTED`, 404 donne `PROJECT_NOT_FOUND`, un `CREATE_ISSUES`, `EDIT_ISSUES` ou `BROWSE_PROJECTS` absent donne `MISSING_PERMISSION`, une version inférieure à 8.14 donne `UNSUPPORTED_VERSION`. Chaque cause a son `userMessage` (US1-6). Sans consentement `JIRA`, le résultat est `CONSENT_REQUIRED` et `IssueTracker` n'est jamais appelé (FR-024).
-- [ ] T040 [P] [US1] Écrire `BT/infrastructure/secrets/KeychainSecretStoreTest.java`, avec un backend de credentials simulé :
+- [X] T039 [P] [US1] Écrire `BT/application/settings/TestJiraConnectionTest.java`, avec un `IssueTracker` simulé. Vérifier l'ordre des 4 étapes (`serverInfo`, `myself`, `project/{key}`, `mypermissions`) et la correspondance des résultats : injoignable donne `UNREACHABLE`, 401 donne `TOKEN_REJECTED`, 404 donne `PROJECT_NOT_FOUND`, un `CREATE_ISSUES`, `EDIT_ISSUES` ou `BROWSE_PROJECTS` absent donne `MISSING_PERMISSION`, une version inférieure à 8.14 donne `UNSUPPORTED_VERSION`. Chaque cause a son `userMessage` (US1-6). Sans consentement `JIRA`, le résultat est `CONSENT_REQUIRED` et `IssueTracker` n'est jamais appelé (FR-024).
+- [X] T040 [P] [US1] Écrire `BT/infrastructure/secrets/KeychainSecretStoreTest.java`, avec un backend de credentials simulé :
   - `put` puis `get` relit la valeur ;
   - un backend qui ne répond pas en 5 s ou lève une exception fait passer `persistence()` à `MEMORY_ONLY`, et la valeur est gardée en mémoire (FR-033b) ;
   - aucun fichier n'est créé dans le dossier de données (FR-033a).
-- [ ] T041 [P] [US1] Écrire `BT/infrastructure/jira/JiraRestClientIT.java` (`@QuarkusTest` avec WireMock).
+- [X] T041 [P] [US1] Écrire `BT/infrastructure/jira/JiraRestClientIT.java` (`@QuarkusTest` avec WireMock).
   - L'en-tête `Authorization: Bearer <PAT>` est envoyé.
   - `serverInfo`, `myself`, `project/{key}` et `mypermissions?projectKey=X&permissions=BROWSE_PROJECTS,CREATE_ISSUES,EDIT_ISSUES` sont appelés.
   - Un serveur en HTTPS avec un certificat signé par une autorité de test est accepté si `caCertificatePath` pointe vers son PEM, et refusé sinon. Il n'y a aucun mode `trust-all`.
-- [ ] T042 [P] [US1] Écrire `BT/infrastructure/github/GitHubAuthenticatorIT.java` pour la voie retenue en T010.
+- [X] T042 [P] [US1] Écrire `BT/infrastructure/github/GitHubAuthenticatorIT.java` pour la voie retenue en T010.
   - Voie A (retenue en T010) : `CopilotSdkGateway` simulé. `begin` renvoie une étape `open-url`, `advance` renvoie `completed` avec le login, une erreur, ou ne répond pas avant 15 minutes (EXPIRED).
   - Cas à couvrir : `authorization_pending`, `slow_down` (+5 s), `expired_token` (EXPIRED), `access_denied` (DENIED), succès (CONNECTED), compte sans Copilot (NO_COPILOT, US1-3) et déconnexion (FR-030b : le jeton est supprimé du trousseau).
-- [ ] T043 [P] [US1] Écrire `BT/infrastructure/web/SettingsResourceIT.java` (`@QuarkusTest`), contrat de [openapi.yaml](contracts/openapi.yaml) :
+- [X] T043 [P] [US1] Écrire `BT/infrastructure/web/SettingsResourceIT.java` (`@QuarkusTest`), contrat de [openapi.yaml](contracts/openapi.yaml) :
   - `GET /api/settings` ne contient aucun champ de jeton, seulement `tokenSet` ;
   - `PUT /api/settings/jira` avec `token` puis `GET` donne `tokenSet=true`, sans jeton renvoyé (FR-033) ;
   - `PUT /api/settings/jira` sans `token` conserve le jeton existant ;
@@ -223,7 +223,7 @@ clair après enregistrement.
 
 ### Implementation for User Story 1
 
-- [ ] T046 [P] [US1] Créer `B/domain/settings/CopilotSettings.java` avec les champs de data-model.md :
+- [X] T046 [P] [US1] Créer `B/domain/settings/CopilotSettings.java` avec les champs de data-model.md :
   - `connectedLogin` (nullable) ;
   - `subscriptionState` : « `UNKNOWN`, `ACTIVE`, `NO_COPILOT` » ;
   - `authMode` : « `COPILOT_CLI` » ou « `GITHUB_APP` » ;
@@ -234,15 +234,15 @@ clair après enregistrement.
   - `secretPersistence` : « `KEYCHAIN`, `MEMORY_ONLY` ».
 
   Règle : `model` doit appartenir à `availableModels`.
-- [ ] T047 [P] [US1] Créer `B/domain/settings/JiraSettings.java` (`enabled`, `serverUrl`, `defaultProjectKey`, `caCertificatePath` nullable, `serverVersion` nullable, `lastTest` avec un résultat « `OK | UNREACHABLE | TOKEN_REJECTED | PROJECT_NOT_FOUND | MISSING_PERMISSION | UNSUPPORTED_VERSION` », `secretPersistence`, `insecureHttp`) avec les règles de T038
-- [ ] T048 [P] [US1] Créer `B/domain/consent/ConsentRecord.java` (service « `COPILOT` ou `JIRA` », `granted`, `at`, historique conservé) et `B/domain/consent/ConsentPolicy.java`, avec la méthode `requireGranted(service)` qui lève `CONSENT_REQUIRED` (FR-024)
-- [ ] T049 [US1] Créer `BR/db/migration/V2__settings_consent.sql` : tables `copilot_settings`, `jira_settings` (une seule ligne chacune, **aucune colonne de jeton**) et `consent_record`
-- [ ] T050 [US1] Implémenter `B/infrastructure/persistence/settings/SettingsJpaRepository.java` et `B/infrastructure/persistence/consent/ConsentJpaRepository.java` (entités JPA, puis mapping vers le domaine), derrière les ports `B/domain/port/SettingsRepository.java` et `B/domain/port/ConsentRepository.java`
-- [ ] T051 [US1] Implémenter `B/infrastructure/secrets/KeychainSecretStore.java`, appuyé sur `io.alapierre:credential-secure-storage` (service `spec-writer`). Les appels passent par un exécuteur avec un timeout de 5 s, et un repli en mémoire est prévu. Il n'y a aucun repli fichier. Doit faire passer T040.
-- [ ] T052 [US1] Créer le port `B/domain/port/GitHubAuthenticator.java` (`startConnection()` renvoie `flowId`, `authorizationUrl`, `requestedScopes` et `expiresAt` ; `poll(flowId)` ; `disconnect()` ; `listModels()` ; `quota()`) et l'implémenter dans `B/infrastructure/github/CopilotCliAuthenticator.java` (voie A retenue en T010, research.md R4). `COPILOT_HOME` vaut `<dossier de données>/copilot` (droits `rwx------`) ; le login réellement connecté est relu par `getAuthStatus()` ; la déconnexion passe par `account.logout`. Doit faire passer T042.
-- [ ] T053 [US1] Créer le port `B/domain/port/IssueTracker.java`, avec pour cette story `serverInfo()`, `currentUser()`, `project(key)` et `permissions(projectKey, perms)`. L'implémenter dans `B/infrastructure/jira/JiraRestClient.java` (Quarkus REST Client, base URL dynamique, en-tête Bearer lu dans `SecretStore`) et `B/infrastructure/jira/JiraTlsConfigurer.java`, qui ajoute le PEM de `caCertificatePath` au registre TLS du client. Doit faire passer T041.
-- [ ] T054 [US1] Implémenter les cas d'usage `B/application/settings/TestJiraConnection.java`, `SaveJiraSettings.java`, `DeleteJiraSettings.java`, `StartCopilotConnection.java`, `PollCopilotConnection.java`, `DisconnectCopilot.java`, `SelectModel.java` et `B/application/consent/UpdateConsent.java`. Le modèle par défaut est le premier de `modelPreference` présent dans `availableModels`. `TestJiraConnection` commence par `ConsentPolicy.requireGranted(JIRA)`. Doit faire passer T039.
-- [ ] T055 [US1] Implémenter `B/infrastructure/web/SettingsResource.java` et `B/infrastructure/web/ConsentResource.java`, selon les chemins `/api/settings/**` et `/api/consents/{service}` de [openapi.yaml](contracts/openapi.yaml). Doit faire passer T043.
+- [X] T047 [P] [US1] Créer `B/domain/settings/JiraSettings.java` (`enabled`, `serverUrl`, `defaultProjectKey`, `caCertificatePath` nullable, `serverVersion` nullable, `lastTest` avec un résultat « `OK | UNREACHABLE | TOKEN_REJECTED | PROJECT_NOT_FOUND | MISSING_PERMISSION | UNSUPPORTED_VERSION` », `secretPersistence`, `insecureHttp`) avec les règles de T038
+- [X] T048 [P] [US1] Créer `B/domain/consent/ConsentRecord.java` (service « `COPILOT` ou `JIRA` », `granted`, `at`, historique conservé) et `B/domain/consent/ConsentPolicy.java`, avec la méthode `requireGranted(service)` qui lève `CONSENT_REQUIRED` (FR-024)
+- [X] T049 [US1] Créer `BR/db/migration/V2__settings_consent.sql` : tables `copilot_settings`, `jira_settings` (une seule ligne chacune, **aucune colonne de jeton**) et `consent_record`
+- [X] T050 [US1] Implémenter `B/infrastructure/persistence/settings/SettingsJpaRepository.java` et `B/infrastructure/persistence/consent/ConsentJpaRepository.java` (entités JPA, puis mapping vers le domaine), derrière les ports `B/domain/port/SettingsRepository.java` et `B/domain/port/ConsentRepository.java`
+- [X] T051 [US1] Implémenter `B/infrastructure/secrets/KeychainSecretStore.java`, appuyé sur `io.alapierre:credential-secure-storage` (service `spec-writer`). Les appels passent par un exécuteur avec un timeout de 5 s, et un repli en mémoire est prévu. Il n'y a aucun repli fichier. Doit faire passer T040.
+- [X] T052 [US1] Créer le port `B/domain/port/GitHubAuthenticator.java` (`startConnection()` renvoie `flowId`, `authorizationUrl`, `requestedScopes` et `expiresAt` ; `poll(flowId)` ; `disconnect()` ; `listModels()` ; `quota()`) et l'implémenter dans `B/infrastructure/github/CopilotCliAuthenticator.java` (voie A retenue en T010, research.md R4). `COPILOT_HOME` vaut `<dossier de données>/copilot` (droits `rwx------`) ; le login réellement connecté est relu par `getAuthStatus()` ; la déconnexion passe par `account.logout`. Doit faire passer T042.
+- [X] T053 [US1] Créer le port `B/domain/port/IssueTracker.java`, avec pour cette story `serverInfo()`, `currentUser()`, `project(key)` et `permissions(projectKey, perms)`. L'implémenter dans `B/infrastructure/jira/JiraRestClient.java` (Quarkus REST Client, base URL dynamique, en-tête Bearer lu dans `SecretStore`) et `B/infrastructure/jira/JiraTlsConfigurer.java`, qui ajoute le PEM de `caCertificatePath` au registre TLS du client. Doit faire passer T041.
+- [X] T054 [US1] Implémenter les cas d'usage `B/application/settings/TestJiraConnection.java`, `SaveJiraSettings.java`, `DeleteJiraSettings.java`, `StartCopilotConnection.java`, `PollCopilotConnection.java`, `DisconnectCopilot.java`, `SelectModel.java` et `B/application/consent/UpdateConsent.java`. Le modèle par défaut est le premier de `modelPreference` présent dans `availableModels`. `TestJiraConnection` commence par `ConsentPolicy.requireGranted(JIRA)`. Doit faire passer T039.
+- [X] T055 [US1] Implémenter `B/infrastructure/web/SettingsResource.java` et `B/infrastructure/web/ConsentResource.java`, selon les chemins `/api/settings/**` et `/api/consents/{service}` de [openapi.yaml](contracts/openapi.yaml). Doit faire passer T043.
 - [ ] T056 [P] [US1] Implémenter `F/core/settings/settings.store.ts` (signals : état Copilot, état Jira, consentements) et `F/core/settings/copilot-required.guard.ts`, qui redirige vers `/configuration` tant que Copilot n'est pas `CONNECTED` (US1-1)
 - [ ] T057 [US1] Implémenter `F/features/settings/settings.page.ts` avec trois composants :
   - `copilot-card.component.ts` : bouton « Se connecter à GitHub », liste des permissions demandées, ouverture de `authorizationUrl` dans un nouvel onglet, attente avec possibilité d'annuler et de recommencer, login connecté affiché, sélecteur de modèle, déconnexion ;

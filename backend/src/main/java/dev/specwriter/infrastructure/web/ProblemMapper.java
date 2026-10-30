@@ -22,6 +22,17 @@ public class ProblemMapper {
         return respond(Problem.of(e.code(), e.userMessage()));
     }
 
+    /** Erreurs du runtime Copilot (research.md R3) : sans leur message, qui peut citer la requête. */
+    @ServerExceptionMapper
+    public Response copilot(dev.specwriter.infrastructure.llm.CopilotSdkGateway.GatewayException e) {
+        return respond(Problem.of(switch (e.kind()) {
+            case NOT_CONNECTED -> ErrorCode.COPILOT_NOT_CONNECTED;
+            case MODEL_UNAVAILABLE -> ErrorCode.MODEL_UNAVAILABLE;
+            case QUOTA_EXHAUSTED -> ErrorCode.QUOTA_EXHAUSTED;
+            case UNAVAILABLE -> ErrorCode.LLM_UNAVAILABLE;
+        }));
+    }
+
     @ServerExceptionMapper
     public Response notFound(NotFoundException e) {
         return respond(Problem.of(ErrorCode.NOT_FOUND));
