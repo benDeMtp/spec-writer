@@ -3,7 +3,12 @@ import { copilotRequiredGuard } from './core/settings/copilot-required.guard';
 
 /** Une route chargée à la demande par dossier de features/ (tâche T037). */
 export const routes: Routes = [
-  { path: '', title: 'Recherche · spec-writer', loadComponent: () => import('./features/home/home.page').then((m) => m.HomePage) },
+  { path: '', title: 'Recherche · spec-writer', loadComponent: () => import('./features/search/search.page').then((m) => m.SearchPage) },
+  {
+    path: 'jira/:key',
+    title: 'Ticket Jira · spec-writer',
+    loadComponent: () => import('./features/search/item-detail.page').then((m) => m.ItemDetailPage),
+  },
   { path: 'nouveau', title: 'Nouveau besoin · spec-writer', canActivate: [copilotRequiredGuard], loadComponent: () => import('./features/need/need.page').then((m) => m.NeedPage) },
   {
     path: 'sessions/:id',

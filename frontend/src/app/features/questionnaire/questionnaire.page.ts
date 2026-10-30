@@ -19,6 +19,7 @@ import { SessionsApi } from '../../core/sessions/sessions.api';
 import { SessionDetail } from '../../core/sessions/sessions.model';
 import { ProgressComponent } from './progress.component';
 import { QuestionCardComponent } from './question-card.component';
+import { count } from '../../shared/text';
 
 /** Questionnaire : lots de questions, conclusion à tout moment, génération (US2). */
 @Component({
@@ -308,10 +309,6 @@ export class QuestionnairePage implements OnInit {
       );
     }
   }
-}
-
-function count(n: number, singular: string, plural: string): string {
-  return `${n} ${n > 1 ? plural : singular}`;
 }
 
 /** Message lu par les lecteurs d'écran après une réponse modifiée. */

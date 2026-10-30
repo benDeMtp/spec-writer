@@ -170,8 +170,10 @@ sont possibles, dans cet ordre de préférence. Le choix sera tranché par le sp
 
 - **Decision** : **Angular 22.2** (standalone, signals, zoneless et OnPush par défaut), Node.js
   24 LTS, TypeScript 6.0. Composants **Angular Material 22 (Material 3) + CDK**. `@angular/aria`
-  pour les widgets sur mesure. Rendu Markdown avec `ngx-markdown` 22. Diff avec `ngx-diff` 16,
-  basé sur `diff` (jsdiff 9).
+  pour les widgets sur mesure. Rendu Markdown avec `ngx-markdown` 22. Le diff unifié est calculé
+  par le backend (java-diff-utils) et affiché par un composant maison, `shared/ui/unified-diff`.
+  `ngx-diff` 16, retenu d'abord, a été écarté à l'implémentation : il ne distingue ajouts et
+  suppressions que par la couleur et n'expose aucun attribut ARIA (WCAG 1.4.1, FR-029).
 - **Rationale** :
   - Material + CDK est la bibliothèque la plus solide pour WCAG 2.1 AA et le clavier (FR-029).
     Elle suit le cycle de versions d'Angular, et son theming M3 par tokens CSS permet une identité

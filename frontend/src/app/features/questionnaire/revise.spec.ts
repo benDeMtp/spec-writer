@@ -13,6 +13,8 @@ const READY: SessionDetail = {
   updatedAt: '2026-10-30T09:00:00Z',
   latestVersion: 1,
   jiraKey: null,
+  linkedTicket: null,
+  origin: 'LOCAL',
   readable: true,
   need: 'Besoin',
   language: 'fr',

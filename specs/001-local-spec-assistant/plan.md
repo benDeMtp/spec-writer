@@ -32,7 +32,8 @@ Les décisions et leurs alternatives sont dans [research.md](research.md).
 - quarkus-langchain4j 2.x et `com.github:copilot-sdk-java` (preview) ;
 - `io.alapierre:credential-secure-storage` (trousseau) ;
 - `flexmark-java` avec `flexmark-jira-converter` (Markdown vers wiki markup Jira) ;
-- Angular 22.2, Angular Material et CDK 22, `ngx-markdown`, `ngx-diff`.
+- Angular 22.2, Angular Material et CDK 22, `ngx-markdown`. Diff unifié calculé par le backend
+  (java-diff-utils), affiché par un composant maison accessible (research.md).
 
 **Storage**: SQLite (`sqlite-jdbc` xerial, mode WAL, dialecte Hibernate community), migrations
 Flyway, index FTS5. Fichier `spec-writer.db` dans le dossier utilisateur de l'OS (research.md

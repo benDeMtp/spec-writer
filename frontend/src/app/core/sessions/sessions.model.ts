@@ -25,7 +25,18 @@ export interface SessionSummary {
   readable: boolean;
 }
 
+export type SyncState = 'IN_SYNC' | 'LOCAL_AHEAD' | 'CONFLICT';
+
+export interface LinkedTicket {
+  issueKey: string;
+  issueUrl: string;
+  syncState: SyncState;
+  linkedVersionNumber: number;
+}
+
 export interface SessionDetail extends SessionSummary {
+  linkedTicket: LinkedTicket | null;
+  origin: 'LOCAL' | 'JIRA_IMPORT';
   need: string;
   language: Language;
   progress: { answered: number; skipped: number; total: number };

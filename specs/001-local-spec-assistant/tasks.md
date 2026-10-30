@@ -431,7 +431,7 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   - `AI_MERGE` crée une proposition `CONFLICT_MERGE` à valider ;
   - un succès met à jour `lastKnownUpdated`, le hash, `lastPushedAt` et `IN_SYNC` (FR-047, FR-048, US6-6, US6-7).
 - [X] T104 [P] [US6] Écrire `BT/infrastructure/web/SearchAndJiraResourceIT.java` : `GET /api/search` (`q` de 2 à 200 caractères), `GET /api/jira/issues/{key}`, `POST /api/jira/issues/{key}/import`, `POST /api/sessions/{id}/ai-edits`, `POST …/ai-edits/{proposalId}/accept`, `PUT /api/sessions/{id}/jira` (200 et 409), selon [openapi.yaml](contracts/openapi.yaml)
-- [ ] T105 [P] [US6] Écrire `E/us6-search-edit.spec.ts` (Playwright + axe, WireMock Jira) : scénarios V12, V13 et V14 de [quickstart.md](quickstart.md), et US6-1 à US6-8
+- [X] T105 [P] [US6] Écrire `E/us6-search-edit.spec.ts` (Playwright + axe, WireMock Jira) : scénarios V12, V13 et V14 de [quickstart.md](quickstart.md), et US6-1 à US6-8
 
 ### Implementation for User Story 6
 
@@ -449,13 +449,13 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 - [X] T113 [US6] Écrire les prompts `BR/prompts/edit-specification.txt`, `BR/prompts/merge-conflict.txt` et `BR/prompts/structure-imported-text.txt` (même règle de séparation que T078), puis implémenter `B/application/specification/ProposeAiEdit.java` et `AcceptAiEdit.java`. Les propositions sont gardées en mémoire pendant 30 minutes, et le diff unifié est calculé sur le Markdown. Doit faire passer T102.
 - [X] T114 [US6] Implémenter `B/application/jira/ImportJiraIssue.java`, `GetJiraIssue.java` et `PushToJira.java`. Chacun commence par `ConsentPolicy.requireGranted(JIRA)`. L'import et `TAKE_JIRA` passent par `LlmClient.structureImportedText`. Doit faire passer T101 et T103.
 - [X] T115 [US6] Implémenter `B/infrastructure/web/SearchResource.java`, `B/infrastructure/web/JiraIssueResource.java` et `B/infrastructure/web/AiEditResource.java`, et ajouter `PUT /api/sessions/{id}/jira` dans `B/infrastructure/web/JiraLinkResource.java` pour faire passer T104
-- [ ] T116 [P] [US6] Implémenter `F/features/search/search.page.ts` et `results-table.component.ts`.
+- [X] T116 [P] [US6] Implémenter `F/features/search/search.page.ts` et `results-table.component.ts`.
   - `mat-table` accessible, avec les colonnes identifiant, titre, provenance (puce « spec-writer », « Jira » ou « les deux », avec texte et pas seulement une couleur) et date.
   - Bandeau si Jira n'est pas configuré ou ne répond pas.
   - Pagination au clavier.
-- [ ] T117 [P] [US6] Implémenter `F/features/search/item-detail.page.ts` : description rendue avec `ngx-markdown`, action unique « Faire évoluer avec l'IA ». Sur un ticket non lié, elle importe d'abord le ticket (`POST /api/jira/issues/{key}/import`, sans écriture Jira), puis ouvre le panneau de modification sur la session créée (US6-5).
-- [ ] T118 [US6] Implémenter `F/features/ai-edit/ai-edit.panel.ts` : champ d'instruction de 2 000 caractères au maximum, proposition et diff avec `ngx-diff` (navigation au clavier, ajouts et suppressions signalés par texte), boutons « Appliquer » et « Abandonner »
-- [ ] T119 [US6] Implémenter `F/features/jira/push-dialog.component.ts` (aperçu de la description wiki avant envoi) et `F/features/jira/conflict-dialog.component.ts` (les deux versions côte à côte ou en diff, et les trois choix : écraser, reprendre la version Jira, fusionner avec l'IA). Doit faire passer T105.
+- [X] T117 [P] [US6] Implémenter `F/features/search/item-detail.page.ts` : description rendue avec `ngx-markdown`, action unique « Faire évoluer avec l'IA ». Sur un ticket non lié, elle importe d'abord le ticket (`POST /api/jira/issues/{key}/import`, sans écriture Jira), puis ouvre le panneau de modification sur la session créée (US6-5).
+- [X] T118 [US6] Implémenter `F/features/ai-edit/ai-edit.panel.ts` : champ d'instruction de 2 000 caractères au maximum, proposition et diff avec `shared/ui/unified-diff.component.ts` (navigation au clavier, ajouts et suppressions signalés par texte ; `ngx-diff` écarté, voir research.md), boutons « Appliquer » et « Abandonner »
+- [X] T119 [US6] Implémenter `F/features/jira/push-dialog.component.ts` (aperçu de la description wiki avant envoi) et `F/features/jira/conflict-dialog.component.ts` (les deux versions côte à côte ou en diff, et les trois choix : écraser, reprendre la version Jira, fusionner avec l'IA). Doit faire passer T105.
 
 **Checkpoint** : la recherche unifiée et l'évolution assistée fonctionnent. Jira n'est jamais modifié sans confirmation explicite.
 

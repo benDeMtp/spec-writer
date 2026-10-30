@@ -1,0 +1,48 @@
+{
+  "operation": "structure-imported-text",
+  "userContains": [
+    "E2E-IMPORT"
+  ],
+  "response": {
+    "title": "Réservation du parking visiteurs",
+    "summary": "Les salariés réservent une place de parking pour un visiteur.",
+    "useCases": [
+      {
+        "title": "Réserver une place de parking",
+        "actor": "salarié",
+        "goal": "Disposer d'une place le jour venu",
+        "preconditions": [],
+        "nominalFlow": [
+          "Choisir le jour",
+          "Valider la réservation"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "NEED_EXCERPT",
+          "questionId": "",
+          "excerpt": "réserver une place de parking"
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "useCaseIndex": 0,
+        "title": "Réservation confirmée",
+        "kind": "NOMINAL",
+        "asA": "salarié",
+        "given": [
+          "une place libre demain"
+        ],
+        "when": [
+          "je réserve une place pour demain"
+        ],
+        "then": [
+          "la réservation est confirmée"
+        ],
+        "assumption": false
+      }
+    ],
+    "assumptions": [],
+    "requirements": []
+  }
+}

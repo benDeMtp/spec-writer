@@ -87,6 +87,71 @@
           "Content-Type": "application/json"
         }
       }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/PROJ-102"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "PROJ-102",
+          "fields": {
+            "summary": "Parking visiteurs",
+            "description": "h2. Besoin\nLes salariés doivent pouvoir réserver une place du parking visiteurs pour la journée. E2E-IMPORT",
+            "updated": "2026-10-30T09:00:00.000+0000"
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/search"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "startAt": 0,
+          "maxResults": 20,
+          "total": 2,
+          "issues": [
+            {
+              "key": "PROJ-102",
+              "fields": {
+                "summary": "Parking visiteurs",
+                "status": {
+                  "name": "À faire"
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-10-30T09:00:00.000+0000"
+              }
+            },
+            {
+              "key": "PROJ-103",
+              "fields": {
+                "summary": "Parking des vélos",
+                "status": {
+                  "name": "À faire"
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-10-29T09:00:00.000+0000"
+              }
+            }
+          ]
+        }
+      }
     }
   ]
 }

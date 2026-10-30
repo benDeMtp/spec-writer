@@ -28,6 +28,8 @@ function session(over: Partial<SessionDetail> = {}): SessionDetail {
     updatedAt: '2026-10-30T09:00:00Z',
     latestVersion: null,
     jiraKey: null,
+    linkedTicket: null,
+    origin: 'LOCAL',
     readable: true,
     need: 'Les employés doivent pouvoir réserver une salle.',
     language: 'fr',
