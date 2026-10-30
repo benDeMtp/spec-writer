@@ -4,6 +4,8 @@ import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.specification.GenerateSpecification;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.jira.LinkedJiraTicket;
+import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import jakarta.inject.Inject;
@@ -28,13 +30,17 @@ public class VersionResource {
     SpecificationRepository versions;
     @Inject
     GenerateSpecification generateSpecification;
+    @Inject
+    LinkedTicketRepository tickets;
 
     @Inject
     ManageSessions manageSessions;
 
     @GET
     public List<SessionViews.VersionSummary> list(@PathParam("id") String id) {
-        return manageSessions.versions(Ids.parse(id)).stream().map(SessionViews::versionSummary).toList();
+        UUID sessionId = Ids.parse(id);
+        LinkedJiraTicket ticket = tickets.findBySession(sessionId).orElse(null);
+        return manageSessions.versions(sessionId).stream().map(v -> SessionViews.versionSummary(v, ticket)).toList();
     }
 
     /** 201 pour une nouvelle version, 200 quand la version existante est réutilisée. */

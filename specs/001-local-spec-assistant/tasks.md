@@ -430,7 +430,7 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   - sans consentement `JIRA`, l'erreur est `CONSENT_REQUIRED` ;
   - `AI_MERGE` crée une proposition `CONFLICT_MERGE` à valider ;
   - un succès met à jour `lastKnownUpdated`, le hash, `lastPushedAt` et `IN_SYNC` (FR-047, FR-048, US6-6, US6-7).
-- [ ] T104 [P] [US6] Écrire `BT/infrastructure/web/SearchAndJiraResourceIT.java` : `GET /api/search` (`q` de 2 à 200 caractères), `GET /api/jira/issues/{key}`, `POST /api/jira/issues/{key}/import`, `POST /api/sessions/{id}/ai-edits`, `POST …/ai-edits/{proposalId}/accept`, `PUT /api/sessions/{id}/jira` (200 et 409), selon [openapi.yaml](contracts/openapi.yaml)
+- [X] T104 [P] [US6] Écrire `BT/infrastructure/web/SearchAndJiraResourceIT.java` : `GET /api/search` (`q` de 2 à 200 caractères), `GET /api/jira/issues/{key}`, `POST /api/jira/issues/{key}/import`, `POST /api/sessions/{id}/ai-edits`, `POST …/ai-edits/{proposalId}/accept`, `PUT /api/sessions/{id}/jira` (200 et 409), selon [openapi.yaml](contracts/openapi.yaml)
 - [ ] T105 [P] [US6] Écrire `E/us6-search-edit.spec.ts` (Playwright + axe, WireMock Jira) : scénarios V12, V13 et V14 de [quickstart.md](quickstart.md), et US6-1 à US6-8
 
 ### Implementation for User Story 6
@@ -448,7 +448,7 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 - [X] T112 [US6] Implémenter `B/application/search/UnifiedSearch.java`, avec un délai de 5 s pour l'appel Jira. Jira n'est interrogé que si le consentement `JIRA` est accordé (`ConsentPolicy`). Doit faire passer T098.
 - [X] T113 [US6] Écrire les prompts `BR/prompts/edit-specification.txt`, `BR/prompts/merge-conflict.txt` et `BR/prompts/structure-imported-text.txt` (même règle de séparation que T078), puis implémenter `B/application/specification/ProposeAiEdit.java` et `AcceptAiEdit.java`. Les propositions sont gardées en mémoire pendant 30 minutes, et le diff unifié est calculé sur le Markdown. Doit faire passer T102.
 - [X] T114 [US6] Implémenter `B/application/jira/ImportJiraIssue.java`, `GetJiraIssue.java` et `PushToJira.java`. Chacun commence par `ConsentPolicy.requireGranted(JIRA)`. L'import et `TAKE_JIRA` passent par `LlmClient.structureImportedText`. Doit faire passer T101 et T103.
-- [ ] T115 [US6] Implémenter `B/infrastructure/web/SearchResource.java`, `B/infrastructure/web/JiraIssueResource.java` et `B/infrastructure/web/AiEditResource.java`, et ajouter `PUT /api/sessions/{id}/jira` dans `B/infrastructure/web/JiraLinkResource.java` pour faire passer T104
+- [X] T115 [US6] Implémenter `B/infrastructure/web/SearchResource.java`, `B/infrastructure/web/JiraIssueResource.java` et `B/infrastructure/web/AiEditResource.java`, et ajouter `PUT /api/sessions/{id}/jira` dans `B/infrastructure/web/JiraLinkResource.java` pour faire passer T104
 - [ ] T116 [P] [US6] Implémenter `F/features/search/search.page.ts` et `results-table.component.ts`.
   - `mat-table` accessible, avec les colonnes identifiant, titre, provenance (puce « spec-writer », « Jira » ou « les deux », avec texte et pas seulement une couleur) et date.
   - Bandeau si Jira n'est pas configuré ou ne répond pas.
