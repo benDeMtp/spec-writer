@@ -19,5 +19,16 @@ export default defineConfig({
     storageState: storageStatePath,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Ordre imposé : « egress » sur un état neuf (SC-008), les parcours, puis « secrets » sur l'état
+  // final (SC-009). Un projet ne démarre que si le précédent a réussi.
+  projects: [
+    { name: 'egress', testMatch: 'network-egress.spec.ts', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      testIgnore: ['network-egress.spec.ts', 'secrets-at-rest.spec.ts'],
+      dependencies: ['egress'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    { name: 'secrets', testMatch: 'secrets-at-rest.spec.ts', dependencies: ['chromium'], use: { ...devices['Desktop Chrome'] } },
+  ],
 });

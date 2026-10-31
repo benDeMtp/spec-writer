@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { createWriteStream, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { responds, startApp, stopApp, waitFor } from './app';
-import { baseURL, jiraPort, jiraURL, stateDir, storageStatePath, wiremockJar } from './env';
+import { baseURL, dataDir, jiraPort, jiraURL, stateDir, storageStatePath, wiremockJar } from './env';
 
 /**
  * Démarre Jira simulé (WireMock) et le jar réel en profil e2e, puis échange le jeton de lancement
@@ -43,6 +43,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     await waitFor(`${jiraURL}/__admin/health`);
     await exchange(launchUrl);
     writeFileSync(join(stateDir, 'ready'), new Date().toISOString());
+    // lu par secrets-at-rest.spec.ts (SC-009)
+    writeFileSync(join(stateDir, 'data-dir'), dataDir());
   } catch (error) {
     await teardown();
     throw error;

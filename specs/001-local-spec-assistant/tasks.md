@@ -533,9 +533,9 @@ et vérifier son contenu, sa clé et le lien enregistré dans la session.
 **Purpose**: critères de succès transverses, sécurité de bout en bout, évaluation, packaging et
 documentation.
 
-- [ ] T133 [P] Écrire `E/security-local.spec.ts`. Scénario V15 : une page servie depuis une autre origine par le serveur de test Playwright tente un `fetch` `POST` vers `http://127.0.0.1:<port>/api/sessions` et reçoit 403. Vérifier aussi le header Host `evil.example` : refus (DNS rebinding).
-- [ ] T134 [P] Écrire `E/secrets-at-rest.spec.ts` (SC-009, V16). Après un parcours complet, chercher les motifs `gho_`, `ghu_`, `github_pat_` et le jeton Jira de test dans le dossier de données temporaire, les journaux capturés et les fichiers exportés : aucun résultat ne doit apparaître.
-- [ ] T135 [P] Écrire `E/network-egress.spec.ts` (SC-008) : aucune requête vers les hôtes GitHub/Copilot ni Jira simulés avant que le consentement correspondant soit accordé. La vérification passe par le journal des requêtes WireMock et du `ReplayChatModel`.
+- [X] T133 [P] Écrire `E/security-local.spec.ts`. Scénario V15 : une page servie depuis une autre origine par le serveur de test Playwright tente un `fetch` `POST` vers `http://127.0.0.1:<port>/api/sessions` et reçoit 403. Vérifier aussi le header Host `evil.example` : refus (DNS rebinding).
+- [X] T134 [P] Écrire `E/secrets-at-rest.spec.ts` (SC-009, V16). Après un parcours complet, chercher les motifs `gho_`, `ghu_`, `github_pat_` et le jeton Jira de test dans le dossier de données temporaire, les journaux capturés et les fichiers exportés : aucun résultat ne doit apparaître.
+- [X] T135 [P] Écrire `E/network-egress.spec.ts` (SC-008) : aucune requête vers les hôtes GitHub/Copilot ni Jira simulés avant que le consentement correspondant soit accordé. La vérification passe par le journal des requêtes WireMock et du `ReplayChatModel`.
 - [ ] T136 [P] Écrire `BT/performance/QuestionFlowPerformanceIT.java` (SC-007). Avec un LLM simulé à latence nulle, 95 % des enchaînements « répondre, puis question suivante du lot » prennent moins de 3 s, et le démarrage jusqu'à `/q/health/ready` prend moins de 5 s.
 - [ ] T137 Écrire la suite d'évaluation `BT/eval/QuestionRelevanceEval.java` et `BT/eval/SpecificationStructureEval.java` (tag `eval`, vrai Copilot, lancée en local par `./mvnw -pl backend verify -Peval`). Elle rejoue les besoins du golden set et mesure :
   - la part de questions redondantes ou hors sujet, qui doit rester au plus à 10 % (SC-004, jugée par une grille de critères) ;
