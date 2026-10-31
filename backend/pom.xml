@@ -97,6 +97,13 @@
       <groupId>io.quarkiverse.langchain4j</groupId>
       <artifactId>quarkus-langchain4j-core</artifactId>
       <version>${quarkus-langchain4j.version}</version>
+      <!-- découpage de documents en phrases (langchain4j), inutilisé ; CVE-2026-82617 (CVSS 10) -->
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.opennlp</groupId>
+          <artifactId>opennlp-tools</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>com.github</groupId>
@@ -124,9 +131,26 @@
       <artifactId>java-diff-utils</artifactId>
       <version>${java-diff-utils.version}</version>
     </dependency>
+    <!-- Seulement les modules utilisés : flexmark-all embarque aussi l'export PDF (pdfbox,
+         openhtmltopdf, icu4j), vulnérable et inutile ici -->
     <dependency>
       <groupId>com.vladsch.flexmark</groupId>
-      <artifactId>flexmark-all</artifactId>
+      <artifactId>flexmark</artifactId>
+      <version>${flexmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.vladsch.flexmark</groupId>
+      <artifactId>flexmark-ext-tables</artifactId>
+      <version>${flexmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.vladsch.flexmark</groupId>
+      <artifactId>flexmark-ext-gfm-strikethrough</artifactId>
+      <version>${flexmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.vladsch.flexmark</groupId>
+      <artifactId>flexmark-jira-converter</artifactId>
       <version>${flexmark.version}</version>
     </dependency>
     <dependency>
