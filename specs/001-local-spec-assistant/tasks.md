@@ -70,6 +70,7 @@ Règles transverses, valables pour toutes les tâches :
   - `e2e/tests/support/a11y.ts` : helper `expectNoA11yViolations(page)` sur les tags `wcag2a`, `wcag2aa` et `wcag21aa`.
 - [X] T008 [P] Créer `.semgrep.yml` (règles `p/java`, `p/typescript`, `p/owasp-top-ten`), `.gitleaks.toml`, `.editorconfig`, puis `ci/verify.sh`. Le script enchaîne `./mvnw verify`, `npm --prefix frontend audit --audit-level=high`, `semgrep --error`, `gitleaks detect`, `ci/check-eval.sh` (créé en T138) et `npm --prefix e2e test`, et s'arrête au premier échec (constitution, quality gates).
 - [X] T009 [P] Créer `.forgejo/workflows/ci.yml` (Forgejo Actions), déclenché sur `pull_request` et sur `push` vers `main`. Le job `verify` tourne sur un runner Linux (label `docker`, image avec JDK 25 et Node 24) et exécute `ci/verify.sh`. Il est rendu obligatoire pour la fusion par la règle de protection de `main` côté Forgejo (constitution : SAST en CI, quality gates).
+  - **Migré vers GitHub Actions (2026-10-31)** : `.github/workflows/ci.yml` (runner `ubuntu-24.04`, Temurin 25, Node 24), même `ci/verify.sh`. Secret `NVD_API_KEY` à déclarer ; job `verify` à rendre obligatoire dans la protection de `main`.
 
 ---
 
@@ -549,11 +550,10 @@ documentation.
     produit et vérifié (démarrage en 4 s, front, API, runtime Copilot). Écarts : uber-jar au lieu
     d'`aot-jar` (research.md R15). Restent à produire et vérifier sur leur OS : `.dmg` x64,
     `.msi` et `.deb` (configurés), `.tar.gz` Linux (pas encore configuré).
-- [ ] T141 Créer `.forgejo/workflows/release.yml`, déclenché sur un tag `v*`. La matrice de jobs `package` couvre trois cibles :
-  - `linux` sur le runner `docker` ;
-  - `macos` et `windows` sur des runners host labellisés `macos` et `windows`, à héberger par le mainteneur.
+- [ ] T141 Créer `.github/workflows/release.yml` (GitHub Actions, amendement du 2026-10-31), déclenché sur un tag `v*`. La matrice de jobs `package` couvre quatre cibles sur les runners hébergés : `macos-15` (arm64), `macos-15-intel` (x64), `windows-2022` et `ubuntu-24.04`.
 
-  Chaque job exécute `./mvnw -Pdist package` et publie l'installeur comme asset de la release Forgejo. Les jobs des OS sans runner sont marqués `continue-on-error: true`, pour que la release Linux sorte quand même.
+  Chaque job exécute `./mvnw -Pdist package` avec `SPECWRITER_APP_VERSION` tirée du tag, et publie son installeur dans la release GitHub du tag. `fail-fast: false` : un OS en échec n'empêche pas les autres de publier.
+  - **Avancement (2026-10-31)** : workflow écrit et validé par actionlint ; à valider au premier tag.
 - [X] T142 [P] Créer `dist/scripts/spec-writer.sh` et `dist/scripts/spec-writer.cmd` (lancement du jar avec un JDK 25 local, pour les développeurs) et `dist/assets/` (icônes de l'application pour les trois OS)
 - [X] T143 [P] Rédiger `README.md` (présentation, installation par OS, avertissements Gatekeeper et SmartScreen tant que la signature n'est pas en place, emplacement des données, recommandation de chiffrement du disque FileVault, BitLocker ou LUKS, désinstallation et suppression des données, prérequis Copilot : politique « Copilot CLI » activée par l'organisation) et `CONTRIBUTING.md` (commandes de [quickstart.md](quickstart.md), règles TDD et quality gates)
 - [ ] T144 Exécuter toutes les validations V1 à V16 de [quickstart.md](quickstart.md) sur un installeur produit par T140, puis consigner les résultats et les écarts dans `specs/001-local-spec-assistant/checklists/validation.md`

@@ -94,7 +94,7 @@ Constitution v2.0.0.
 | IV. E2E et qualité des sorties | Un E2E par parcours, golden set, suite d'évaluation LLM, un recul bloque la fusion | ✅ | ✅ | Module `e2e` (V1 à V15 automatisés), `golden/`, profil `eval`, `last-run.json` vérifié en CI par `ci/check-eval.sh` |
 | V. Sécurité et confidentialité | Données confidentielles, journaux sans contenu, entrées bornées, sorties échappées, séparation des prompts, consentement | ✅ | ✅ | [contracts/llm-port.md](contracts/llm-port.md), `ConsentRecord`, limites de taille dans [openapi.yaml](contracts/openapi.yaml), filtre de journalisation |
 | Sécurité : secrets | Trousseau du système, jamais dans un fichier | ✅ | ✅ | research.md R8, test SC-009 (V16) |
-| Sécurité : dépendances et SAST | Scan à chaque build, haute ou critique bloquante, SAST en CI | ✅ | ✅ | research.md R16 : Dependency-Check, npm audit, Semgrep, gitleaks, exécutés par Forgejo Actions (`ci.yml`) |
+| Sécurité : dépendances et SAST | Scan à chaque build, haute ou critique bloquante, SAST en CI | ✅ | ✅ | research.md R16 : Dependency-Check, npm audit, Semgrep, gitleaks, exécutés par GitHub Actions (`ci.yml`) |
 | Sécurité : isolation | Multi-utilisateur non concerné. Isolation vis-à-vis des autres sites et processus locaux | ✅ | ✅ | Jeton de lancement, contrôle d'Origin et du header Host (R14), test négatif V15 |
 | Sécurité : stockage | Chiffrement au repos « lorsque l'hébergement le permet », rétention définie, suppression | ✅ | ✅ | Droits `rwx------` sur le dossier. Le chiffrement du disque (FileVault, BitLocker, LUKS) est recommandé dans le guide utilisateur. Rétention jusqu'à suppression par l'utilisateur, suppression physique des versions |
 | Sécurité : OWASP | Top 10 et Top 10 LLM | ✅ | ✅ | A01 et A05 (R14), A03 (échappement, JQL nettoyé), LLM01 (séparation des prompts et corpus d'injection), LLM02 (sortie validée par schéma), LLM06 (aucun secret dans les prompts) |
@@ -169,7 +169,7 @@ e2e/                                 # Playwright + axe, démarre le jar (profil
 └── tests/                           # un fichier par user story
 .dev-data/                           # données du dev mode (ignoré par git)
 dist/                                # JReleaser (jpackage dmg / msi / deb / tar.gz), scripts de lancement
-.forgejo/workflows/                  # ci.yml (verify, Linux) et release.yml (matrice 3 OS)
+.github/workflows/                   # ci.yml (verify, Linux) et release.yml (matrice 3 OS)
 ci/                                  # verify.sh, check-eval.sh
 ```
 
@@ -232,10 +232,11 @@ appliquée à `.dev-data/` n'est jamais modifiée : on en ajoute une nouvelle, o
     injecté au build ;
   - dans les deux cas, vérifier auprès de l'administrateur de l'organisation GitHub que les
     applications tierces et l'usage de Copilot hors IDE sont autorisés.
-- **Forge et CI** : Forgejo, sur l'instance du mainteneur, avec Forgejo Actions.
-  - Workflow `ci.yml` sur un runner Linux (Docker), obligatoire pour la fusion.
-  - Workflow `release.yml` en matrice 3 OS. Les runners macOS et Windows, en mode host, sont à
-    héberger par le mainteneur.
+- **Forge et CI** : GitHub (`benDeMtp/spec-writer`, public, licence Apache 2.0), avec GitHub
+  Actions (amendement du 2026-10-31 : Forgejo abandonné au passage en open source).
+  - Workflow `ci.yml` sur un runner Linux hébergé, obligatoire pour la fusion.
+  - Workflow `release.yml` en matrice sur les runners hébergés de GitHub : macOS arm64 et x64,
+    Windows x64, Linux x64. Plus de runner à héberger par le mainteneur.
   - L'évaluation LLM est lancée en local. La CI vérifie son résultat committé (empreinte et
     scores, `ci/check-eval.sh`) : un recul des scores bloque donc la fusion (principe IV).
 - **Signature des installeurs** (Developer ID et notarisation sur macOS, Authenticode sur
