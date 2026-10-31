@@ -1,0 +1,8 @@
+spec-writer
+Copyright 2026 Benjamin Raimondi
+
+Ce produit est distribué sous la licence Apache, version 2.0 (fichier LICENSE).
+
+Les installeurs embarquent un runtime Java (OpenJDK, GPLv2 avec Classpath Exception) et le
+runtime GitHub Copilot fourni par copilot-sdk-java-runtime, qui contient des composants soumis à
+leurs propres conditions de licence (notamment OneAuthInterop, Microsoft Software License Terms).

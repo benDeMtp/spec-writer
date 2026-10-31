@@ -97,3 +97,8 @@ du disque** : FileVault sur macOS, BitLocker sur Windows, LUKS sur Linux.
 ## Développer
 
 Voir [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Licence
+
+spec-writer est distribué sous la [licence Apache 2.0](LICENSE). Les installeurs embarquent des
+composants tiers soumis à leurs propres conditions : voir [NOTICE](NOTICE).
