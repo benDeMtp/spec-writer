@@ -71,7 +71,7 @@ public class ImportJiraIssue {
         JiraIssue issue = GetJiraIssue.read(tracker, target, issueKey);
         consent.requireGranted(ConsentService.COPILOT);
 
-        String text = markup.toMarkdown(issue.description()).strip();
+        String text = markup.toMarkdown(issue.description(), target.issueUrl(issue.key())).strip();
         boolean truncated = text.length() > Need.MAX_LENGTH;
         Need need = need(truncated ? text.substring(0, Need.MAX_LENGTH) : text, issue.summary());
         Session session = Session.imported(ids.next(), need, issue.summary(), clock.now());

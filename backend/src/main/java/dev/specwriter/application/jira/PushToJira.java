@@ -104,12 +104,12 @@ public class PushToJira {
         }
         if (resolution == null) {
             tickets.save(ticket.conflict());
-            return new Conflict(markup.toMarkdown(current.description()), version.markdown(), current.updated());
+            return new Conflict(markup.toMarkdown(current.description(), ticket.issueUrl()), version.markdown(), current.updated());
         }
         return switch (resolution) {
             case OVERWRITE -> push(target, ticket, version);
             case TAKE_JIRA -> takeJira(session, ticket, current);
-            case AI_MERGE -> merge(session, version, current);
+            case AI_MERGE -> merge(session, version, current, ticket.issueUrl());
         };
     }
 
@@ -129,7 +129,7 @@ public class PushToJira {
 
     private TakenFromJira takeJira(Session session, LinkedJiraTicket ticket, JiraIssue current) {
         consent.requireGranted(ConsentService.COPILOT);
-        SpecificationContent content = ImportJiraIssue.structure(llm, markup.toMarkdown(current.description()),
+        SpecificationContent content = ImportJiraIssue.structure(llm, markup.toMarkdown(current.description(), ticket.issueUrl()),
                 session.language());
         int number = versions.lastNumber(session.id()) + 1;
         SpecificationVersion taken = new SpecificationVersion(ids.next(), session.id(), number, content,
@@ -142,11 +142,11 @@ public class PushToJira {
         return new TakenFromJira(taken, reimported);
     }
 
-    private MergeProposed merge(Session session, SpecificationVersion local, JiraIssue current) {
+    private MergeProposed merge(Session session, SpecificationVersion local, JiraIssue current, String issueUrl) {
         consent.requireGranted(ConsentService.COPILOT);
         List<Question> treated = sessions.questionnaire(session.id()).map(Questionnaire::treated).orElse(List.of());
         MergeRequest request = new MergeRequest(session.need().text(), session.language(), DraftValidation.answers(treated),
-                local.markdown(), markup.toMarkdown(current.description()), null);
+                local.markdown(), markup.toMarkdown(current.description(), issueUrl), null);
         SpecificationContent content = DraftValidation.produce(c -> llm.mergeConflict(request.withCorrection(c)), treated,
                 session.language(), ErrorCode.LLM_INVALID_OUTPUT);
         return new MergeProposed(proposals.propose(session, local, content, VersionOrigin.CONFLICT_MERGE, current.updated(),

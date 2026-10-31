@@ -28,8 +28,9 @@ public class GetJiraIssue {
     public IssueView run(String issueKey) {
         JiraAccess.Target target = jira.require();
         JiraIssue issue = read(tracker, target, issueKey);
-        return new IssueView(issue.key(), issue.summary(), markup.toMarkdown(issue.description()), issue.updated(),
-                target.issueUrl(issue.key()));
+        String url = target.issueUrl(issue.key());
+        return new IssueView(issue.key(), issue.summary(), markup.toMarkdown(issue.description(), url), issue.updated(),
+                url);
     }
 
     /** Lecture d'un ticket, erreurs Jira traduites pour l'utilisateur. */

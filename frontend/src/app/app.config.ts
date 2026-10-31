@@ -7,18 +7,22 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { SANITIZE, provideMarkdown } from 'ngx-markdown';
+import { MARKED_OPTIONS, SANITIZE, provideMarkdown } from 'ngx-markdown';
 import { routes } from './app.routes';
 import { LaunchTokenService } from './core/launch/launch-token.service';
 import { problemInterceptor } from './core/http/problem.interceptor';
+import { markedOptions } from './shared/ui/markdown-options';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withInterceptors([problemInterceptor])),
-    // Les descriptions Jira sont du contenu tiers : le HTML produit est toujours nettoyé.
-    provideMarkdown({ sanitize: { provide: SANITIZE, useValue: SecurityContext.HTML } }),
+    // Les descriptions Jira sont du contenu tiers : liens bornés (FR-043a), HTML toujours nettoyé.
+    provideMarkdown({
+      markedOptions: { provide: MARKED_OPTIONS, useFactory: markedOptions },
+      sanitize: { provide: SANITIZE, useValue: SecurityContext.HTML },
+    }),
     // Le jeton de lancement est échangé avant tout appel à l'API (research.md R14).
     provideAppInitializer(() => inject(LaunchTokenService).exchangeFromUrl()),
   ],

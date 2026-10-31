@@ -5,6 +5,9 @@ public interface WikiMarkup {
 
     String toWiki(String markdown);
 
-    /** Pour l'affichage et l'import : les blocs non reconnus restent lisibles, en bloc de code. */
-    String toMarkdown(String wiki);
+    /**
+     * Pour l'affichage, l'import et la fusion (FR-043a) : les blocs non reconnus restent lisibles, en
+     * bloc de code. Images, pièces jointes et mentions renvoient vers {@code issueUrl} (peut être nul).
+     */
+    String toMarkdown(String wiki, String issueUrl);
 }

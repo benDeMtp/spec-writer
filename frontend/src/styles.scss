@@ -78,3 +78,47 @@ h3 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Markdown de contenu tiers (descriptions Jira, FR-043a) : tableaux, citations, panneaux */
+markdown {
+  display: block;
+
+  .sw-table {
+    max-width: 100%;
+    margin: 1rem 0;
+    overflow-x: auto;
+  }
+  .sw-table:focus-visible {
+    outline: 2px solid var(--sw-pencil);
+    outline-offset: 2px;
+  }
+  table {
+    border-collapse: collapse;
+    font-size: var(--sw-step--1);
+    overflow-wrap: normal;
+  }
+  th,
+  td {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--sw-rule);
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: color-mix(in srgb, var(--sw-rule) 45%, transparent);
+    font-family: var(--sw-font-ui);
+    font-weight: 600;
+  }
+  blockquote {
+    margin: 1rem 0;
+    padding: 0.25rem 1rem;
+    border-left: 3px solid var(--sw-role);
+  }
+  a {
+    color: var(--sw-pencil);
+  }
+  hr {
+    border: 0;
+    border-top: 1px solid var(--sw-rule);
+  }
+}

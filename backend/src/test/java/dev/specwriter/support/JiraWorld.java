@@ -54,7 +54,7 @@ public class JiraWorld {
         }
 
         @Override
-        public String toMarkdown(String wiki) {
+        public String toMarkdown(String wiki, String issueUrl) {
             return wiki == null ? "" : wiki.startsWith("wiki:") ? wiki.substring(5) : wiki;
         }
     };

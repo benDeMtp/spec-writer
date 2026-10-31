@@ -71,6 +71,21 @@ test.describe.serial('US6 recherche et modification assistée', () => {
     await expectNoA11yViolations(page);
   });
 
+  test("V12a : la syntaxe Jira est interprétée (tableau, lien, image)", async () => {
+    const description = page.getByRole('article', { name: 'Description du ticket' });
+    const table = description.getByRole('table');
+    await expect(table.getByRole('columnheader', { name: 'Créneau' })).toBeVisible();
+    await expect(table.getByRole('row', { name: /Après-midi\s*8/ })).toBeVisible();
+    const link = description.getByRole('link', { name: 'règlement du parking' });
+    await expect(link).toHaveAttribute('href', 'https://intranet.example/parking');
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    const image = description.getByRole('link', { name: 'image : plan-parking.png' });
+    await expect(image).toHaveAttribute('href', `${jiraURL}/browse/PROJ-102`);
+    await expect(description.locator('img')).toHaveCount(0);
+    await expectNoA11yViolations(page);
+  });
+
   test("US6-4 et US6-5 : faire évoluer avec l'IA, sans écrire dans Jira", async () => {
     await page.getByRole('button', { name: "Faire évoluer avec l'IA" }).click();
     await expect(page).toHaveURL(/\/sessions\/[^/]+\/versions\/1\?edit=1$/);

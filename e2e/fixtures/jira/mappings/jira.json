@@ -102,7 +102,7 @@
           "key": "PROJ-102",
           "fields": {
             "summary": "Parking visiteurs",
-            "description": "h2. Besoin\nLes salariés doivent pouvoir réserver une place du parking visiteurs pour la journée. E2E-IMPORT",
+            "description": "h2. Besoin\nLes salariés doivent pouvoir réserver une place du parking visiteurs pour la journée. E2E-IMPORT\n||Créneau||Places||\n|Matin|12|\n|Après-midi|8|\nVoir le [règlement du parking|https://intranet.example/parking] et !plan-parking.png|thumbnail!.",
             "updated": "2026-10-30T09:00:00.000+0000"
           }
         }

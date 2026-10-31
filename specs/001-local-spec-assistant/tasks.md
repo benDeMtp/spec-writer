@@ -589,7 +589,7 @@ de blocs de code bruts.
 
 **Independent Test**: ouvrir le ticket de test contenant un tableau, un lien et une image (V12a).
 
-- [ ] T152 [P] [US6] Compléter `BT/infrastructure/jira/JiraFormatConverterTest.java` (wiki vers Markdown), avant toute modification du code (principe III) :
+- [X] T152 [P] [US6] Compléter `BT/infrastructure/jira/JiraFormatConverterTest.java` (wiki vers Markdown), avant toute modification du code (principe III) :
   - tableau avec ligne d'en-tête `||`, tableau sans en-tête (en-tête vide), en-tête en première colonne (gras), `\\` dans une cellule, `|` échappé dans une cellule ;
   - liens `[texte|url]` et `[url]` ; `javascript:` et `file:` restent du texte ;
   - `bq.`, `{quote}`, `{panel:title=…}`, `{color:red}texte{color}`, `-barré-`, `+souligné+`, `{{code}}` ;
@@ -598,9 +598,9 @@ de blocs de code bruts.
   - aller-retour : Markdown vers wiki puis wiki vers Markdown conserve un tableau.
 
   Remplacer le cas existant de T099 « tableau rendu en bloc de code », devenu faux.
-- [ ] T153 [US6] Implémenter dans `B/infrastructure/jira/JiraFormatConverter.java` la conversion wiki vers Markdown de FR-043a pour faire passer T152. Le renvoi vers le ticket utilise l'URL du ticket, passée par `GetJiraIssue`, `ImportJiraIssue` et `PushToJira`.
-- [ ] T154 [P] [US6] Dans `F/features/search/item-detail.page.ts` et le rendu `ngx-markdown` partagé : liens externes ouverts avec `target="_blank"` et `rel="noopener noreferrer"`, protocoles hors `http`, `https`, `mailto` non cliquables ; tableaux stylés et lisibles (en-têtes `th`, défilement horizontal sur écran étroit). Test unitaire du rendu des liens.
-- [ ] T155 [US6] Ajouter au ticket de test `PROJ-102` de `E/fixtures/jira/mappings/jira.json` un tableau, un lien et une image. Ajouter le scénario V12a à `E/us6-search-edit.spec.ts` (Playwright + axe). Régénérer les fixtures LLM dont l'empreinte change (`E/fixtures/llm`, `BTR/llm-replay`), car la description importée change.
+- [X] T153 [US6] Implémenter dans `B/infrastructure/jira/JiraFormatConverter.java` la conversion wiki vers Markdown de FR-043a pour faire passer T152. Le renvoi vers le ticket utilise l'URL du ticket, passée par `GetJiraIssue`, `ImportJiraIssue` et `PushToJira`.
+- [X] T154 [P] [US6] Dans `F/features/search/item-detail.page.ts` et le rendu `ngx-markdown` partagé : liens externes ouverts avec `target="_blank"` et `rel="noopener noreferrer"`, protocoles hors `http`, `https`, `mailto` non cliquables ; tableaux stylés et lisibles (en-têtes `th`, défilement horizontal sur écran étroit). Test unitaire du rendu des liens.
+- [X] T155 [US6] Ajouter au ticket de test `PROJ-102` de `E/fixtures/jira/mappings/jira.json` un tableau, un lien et une image. Ajouter le scénario V12a à `E/us6-search-edit.spec.ts` (Playwright + axe). Régénérer les fixtures LLM dont l'empreinte change (`E/fixtures/llm`, `BTR/llm-replay`), car la description importée change.
 
 ---
 
