@@ -39,7 +39,10 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   };
 
   try {
+    const started = Date.now();
     const launchUrl = await startApp();
+    // durée du lancement jusqu'à /q/health/ready, vérifiée par startup.spec.ts (SC-007)
+    writeFileSync(join(stateDir, 'startup-ms'), String(Date.now() - started));
     await waitFor(`${jiraURL}/__admin/health`);
     await exchange(launchUrl);
     writeFileSync(join(stateDir, 'ready'), new Date().toISOString());

@@ -40,6 +40,9 @@ gate.
   21, avec lequel le jar ne démarre pas.
 - `JAVA_TOOL_OPTIONS` impose un proxy (`127.0.0.1:8118`) dont Java refuse le certificat : lancer
   le dev mode et jbang avec `env -u JAVA_TOOL_OPTIONS`. Le serveur MCP est enregistré ainsi.
+- Proxy (T139) : `ProxySettings` applique `https.proxyHost` (donc celui de `JAVA_TOOL_OPTIONS`),
+  sinon `HTTPS_PROXY`, au client Jira et au Copilot CLI, sauf boucle locale et exclusions
+  `NO_PROXY` / `http.nonProxyHosts`. Le proxy retenu est écrit au démarrage (`Proxy d'entreprise : …`).
 - Ports : 47615 pour l'outil installé, 47625 pour le dev mode, 47699 et 47698 pour les E2E (jar
   et WireMock).
 - Profil `live` (`-Dquarkus.profile=dev,live`) : vrai Copilot et vrai trousseau. Il est réservé

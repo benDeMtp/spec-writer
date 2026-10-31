@@ -5,6 +5,7 @@ import com.github.copilot.CopilotSession;
 import com.github.copilot.SystemMessageMode;
 import com.github.copilot.generated.AssistantMessageEvent;
 import com.github.copilot.rpc.CopilotClientOptions;
+import dev.specwriter.infrastructure.platform.ProxySettings;
 import com.github.copilot.rpc.MessageOptions;
 import com.github.copilot.rpc.PermissionRequestResult;
 import com.github.copilot.rpc.SessionConfig;
@@ -23,6 +24,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 /**
@@ -39,6 +41,9 @@ public class CopilotRuntime implements CopilotSdkGateway {
     @ConfigProperty(name = "specwriter.data-dir.resolved")
     String dataDir;
 
+    @Inject
+    ProxySettings proxy;
+
     private CopilotClient client;
 
     /** Client démarré à la demande ; partagé avec l'authentification GitHub. */
@@ -46,10 +51,15 @@ public class CopilotRuntime implements CopilotSdkGateway {
         if (client == null) {
             Path home = UserDirectories.createPrivateDirectories(Path.of(dataDir, "copilot"),
                     UserDirectories.fromSystem().posix());
-            CopilotClient c = new CopilotClient(new CopilotClientOptions()
+            CopilotClientOptions options = new CopilotClientOptions()
                     .setUseLoggedInUser(true)
                     .setCopilotHome(home.toString())
-                    .setLogLevel("error"));
+                    .setLogLevel("error");
+            if (!proxy.isEmpty()) {
+                // le Copilot CLI lit HTTPS_PROXY et NO_PROXY, pas les propriétés Java (T139)
+                options.setEnvironment(proxy.childEnvironment(System.getenv()));
+            }
+            CopilotClient c = new CopilotClient(options);
             try {
                 c.start().get(120, TimeUnit.SECONDS);
             } catch (Exception e) {

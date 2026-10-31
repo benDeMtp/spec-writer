@@ -20,6 +20,7 @@ import org.jboss.logging.Logger;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.client.ClientRequestFilter;
 import jakarta.ws.rs.core.HttpHeaders;
+import dev.specwriter.infrastructure.platform.ProxySettings;
 import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -53,6 +54,9 @@ public class JiraRestClient implements IssueTracker {
 
     @Inject
     ClockPort clock;
+
+    @Inject
+    ProxySettings proxy;
 
     @Override
     public String serverVersion(JiraEndpoint endpoint) {
@@ -324,13 +328,22 @@ public class JiraRestClient implements IssueTracker {
         return new IssueTrackerException(kind, "Jira a répondu " + status, cause);
     }
 
-    private static JiraApi client(JiraEndpoint endpoint) {
+    private JiraApi client(JiraEndpoint endpoint) {
         String token = endpoint.token();
+        URI server = URI.create(endpoint.serverUrl());
         QuarkusRestClientBuilder builder = QuarkusRestClientBuilder.newBuilder()
-                .baseUri(URI.create(endpoint.serverUrl()))
+                .baseUri(server)
                 .connectTimeout(5, TimeUnit.SECONDS)
                 .readTimeout(20, TimeUnit.SECONDS)
                 .register((ClientRequestFilter) ctx -> ctx.getHeaders().putSingle(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+        // le client de Quarkus ignore https.proxyHost : le proxy d'entreprise est appliqué ici (T139)
+        proxy.forUri(server).ifPresent(p -> {
+            builder.proxyAddress(p.host(), p.port());
+            if (p.user() != null) {
+                builder.proxyUser(p.user());
+                builder.proxyPassword(p.password() == null ? "" : p.password());
+            }
+        });
         if (endpoint.caCertificatePath() != null) {
             builder.trustStore(JiraTlsConfigurer.trustStoreFromPem(Path.of(endpoint.caCertificatePath())), "");
         }
