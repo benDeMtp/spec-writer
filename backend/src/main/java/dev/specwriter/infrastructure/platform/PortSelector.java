@@ -26,6 +26,8 @@ public final class PortSelector {
         if (preferred > 0 && isFree(preferred)) {
             return preferred;
         }
+        // Sonde de port libre sur la boucle locale, fermée aussitôt : aucune donnée n'y transite.
+        // nosemgrep: java.lang.security.audit.crypto.unencrypted-socket.unencrypted-socket
         try (ServerSocket socket = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             return socket.getLocalPort();
         } catch (IOException e) {
@@ -34,6 +36,7 @@ public final class PortSelector {
     }
 
     private static boolean isFree(int port) {
+        // nosemgrep: java.lang.security.audit.crypto.unencrypted-socket.unencrypted-socket
         try (ServerSocket socket = new ServerSocket(port, 1, InetAddress.getLoopbackAddress())) {
             socket.setReuseAddress(true);
             return true;
