@@ -7,10 +7,15 @@
 # Environnement et secrets locaux
 .env
 .env.*
+# Options Maven propres au poste (profils du settings.xml à désactiver, par exemple)
+.mvn/maven.config
 
 # Build Java
 target/
 *.class
+
+# Python (scripts Spec Kit)
+__pycache__/
 
 # Front et E2E
 node_modules/

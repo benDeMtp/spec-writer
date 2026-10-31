@@ -11,6 +11,8 @@ recherche, tâches). La constitution du projet est dans
 - Node.js 24 LTS. `frontend-maven-plugin` l'installe aussi localement pour le build Maven.
 - Pour les E2E : un navigateur Chromium pour Playwright, installé une fois par
   `npx --prefix e2e playwright install chromium`.
+- Si votre `~/.m2/settings.xml` active des profils d'entreprise qui gênent le build, désactivez-les
+  dans `.mvn/maven.config`, propre à votre poste et ignoré par Git (par exemple `-P!mon-profil`).
 
 ## Commandes
 
