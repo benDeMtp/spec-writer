@@ -24,6 +24,13 @@ class CopilotRuntimeClassifyTest {
     }
 
     @Test
+    void methodeInconnueDuCliSignaleUnCliTropAncien() {
+        // CLI 1.0.11 face au SDK 1.0.28 : il ignore les méthodes ajoutées depuis
+        assertThat(kind(new ExecutionException(new RuntimeException("Unhandled method connect")))).isEqualTo(Kind.CLI_OUTDATED);
+        assertThat(kind(new RuntimeException("Unhandled method session.accounts.login.begin"))).isEqualTo(Kind.CLI_OUTDATED);
+    }
+
+    @Test
     void leMessageDOrigineNEstPasRepris() {
         assertThat(CopilotRuntime.classify(new RuntimeException("besoin confidentiel")).getMessage()).isEqualTo("UNAVAILABLE");
     }

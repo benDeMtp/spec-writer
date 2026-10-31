@@ -25,6 +25,8 @@ public interface CopilotSdkGateway {
             NOT_CONNECTED,
             MODEL_UNAVAILABLE,
             QUOTA_EXHAUSTED,
+            /** Le CLI ne connaît pas une méthode du SDK : il est plus ancien que lui. */
+            CLI_OUTDATED,
             UNAVAILABLE
         }
 

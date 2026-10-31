@@ -606,6 +606,27 @@ de blocs de code bruts.
 - [X] T154 [P] [US6] Dans `F/features/search/item-detail.page.ts` et le rendu `ngx-markdown` partagé : liens externes ouverts avec `target="_blank"` et `rel="noopener noreferrer"`, protocoles hors `http`, `https`, `mailto` non cliquables ; tableaux stylés et lisibles (en-têtes `th`, défilement horizontal sur écran étroit). Test unitaire du rendu des liens.
 - [X] T155 [US6] Ajouter au ticket de test `PROJ-102` de `E/fixtures/jira/mappings/jira.json` un tableau, un lien et une image. Ajouter le scénario V12a à `E/us6-search-edit.spec.ts` (Playwright + axe). Régénérer les fixtures LLM dont l'empreinte change (`E/fixtures/llm`, `BTR/llm-replay`), car la description importée change.
 
+
+---
+
+## Phase 12: Copilot CLI de l'utilisateur (amendement du 2026-10-31, research.md R15)
+
+**Goal**: ne plus redistribuer le runtime Copilot (composants Microsoft sans droit de
+redistribution) : les installeurs utilisent le Copilot CLI installé par l'utilisateur.
+
+**Independent Test**: application installée lancée avec un `PATH` minimal ; un CLI trop ancien
+donne `COPILOT_CLI_OUTDATED`, un chemin absent donne `COPILOT_CLI_MISSING`.
+
+- [X] T156 [P] Écrire `BT/infrastructure/llm/CopilotCliLocatorTest.java` et `CopilotCliVersionTest.java` :
+  - chemin imposé (configuration, puis `COPILOT_CLI_PATH`) ;
+  - runtime embarqué ;
+  - `PATH`, puis les dossiers habituels (`~/.local/bin`, Homebrew ; sous Windows, WinGet et npm, en `.exe` et `.cmd`) ;
+  - version minimale 1.0.105 ;
+  - « Unhandled method » classé en CLI trop ancien (`CopilotRuntimeClassifyTest`).
+- [X] T157 Implémenter `B/infrastructure/llm/CopilotCliLocator.java` et `CopilotCliVersion.java`. Les brancher dans `CopilotRuntime` (`setCliPath`, `PATH` du CLI, contrôle de version) ; codes `COPILOT_CLI_MISSING` et `COPILOT_CLI_OUTDATED`.
+- [X] T158 Profil `dist` : `quarkus.class-loading.removed-artifacts` retire `copilot-sdk-java-runtime` du jar. Vérifier qu'aucun fichier `native/` ni OneAuthInterop n'est présent, et les deux erreurs sur l'application installée.
+- [X] T159 Prérequis Copilot CLI dans le README (installation, version, emplacements examinés), NOTICE, quickstart.md et research.md R15.
+
 ---
 
 ## Dependencies & Execution Order

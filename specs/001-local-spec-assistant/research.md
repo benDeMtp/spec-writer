@@ -383,6 +383,24 @@ et le mode WAL. Le test est `BT/spike/SqliteHibernateSpikeIT.java`.
     cette marge fond.
   - **Version** : jpackage refuse sur macOS une version qui commence par 0. L'installeur prend
     `SPECWRITER_APP_VERSION` (fixée depuis le tag par la release), sinon `1.0.0`.
+  - **Runtime Copilot non redistribué (amendement du 2026-10-31)** : `copilot-sdk-java-runtime`
+    embarque des composants Microsoft (OneAuthInterop, MSAL) sans droit de redistribution établi.
+    Le profil `dist` le retire donc du jar (`quarkus.class-loading.removed-artifacts`). Le `.dmg`
+    passe de 192 à 105 Mo. L'application utilise le Copilot CLI de l'utilisateur, passé au SDK par
+    `setCliPath`. `CopilotCliLocator` le cherche dans cet ordre :
+    - `specwriter.copilot.cli-path`, puis `COPILOT_CLI_PATH` ;
+    - le runtime embarqué, présent dans les builds de développement ;
+    - le `PATH`, puis les dossiers d'installation habituels. Lancée depuis le Finder,
+      l'application ne reçoit pas le `PATH` du shell.
+
+    Le dossier du CLI passe en tête du `PATH` de son processus, pour trouver `node` après une
+    installation par npm.
+  - **Version minimale du CLI : 1.0.105**, celle qu'embarque le SDK 1.0.28. Le CLI 1.0.11 démarre
+    mais répond `Unhandled method connect` : le SDK utilise des méthodes qu'il ne connaît pas.
+    `copilot --version` ne suffit pas : le lanceur Homebrew (cask 1.0.3) peut afficher 1.0.105
+    et exécuter 1.0.11. Les deux signaux sont donc traités : une version lue trop ancienne, ou une
+    erreur « Unhandled method », donnent `COPILOT_CLI_OUTDATED`. Un CLI absent donne
+    `COPILOT_CLI_MISSING`. À chaque montée du SDK, relever `specwriter.copilot.cli-min-version`.
   - **Options du lanceur** : le lanceur jpackage ignore `JDK_JAVA_OPTIONS` et ne lit que son
     `.cfg`. Pour tester une application installée sans toucher aux données de l'utilisateur, il
     faut en copier une et compléter son `.cfg` (`-Dspecwriter.data-dir`, `-Dspecwriter.port`).

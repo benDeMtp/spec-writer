@@ -466,6 +466,9 @@
         <!-- un seul jar : jpackage et JReleaser ne gèrent pas la disposition fast-jar (lib/, quarkus/) -->
         <quarkus.package.jar.type>uber-jar</quarkus.package.jar.type>
         <quarkus.package.output-name>spec-writer</quarkus.package.output-name>
+        <!-- Pas de runtime Copilot dans les installeurs : des composants ne sont pas redistribuables
+             (research.md R15). L'application utilise le Copilot CLI de l'utilisateur. -->
+        <quarkus.class-loading.removed-artifacts>com.github:copilot-sdk-java-runtime:${copilot-runtime.classifier}</quarkus.class-loading.removed-artifacts>
       </properties>
       <build>
         <plugins>

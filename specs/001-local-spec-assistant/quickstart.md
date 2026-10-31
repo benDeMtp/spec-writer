@@ -17,7 +17,9 @@ Les références renvoient à [spec.md](spec.md), [data-model.md](data-model.md)
 - Facultatif : un Jira Server ou Data Center ≥ 8.14 de test, un projet et un jeton personnel.
   À défaut, les tests utilisent WireMock.
 
-**Utilisateur final** : aucun. L'installeur embarque le runtime Java.
+**Utilisateur final** : le Copilot CLI de GitHub, version 1.0.105 ou plus récente (README).
+L'installeur embarque le runtime Java, mais pas le runtime Copilot, qui n'est pas redistribuable
+(research.md R15).
 
 ## Commandes
 

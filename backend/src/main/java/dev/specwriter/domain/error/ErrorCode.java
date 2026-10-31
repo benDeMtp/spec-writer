@@ -31,6 +31,10 @@ public enum ErrorCode {
             ErrorAction.OPEN_SETTINGS),
     LLM_UNAVAILABLE(503, "GitHub Copilot ne répond pas. Vos réponses sont conservées, réessayez dans un instant.",
             ErrorAction.RETRY),
+    COPILOT_CLI_MISSING(503, "Le Copilot CLI de GitHub est introuvable. Installez-le (voir le README), puis relancez "
+            + "spec-writer.", ErrorAction.NONE),
+    COPILOT_CLI_OUTDATED(503, "Le Copilot CLI installé est trop ancien. Lancez « copilot update », puis relancez "
+            + "spec-writer.", ErrorAction.NONE),
     LLM_INVALID_OUTPUT(502, "La génération n'a pas produit une spécification valide. Réessayez.", ErrorAction.RETRY),
     MODEL_UNAVAILABLE(422, "Le modèle choisi n'est plus disponible pour votre compte. Choisissez-en un autre.",
             ErrorAction.OPEN_SETTINGS),

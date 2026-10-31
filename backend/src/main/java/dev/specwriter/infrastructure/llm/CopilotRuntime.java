@@ -5,6 +5,8 @@ import com.github.copilot.CopilotSession;
 import com.github.copilot.SystemMessageMode;
 import com.github.copilot.generated.AssistantMessageEvent;
 import com.github.copilot.rpc.CopilotClientOptions;
+import dev.specwriter.domain.error.DomainException;
+import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.infrastructure.platform.ProxySettings;
 import com.github.copilot.rpc.MessageOptions;
 import com.github.copilot.rpc.PermissionRequestResult;
@@ -17,6 +19,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -44,6 +47,14 @@ public class CopilotRuntime implements CopilotSdkGateway {
     @Inject
     ProxySettings proxy;
 
+    /** Chemin du Copilot CLI imposé ; sinon {@code COPILOT_CLI_PATH}, puis la recherche de CopilotCliLocator. */
+    @ConfigProperty(name = "specwriter.copilot.cli-path")
+    Optional<String> cliPath;
+
+    /** Version du CLI embarqué par le SDK utilisé : un CLI plus ancien ne comprend pas son protocole. */
+    @ConfigProperty(name = "specwriter.copilot.cli-min-version", defaultValue = "1.0.105")
+    String cliMinVersion;
+
     private CopilotClient client;
 
     /** Client démarré à la demande ; partagé avec l'authentification GitHub. */
@@ -55,9 +66,24 @@ public class CopilotRuntime implements CopilotSdkGateway {
                     .setUseLoggedInUser(true)
                     .setCopilotHome(home.toString())
                     .setLogLevel("error");
-            if (!proxy.isEmpty()) {
-                // le Copilot CLI lit HTTPS_PROXY et NO_PROXY, pas les propriétés Java (T139)
-                options.setEnvironment(proxy.childEnvironment(System.getenv()));
+            // le Copilot CLI lit HTTPS_PROXY et NO_PROXY, pas les propriétés Java (T139)
+            Map<String, String> env = proxy.isEmpty() ? System.getenv() : proxy.childEnvironment(System.getenv());
+            switch (CopilotCliLocator.fromSystem().resolve(cliPath)) {
+                case CopilotCliLocator.Resolution.Bundled _ -> {
+                    if (!proxy.isEmpty()) {
+                        options.setEnvironment(env);
+                    }
+                }
+                case CopilotCliLocator.Resolution.External(Path cli) -> {
+                    Map<String, String> cliEnv = CopilotCliLocator.childPath(env, cli, isWindows());
+                    CopilotCliVersion.require(versionOutput(cli, cliEnv), cliMinVersion);
+                    LOG.infof("Copilot CLI : %s", cli);
+                    options.setCliPath(cli.toString()).setEnvironment(cliEnv);
+                }
+                case CopilotCliLocator.Resolution.Missing(List<Path> searched) -> {
+                    LOG.warnf("Copilot CLI introuvable ; chemins examinés : %s", searched);
+                    throw new DomainException(ErrorCode.COPILOT_CLI_MISSING);
+                }
             }
             CopilotClient c = new CopilotClient(options);
             try {
@@ -69,6 +95,32 @@ public class CopilotRuntime implements CopilotSdkGateway {
             client = c;
         }
         return client;
+    }
+
+    /** Sortie de {@code copilot --version}, vide si le CLI ne répond pas en 20 s. */
+    private static String versionOutput(Path cli, Map<String, String> env) {
+        ProcessBuilder pb = new ProcessBuilder(cli.toString(), "--version").redirectErrorStream(true);
+        pb.environment().clear();
+        pb.environment().putAll(env);
+        try {
+            Process process = pb.start();
+            byte[] out = process.getInputStream().readNBytes(4096);
+            if (!process.waitFor(20, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return "";
+            }
+            return new String(out, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            LOG.warnf("Version du Copilot CLI illisible (%s)", e.getClass().getSimpleName());
+            return "";
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "";
+        }
+    }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
     }
 
     /**
@@ -149,6 +201,8 @@ public class CopilotRuntime implements CopilotSdkGateway {
         Kind kind;
         if (root instanceof TimeoutException) {
             kind = Kind.UNAVAILABLE;
+        } else if (message.contains("unhandled method")) {
+            kind = Kind.CLI_OUTDATED;
         } else if (message.contains("not authenticated") || message.contains("unauthorized") || message.contains(" 401")
                 || message.contains("login required") || message.contains("no auth")) {
             kind = Kind.NOT_CONNECTED;

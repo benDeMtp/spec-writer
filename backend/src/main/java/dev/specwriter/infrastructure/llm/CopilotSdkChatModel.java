@@ -54,6 +54,7 @@ public class CopilotSdkChatModel implements ChatModel {
                 case NOT_CONNECTED -> new DomainException(ErrorCode.COPILOT_NOT_CONNECTED);
                 case MODEL_UNAVAILABLE -> new DomainException(ErrorCode.MODEL_UNAVAILABLE);
                 case QUOTA_EXHAUSTED -> new DomainException(ErrorCode.QUOTA_EXHAUSTED);
+                case CLI_OUTDATED -> new DomainException(ErrorCode.COPILOT_CLI_OUTDATED);
                 case UNAVAILABLE -> new DomainException(ErrorCode.LLM_UNAVAILABLE);
             };
         }

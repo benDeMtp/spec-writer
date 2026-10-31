@@ -21,15 +21,32 @@ L'outil tourne sur votre poste. Il s'ouvre dans votre navigateur, à l'adresse
   elle doit autoriser l'usage de Copilot hors de l'IDE (politique « Copilot CLI » dans les
   réglages Copilot de l'organisation). Sans cela, la connexion aboutit mais aucun modèle n'est
   proposé.
+- **Copilot CLI de GitHub, version 1.0.105 ou plus récente**, installé sur le poste. spec-writer
+  s'en sert pour dialoguer avec Copilot ; il ne l'embarque pas, car certains de ses composants ne
+  peuvent pas être redistribués. Pour l'installer :
+  - macOS ou Linux avec Homebrew : `brew install --cask copilot-cli` ;
+  - avec Node.js, sur les trois OS : `npm install -g @github/copilot`.
+
+  Pour vérifier la version : `copilot --version`. Pour la mettre à jour : `copilot update`, ou
+  `brew upgrade --cask copilot-cli` si vous l'avez installé avec Homebrew.
 - **Jira** (facultatif) : Jira Server ou Data Center 8.14 ou plus récent, un projet et un jeton
   d'accès personnel.
+
+### Où spec-writer cherche le Copilot CLI
+
+Dans l'ordre : la variable d'environnement `COPILOT_CLI_PATH` si elle est définie, puis le `PATH`,
+puis les dossiers d'installation habituels (`~/.local/bin`, `~/.npm-global/bin`, `~/bin`,
+`/opt/homebrew/bin`, `/usr/local/bin`, `/home/linuxbrew/.linuxbrew/bin` ; sous Windows,
+`%LOCALAPPDATA%\Microsoft\WinGet\Links` et `%APPDATA%\npm`). Si le CLI est introuvable ou trop
+ancien, la connexion à GitHub l'indique, avec la marche à suivre. Avec une installation par npm,
+`node` doit se trouver dans le même dossier que `copilot`, ou dans le `PATH`.
 
 ## Installation
 
 Les installeurs seront publiés avec la première version : `.dmg` pour macOS (Apple Silicon et
 Intel), `.msi` pour Windows, `.deb` et `.tar.gz` pour Linux. Ils embarquent leur propre runtime
-Java : rien d'autre à installer. D'ici là, lancez l'outil depuis les sources (voir
-[CONTRIBUTING.md](CONTRIBUTING.md)).
+Java : seul le Copilot CLI est à installer (voir les prérequis). D'ici là, lancez l'outil depuis
+les sources (voir [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 Les installeurs ne sont pas encore signés. Le système vous avertira au premier lancement :
 
@@ -86,9 +103,8 @@ du disque** : FileVault sur macOS, BitLocker sur Windows, LUKS sur Linux.
 1. Quittez l'outil.
 2. Supprimez l'application : glissez-la dans la Corbeille sur macOS, passez par **Paramètres ›
    Applications** sur Windows, `sudo apt remove spec-writer` sur Linux.
-3. Pour effacer aussi vos données, supprimez le dossier de données ci-dessus. Le runtime Copilot,
-   extrait au premier lancement, occupe environ 150 Mo dans `~/.copilot/runtime-cache/` : ce
-   dossier est partagé avec le Copilot CLI, ne le supprimez que si vous ne l'utilisez pas.
+3. Pour effacer aussi vos données, supprimez le dossier de données ci-dessus. Le Copilot CLI,
+   installé à part, se désinstalle avec l'outil qui l'a installé (Homebrew ou npm).
 4. Pour effacer les jetons, retirez depuis la page **Configuration**, avant la désinstallation,
    la connexion GitHub et la configuration Jira. Sinon, supprimez dans le trousseau l'entrée
    `spec-writer` et celle du client Copilot (Trousseaux d'accès sur macOS, Gestionnaire

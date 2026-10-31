@@ -13,12 +13,13 @@ project:
   license: Apache-2.0
   vendor: spec-writer
   inceptionYear: '2026'
-  java:
-    groupId: dev.specwriter
-    artifactId: spec-writer-backend
-    version: '25'
-    # classe principale de l'uber-jar de Quarkus
-    mainClass: io.quarkus.runner.GeneratedMain
+  languages:
+    java:
+      groupId: dev.specwriter
+      artifactId: spec-writer-backend
+      version: '25'
+      # classe principale de l'uber-jar de Quarkus
+      mainClass: io.quarkus.runner.GeneratedMain
 
 assemble:
   jlink:

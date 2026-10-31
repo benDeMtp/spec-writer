@@ -29,6 +29,7 @@ public class ProblemMapper {
             case NOT_CONNECTED -> ErrorCode.COPILOT_NOT_CONNECTED;
             case MODEL_UNAVAILABLE -> ErrorCode.MODEL_UNAVAILABLE;
             case QUOTA_EXHAUSTED -> ErrorCode.QUOTA_EXHAUSTED;
+            case CLI_OUTDATED -> ErrorCode.COPILOT_CLI_OUTDATED;
             case UNAVAILABLE -> ErrorCode.LLM_UNAVAILABLE;
         }));
     }
