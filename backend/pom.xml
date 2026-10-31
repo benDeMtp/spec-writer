@@ -30,7 +30,7 @@
     <surefire.version>3.5.4</surefire.version>
     <spotbugs-plugin.version>4.9.8.2</spotbugs-plugin.version>
     <pmd-plugin.version>3.28.0</pmd-plugin.version>
-    <dependency-check.version>12.1.9</dependency-check.version>
+    <dependency-check.version>12.2.2</dependency-check.version>
     <jreleaser.version>1.16.0</jreleaser.version>
 
     <!-- Les tests taggés spike et eval sont exclus du build par défaut -->
