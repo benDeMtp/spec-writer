@@ -90,7 +90,7 @@ persistance, erreurs, port LLM et shell du front.
   5. quelles erreurs il renvoie pour un modèle désactivé et pour un quota épuisé.
 
   En cas d'échec de la voie A, tester la voie B avec un jeton `ghu_` d'une GitHub App de test. Consigner les résultats et la voie retenue dans `specs/001-local-spec-assistant/research.md` (R3 et R4, avec mention « Résultat du spike S1 »).
-- [ ] T011 Spike S1, packaging : produire avec `jpackage` une app-image macOS du jar du spike et vérifier que le runtime Copilot CLI embarqué par le SDK démarre depuis l'image. Consigner les fichiers ou modules à inclure dans `specs/001-local-spec-assistant/research.md` (R15).
+- [X] T011 Spike S1, packaging : produire avec `jpackage` une app-image macOS du jar du spike et vérifier que le runtime Copilot CLI embarqué par le SDK démarre depuis l'image. Consigner les fichiers ou modules à inclure dans `specs/001-local-spec-assistant/research.md` (R15).
 - [X] T012 Spike S2 : écrire `BT/spike/SqliteHibernateSpikeIT.java` sous Quarkus 4. Il vérifie le CRUD d'une entité avec `SQLiteDialect` et `db-kind=other`, une migration Flyway, une table FTS5 `unicode61 remove_diacritics 2` (la recherche « regle » doit trouver « règle ») et le mode WAL. Consigner le résultat dans `specs/001-local-spec-assistant/research.md` (R7). En cas d'échec, basculer sur H2 fichier et adapter T019 et T020.
 
 ### Plateforme et configuration
@@ -545,6 +545,10 @@ documentation.
 - [ ] T138 Écrire `ci/check-eval.sh`, appelé par `ci/verify.sh` (T008), donc par la CI (T009). Le script recalcule l'empreinte des fichiers listés en T137 et échoue avec le message « relancer l'évaluation LLM (./mvnw -pl backend verify -Peval) et committer last-run.json » si elle diffère de `BTR/eval/last-run.json`. Il échoue aussi si un score de `last-run.json` est inférieur à `baseline.json` (constitution §IV : un recul bloque la fusion).
 - [X] T139 [P] Configurer le proxy d'entreprise : les REST Clients Jira et GitHub et le Copilot SDK lisent `HTTPS_PROXY` et `NO_PROXY` ainsi que les propriétés système `https.proxyHost`. Tester dans `BT/infrastructure/platform/ProxyConfigurationTest.java`. La configuration se fait dans `B/infrastructure/platform/ProxySettings.java`.
 - [ ] T140 Créer `jreleaser.yml` à la racine (assembleur `jpackage`, runtime `jlink` Java 25 avec les modules requis par JNA, `jdk.security.auth`, `java.sql` et les fichiers du runtime Copilot CLI relevés en T011). Formats : `.dmg` pour macOS arm64 et x64, `.msi` pour Windows x64, `.deb` et `.tar.gz` pour Linux x64. Activer `quarkus.package.jar.type=aot-jar` dans le profil `dist` de `backend/pom.xml`.
+  - **Avancement (2026-10-31)** : `jreleaser.yml` et profil `dist` en place. `.dmg` macOS arm64
+    produit et vérifié (démarrage en 4 s, front, API, runtime Copilot). Écarts : uber-jar au lieu
+    d'`aot-jar` (research.md R15). Restent à produire et vérifier sur leur OS : `.dmg` x64,
+    `.msi` et `.deb` (configurés), `.tar.gz` Linux (pas encore configuré).
 - [ ] T141 Créer `.forgejo/workflows/release.yml`, déclenché sur un tag `v*`. La matrice de jobs `package` couvre trois cibles :
   - `linux` sur le runner `docker` ;
   - `macos` et `windows` sur des runners host labellisés `macos` et `windows`, à héberger par le mainteneur.

@@ -86,7 +86,9 @@ du disque** : FileVault sur macOS, BitLocker sur Windows, LUKS sur Linux.
 1. Quittez l'outil.
 2. Supprimez l'application : glissez-la dans la Corbeille sur macOS, passez par **Paramètres ›
    Applications** sur Windows, `sudo apt remove spec-writer` sur Linux.
-3. Pour effacer aussi vos données, supprimez le dossier de données ci-dessus.
+3. Pour effacer aussi vos données, supprimez le dossier de données ci-dessus. Le runtime Copilot,
+   extrait au premier lancement, occupe environ 150 Mo dans `~/.copilot/runtime-cache/` : ce
+   dossier est partagé avec le Copilot CLI, ne le supprimez que si vous ne l'utilisez pas.
 4. Pour effacer les jetons, retirez depuis la page **Configuration**, avant la désinstallation,
    la connexion GitHub et la configuration Jira. Sinon, supprimez dans le trousseau l'entrée
    `spec-writer` et celle du client Copilot (Trousseaux d'accès sur macOS, Gestionnaire

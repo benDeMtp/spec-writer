@@ -31,6 +31,7 @@
     <spotbugs-plugin.version>4.9.8.2</spotbugs-plugin.version>
     <pmd-plugin.version>3.28.0</pmd-plugin.version>
     <dependency-check.version>12.1.9</dependency-check.version>
+    <jreleaser.version>1.16.0</jreleaser.version>
 
     <!-- Les tests taggés spike et eval sont exclus du build par défaut -->
     <surefire.excludedGroups>spike,eval</surefire.excludedGroups>
@@ -434,9 +435,38 @@
       </properties>
     </profile>
 
-    <!-- Packaging (JReleaser + jpackage), configuré en T140 -->
+    <!-- Installeur de l'OS courant (research.md R15, T140) : ./mvnw -Pdist package -->
     <profile>
       <id>dist</id>
+      <properties>
+        <!-- un seul jar : jpackage et JReleaser ne gèrent pas la disposition fast-jar (lib/, quarkus/) -->
+        <quarkus.package.jar.type>uber-jar</quarkus.package.jar.type>
+        <quarkus.package.output-name>spec-writer</quarkus.package.output-name>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jreleaser</groupId>
+            <artifactId>jreleaser-maven-plugin</artifactId>
+            <version>${jreleaser.version}</version>
+            <configuration>
+              <configFile>${maven.multiModuleProjectDirectory}/jreleaser.yml</configFile>
+              <outputDirectory>${project.build.directory}/jreleaser</outputDirectory>
+              <selectCurrentPlatform>true</selectCurrentPlatform>
+              <gitRootSearch>true</gitRootSearch>
+            </configuration>
+            <executions>
+              <execution>
+                <id>installeur</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>assemble</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 </project>

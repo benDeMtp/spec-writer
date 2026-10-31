@@ -358,6 +358,34 @@ et le mode WAL. Le test est `BT/spike/SqliteHibernateSpikeIT.java`.
   utilisateur.
 - **Alternatives considered** : image native, rejetée (JNA, sqlite natif, runtime Copilot CLI,
   coût de la CI) ; uber-jar seul, rejeté parce qu'il exige que l'utilisateur ait installé Java.
+- **Spike T011 (2026-10-31, macOS arm64, Mandrel 25.0.2)** :
+  - **Runtime Copilot** : il vient de `copilot-sdk-java-runtime` (un jar par OS, 150 Mo, avec
+    `runtime.node` et ses `.dylib`). Au premier démarrage, le SDK l'extrait depuis le classpath
+    dans `~/.copilot/runtime-cache/<version SDK>/<version CLI>/<plateforme>/` (144 Mo, 3 s),
+    puis le réutilise (0,3 s). L'extraction et le démarrage fonctionnent depuis l'image jpackage,
+    avec son runtime jlink. Les fichiers extraits ne portent pas `com.apple.quarantine` :
+    Gatekeeper ne les bloque pas. À confirmer sur un `.dmg` téléchargé (T144).
+  - **Modules jlink** : jdeps relève `java.base`, `java.logging`, `java.xml`, `java.sql`,
+    `java.desktop`, `java.naming`, `java.transaction.xa`, `java.management`, `java.datatransfer`,
+    `java.security.jgss`, `jdk.unsupported` et `jdk.jfr`. Il manque `java.rmi`, dont Narayana a
+    besoin au démarrage, et les modules chargés dynamiquement : `jdk.localedata` (dates en
+    français), `jdk.charsets`, `jdk.zipfs`, `jdk.security.auth` et `jdk.management`.
+    `jlink` fonctionne directement sur l'image Mandrel, sans `jmods`.
+  - **Taille** : avec `--include-locales=en,fr --compress=zip-6`, le runtime passe de 123 à 56 Mo.
+    Le `.dmg` fait 192 Mo et l'application installée 214 Mo, dont 150 Mo pour le runtime Copilot.
+  - **Uber-jar plutôt que fast-jar** : jpackage met tous les jars du dossier d'entrée sur le
+    classpath, et JReleaser les recopie à plat. La disposition fast-jar de Quarkus (`lib/`,
+    `quarkus/`) n'y survit pas. Le profil `dist` produit donc un uber-jar `spec-writer-runner.jar`
+    (classe principale `io.quarkus.runner.GeneratedMain`).
+  - **`aot-jar` non retenu** : un cache AOT est lié au JDK et au classpath de sa création, donc
+    invalide une fois l'application relogée par jpackage. Le démarrage est déjà de 4 s jusqu'à
+    `/q/health/ready` depuis l'application installée (SC-007 : moins de 5 s). À réévaluer si
+    cette marge fond.
+  - **Version** : jpackage refuse sur macOS une version qui commence par 0. L'installeur prend
+    `SPECWRITER_APP_VERSION` (fixée depuis le tag par la release), sinon `1.0.0`.
+  - **Options du lanceur** : le lanceur jpackage ignore `JDK_JAVA_OPTIONS` et ne lit que son
+    `.cfg`. Pour tester une application installée sans toucher aux données de l'utilisateur, il
+    faut en copier une et compléter son `.cfg` (`-Dspecwriter.data-dir`, `-Dspecwriter.port`).
 
 ## R16. Qualité et sécurité en CI
 
