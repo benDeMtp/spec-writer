@@ -582,6 +582,28 @@ crédit et sans toucher aux données de l'outil installé.
 
 ---
 
+## Phase 11: Syntaxe Jira à l'affichage (amendement du 2026-10-31, FR-043a)
+
+**Goal**: afficher une description Jira avec ses tableaux, liens, citations et panneaux, au lieu
+de blocs de code bruts.
+
+**Independent Test**: ouvrir le ticket de test contenant un tableau, un lien et une image (V12a).
+
+- [ ] T152 [P] [US6] Compléter `BT/infrastructure/jira/JiraFormatConverterTest.java` (wiki vers Markdown), avant toute modification du code (principe III) :
+  - tableau avec ligne d'en-tête `||`, tableau sans en-tête (en-tête vide), en-tête en première colonne (gras), `\\` dans une cellule, `|` échappé dans une cellule ;
+  - liens `[texte|url]` et `[url]` ; `javascript:` et `file:` restent du texte ;
+  - `bq.`, `{quote}`, `{panel:title=…}`, `{color:red}texte{color}`, `-barré-`, `+souligné+`, `{{code}}` ;
+  - `!image.png!`, `!image.png|thumbnail!` et `[~login]` remplacés par un texte nommé, sans URL de téléchargement ;
+  - un macro inconnu (`{expand}`) reste en bloc de code ;
+  - aller-retour : Markdown vers wiki puis wiki vers Markdown conserve un tableau.
+
+  Remplacer le cas existant de T099 « tableau rendu en bloc de code », devenu faux.
+- [ ] T153 [US6] Implémenter dans `B/infrastructure/jira/JiraFormatConverter.java` la conversion wiki vers Markdown de FR-043a pour faire passer T152. Le renvoi vers le ticket utilise l'URL du ticket, passée par `GetJiraIssue`, `ImportJiraIssue` et `PushToJira`.
+- [ ] T154 [P] [US6] Dans `F/features/search/item-detail.page.ts` et le rendu `ngx-markdown` partagé : liens externes ouverts avec `target="_blank"` et `rel="noopener noreferrer"`, protocoles hors `http`, `https`, `mailto` non cliquables ; tableaux stylés et lisibles (en-têtes `th`, défilement horizontal sur écran étroit). Test unitaire du rendu des liens.
+- [ ] T155 [US6] Ajouter au ticket de test `PROJ-102` de `E/fixtures/jira/mappings/jira.json` un tableau, un lien et une image. Ajouter le scénario V12a à `E/us6-search-edit.spec.ts` (Playwright + axe). Régénérer les fixtures LLM dont l'empreinte change (`E/fixtures/llm`, `BTR/llm-replay`), car la description importée change.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -599,6 +621,7 @@ crédit et sans toucher aux données de l'outil installé.
   configuration Jira).
 - **US4 (Phase 7)** : dépend de US2 seulement.
 - **US5 (Phase 8)** : dépend de US2, de US1 et de T106, T108, T109 et T110 (partagés avec US6).
+- **Phase 11** : dépend de US6 (T099, T110, T117) ; T152 avant T153, T155 après T153 et T154.
 - **Polish (Phase 9)** : dépend des stories livrées. T140 dépend de T011. T145 dépend de la
   sortie de Quarkus 4.0.0.Final.
 

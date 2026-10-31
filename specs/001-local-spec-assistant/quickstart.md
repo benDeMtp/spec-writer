@@ -70,6 +70,7 @@ npm --prefix e2e test
 | V10 | Exporter en Markdown vers un fichier existant | Confirmation demandée avant d'écraser. Le fichier contient le résumé, les use cases, les scénarios et les hypothèses. | US4 |
 | V11 | Créer le ticket Jira | L'aperçu propose Story par défaut, rien n'est créé avant confirmation, puis la clé et le lien s'affichent. | US5 |
 | V12 | Rechercher un mot présent localement et dans Jira | Liste unique avec la colonne de provenance. Un élément lié n'apparaît qu'une fois, avec la provenance « les deux ». | US6-1, US6-2 |
+| V12a | Ouvrir un ticket Jira dont la description contient un tableau, un lien et une image | Le tableau s'affiche en tableau avec ses en-têtes, le lien s'ouvre dans un nouvel onglet, l'image est remplacée par un renvoi vers le ticket. | US6-3, FR-043a |
 | V13 | Modifier dans Jira le ticket lié, puis pousser une mise à jour locale | Un conflit est signalé, avec les deux versions et les trois choix. | US6-7, FR-048 |
 | V14 | Couper le réseau vers Jira, puis rechercher | Les résultats spec-writer s'affichent, avec un message « Jira n'a pas répondu ». | US6-8 |
 | V15 | Depuis une autre page web, envoyer un `POST` vers `http://127.0.0.1:47615/api/sessions` | Réponse 403 (Origin ou cookie absent). | research.md R14 |

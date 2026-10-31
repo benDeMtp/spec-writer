@@ -34,6 +34,13 @@
   stocké dans le trousseau. Le spike S1 a établi que le SDK utilise une page d'autorisation OAuth
   avec retour automatique, et non un code court (FR-030a reformulé, research.md R4).
 
+### Session 2026-10-31
+
+- Q: Comment une description Jira s'affiche-t-elle dans spec-writer ? → A: sa syntaxe Jira est
+  interprétée pour une liste fermée d'éléments (tableaux, liens, citations, panneaux…). Les images,
+  pièces jointes et mentions sont remplacées par un renvoi vers le ticket. Tout autre bloc reste
+  affiché tel quel (FR-043a, US6-3).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Configurer les accès à GitHub Copilot et à Jira (Priority: P1)
@@ -204,8 +211,9 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 2. **Given** Jira est configuré, **When** l'utilisateur lance une recherche, **Then** la liste
    regroupe les résultats des deux sources avec les mêmes colonnes, et un élément présent dans les
    deux sources n'apparaît qu'une fois, avec la provenance « les deux ».
-3. **Given** un résultat dans la liste, **When** l'utilisateur clique dessus, **Then** l'outil
-   affiche sa description complète.
+3. **Given** un résultat dans la liste, dont la description Jira contient un tableau et un lien,
+   **When** l'utilisateur clique dessus, **Then** l'outil affiche la description complète, avec le
+   tableau rendu en tableau (en-têtes compris) et le lien cliquable (FR-043a).
 4. **Given** la description affichée, **When** l'utilisateur demande une modification à l'IA (par
    exemple « ajoute un cas d'erreur sur le paiement refusé »), **Then** l'outil propose une
    nouvelle version, montre les différences avec la version actuelle, et n'applique rien sans
@@ -400,6 +408,23 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   élément vaut « les deux » lorsqu'une spécification est liée à un ticket Jira (Ticket Jira lié) ;
   il n'apparaît alors qu'une fois dans la liste.
 - **FR-043**: Un clic sur un résultat DOIT afficher sa description complète.
+- **FR-043a**: Une description Jira DOIT être affichée en interprétant sa syntaxe (wiki markup)
+  pour les éléments suivants, sans perte de contenu :
+  - titres, listes, gras, italique, texte barré, souligné, code en ligne ;
+  - tableaux : une ligne d'en-tête `||` devient l'en-tête du tableau ; un tableau sans ligne
+    d'en-tête reçoit un en-tête vide ; un en-tête placé en première colonne reste en gras ; un
+    retour à la ligne dans une cellule (`\\`) est conservé ;
+  - liens `[texte|url]` et `[url]` : seuls les protocoles `http`, `https` et `mailto` sont
+    cliquables, ouverts dans un nouvel onglet avec `rel="noopener noreferrer"` ; les autres
+    restent du texte ;
+  - citations (`bq.` et `{quote}`), blocs `{code}` et `{noformat}`, panneaux `{panel}` (encadré,
+    avec leur titre) ;
+  - `{color}` : la couleur est ignorée, le texte est conservé.
+
+  Les images, pièces jointes (`!fichier!`) et mentions (`[~identifiant]`) sont remplacées par un
+  texte qui les nomme, avec un renvoi vers le ticket dans Jira : aucun contenu n'est téléchargé.
+  Tout autre bloc est affiché tel quel, en bloc de code. La même conversion alimente l'import, la
+  fusion par l'IA et l'affichage d'un conflit (FR-046, FR-048).
 - **FR-044**: L'utilisateur DOIT pouvoir demander à l'IA de modifier une description en langage
   naturel ; le système DOIT présenter la proposition et les différences avec la version actuelle,
   et n'appliquer la modification qu'après validation explicite.
