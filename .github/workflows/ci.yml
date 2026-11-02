@@ -1,7 +1,8 @@
 # GitHub Actions : quality gates obligatoires avant fusion dans main (constitution, research.md R16).
 # À rendre obligatoire dans Settings › Branches › règle de protection de main (« ci / verify »).
 # Secret à déclarer : NVD_API_KEY (OWASP Dependency-Check ; sans clé, la base NVD se télécharge
-# très lentement).
+# très lentement). La base NVD est mise en cache (une entrée par jour) : seules les mises à jour
+# depuis la veille sont téléchargées, et une panne de l'API NVD ne bloque pas un cache récent.
 name: ci
 
 on:
@@ -22,6 +23,9 @@ jobs:
     timeout-minutes: 60
     env:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+      NVD_DATA: /home/runner/.cache/dependency-check-data
+      # lu par ./mvnw (Maven 3.9) : base NVD hors du dépôt local Maven, qui a son propre cache
+      MAVEN_ARGS: -DdataDirectory=/home/runner/.cache/dependency-check-data
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -42,6 +46,18 @@ jobs:
             frontend/package-lock.json
             e2e/package-lock.json
 
+      - name: Date du jour (clé du cache NVD)
+        id: date
+        run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Base NVD (restauration)
+        id: nvd
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.NVD_DATA }}
+          key: nvd-${{ steps.date.outputs.today }}
+          restore-keys: nvd-
+
       - name: Outils (Semgrep, gitleaks)
         run: |
           pipx install semgrep
@@ -51,6 +67,15 @@ jobs:
 
       - name: Quality gates
         run: ci/verify.sh
+
+      # même si une gate échoue après Dependency-Check, la base mise à jour sert aux exécutions suivantes
+      - name: Base NVD (sauvegarde)
+        # absente si le build a échoué avant Dependency-Check : l'action se contente d'un avertissement
+        if: ${{ !cancelled() && steps.nvd.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.NVD_DATA }}
+          key: nvd-${{ steps.date.outputs.today }}
 
       - name: Rapports
         if: always()
