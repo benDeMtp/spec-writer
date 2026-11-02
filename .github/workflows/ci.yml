@@ -21,7 +21,8 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # le premier remplissage du cache NVD (base complète) dépasse à lui seul 30 minutes
+    timeout-minutes: 90
     env:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
       NVD_DATA: /home/runner/.cache/dependency-check-data
@@ -65,10 +66,10 @@ jobs:
       - name: Quality gates
         run: ci/verify.sh
 
-      # même si une gate échoue après Dependency-Check, la base mise à jour sert aux exécutions
-      # suivantes ; une base incomplète (API NVD en panne) est simplement retéléchargée la fois d'après
+      # même si une gate échoue ou si le job est annulé après Dependency-Check, la base mise à jour
+      # sert aux exécutions suivantes ; une base incomplète est simplement complétée la fois d'après
       - name: Base NVD (sauvegarde)
-        if: ${{ !cancelled() }}
+        if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.NVD_DATA }}
