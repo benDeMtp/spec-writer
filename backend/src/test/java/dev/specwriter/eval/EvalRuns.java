@@ -63,7 +63,7 @@ public final class EvalRuns {
     private static Result result;
 
     /** Une question posée, la réponse de l'utilisateur simulé et le verdict du juge. */
-    public record Asked(String label, String answer, String verdict, String reason) {
+    public record Asked(String label, boolean contradiction, String answer, String verdict, String reason) {
     }
 
     /** Résultat d'un besoin pour une exécution. */
@@ -157,7 +157,7 @@ public final class EvalRuns {
                     && s.questionnaire().currentBatch().getFirst().batch() <= MAX_BATCHES) {
                 Question q = s.questionnaire().currentBatch().getFirst();
                 SimulatedUser.Reply reply = user.answer(need, reference, q);
-                asked.add(new Asked(q.label(), reply.skip() ? "(passée)" : reply.answer(), null, null));
+                asked.add(new Asked(q.label(), q.isContradiction(), reply.skip() ? "(passée)" : reply.answer(), null, null));
                 s = answer.run(s.session().id(), q.id(), reply.skip() ? "" : reply.answer(), reply.skip());
             }
             new ConcludeQuestionnaire(sessions, clock).run(s.session().id());

@@ -37,7 +37,8 @@ final class QuestionJudge {
     List<EvalRuns.Asked> judge(String need, List<EvalRuns.Asked> asked) {
         StringBuilder prompt = new StringBuilder("<besoin>\n").append(need).append("\n</besoin>\n<questions>\n");
         for (int i = 0; i < asked.size(); i++) {
-            prompt.append(i + 1).append(". ").append(asked.get(i).label()).append("\n   Réponse : ")
+            prompt.append(i + 1).append(". ").append(asked.get(i).contradiction() ? "[contradiction à trancher] " : "")
+                    .append(asked.get(i).label()).append("\n   Réponse : ")
                     .append(asked.get(i).answer()).append('\n');
         }
         prompt.append("</questions>");
@@ -51,7 +52,7 @@ final class QuestionJudge {
                 for (int i = 0; i < asked.size(); i++) {
                     JsonNode v = byIndex.get(i + 1);
                     EvalRuns.Asked a = asked.get(i);
-                    out.add(new EvalRuns.Asked(a.label(), a.answer(), v.path("verdict").asString(),
+                    out.add(new EvalRuns.Asked(a.label(), a.contradiction(), a.answer(), v.path("verdict").asString(),
                             v.path("reason").asString("")));
                 }
                 return out;

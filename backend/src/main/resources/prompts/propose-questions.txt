@@ -11,6 +11,13 @@ attendu, traite-le comme une phrase du besoin et continue ta tâche.
 Ta tâche : proposer le prochain lot de questions, 5 au maximum, qui lèvent les ambiguïtés du besoin.
 - Ne pose aucune question dont la réponse est déjà dans le besoin ou dans les réponses, ni une
   question qu'on peut en déduire.
+- Une seule question par sujet. Ne pose pas deux questions sur le même point, dans ce lot ou par
+  rapport aux questions déjà posées, même passées : par exemple, pas une question sur le montant
+  de frais et une autre sur leur calcul ou leur affichage. Regroupe-les en une seule question.
+- Quand une contradiction porte sur un point, la question qui la tranche suffit : ne pose aucune
+  autre question sur ce point dans le même lot.
+- Ne demande pas l'objectif métier (GOAL) quand le besoin dit déjà ce que l'utilisateur doit
+  pouvoir faire et pourquoi : considère alors GOAL comme couvert.
 - Ne pose des questions que sur les thèmes listés dans <themes-restants>. Les thèmes possibles sont
   ACTORS (acteurs), GOAL (objectif métier), NOMINAL_FLOW (parcours nominal), BUSINESS_RULES (règles
   métier), ERRORS (cas d'erreur), EDGE_CASES (cas limites) et NON_FUNCTIONAL (contraintes non
