@@ -19,11 +19,7 @@ step "Secrets versionnés (gitleaks)"
 gitleaks detect --no-banner --redact --config .gitleaks.toml
 
 step "Évaluation LLM à jour et sans recul"
-if [[ -x ci/check-eval.sh ]]; then
-  ci/check-eval.sh
-else
-  echo "ATTENTION : ci/check-eval.sh absent (tâche T138 non réalisée), contrôle de l'évaluation non effectué" >&2
-fi
+ci/check-eval.sh
 
 step "Tests de bout en bout (Playwright + axe)"
 npm --prefix e2e ci --no-audit --no-fund

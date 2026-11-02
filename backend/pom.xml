@@ -253,6 +253,7 @@
           <includes>
             <include>**/*Test.java</include>
             <include>**/*IT.java</include>
+            <include>**/*Eval.java</include>
           </includes>
           <excludedGroups>${surefire.excludedGroups}</excludedGroups>
           <groups>${surefire.groups}</groups>
@@ -447,6 +448,8 @@
       <properties>
         <surefire.excludedGroups>spike</surefire.excludedGroups>
         <surefire.groups>eval</surefire.groups>
+        <!-- la couverture ne porte pas sur la suite d'évaluation seule -->
+        <jacoco.skip>true</jacoco.skip>
       </properties>
     </profile>
 
