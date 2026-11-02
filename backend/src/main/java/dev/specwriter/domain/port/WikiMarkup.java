@@ -10,4 +10,10 @@ public interface WikiMarkup {
      * bloc de code. Images, pièces jointes et mentions renvoient vers {@code issueUrl} (peut être nul).
      */
     String toMarkdown(String wiki, String issueUrl);
+
+    /**
+     * Texte riche produit par le LLM (FR-012b) : ses tableaux écrits en wiki markup deviennent des
+     * tableaux Markdown ; le reste du texte, Markdown, est inchangé.
+     */
+    String wikiTablesToMarkdown(String markdown);
 }

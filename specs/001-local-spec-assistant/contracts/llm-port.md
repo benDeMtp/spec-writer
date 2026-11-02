@@ -10,7 +10,7 @@ déterministe.
 |---|---|---|
 | `proposeQuestions` | besoin, langue, questions et réponses déjà connues, thèmes encore couverts | `{ questions: [{ theme, label, rationale, suggestions[≤5], defaultValue?, dependsOnQuestionIds[] }], contradictions: [{ description, questionLabel }] }`, 5 questions au maximum par lot |
 | `reassessAfterChange` | idem, avec la réponse modifiée | `{ obsoleteQuestionIds[], newQuestions[] }` |
-| `generateSpecification` | besoin, langue, réponses (avec drapeau hypothèse) | `{ title, summary, useCases[], scenarios[], assumptions[], requirements[] }`, **sans identifiants** (le code les attribue) |
+| `generateSpecification` | besoin, langue, réponses (avec drapeau hypothèse) | `{ title, summary, details, useCases[], scenarios[], assumptions[], requirements[] }` (`summary` et `details` en Markdown, FR-012b), **sans identifiants** (le code les attribue) |
 | `editSpecification` | besoin, langue, réponses, spécification courante (Markdown rendu), instruction de l'utilisateur | même structure que `generateSpecification` |
 | `mergeConflict` | besoin, langue, réponses, version locale, version Jira (Markdown) | même structure |
 | `structureImportedText` | texte importé d'un ticket Jira (Markdown), langue | même structure que `generateSpecification`. Tout élément déduit et absent du texte est une hypothèse (`isAssumption`). |

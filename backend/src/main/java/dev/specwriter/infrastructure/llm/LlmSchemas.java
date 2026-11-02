@@ -49,6 +49,7 @@ final class LlmSchemas {
     static final ResponseFormat SPECIFICATION = format("specification", JsonObjectSchema.builder()
             .addStringProperty("title")
             .addStringProperty("summary")
+            .addStringProperty("details")
             .addProperty("useCases", array(JsonObjectSchema.builder()
                     .addStringProperty("title")
                     .addStringProperty("actor")

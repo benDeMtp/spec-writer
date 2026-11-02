@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { Router, RouterLink } from '@angular/router';
+import { MarkdownComponent } from 'ngx-markdown';
 import { firstValueFrom } from 'rxjs';
 import { JiraApi, PushOutcome } from '../../core/jira/jira.api';
 import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira.model';
@@ -35,7 +36,7 @@ const SYNC: Record<SyncState, string> = {
 @Component({
   selector: 'sw-specification-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AiEditPanelComponent, MatButtonModule, RouterLink, ScenarioComponent, VersionsPanelComponent],
+  imports: [AiEditPanelComponent, MarkdownComponent, MatButtonModule, RouterLink, ScenarioComponent, VersionsPanelComponent],
   template: `
     @if (spec(); as v) {
       <header class="head">
@@ -95,8 +96,15 @@ const SYNC: Record<SyncState, string> = {
       <div class="sheet document">
         <section aria-labelledby="summary">
           <h2 id="summary">Résumé</h2>
-          <p>{{ v.summary }}</p>
+          <markdown class="rich" [data]="v.summary" />
         </section>
+
+        @if (v.details) {
+          <section aria-labelledby="details">
+            <h2 id="details">Détails</h2>
+            <markdown class="rich" [data]="v.details" />
+          </section>
+        }
 
         <section aria-labelledby="use-cases">
           <h2 id="use-cases">Use cases</h2>
@@ -233,6 +241,16 @@ const SYNC: Record<SyncState, string> = {
     .document p,
     .document li,
     .document dd {
+      font-family: var(--sw-font-doc);
+      line-height: 1.65;
+    }
+    /* champs simples : leurs retours à la ligne sont conservés (FR-012c) */
+    .document > section > ul > li,
+    .document dd {
+      white-space: pre-line;
+    }
+    .rich {
+      display: block;
       font-family: var(--sw-font-doc);
       line-height: 1.65;
     }

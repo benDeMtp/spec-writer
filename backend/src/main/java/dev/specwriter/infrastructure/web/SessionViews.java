@@ -49,7 +49,7 @@ final class SessionViews {
     }
 
     record SpecificationView(int number, String origin, Instant createdAt, String title, String summary,
-            List<UseCase> useCases, List<AcceptanceScenario> scenarios, List<Assumption> assumptions,
+            String details, List<UseCase> useCases, List<AcceptanceScenario> scenarios, List<Assumption> assumptions,
             List<Requirement> requirements, String markdown) {
     }
 
@@ -100,15 +100,15 @@ final class SessionViews {
 
     static SpecificationView specification(SpecificationVersion v) {
         var c = v.content();
-        return new SpecificationView(v.number(), v.origin().name(), v.createdAt(), c.title(), c.summary(), c.useCases(),
-                c.scenarios(), c.assumptions(), c.requirements(), v.markdown());
+        return new SpecificationView(v.number(), v.origin().name(), v.createdAt(), c.title(), c.summary(), c.details(),
+                c.useCases(), c.scenarios(), c.assumptions(), c.requirements(), v.markdown());
     }
 
     /** La proposition est présentée comme la version qu'elle deviendra si elle est acceptée. */
     static ProposalView proposal(ProposalStore.Proposal p) {
         var c = p.content();
         return new ProposalView(p.id(), p.baseVersion(), new SpecificationView(p.baseVersion() + 1, p.origin().name(),
-                p.createdAt(), c.title(), c.summary(), c.useCases(), c.scenarios(), c.assumptions(), c.requirements(),
+                p.createdAt(), c.title(), c.summary(), c.details(), c.useCases(), c.scenarios(), c.assumptions(), c.requirements(),
                 p.markdown()), p.unifiedDiff());
     }
 }

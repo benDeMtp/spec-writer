@@ -630,6 +630,25 @@ donne `COPILOT_CLI_OUTDATED`, un chemin absent donne `COPILOT_CLI_MISSING`.
 
 ---
 
+## Phase 13: Texte riche dans la spécification (amendement du 2026-11-02, FR-012b, FR-012c)
+
+**Goal**: une spécification importée de Jira ou modifiée par l'IA garde ses sauts de ligne et ses
+tableaux, dans l'outil, à l'export et dans Jira.
+
+**Independent Test**: importer `PROJ-102` (tableau et retours à la ligne) ; la page de
+spécification affiche un tableau et les sauts de ligne, l'export `.md` contient un tableau GFM,
+l'aperçu wiki contient `||`.
+
+- [X] T160 [P] Tests : `BT/domain/specification/MarkdownRendererTest.java` (résumé et détails en Markdown non échappé, titres `#`/`##` rétrogradés, section « Détails » absente si vide, saut de ligne conservé dans un champ simple), `IdentifierAssignerTest` (bornes 4 000 et 20 000), `BT/infrastructure/jira/JiraFormatConverterTest.java` (`wikiTablesToMarkdown` ne touche que les tableaux wiki ; aller vers le wiki d'un résumé avec tableau et sauts de ligne).
+- [X] T161 Ajouter `details` à `SpecificationContent` et `DraftSpecification` (`null` vaut `""`), aux bornes de `IdentifierAssigner`, au rendu de `MarkdownRenderer` (FR-012b, FR-012c) et à `SessionViews.SpecificationView`.
+- [X] T162 Sortie LLM : `details` dans `LlmSchemas.SPECIFICATION` ; normalisation des tableaux wiki de `summary` et `details` dans `LangChainLlmClient` via `WikiMarkup.wikiTablesToMarkdown` ; consignes de format dans `generate-specification`, `edit-specification`, `merge-conflict` et `structure-imported-text` (Markdown, tableaux GFM, jamais de wiki ; pour l'import, le reste du ticket dans `details`). Test de normalisation.
+- [X] T163 [P] Front : `F/features/specification/specification.page.ts` rend le résumé et les détails avec `ngx-markdown` (options partagées), et conserve les retours à la ligne des autres champs (`white-space: pre-line`) ; modèle `details` dans `sessions.model.ts`.
+- [X] T164 Golden set régénéré et relu ; fixtures LLM (`E/fixtures/llm`, `BTR/llm-replay`) complétées de `details` ; import de `PROJ-102` avec `details` dans `06-jira-import-structure.json`.
+- [X] T165 E2E `E/us6-search-edit.spec.ts` : après import de `PROJ-102`, tableau et sauts de ligne sur la page de spécification, sans violation axe ; aperçu wiki avec `||`.
+- [ ] T166 Relancer l'évaluation LLM (`-Peval`) et committer `last-run.json` (les prompts changent).
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

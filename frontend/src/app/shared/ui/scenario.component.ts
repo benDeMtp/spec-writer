@@ -68,6 +68,9 @@ const KEYWORDS: Record<Language, { asA: string; given: string; when: string; the
     dl {
       margin: 0;
     }
+    dd {
+      white-space: pre-line;
+    }
     .line {
       display: grid;
       grid-template-columns: 8.5rem minmax(0, 1fr);

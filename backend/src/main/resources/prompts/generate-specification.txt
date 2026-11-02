@@ -18,7 +18,15 @@ Règles de contenu :
 - N'attribue aucun identifiant (pas de UC-01, SC-01-01, H-01, EF-01) : le code s'en charge.
 
 Structure attendue :
-- "title" (120 caractères au maximum) et "summary" : résumé du besoin.
+- "title" (120 caractères au maximum, texte simple) et "summary" : résumé du besoin, 4 000
+  caractères au maximum.
+- "details" : informations utiles qui n'entrent pas dans les use cases (tableaux de valeurs,
+  règles de calcul, données de référence), 20 000 caractères au maximum ; chaîne vide s'il n'y a
+  rien à ajouter.
+- "summary" et "details" sont en Markdown : paragraphes, listes, tableaux au format Markdown
+  (`| A | B |`, puis `| --- | --- |`), gras, liens. N'utilise jamais la syntaxe wiki de Jira
+  (`||A||B||`, `h1.`, `*gras*`) ni de titre `#` ou `##`. Les autres champs sont du texte simple ;
+  un retour à la ligne y est conservé.
 - "useCases" : titre, acteur, objectif, préconditions, déroulement nominal (au moins une étape),
   alternatives, et "source". La source dit d'où vient le use case : NEED_EXCERPT avec un extrait
   exact du besoin dans "excerpt", ANSWER avec l'identifiant de la question dans "questionId", ou

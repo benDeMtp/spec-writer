@@ -85,7 +85,8 @@ une nouvelle version.
 | sessionId | UUID | |
 | number | entier | 1, 2, 3… par session |
 | title | texte | 120 caractères maximum. |
-| summary | texte | Résumé du besoin. |
+| summary | texte (Markdown) | Résumé du besoin, 4 000 caractères maximum. Texte riche (FR-012b). |
+| details | texte (Markdown) | Détails facultatifs (tableaux, règles, données de référence), 20 000 caractères maximum ; vide pour les versions antérieures (FR-012b). |
 | inputFingerprint | texte | SHA-256 de (besoin, réponses, version de l'outil, langue). À empreinte identique, l'outil réutilise la version existante (FR-014, R12). |
 | origin | enum | `GENERATED`, `AI_EDIT` (FR-044), `JIRA_IMPORT`, `CONFLICT_MERGE` |
 | markdown | texte | Rendu Markdown déterministe, calculé à partir de la structure. Sert à l'export (FR-019) et à l'indexation plein texte. |

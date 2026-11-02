@@ -109,11 +109,19 @@ public final class IdentifierAssigner {
         if (blank(draft.title()) || blank(draft.summary())) {
             violations.add("le titre et le résumé sont obligatoires");
         }
+        String summary = strip(draft.summary());
+        String details = strip(draft.details());
+        if (summary.length() > SpecificationContent.MAX_SUMMARY) {
+            violations.add("le résumé dépasse 4 000 caractères");
+        }
+        if (details.length() > SpecificationContent.MAX_DETAILS) {
+            violations.add("les détails dépassent 20 000 caractères");
+        }
         String title = strip(draft.title());
         if (title.length() > SpecificationContent.MAX_TITLE) {
             title = title.substring(0, SpecificationContent.MAX_TITLE);
         }
-        SpecificationContent content = new SpecificationContent(title, strip(draft.summary()), useCases, scenarios,
+        SpecificationContent content = new SpecificationContent(title, summary, details, useCases, scenarios,
                 assumptions, requirements);
         return new Assigned(content, new StructureViolations(violations));
     }

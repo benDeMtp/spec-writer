@@ -19,7 +19,9 @@ import dev.specwriter.domain.llm.ReassessRequest;
 import dev.specwriter.domain.llm.ReassessResult;
 import dev.specwriter.domain.llm.StructureImportRequest;
 import dev.specwriter.domain.port.LlmClient;
+import dev.specwriter.domain.port.WikiMarkup;
 import dev.specwriter.domain.question.QuestionTheme;
+import dev.specwriter.infrastructure.jira.JiraFormatConverter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.io.IOException;
@@ -52,6 +54,8 @@ public class LangChainLlmClient implements LlmClient {
     private static final JsonMapper JSON = JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
     private static final Map<String, String> PROMPTS = new ConcurrentHashMap<>();
+    /** Tableaux en wiki markup dans le texte riche de la spécification (FR-012b). */
+    private static final WikiMarkup TABLES = new JiraFormatConverter();
 
     record QuestionsDto(List<QuestionDto> questions, List<Contradiction> contradictions, List<String> coveredThemes) {
     }
@@ -139,7 +143,9 @@ public class LangChainLlmClient implements LlmClient {
         if (draft == null) {
             throw new IllegalArgumentException("spécification absente");
         }
-        return draft;
+        return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
+                TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
+                draft.requirements());
     }
 
     private static ProposeQuestionsResult toQuestions(String json) {

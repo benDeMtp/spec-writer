@@ -77,8 +77,50 @@ class MarkdownRendererTest {
                 "client", List.of(), List.of("je tape `code`\net une ligne"), List.of("ok"), false);
         String md = MarkdownRenderer.render(spec(s, List.of(), List.of()), Language.FR);
         assertThat(md).contains("#### SC-01-01 : \\# titre \\| \\*gras\\* \\{x\\} \\[lien\\](y)")
-                .contains("- **Quand** je tape \\`code\\` et une ligne");
+                .contains("- **Quand** je tape \\`code\\`\\\n  et une ligne\n");
         assertThat(MarkdownRenderer.escape(null)).isEmpty();
+    }
+
+    @Test
+    void retoursALaLigneConservesDansLesChampsSimples() {
+        AcceptanceScenario s = new AcceptanceScenario("SC-01-01", "UC-01", "Titre\nsur deux lignes", Kind.NOMINAL,
+                "client", List.of(), List.of("je saisis\n1. un\n- deux"), List.of("ok"), false);
+        SpecificationContent c = new SpecificationContent("Paiement", "R", "", List.of(Specs.useCase("UC-01", NEED)),
+                List.of(s), List.of(), List.of(new Requirement("EF-01", Requirement.Category.FUNCTIONAL, "ligne 1\r\nligne 2")));
+        String md = MarkdownRenderer.render(c, Language.FR);
+
+        // un titre reste sur une ligne ; ailleurs, saut de ligne forcé, sans créer de liste
+        assertThat(md).contains("#### SC-01-01 : Titre sur deux lignes\n")
+                .contains("- **Quand** je saisis\\\n  1\\. un\\\n  \\- deux\n")
+                .contains("- **EF-01** : ligne 1\\\n  ligne 2\n");
+    }
+
+    @Test
+    void resumeEtDetailsEnTexteRiche() {
+        String table = "| Moyen | Frais |\n| --- | --- |\n| Carte | 0 € |";
+        SpecificationContent c = new SpecificationContent("Paiement", "Le client **paie**.\n\n" + table,
+                "# Règles\n\nDétail *important*.\n\n## Annexe\n\n### Sous-partie", List.of(Specs.useCase("UC-01", NEED)),
+                List.of(refused(false)), List.of(), List.of());
+        String md = MarkdownRenderer.render(c, Language.FR);
+
+        assertThat(md).contains("## Résumé\n\nLe client **paie**.\n\n" + table + "\n\n## Détails\n\n")
+                .contains("#### Règles\n\nDétail *important*.\n\n#### Annexe\n\n### Sous-partie\n\n## Use cases");
+        assertThat(MarkdownRenderer.render(c, Language.EN)).contains("## Details\n\n");
+    }
+
+    @Test
+    void sansDetailsPasDeSection() {
+        String md = MarkdownRenderer.render(spec(refused(false), List.of(), List.of()), Language.FR);
+
+        assertThat(md).doesNotContain("Détails").contains("## Résumé\n\nLe client paie.\n\n## Use cases");
+    }
+
+    @Test
+    void unSouligneDeTitreNeCreePasDeTitre() {
+        SpecificationContent c = new SpecificationContent("T", "Texte\n===\nSuite\n---", "",
+                List.of(Specs.useCase("UC-01", NEED)), List.of(refused(false)), List.of(), List.of());
+
+        assertThat(MarkdownRenderer.render(c, Language.FR)).contains("Texte\n\\===\nSuite\n\n---\n");
     }
 
     @Test
