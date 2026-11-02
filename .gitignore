@@ -1,0 +1,35 @@
+# Système
+.DS_Store
+
+# Réglages locaux de Claude Code
+.claude/settings.local.json
+
+# Environnement et secrets locaux
+.env
+.env.*
+# Options Maven propres au poste (profils du settings.xml à désactiver, par exemple)
+.mvn/maven.config
+
+# Build Java
+target/
+*.class
+
+# Python (scripts Spec Kit)
+__pycache__/
+
+# Front et E2E
+node_modules/
+frontend/dist/
+frontend/.angular/
+coverage/
+e2e/test-results/
+e2e/playwright-report/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Données du dev mode Quarkus (research.md R17)
+.dev-data/

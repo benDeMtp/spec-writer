@@ -1,0 +1,157 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/serverInfo"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "version": "9.12.3",
+          "deploymentType": "Server"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/myself",
+        "headers": {
+          "Authorization": {
+            "equalTo": "Bearer e2e-good-token"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "name": "e2e-user"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "priority": 5,
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/myself"
+      },
+      "response": {
+        "status": 401
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/project/PROJ"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "key": "PROJ",
+          "name": "Projet E2E"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/mypermissions"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "permissions": {
+            "BROWSE_PROJECTS": {
+              "havePermission": true
+            },
+            "CREATE_ISSUES": {
+              "havePermission": true
+            },
+            "EDIT_ISSUES": {
+              "havePermission": true
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/PROJ-102"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "PROJ-102",
+          "fields": {
+            "summary": "Parking visiteurs",
+            "description": "h2. Besoin\nLes salariés doivent pouvoir réserver une place du parking visiteurs pour la journée. E2E-IMPORT\n||Créneau||Places||\n|Matin|12|\n|Après-midi|8|\nVoir le [règlement du parking|https://intranet.example/parking] et !plan-parking.png|thumbnail!.",
+            "updated": "2026-10-30T09:00:00.000+0000"
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/search"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "startAt": 0,
+          "maxResults": 20,
+          "total": 2,
+          "issues": [
+            {
+              "key": "PROJ-102",
+              "fields": {
+                "summary": "Parking visiteurs",
+                "status": {
+                  "name": "À faire"
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-10-30T09:00:00.000+0000"
+              }
+            },
+            {
+              "key": "PROJ-103",
+              "fields": {
+                "summary": "Parking des vélos",
+                "status": {
+                  "name": "À faire"
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-10-29T09:00:00.000+0000"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>dev.specwriter</groupId>
+    <artifactId>spec-writer-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>spec-writer-backend</artifactId>
+  <name>Spec Writer - Backend</name>
+
+  <properties>
+    <!-- Montée vers 4.0.0.Final prévue le 2026-11-25 (tâche T145) -->
+    <quarkus.version>4.0.0.Beta2</quarkus.version>
+    <quarkus-langchain4j.version>2.0.0.Beta1</quarkus-langchain4j.version>
+    <copilot-sdk.version>1.0.28-preview.0</copilot-sdk.version>
+    <sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>
+    <credential-secure-storage.version>1.0.4</credential-secure-storage.version>
+    <flexmark.version>0.64.8</flexmark.version>
+    <java-diff-utils.version>4.15</java-diff-utils.version>
+    <wiremock.version>4.0.0-beta.41</wiremock.version>
+    <archunit.version>1.5.1</archunit.version>
+    <assertj.version>3.27.6</assertj.version>
+
+    <jacoco.version>0.8.16</jacoco.version>
+    <surefire.version>3.5.4</surefire.version>
+    <spotbugs-plugin.version>4.9.8.2</spotbugs-plugin.version>
+    <pmd-plugin.version>3.28.0</pmd-plugin.version>
+    <dependency-check.version>12.2.2</dependency-check.version>
+    <jreleaser.version>1.16.0</jreleaser.version>
+
+    <!-- Les tests taggés spike et eval sont exclus du build par défaut -->
+    <surefire.excludedGroups>spike,eval</surefire.excludedGroups>
+    <surefire.groups></surefire.groups>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.quarkus.platform</groupId>
+        <artifactId>quarkus-bom</artifactId>
+        <version>${quarkus.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- Quarkus -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-arc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-rest-jackson</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-rest-client-jackson</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-hibernate-orm</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-agroal</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-flyway</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-smallrye-health</artifactId>
+    </dependency>
+
+    <!-- Base embarquée (research.md R7) -->
+    <dependency>
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+      <version>${sqlite-jdbc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.hibernate.orm</groupId>
+      <artifactId>hibernate-community-dialects</artifactId>
+    </dependency>
+
+    <!-- LLM (research.md R3) -->
+    <dependency>
+      <groupId>io.quarkiverse.langchain4j</groupId>
+      <artifactId>quarkus-langchain4j-core</artifactId>
+      <version>${quarkus-langchain4j.version}</version>
+      <!-- découpage de documents en phrases (langchain4j), inutilisé ; CVE-2026-82617 (CVSS 10) -->
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.opennlp</groupId>
+          <artifactId>opennlp-tools</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.github</groupId>
+      <artifactId>copilot-sdk-java</artifactId>
+      <version>${copilot-sdk.version}</version>
+    </dependency>
+    <!-- Runtime natif Copilot (runtime.node chargé par JNA), une variante par OS (profils copilot-runtime-*) -->
+    <dependency>
+      <groupId>com.github</groupId>
+      <artifactId>copilot-sdk-java-runtime</artifactId>
+      <version>${copilot-sdk.version}</version>
+      <classifier>${copilot-runtime.classifier}</classifier>
+    </dependency>
+
+    <!-- Trousseau du système (research.md R8) -->
+    <dependency>
+      <groupId>io.alapierre</groupId>
+      <artifactId>credential-secure-storage</artifactId>
+      <version>${credential-secure-storage.version}</version>
+    </dependency>
+
+    <!-- Markdown et wiki Jira (research.md R10) -->
+    <dependency>
+      <groupId>io.github.java-diff-utils</groupId>
+      <artifactId>java-diff-utils</artifactId>
+      <version>${java-diff-utils.version}</version>
+    </dependency>
+    <!-- Seulement les modules utilisés : flexmark-all embarque aussi l'export PDF (pdfbox,
+         openhtmltopdf, icu4j), vulnérable et inutile ici -->
+    <dependency>
+      <groupId>com.vladsch.flexmark</groupId>
+      <artifactId>flexmark</artifactId>
+      <version>${flexmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.vladsch.flexmark</groupId>
+      <artifactId>flexmark-ext-tables</artifactId>
+      <version>${flexmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.vladsch.flexmark</groupId>
+      <artifactId>flexmark-ext-gfm-strikethrough</artifactId>
+      <version>${flexmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.vladsch.flexmark</groupId>
+      <artifactId>flexmark-jira-converter</artifactId>
+      <version>${flexmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.vladsch.flexmark</groupId>
+      <artifactId>flexmark-jira-converter</artifactId>
+      <version>${flexmark.version}</version>
+    </dependency>
+
+    <!-- Tests -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock-standalone</artifactId>
+      <version>${wiremock.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+      <version>${archunit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>io.quarkus.platform</groupId>
+        <artifactId>quarkus-maven-plugin</artifactId>
+        <version>${quarkus.version}</version>
+        <extensions>true</extensions>
+        <configuration>
+          <!-- Dev mode (research.md R17) : lues avant la configuration Quarkus, donc en propriétés
+               système ; port et données distincts de l'outil installé (47615, dossier de l'OS) -->
+          <systemProperties>
+            <specwriter.port>47625</specwriter.port>
+            <specwriter.data-dir>${project.basedir}/../.dev-data</specwriter.data-dir>
+          </systemProperties>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>build</goal>
+              <goal>generate-code</goal>
+              <goal>generate-code-tests</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Embarque le front construit par le module frontend (research.md R6) -->
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>copy-frontend</id>
+            <phase>process-resources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.outputDirectory}/META-INF/resources</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/../frontend/dist/spec-writer/browser</directory>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.14.1</version>
+        <configuration>
+          <parameters>true</parameters>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${surefire.version}</version>
+        <configuration>
+          <includes>
+            <include>**/*Test.java</include>
+            <include>**/*IT.java</include>
+          </includes>
+          <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+          <groups>${surefire.groups}</groups>
+          <systemPropertyVariables>
+            <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+            <specwriter.data-dir>${project.build.directory}/test-data</specwriter.data-dir>
+          </systemPropertyVariables>
+          <argLine>@{argLine}</argLine>
+        </configuration>
+      </plugin>
+
+      <!-- Couverture : 80 % de lignes sur domain et application, bloquant (principe III) -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals><goal>prepare-agent</goal></goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals><goal>report</goal></goals>
+          </execution>
+          <execution>
+            <id>check</id>
+            <phase>verify</phase>
+            <goals><goal>check</goal></goals>
+            <configuration>
+              <haltOnFailure>true</haltOnFailure>
+              <rules>
+                <rule>
+                  <element>PACKAGE</element>
+                  <includes>
+                    <include>dev.specwriter.domain*</include>
+                    <include>dev.specwriter.application*</include>
+                  </includes>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.80</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>${spotbugs-plugin.version}</version>
+        <configuration>
+          <effort>Max</effort>
+          <threshold>Medium</threshold>
+          <failOnError>true</failOnError>
+          <excludeFilterFile>${project.basedir}/spotbugs-exclude.xml</excludeFilterFile>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals><goal>check</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-pmd-plugin</artifactId>
+        <version>${pmd-plugin.version}</version>
+        <configuration>
+          <failOnViolation>true</failOnViolation>
+          <printFailingErrors>true</printFailingErrors>
+          <targetJdk>25</targetJdk>
+          <rulesets>
+            <ruleset>${project.basedir}/pmd-ruleset.xml</ruleset>
+          </rulesets>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals><goal>check</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- Sélection automatique de la variante native du runtime Copilot selon l'OS de build.
+         Les installeurs sont donc construits sur chaque OS cible (release.yml, research.md R15). -->
+    <profile>
+      <id>copilot-runtime-darwin-arm64</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>darwin-arm64</copilot-runtime.classifier>
+      </properties>
+    </profile>
+    <profile>
+      <id>copilot-runtime-darwin-x64</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>x86_64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>darwin-x64</copilot-runtime.classifier>
+      </properties>
+    </profile>
+    <profile>
+      <id>copilot-runtime-linux-x64</id>
+      <activation>
+        <os>
+          <family>unix</family>
+          <name>Linux</name>
+          <arch>amd64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>linux-x64</copilot-runtime.classifier>
+      </properties>
+    </profile>
+    <profile>
+      <id>copilot-runtime-linux-arm64</id>
+      <activation>
+        <os>
+          <family>unix</family>
+          <name>Linux</name>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>linux-arm64</copilot-runtime.classifier>
+      </properties>
+    </profile>
+    <profile>
+      <id>copilot-runtime-win32-x64</id>
+      <activation>
+        <os>
+          <family>windows</family>
+          <arch>amd64</arch>
+        </os>
+      </activation>
+      <properties>
+        <copilot-runtime.classifier>win32-x64</copilot-runtime.classifier>
+      </properties>
+    </profile>
+    <!-- Scan des vulnérabilités : haute ou critique bloquante (constitution, Exigences de sécurité).
+         Actif par défaut, désactivable en local hors CI avec -DskipDependencyCheck. -->
+    <profile>
+      <id>dependency-check</id>
+      <activation>
+        <property><name>!skipDependencyCheck</name></property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.owasp</groupId>
+            <artifactId>dependency-check-maven</artifactId>
+            <version>${dependency-check.version}</version>
+            <configuration>
+              <failBuildOnCVSS>7</failBuildOnCVSS>
+              <suppressionFiles>
+                <suppressionFile>${project.basedir}/dependency-check-suppressions.xml</suppressionFile>
+              </suppressionFiles>
+              <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
+            </configuration>
+            <executions>
+              <execution>
+                <phase>verify</phase>
+                <goals><goal>check</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Suite d'évaluation LLM : vrai Copilot, lancée en local (tâches T137 et T138) -->
+    <profile>
+      <id>eval</id>
+      <properties>
+        <surefire.excludedGroups>spike</surefire.excludedGroups>
+        <surefire.groups>eval</surefire.groups>
+      </properties>
+    </profile>
+
+    <!-- Spikes S1 et S2 (tâches T010 à T012) -->
+    <profile>
+      <id>spike</id>
+      <properties>
+        <surefire.excludedGroups>eval</surefire.excludedGroups>
+        <surefire.groups>spike</surefire.groups>
+      </properties>
+    </profile>
+
+    <!-- Installeur de l'OS courant (research.md R15, T140) : ./mvnw -Pdist package -->
+    <profile>
+      <id>dist</id>
+      <properties>
+        <!-- un seul jar : jpackage et JReleaser ne gèrent pas la disposition fast-jar (lib/, quarkus/) -->
+        <quarkus.package.jar.type>uber-jar</quarkus.package.jar.type>
+        <quarkus.package.output-name>spec-writer</quarkus.package.output-name>
+        <!-- Pas de runtime Copilot dans les installeurs : des composants ne sont pas redistribuables
+             (research.md R15). L'application utilise le Copilot CLI de l'utilisateur. -->
+        <quarkus.class-loading.removed-artifacts>com.github:copilot-sdk-java-runtime:${copilot-runtime.classifier}</quarkus.class-loading.removed-artifacts>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jreleaser</groupId>
+            <artifactId>jreleaser-maven-plugin</artifactId>
+            <version>${jreleaser.version}</version>
+            <configuration>
+              <configFile>${maven.multiModuleProjectDirectory}/jreleaser.yml</configFile>
+              <outputDirectory>${project.build.directory}/jreleaser</outputDirectory>
+              <selectCurrentPlatform>true</selectCurrentPlatform>
+              <gitRootSearch>true</gitRootSearch>
+            </configuration>
+            <executions>
+              <execution>
+                <id>installeur</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>assemble</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

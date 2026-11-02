@@ -1,0 +1,12 @@
+# Détection de secrets versionnés (constitution, Exigences de sécurité).
+[extend]
+useDefault = true
+
+[[rules]]
+id = "github-oauth-or-app-token"
+description = "Jeton GitHub (OAuth, App, PAT fine-grained)"
+regex = '''\b(gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}\b|\bgithub_pat_[A-Za-z0-9_]{40,}\b'''
+
+[allowlist]
+description = "Jetons factices des tests"
+regexes = ['''gho_TEST''', '''ghu_TEST''', '''TEST-JIRA-PAT''']

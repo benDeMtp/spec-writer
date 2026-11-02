@@ -1,0 +1,7 @@
+{"operation": "propose-questions", "userContains": ["payer leur panier en ligne"], "response": {
+  "questions": [
+    {"theme": "ERRORS", "label": "Que se passe-t-il quand la banque refuse le paiement ?", "rationale": "Le refus est le cas d'erreur le plus fréquent",
+     "suggestions": ["Conserver le panier", "Vider le panier"], "defaultValue": "Conserver le panier", "dependsOnQuestionIds": []}
+  ],
+  "contradictions": [{"description": "Le besoin dit le paiement gratuit pour le client, mais ajoute des frais au panier", "questionLabel": "Le client paie-t-il des frais de traitement ?"}],
+  "coveredThemes": ["ACTORS", "GOAL", "NOMINAL_FLOW", "BUSINESS_RULES", "EDGE_CASES", "NON_FUNCTIONAL"]}}

@@ -1,0 +1,24 @@
+# Règles SAST du projet (constitution, Exigences de sécurité). Les packs publics sont ajoutés par
+# ci/verify.sh : p/java, p/typescript, p/owasp-top-ten.
+rules:
+  - id: no-raw-user-content-in-logs
+    languages: [java]
+    severity: ERROR
+    message: >-
+      Ne jamais journaliser le besoin, les réponses, les sorties du LLM ni un jeton (FR-025, FR-034).
+    patterns:
+      - pattern-either:
+          - pattern: $LOG.$LEVEL(..., $X.need(), ...)
+          - pattern: $LOG.$LEVEL(..., $X.value(), ...)
+          - pattern: $LOG.$LEVEL(..., $X.token(), ...)
+      - metavariable-regex:
+          metavariable: $LEVEL
+          regex: (trace|debug|info|warn|error|tracef|debugf|infof|warnf|errorf)
+  - id: no-window-confirm
+    languages: [typescript]
+    severity: ERROR
+    message: Utiliser MatDialog plutôt que window.confirm / alert / prompt.
+    pattern-either:
+      - pattern: window.confirm(...)
+      - pattern: window.alert(...)
+      - pattern: window.prompt(...)

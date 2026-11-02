@@ -1,0 +1,12 @@
+{
+  "operation": "generate-specification",
+  "userContains": ["IT-INVALID"],
+  "response": {
+    "title": "Invalide", "summary": "Scénario sans action",
+    "useCases": [{"title": "Réserver", "actor": "employé", "goal": "réserver", "preconditions": [], "nominalFlow": ["réserver"],
+      "alternatives": [], "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "réserver"}}],
+    "scenarios": [{"useCaseIndex": 0, "title": "Sans action", "kind": "NOMINAL", "asA": "employé", "given": [],
+      "when": [], "then": ["ok"], "assumption": false}],
+    "assumptions": [], "requirements": []
+  }
+}

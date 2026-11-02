@@ -1,0 +1,110 @@
+# Installeurs de spec-writer (research.md R15, T140) : runtime jlink Java 25 puis jpackage.
+# Lancé par ./mvnw -Pdist package, sur chaque OS cible (jpackage ne produit que pour l'OS courant).
+# Le jar est un uber-jar : JReleaser copie les jars à plat, ce que la disposition fast-jar de
+# Quarkus (lib/, quarkus/) ne supporte pas.
+project:
+  name: spec-writer
+  description: Rédaction assistée de spécifications, en local
+  longDescription: >-
+    spec-writer pose les questions qui manquent à un besoin, puis rédige les use cases et leurs
+    scénarios d'acceptation. Il s'exécute sur le poste de l'utilisateur, avec GitHub Copilot et Jira.
+  authors:
+    - Benjamin Raimondi
+  license: Apache-2.0
+  vendor: spec-writer
+  inceptionYear: '2026'
+  languages:
+    java:
+      groupId: dev.specwriter
+      artifactId: spec-writer-backend
+      version: '25'
+      # classe principale de l'uber-jar de Quarkus
+      mainClass: io.quarkus.runner.GeneratedMain
+
+assemble:
+  jlink:
+    spec-writer-runtime:
+      active: ALWAYS
+      exported: false
+      imageName: 'spec-writer-runtime-{{ projectVersion }}'
+      copyJars: false
+      jdeps:
+        enabled: false
+      # Relevés au spike T011 (research.md R15) : jdeps, plus les modules chargés dynamiquement
+      moduleNames:
+        - java.base
+        - java.datatransfer
+        - java.desktop
+        - java.logging
+        - java.management
+        - java.naming
+        - java.rmi
+        - java.security.jgss
+        - java.sql
+        - java.transaction.xa
+        - java.xml
+        - jdk.charsets
+        - jdk.jfr
+        - jdk.localedata
+        - jdk.management
+        - jdk.security.auth
+        - jdk.unsupported
+        - jdk.zipfs
+      args:
+        - '--include-locales=en,fr'
+        - '--compress=zip-6'
+        - '--strip-debug'
+        - '--no-header-files'
+        - '--no-man-pages'
+      # Le JDK de la machine de build ; seule la plateforme courante est assemblée
+      targetJdks:
+        - path: '{{ Env.JAVA_HOME }}'
+          platform: 'osx-aarch_64'
+        - path: '{{ Env.JAVA_HOME }}'
+          platform: 'osx-x86_64'
+        - path: '{{ Env.JAVA_HOME }}'
+          platform: 'windows-x86_64'
+        - path: '{{ Env.JAVA_HOME }}'
+          platform: 'linux-x86_64'
+      mainJar:
+        path: 'backend/target/spec-writer-runner.jar'
+
+  jpackage:
+    spec-writer:
+      active: ALWAYS
+      exported: true
+      jlink: spec-writer-runtime
+      mainJar:
+        path: 'backend/target/spec-writer-runner.jar'
+      applicationPackage:
+        appName: spec-writer
+        # macOS refuse une version qui commence par 0 : SPECWRITER_APP_VERSION (fixée par la release
+        # depuis le tag), sinon 1.0.0 pour un build local
+        appVersion: '{{#Env.SPECWRITER_APP_VERSION}}{{Env.SPECWRITER_APP_VERSION}}{{/Env.SPECWRITER_APP_VERSION}}{{^Env.SPECWRITER_APP_VERSION}}1.0.0{{/Env.SPECWRITER_APP_VERSION}}'
+        vendor: spec-writer
+        copyright: '2026 Benjamin Raimondi'
+        licenseFile: 'LICENSE'
+      launcher:
+        javaOptions:
+          - '-Xshare:auto'
+      osx:
+        types: [dmg]
+        icon: 'dist/assets/spec-writer.icns'
+        packageName: spec-writer
+        packageIdentifier: dev.specwriter.app
+      windows:
+        types: [msi]
+        icon: 'dist/assets/spec-writer.ico'
+        menu: true
+        menuGroup: spec-writer
+        shortcut: true
+        perUserInstall: true
+        dirChooser: false
+        # Constant d'une version à l'autre : permet la mise à jour en place par le .msi
+        upgradeUuid: '6f1c2e4a-8b3d-4d6e-9a2f-5c7b1e0d3a94'
+      linux:
+        types: [deb]
+        icon: 'dist/assets/spec-writer.png'
+        packageName: spec-writer
+        maintainer: braimondi@kawamind.fr
+        menuGroup: Development

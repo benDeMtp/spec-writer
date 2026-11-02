@@ -1,0 +1,46 @@
+{
+  "operation": "structure-imported-text",
+  "userContains": [
+    "IT-IMPORT"
+  ],
+  "response": {
+    "title": "Paiement en ligne",
+    "summary": "Les clients paient leur panier en ligne.",
+    "useCases": [
+      {
+        "title": "Payer le panier",
+        "actor": "client",
+        "goal": "Régler sa commande",
+        "preconditions": [],
+        "nominalFlow": [
+          "Saisir la carte",
+          "Valider le paiement"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "NEED_EXCERPT",
+          "questionId": "",
+          "excerpt": "payer leur panier en ligne"
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "useCaseIndex": 0,
+        "title": "Paiement accepté",
+        "kind": "NOMINAL",
+        "asA": "client",
+        "given": [],
+        "when": [
+          "je valide le paiement de mon panier"
+        ],
+        "then": [
+          "la commande est payée"
+        ],
+        "assumption": false
+      }
+    ],
+    "assumptions": [],
+    "requirements": []
+  }
+}

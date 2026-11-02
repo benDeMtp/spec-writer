@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>spec-writer</title>
+  <!-- Fond : vert « crayon » de l'application ; feuille blanche ; trois lignes de scénario aux
+       couleurs des mots-clés (En tant que / Quand / Alors) -->
+  <rect width="1024" height="1024" rx="224" fill="#1f6f5c"/>
+  <rect x="248" y="168" width="528" height="688" rx="48" fill="#ffffff"/>
+  <rect x="320" y="296" width="120" height="56" rx="28" fill="#5b4b8a"/>
+  <rect x="468" y="296" width="236" height="56" rx="28" fill="#d5dbd6"/>
+  <rect x="320" y="456" width="96" height="56" rx="28" fill="#5c6670"/>
+  <rect x="444" y="456" width="260" height="56" rx="28" fill="#d5dbd6"/>
+  <rect x="320" y="616" width="140" height="56" rx="28" fill="#8a5a00"/>
+  <rect x="488" y="616" width="176" height="56" rx="28" fill="#d5dbd6"/>
+</svg>

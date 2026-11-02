@@ -1,0 +1,124 @@
+@use './styles/theme';
+@use '@fontsource-variable/atkinson-hyperlegible-next';
+@use '@fontsource-variable/literata';
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--sw-paper);
+  color: var(--sw-ink);
+  font-family: var(--sw-font-ui);
+  font-size: var(--sw-step-0);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: var(--sw-step-3);
+}
+h2 {
+  font-size: var(--sw-step-2);
+}
+h3 {
+  font-size: var(--sw-step-1);
+}
+
+// Texte des spécifications et du besoin : serif de lecture
+.sw-document {
+  font-family: var(--sw-font-doc);
+  line-height: 1.65;
+  max-width: var(--sw-measure);
+}
+
+// La feuille : une surface par écran
+.sw-sheet {
+  background: var(--sw-sheet);
+  border: 1px solid var(--sw-rule);
+  border-radius: var(--sw-radius-sheet);
+  padding: clamp(1rem, 3vw, 2rem);
+  max-width: calc(var(--sw-measure) + 4rem);
+}
+
+// Focus clavier toujours visible (FR-029)
+:focus-visible {
+  outline: 3px solid var(--sw-pencil);
+  outline-offset: 2px;
+}
+
+// Texte réservé aux lecteurs d'écran
+.sw-visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Markdown de contenu tiers (descriptions Jira, FR-043a) : tableaux, citations, panneaux */
+markdown {
+  display: block;
+
+  .sw-table {
+    max-width: 100%;
+    margin: 1rem 0;
+    overflow-x: auto;
+  }
+  .sw-table:focus-visible {
+    outline: 2px solid var(--sw-pencil);
+    outline-offset: 2px;
+  }
+  table {
+    border-collapse: collapse;
+    font-size: var(--sw-step--1);
+    overflow-wrap: normal;
+  }
+  th,
+  td {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--sw-rule);
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: color-mix(in srgb, var(--sw-rule) 45%, transparent);
+    font-family: var(--sw-font-ui);
+    font-weight: 600;
+  }
+  blockquote {
+    margin: 1rem 0;
+    padding: 0.25rem 1rem;
+    border-left: 3px solid var(--sw-role);
+  }
+  a {
+    color: var(--sw-pencil);
+  }
+  hr {
+    border: 0;
+    border-top: 1px solid var(--sw-rule);
+  }
+}

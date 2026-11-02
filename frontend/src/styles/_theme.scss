@@ -1,0 +1,61 @@
+// Jetons de la direction visuelle (frontend/DESIGN.md), appliqués à Angular Material 3.
+@use '@angular/material' as mat;
+
+:root {
+  color-scheme: light dark;
+
+  // Palette : light-dark() suit le thème clair ou sombre du système.
+  --sw-paper: light-dark(#f3f5f2, #151a1f);
+  --sw-sheet: light-dark(#ffffff, #1d242b);
+  --sw-ink: light-dark(#1b2430, #e4e8eb);
+  --sw-ink-soft: light-dark(#4a5562, #b4bec7);
+  --sw-pencil: light-dark(#1f6f5c, #6fd3b5);
+  --sw-role: light-dark(#5b4b8a, #b9a9f0);
+  --sw-context: light-dark(#5c6670, #a9b3bc);
+  --sw-outcome: light-dark(#8a5a00, #e8b860);
+  --sw-rule: light-dark(#d5dbd6, #2e3842);
+
+  // Typographie
+  --sw-font-ui: 'Atkinson Hyperlegible Next Variable', 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+  --sw-font-doc: 'Literata Variable', 'Literata', Georgia, serif;
+  --sw-step--1: 0.8rem;
+  --sw-step-0: 1rem;
+  --sw-step-1: 1.25rem;
+  --sw-step-2: 1.563rem;
+  --sw-step-3: 1.953rem;
+
+  // Formes
+  --sw-radius-sheet: 12px;
+  --sw-radius-field: 8px;
+  --sw-measure: 72ch;
+
+  @include mat.theme(
+    (
+      color: (
+        theme-type: color-scheme,
+        primary: mat.$cyan-palette,
+        tertiary: mat.$violet-palette,
+      ),
+      typography: (
+        plain-family: var(--sw-font-ui),
+        brand-family: var(--sw-font-ui),
+      ),
+      density: 0,
+    )
+  );
+
+  // Les jetons système de Material reprennent la palette de spec-writer.
+  @include mat.theme-overrides(
+    (
+      primary: var(--sw-pencil),
+      on-primary: light-dark(#ffffff, #0d2b24),
+      surface: var(--sw-paper),
+      on-surface: var(--sw-ink),
+      on-surface-variant: var(--sw-ink-soft),
+      surface-container: var(--sw-sheet),
+      surface-container-low: var(--sw-sheet),
+      outline-variant: var(--sw-rule),
+      tertiary: var(--sw-role),
+    )
+  );
+}

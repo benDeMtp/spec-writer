@@ -1,0 +1,67 @@
+:host {
+  display: block;
+}
+.sheet {
+  max-width: var(--sw-measure);
+  padding: 1.5rem clamp(1rem, 3vw, 2rem);
+  background: var(--sw-sheet);
+  border: 1px solid var(--sw-rule);
+  border-radius: var(--sw-radius-sheet);
+}
+h2 {
+  margin: 0 0 1rem;
+  font-family: var(--sw-font-doc);
+  font-size: var(--sw-step-2);
+  font-weight: 600;
+}
+form {
+  display: grid;
+  gap: 0.5rem;
+}
+mat-form-field {
+  width: 100%;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.status {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid var(--sw-rule);
+  border-radius: var(--sw-radius-field);
+  p {
+    margin: 0.25rem 0;
+  }
+}
+.status.ok {
+  border-left-color: var(--sw-pencil);
+}
+.status.warn {
+  border-left-color: var(--sw-outcome);
+}
+.hint {
+  color: var(--sw-ink-soft);
+}
+.scopes {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.25rem;
+  li {
+    margin: 0.25rem 0;
+  }
+  code {
+    margin-right: 0.5rem;
+    color: var(--sw-role);
+  }
+}
+.token-set {
+  margin: 0.25rem 0 0.75rem;
+}
+.danger {
+  --mat-button-filled-container-color: var(--sw-outcome);
+}
+.model {
+  margin-top: 0.5rem;
+}

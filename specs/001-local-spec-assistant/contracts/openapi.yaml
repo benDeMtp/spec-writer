@@ -1,0 +1,472 @@
+openapi: 3.1.0
+info:
+  title: Spec Writer — API locale
+  version: 0.1.0
+  description: |
+    API HTTP entre le front Angular et le backend Quarkus, servie uniquement sur 127.0.0.1.
+
+    Sécurité (research.md R14) :
+    - chaque requête `/api/**` exige le cookie `sw_launch` (HttpOnly, SameSite=Strict), obtenu
+      en échangeant le jeton de lancement via `POST /api/session-auth` ;
+    - toute requête dont l'`Origin` n'est pas celle de l'application est rejetée (403) ;
+    - les écritures exigent `Content-Type: application/json`.
+
+    Les erreurs suivent le format `Problem` (RFC 9457). Un `Problem` contient un `code` stable et
+    un `userMessage` en langage métier qui indique l'action à mener (FR-028). Il ne contient
+    jamais de trace technique, de contenu saisi ni de jeton (FR-025, FR-034).
+servers:
+  - url: http://127.0.0.1:47615
+security:
+  - launchCookie: []
+
+paths:
+  /api/session-auth:
+    post:
+      summary: Échange le jeton de lancement contre le cookie de session locale
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [launchToken], properties: { launchToken: { type: string } } }
+      responses:
+        '204': { description: Cookie sw_launch posé }
+        '403': { $ref: '#/components/responses/Problem' }
+
+  # ---------- Configuration (User Story 1) ----------
+  /api/settings:
+    get:
+      summary: État de configuration des services (sans aucun secret)
+      responses:
+        '200':
+          content: { application/json: { schema: { $ref: '#/components/schemas/Settings' } } }
+  /api/settings/copilot/device-flow:
+    post:
+      summary: Démarre la connexion GitHub (autorisation OAuth dans le navigateur, FR-030a, research.md R4)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [flowId, authorizationUrl, requestedScopes, expiresAt]
+                properties:
+                  flowId: { type: string }
+                  authorizationUrl: { type: string, format: uri, description: Page d'autorisation GitHub à ouvrir dans le navigateur }
+                  requestedScopes: { type: array, items: { type: string }, description: Permissions demandées, affichées avant redirection }
+                  expiresAt: { type: string, format: date-time }
+  /api/settings/copilot/device-flow/{flowId}:
+    get:
+      summary: État de la connexion en cours (le backend interroge GitHub lui-même)
+      parameters: [{ name: flowId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  state: { enum: [PENDING, CONNECTED, EXPIRED, DENIED, NO_COPILOT, ERROR] }
+                  login: { type: string }
+                  secretPersistence: { enum: [KEYCHAIN, MEMORY_ONLY] }
+  /api/settings/copilot/model:
+    put:
+      summary: Choisit le modèle parmi ceux autorisés pour le compte (FR-030c)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [model], properties: { model: { type: string } } } } }
+      responses:
+        '204': { description: Enregistré }
+        '422': { description: Modèle non autorisé pour ce compte (MODEL_UNAVAILABLE), $ref: '#/components/responses/Problem' }
+  /api/settings/copilot:
+    delete:
+      summary: Déconnexion GitHub ; supprime les jetons du trousseau (FR-030b)
+      responses: { '204': { description: Déconnecté } }
+  /api/settings/jira:
+    put:
+      summary: Enregistre l'accès Jira (FR-031) ; le jeton est envoyé une fois et jamais renvoyé
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [serverUrl, defaultProjectKey]
+              properties:
+                serverUrl: { type: string, format: uri }
+                defaultProjectKey: { type: string, pattern: '^[A-Z][A-Z0-9_]+$' }
+                token: { type: string, writeOnly: true, description: Absent = conserver le jeton existant }
+                caCertificatePath: { type: string, nullable: true }
+                acceptInsecureHttp: { type: boolean, description: Confirmation de l'avertissement FR-035 }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/JiraSettings' } } } }
+        '422': { $ref: '#/components/responses/Problem' }
+    delete:
+      summary: Supprime la configuration Jira et le jeton du trousseau
+      responses: { '204': { description: Supprimé } }
+  /api/settings/jira/test:
+    post:
+      summary: Teste la connexion Jira (FR-032)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result: { enum: [OK, UNREACHABLE, TOKEN_REJECTED, PROJECT_NOT_FOUND, MISSING_PERMISSION, UNSUPPORTED_VERSION] }
+                  serverVersion: { type: string }
+                  userMessage: { type: string }
+  /api/consents/{service}:
+    put:
+      summary: Donne ou retire le consentement d'envoi à un service tiers (FR-024)
+      parameters: [{ name: service, in: path, required: true, schema: { enum: [COPILOT, JIRA] } }]
+      requestBody:
+        content: { application/json: { schema: { type: object, required: [granted], properties: { granted: { type: boolean } } } } }
+      responses: { '204': { description: Enregistré } }
+
+  # ---------- Sessions et questionnaire (User Stories 2 et 3) ----------
+  /api/sessions:
+    get:
+      summary: Liste des sessions (FR-017)
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/SessionSummary' } } } } }
+    post:
+      summary: Crée une session à partir d'un besoin (FR-001) et calcule le premier lot de questions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [need]
+              properties:
+                need: { type: string, minLength: 1, maxLength: 10000 }
+                name: { type: string, maxLength: 120 }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/SessionDetail' } } } }
+        '422': { $ref: '#/components/responses/Problem' }
+        '428': { description: Consentement Copilot requis, $ref: '#/components/responses/Problem' }
+        '503': { description: Copilot indisponible ou non connecté (FR-023a), $ref: '#/components/responses/Problem' }
+  /api/sessions/{id}:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      summary: Détail d'une session, avec ses questions actives et sa progression
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SessionDetail' } } } } }
+    patch:
+      summary: Renomme une session
+      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string, maxLength: 120 } } } } } }
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SessionSummary' } } } } }
+    delete:
+      summary: Supprime une session et toutes ses versions
+      responses: { '204': { description: Supprimée } }
+  /api/sessions/{id}/questions/{questionId}/answer:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }, { name: questionId, in: path, required: true, schema: { type: string, format: uuid } }]
+    put:
+      summary: Répond à une question, la passe ou modifie une réponse existante (FR-006, FR-007, FR-016)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - { type: object, required: [value], properties: { value: { type: string, maxLength: 5000 } } }
+                - { type: object, required: [skip], properties: { skip: { const: true } } }
+      responses:
+        '200': { description: Session mise à jour, avec les questions réévaluées, content: { application/json: { schema: { $ref: '#/components/schemas/SessionDetail' } } } }
+  /api/sessions/{id}/conclude:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    post:
+      summary: Termine le questionnaire (FR-009) ; avertit si la majorité des réponses sont des hypothèses
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SessionDetail' } } } } }
+
+  # ---------- Génération et versions (User Stories 2 et 3) ----------
+  /api/sessions/{id}/versions:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      summary: Liste des versions de la spécification (FR-018)
+      responses: { '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/VersionSummary' } } } } } }
+    post:
+      summary: Génère une version ; renvoie la version existante si l'empreinte des entrées est inchangée (FR-014)
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Specification' } } } }
+        '200': { description: Version existante réutilisée, content: { application/json: { schema: { $ref: '#/components/schemas/Specification' } } } }
+        '502': { description: Sortie du LLM invalide après les tentatives (FR-012), $ref: '#/components/responses/Problem' }
+  /api/sessions/{id}/versions/{n}:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }, { $ref: '#/components/parameters/VersionNumber' }]
+    get:
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Specification' } } } } }
+  /api/sessions/{id}/versions/{n}/export:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }, { $ref: '#/components/parameters/VersionNumber' }]
+    get:
+      summary: Export Markdown (FR-019) ; le navigateur choisit l'emplacement et confirme un éventuel écrasement (FR-020)
+      responses:
+        '200': { content: { text/markdown: { schema: { type: string } } } }
+
+  # ---------- Modification assistée (User Story 6) ----------
+  /api/sessions/{id}/ai-edits:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    post:
+      summary: Demande une modification à l'IA ; renvoie une proposition sans rien appliquer (FR-044)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [instruction], properties: { instruction: { type: string, maxLength: 2000 } } } } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposalId: { type: string }
+                  baseVersion: { type: integer }
+                  proposed: { $ref: '#/components/schemas/Specification' }
+                  unifiedDiff: { type: string, description: Diff Markdown entre la version de base et la proposition }
+  /api/sessions/{id}/ai-edits/{proposalId}/accept:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }, { name: proposalId, in: path, required: true, schema: { type: string } }]
+    post:
+      summary: Applique la proposition et crée une version AI_EDIT ou CONFLICT_MERGE (Jira n'est pas modifié, FR-046)
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Specification' } } } }
+        '404': { description: Proposition inconnue, déjà appliquée ou expirée (30 minutes), $ref: '#/components/responses/Problem' }
+
+  # ---------- Recherche unifiée (User Story 6) ----------
+  /api/search:
+    get:
+      summary: Recherche dans spec-writer et, si Jira est configuré, dans Jira (FR-039 à FR-045)
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 200 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/SearchItem' } }
+                  jiraStatus: { enum: [OK, NOT_CONFIGURED, UNAVAILABLE, TOKEN_REJECTED, CONSENT_REQUIRED] }
+                  jiraTotal: { type: integer, description: Tickets Jira trouvés, pour paginer (20 par page). La page 0 contient aussi les résultats locaux. }
+  /api/jira/issues/{key}:
+    get:
+      summary: Détail d'un ticket Jira non lié (description convertie en Markdown pour l'affichage)
+      parameters: [{ name: key, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { content: { application/json: { schema: { type: object, properties: { key: { type: string }, summary: { type: string }, descriptionMarkdown: { type: string }, updated: { type: string, format: date-time }, url: { type: string } } } } } } }
+  /api/jira/issues/{key}/import:
+    post:
+      summary: Crée une session liée au ticket (origine JIRA_IMPORT), structurée par le LLM (structureImportedText), sans modifier Jira
+      parameters: [{ name: key, in: path, required: true, schema: { type: string } }]
+      responses: { '201': { content: { application/json: { schema: { $ref: '#/components/schemas/SessionDetail' } } } } }
+
+  # ---------- Ticket Jira lié (User Stories 5 et 6) ----------
+  /api/sessions/{id}/jira/preview:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    post:
+      summary: Aperçu de création ou d'envoi (FR-036, FR-037, FR-047) ; types de ticket et champs obligatoires du projet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                versionNumber: { type: integer }
+                issueTypeId: { type: string, description: Type choisi ; absent, le type par défaut (création seulement) }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                description: En mode UPDATE (session liée), seuls mode, issueKey, summary et descriptionWiki sont renseignés, sans appel à Jira.
+                properties:
+                  mode: { enum: [CREATE, UPDATE] }
+                  projectKey: { type: string }
+                  issueKey: { type: string, nullable: true }
+                  issueTypeId: { type: string, description: Type dont les champs obligatoires sont listés }
+                  issueTypes: { type: array, items: { type: object, properties: { id: { type: string }, name: { type: string } } } }
+                  defaultIssueTypeId: { type: string, description: Story si disponible (FR-036a) }
+                  summary: { type: string }
+                  descriptionWiki: { type: string }
+                  requiredFields:
+                    type: array
+                    description: Champs obligatoires sans valeur par défaut, hors résumé, description, projet, type et rapporteur
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        kind: { enum: [TEXT, NUMBER, DATE, OPTION, OPTIONS, UNSUPPORTED] }
+                        options: { type: array, items: { type: object, properties: { id: { type: string }, label: { type: string } } } }
+  /api/sessions/{id}/jira:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    post:
+      summary: Crée le ticket après confirmation (FR-036 à FR-038)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm, issueTypeId, versionNumber]
+              properties:
+                confirm: { const: true }
+                issueTypeId: { type: string }
+                versionNumber: { type: integer }
+                extraFields: { type: object, additionalProperties: true, description: Champs obligatoires remplis dans l'aperçu (FR-036b) }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/LinkedTicket' } } } }
+        '409': { description: Session déjà liée à un ticket, $ref: '#/components/responses/Problem' }
+        '502': { description: Jira a refusé la création (cause indiquée), $ref: '#/components/responses/Problem' }
+    put:
+      summary: Envoie la mise à jour de la description après confirmation, avec détection de conflit (FR-047, FR-048)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm, versionNumber]
+              properties:
+                confirm: { const: true }
+                versionNumber: { type: integer }
+                conflictResolution: { enum: [OVERWRITE, TAKE_JIRA, AI_MERGE], description: Obligatoire uniquement après une réponse 409 de conflit }
+      responses:
+        '200': { description: Envoi fait (sans conflit ou OVERWRITE), ou version Jira reprise (TAKE_JIRA), content: { application/json: { schema: { $ref: '#/components/schemas/LinkedTicket' } } } }
+        '202':
+          description: AI_MERGE ; proposition de fusion à valider par POST …/ai-edits/{proposalId}/accept
+          content: { application/json: { schema: { type: object, properties: { proposalId: { type: string }, baseVersion: { type: integer }, proposed: { $ref: '#/components/schemas/Specification' }, unifiedDiff: { type: string } } } } }
+        '409':
+          description: Le ticket a été modifié dans Jira depuis la dernière lecture
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { const: JIRA_CONFLICT }
+                  jiraDescriptionMarkdown: { type: string }
+                  localMarkdown: { type: string }
+                  jiraUpdated: { type: string, format: date-time }
+
+components:
+  securitySchemes:
+    launchCookie: { type: apiKey, in: cookie, name: sw_launch }
+  parameters:
+    SessionId: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    VersionNumber: { name: n, in: path, required: true, schema: { type: integer, minimum: 1 } }
+  responses:
+    Problem:
+      description: Erreur au format RFC 9457
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+  schemas:
+    Problem:
+      type: object
+      required: [code, userMessage]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        code: { type: string, example: NEED_TOO_SHORT }
+        userMessage: { type: string, description: Ce qui s'est passé et quoi faire (FR-028) }
+        action: { enum: [RETRY, OPEN_SETTINGS, RECONNECT, EDIT_INPUT, NONE] }
+    Settings:
+      type: object
+      properties:
+        copilot:
+          type: object
+          properties:
+            state: { enum: [NOT_CONFIGURED, CONNECTED, NO_COPILOT, EXPIRED] }
+            login: { type: string }
+            secretPersistence: { enum: [KEYCHAIN, MEMORY_ONLY] }
+            consent: { type: boolean }
+            model: { type: string, nullable: true }
+            availableModels: { type: array, items: { type: string } }
+        jira: { $ref: '#/components/schemas/JiraSettings' }
+    JiraSettings:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        serverUrl: { type: string }
+        defaultProjectKey: { type: string }
+        caCertificatePath: { type: string, nullable: true }
+        tokenSet: { type: boolean, description: Le jeton lui-même n'est jamais renvoyé (FR-033) }
+        secretPersistence: { enum: [KEYCHAIN, MEMORY_ONLY] }
+        insecureHttp: { type: boolean }
+        lastTest: { type: object, properties: { at: { type: string, format: date-time }, result: { type: string } } }
+        consent: { type: boolean }
+    SessionSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        state: { enum: [QUESTIONING, READY_TO_GENERATE, GENERATED] }
+        updatedAt: { type: string, format: date-time }
+        latestVersion: { type: integer, nullable: true }
+        jiraKey: { type: string, nullable: true }
+        readable: { type: boolean, description: Faux si la sauvegarde de la session est endommagée (SESSION_UNREADABLE à l'ouverture) }
+    SessionDetail:
+      allOf:
+        - $ref: '#/components/schemas/SessionSummary'
+        - type: object
+          properties:
+            linkedTicket: { allOf: [{ $ref: '#/components/schemas/LinkedTicket' }], nullable: true }
+            origin: { enum: [LOCAL, JIRA_IMPORT] }
+            need: { type: string }
+            language: { enum: [fr, en] }
+            progress: { type: object, properties: { answered: { type: integer }, skipped: { type: integer }, total: { type: integer } } }
+            currentBatch: { type: array, items: { $ref: '#/components/schemas/Question' } }
+            answeredQuestions: { type: array, items: { $ref: '#/components/schemas/Question' } }
+            warnings: { type: array, items: { type: string } }
+            revision:
+              type: object
+              description: Effet de la dernière réponse modifiée (FR-007) ; listes vides sinon
+              properties:
+                removed: { type: array, items: { type: string }, description: Libellés des questions devenues sans objet }
+                added: { type: array, items: { type: string }, description: Libellés des questions ajoutées }
+    Question:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        theme: { type: string }
+        label: { type: string }
+        rationale: { type: string }
+        suggestions: { type: array, items: { type: string }, maxItems: 5 }
+        defaultValue: { type: string, nullable: true }
+        state: { enum: [PENDING, ANSWERED, SKIPPED] }
+        answer: { type: string, nullable: true }
+    VersionSummary:
+      type: object
+      properties:
+        number: { type: integer }
+        origin: { enum: [GENERATED, AI_EDIT, JIRA_IMPORT, CONFLICT_MERGE] }
+        createdAt: { type: string, format: date-time }
+        pushedToJira: { type: boolean }
+    Specification:
+      type: object
+      description: Voir data-model.md (SpecificationVersion)
+      properties:
+        number: { type: integer }
+        title: { type: string }
+        summary: { type: string }
+        useCases: { type: array, items: { type: object } }
+        scenarios: { type: array, items: { type: object, description: Voir contracts/scenario-format.md } }
+        assumptions: { type: array, items: { type: object } }
+        requirements: { type: array, items: { type: object } }
+        markdown: { type: string }
+    SearchItem:
+      type: object
+      properties:
+        id: { type: string, description: UUID de session ou clé Jira }
+        title: { type: string }
+        provenance: { enum: [SPEC_WRITER, JIRA, BOTH] }
+        jiraKey: { type: string, nullable: true }
+        sessionId: { type: string, nullable: true }
+        latestVersion: { type: integer, nullable: true, description: Dernière version de la session, pour ouvrir sa spécification }
+        updatedAt: { type: string, format: date-time }
+        excerpt: { type: string }
+    LinkedTicket:
+      type: object
+      properties:
+        issueKey: { type: string }
+        issueUrl: { type: string }
+        syncState: { enum: [IN_SYNC, LOCAL_AHEAD, CONFLICT] }
+        linkedVersionNumber: { type: integer }
