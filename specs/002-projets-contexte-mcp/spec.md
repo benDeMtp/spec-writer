@@ -23,6 +23,15 @@ Une **feature à implémenter** est une spécification qu'un agent de code peut 
 - Q: Que peut faire un agent de code connecté ? → A: lire, et faire passer une feature de « prête
   à implémenter » à « en cours », puis à « implémentée ». Chaque changement est consigné et
   l'utilisateur peut revenir en arrière.
+- Q: Quand une feature « en cours » ou « implémentée » reçoit une nouvelle version, que devient
+  son statut ? → A: il ne change pas ; l'utilisateur le met à jour lui-même.
+- Q: Comment paginer la liste unique de la recherche (spécifications locales et tickets Jira) ?
+  → A: une seule liste paginée par 25, toutes sources confondues, triée par date de dernière
+  modification.
+- Q: Comment un agent de code prouve-t-il qu'il a le droit de se connecter au serveur MCP local ?
+  → A: sans clé à manipuler : l'agent lance la commande locale de spec-writer dédiée à MCP, qui
+  s'authentifie auprès de l'outil grâce à un secret rangé dans le dossier de données, lisible par
+  le seul compte de l'utilisateur ; régénérer ce secret coupe tous les accès.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -159,8 +168,10 @@ page suivante puis à la précédente : chaque page s'affiche vite, sans doublon
    position (« 1 à 25 sur 120 »).
 2. **Given** la première page, **When** l'utilisateur demande la page suivante, **Then** les
    tickets 26 à 50 s'affichent, et la page précédente reste accessible.
-3. **Given** une recherche par mot-clé qui trouve 60 tickets, **When** l'utilisateur la lance,
-   **Then** les résultats Jira sont paginés de la même façon.
+3. **Given** une recherche par mot-clé qui trouve 10 spécifications locales et 60 tickets Jira,
+   **When** l'utilisateur la lance, **Then** il voit une seule liste de 25 résultats, toutes sources
+   confondues, du plus récemment modifié au plus ancien, et la page suivante continue dans le même
+   ordre ; un élément « les deux » n'apparaît qu'une fois.
 4. **Given** Jira qui ne répond pas, **When** l'utilisateur change de page, **Then** la page
    affichée reste en place et un message propose de réessayer.
 
@@ -176,7 +187,8 @@ du projet) pour l'implémenter.
 **Why this priority**: l'utilisateur l'annonce comme une étape suivante ; elle s'appuie sur les
 projets et sur une gestion propre des spécifications.
 
-**Independent Test**: activer l'accès des agents, connecter un agent de code avec la clé générée,
+**Independent Test**: activer l'accès des agents, déclarer la commande MCP de spec-writer dans un
+agent de code,
 lui demander les features à implémenter d'un projet puis le contenu de l'une d'elles : la liste
 correspond à ce que montre l'outil et le contenu est identique à l'export Markdown.
 
@@ -184,18 +196,23 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 
 1. **Given** l'accès des agents désactivé (réglage par défaut), **When** un agent tente de se
    connecter, **Then** la connexion est refusée.
-2. **Given** l'accès activé et une clé générée, **When** un agent se connecte avec cette clé,
-   **Then** il peut lister les projets et les features à implémenter d'un projet.
+2. **Given** l'accès activé, **When** un agent de code lance la commande MCP de spec-writer sous le
+   compte de l'utilisateur, **Then** il peut lister les projets et les features à implémenter d'un
+   projet, sans que l'utilisateur ait copié de clé.
 3. **Given** une feature à implémenter, **When** l'agent en demande le contenu, **Then** il reçoit
    la dernière version de la spécification et le contexte du projet, identiques à ce que montre
    l'outil.
-4. **Given** une clé révoquée, **When** un agent l'utilise, **Then** la connexion est refusée.
-5. **Given** des accès d'agents, **When** l'utilisateur consulte le journal des accès, **Then** il
+4. **Given** l'utilisateur a régénéré le secret d'accès des agents, **When** un programme
+   réutilise l'ancien secret, **Then** la connexion est refusée ; la commande MCP, elle, lit le
+   nouveau secret et continue de fonctionner.
+5. **Given** un programme qui joint l'outil sans passer par la commande MCP, ou une page web,
+   **When** il tente d'appeler le serveur MCP, **Then** l'appel est refusé.
+6. **Given** des accès d'agents, **When** l'utilisateur consulte le journal des accès, **Then** il
    voit, pour chaque accès, la date, l'agent et la feature consultée, sans le contenu.
-6. **Given** un agent connecté et une feature « prête à implémenter », **When** l'agent la passe à
+7. **Given** un agent connecté et une feature « prête à implémenter », **When** l'agent la passe à
    « en cours » puis à « implémentée », **Then** l'outil affiche ces statuts, le journal des accès
    consigne les deux changements, et l'utilisateur peut rétablir le statut précédent.
-7. **Given** un agent connecté, **When** il tente de modifier le contenu d'une feature ou de
+8. **Given** un agent connecté, **When** il tente de modifier le contenu d'une feature ou de
    passer une feature « brouillon » à « en cours », **Then** l'opération est refusée.
 
 ---
@@ -230,8 +247,10 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   ou être sauté ; l'utilisateur peut recharger la liste depuis la première page.
 - Un agent demande une feature supprimée ou déplacée entre-temps : il reçoit « introuvable », sans
   autre détail.
-- L'outil n'est pas lancé : un agent ne peut pas se connecter ; aucun service ne tourne en
-  arrière-plan pour lui.
+- L'outil n'est pas lancé : la commande MCP indique à l'agent que spec-writer doit être ouvert ;
+  aucun service ne tourne en arrière-plan pour lui.
+- L'accès des agents est désactivé alors qu'un agent est connecté : ses requêtes suivantes sont
+  refusées.
 
 ## Requirements *(mandatory)*
 
@@ -322,9 +341,14 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 
 - **FR-020**: L'utilisateur DOIT pouvoir parcourir les tickets du projet Jira associé au projet
   courant, sans mot-clé, du plus récemment modifié au plus ancien.
-- **FR-021**: La liste des tickets et les résultats Jira d'une recherche par mot-clé DOIVENT être
-  paginés par 25, avec page suivante et page précédente, la position (« 26 à 50 sur 120 ») et le
-  total quand Jira le fournit. Seule la page affichée est demandée à Jira.
+- **FR-021**: La liste des tickets du projet Jira DOIT être paginée par 25, avec page suivante et
+  page précédente, la position (« 26 à 50 sur 120 ») et le total quand Jira le fournit. Seule la
+  page affichée est demandée à Jira.
+- **FR-021a**: Les résultats d'une recherche par mot-clé DOIVENT rester une liste unique (FR-041 de
+  001), paginée par 25 toutes sources confondues et triée par date de dernière modification, de la
+  plus récente à la plus ancienne. Un élément « les deux » n'y apparaît qu'une fois, et l'ordre est
+  le même d'une page à l'autre. L'outil ne demande à Jira que les tickets nécessaires à la page
+  affichée.
 - **FR-022**: Une erreur de Jira pendant un changement de page DOIT laisser la page affichée en
   place, avec un message qui propose de réessayer (FR-028 et FR-045 de 001).
 
@@ -333,9 +357,15 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **FR-023**: Le système DOIT permettre à un agent de code de se connecter à spec-writer par le
   protocole MCP (Model Context Protocol), depuis le même poste uniquement, tant que l'outil est
   lancé. Toute connexion venant d'une autre machine DOIT être refusée.
-- **FR-024**: L'accès des agents DOIT être désactivé par défaut. L'utilisateur DOIT pouvoir
-  l'activer, générer une clé d'accès, la révoquer et en générer une nouvelle. La clé n'est affichée
-  qu'une fois, puis traitée comme les autres secrets (FR-033 à FR-034 de 001).
+- **FR-024**: L'accès des agents DOIT être désactivé par défaut et activable par l'utilisateur. Un
+  agent DOIT se connecter en lançant une commande locale fournie par spec-writer, qui
+  s'authentifie auprès de l'outil lancé grâce à un secret rangé dans le dossier de données (lisible
+  par le seul compte de l'utilisateur, FR-022 de 001). L'utilisateur n'a aucune clé à copier ; il
+  DOIT pouvoir régénérer ce secret, ce qui coupe immédiatement tout accès qui s'en servait. Le
+  secret n'apparaît jamais à l'écran, dans les journaux ni dans les réponses (FR-034 de 001).
+- **FR-024a**: Toute requête MCP qui ne présente pas le secret en cours DOIT être refusée, y compris
+  depuis le poste ou depuis une page web ouverte dans le navigateur. L'écran de configuration DOIT
+  donner la ligne de configuration à déclarer dans un agent de code.
 - **FR-025**: Un agent connecté DOIT pouvoir lister les projets, lister les features à implémenter
   d'un projet, et lire le contenu complet d'une feature : la dernière version de la spécification
   (use cases, scénarios, hypothèses, exigences, détails) et le contexte du projet, identiques à
@@ -343,15 +373,18 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **FR-026**: Chaque spécification DOIT avoir un statut d'implémentation, modifiable par
   l'utilisateur : « brouillon », « prête à implémenter », « en cours », « implémentée ». Les
   features à implémenter sont les spécifications « prêtes à implémenter » ou « en cours ». Une
-  nouvelle spécification est « brouillon ».
+  nouvelle spécification est « brouillon ». Une nouvelle version (génération, modification par
+  l'IA, import ou fusion Jira) NE DOIT PAS changer le statut : l'utilisateur le met à jour
+  lui-même.
 - **FR-027**: Un agent DOIT pouvoir faire passer une feature de « prête à implémenter » à « en
   cours », et de « en cours » à « implémentée ». Il NE DOIT pouvoir faire aucune autre
   modification. Chaque changement de statut par un agent est consigné (FR-028) et l'utilisateur
   peut rétablir le statut précédent.
-- **FR-028**: Chaque accès d'un agent DOIT être consigné localement (date, nom déclaré par
-  l'agent, opération, feature concernée), sans le contenu, et consultable par l'utilisateur.
+- **FR-028**: Chaque accès d'un agent DOIT être consigné localement (date, nom annoncé par
+  l'agent, opération, feature concernée), sans le contenu, et consultable par l'utilisateur. Le nom
+  annoncé n'est pas vérifié : il sert à la lecture du journal, pas au contrôle d'accès.
 - **FR-029**: Un agent NE DOIT avoir accès à aucun secret ni aucune configuration (jetons,
-  adresse Jira, clé d'accès), et NE DOIT pas pouvoir déclencher d'appel à GitHub Copilot ou à
+  adresse Jira, secret d'accès des agents), et NE DOIT pas pouvoir déclencher d'appel à GitHub Copilot ou à
   Jira.
 
 **Interface**
@@ -373,7 +406,8 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **Version de spécification** (001) : indique si un contexte a été utilisé et sa date.
 - **Source « contexte du projet »** : nouveau type de source d'un use case ou d'une hypothèse,
   avec l'extrait du contexte.
-- **Clé d'accès des agents** : secret généré par l'utilisateur, révocable, jamais réaffiché.
+- **Secret d'accès des agents** : secret généré par l'outil dans le dossier de données, lu par la
+  commande MCP, régénérable par l'utilisateur, jamais affiché.
 - **Accès d'agent** : entrée de journal (date, agent, opération, feature, ancien et nouveau statut
   le cas échéant), sans contenu.
 
@@ -401,8 +435,9 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **SC-007**: Un agent de code obtient la liste des features à implémenter d'un projet, puis le
   contenu d'une feature, en moins de 5 secondes au total, avec un contenu identique à l'export
   Markdown dans 100 % des cas.
-- **SC-008**: 100 % des tentatives de connexion d'agent sans clé valide, avec une clé révoquée ou
-  depuis une autre machine sont refusées.
+- **SC-008**: 100 % des tentatives de connexion d'agent sans le secret en cours (ancien secret,
+  programme ou page web qui joint directement l'outil, autre machine) sont refusées, et l'agent
+  déclaré par la ligne de configuration fournie se connecte du premier coup.
 
 ## Assumptions
 
