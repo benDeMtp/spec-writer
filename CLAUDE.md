@@ -51,6 +51,11 @@ gate.
   `NO_PROXY` / `http.nonProxyHosts`. Le proxy retenu est écrit au démarrage (`Proxy d'entreprise : …`).
 - Ports : 47615 pour l'outil installé, 47625 pour le dev mode, 47699 et 47698 pour les E2E (jar
   et WireMock).
+- L'IDE compile aussi dans `backend/target/` (ecj) : un test qui échoue sous Maven avec
+  « Unresolved compilation problems » tourne sur une classe de l'IDE. Supprimer la classe de
+  `target/test-classes` (ou toucher le fichier source) et relancer.
+- E2E : `JAVA_HOME` 25 doit aussi être en tête du `PATH` (`export PATH=$JAVA_HOME/bin:$PATH`),
+  sinon le jar s'arrête au démarrage.
 - Profil `live` (`-Dquarkus.profile=dev,live`) : vrai Copilot et vrai trousseau. Il est réservé
   aux essais manuels du mainteneur.
 
