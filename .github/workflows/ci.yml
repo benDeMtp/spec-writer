@@ -1,33 +1,83 @@
 # GitHub Actions : quality gates obligatoires avant fusion dans main (constitution, research.md R16).
 # À rendre obligatoire dans Settings › Branches › règle de protection de main (« ci / verify »).
 # Secret à déclarer : NVD_API_KEY (OWASP Dependency-Check ; sans clé, la base NVD se télécharge
-# très lentement). La base NVD est mise en cache : chaque exécution restaure la plus récente et
-# sauvegarde la sienne. Une base de moins de 24 h n'est pas remise à jour (nvdValidForHours) : une
-# panne de l'API NVD ne bloque donc pas la CI si une exécution a abouti dans la journée.
+# très lentement). Le job nvd tient la base NVD à jour dans le cache ; le job verify l'utilise sans
+# appeler l'API. Une panne de l'API NVD ne bloque donc pas la CI dès qu'une base existe en cache.
 name: ci
 
 on:
   pull_request:
   push:
     branches: [main]
+  # rafraîchit chaque nuit la base NVD sur main, que toutes les branches peuvent restaurer
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+env:
+  NVD_DATA: /home/runner/.cache/dependency-check-data
 
 jobs:
-  verify:
+  # Base NVD de Dependency-Check, mise en cache : un premier remplissage complet peut prendre des
+  # heures quand l'API NVD est lente ; ensuite, seules les mises à jour sont téléchargées.
+  nvd:
     runs-on: ubuntu-24.04
-    # le premier remplissage du cache NVD (base complète) dépasse à lui seul 30 minutes
-    timeout-minutes: 90
+    timeout-minutes: 355
+    # un nouveau push n'interrompt pas un remplissage en cours
+    concurrency:
+      group: nvd-${{ github.ref }}
+      cancel-in-progress: false
     env:
-      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-      NVD_DATA: /home/runner/.cache/dependency-check-data
-      # lu par ./mvnw (Maven 3.9) : base NVD hors du dépôt local Maven, qui a son propre cache
-      MAVEN_ARGS: -DdataDirectory=/home/runner/.cache/dependency-check-data -DnvdValidForHours=24
+      MAVEN_ARGS: -DdataDirectory=/home/runner/.cache/dependency-check-data -DnvdValidForHours=12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Base NVD (restauration)
+        id: restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.NVD_DATA }}
+          key: nvd-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: nvd-
+
+      # API NVD en panne : avec une base déjà en cache, on continue avec elle (avertissement)
+      - name: Base NVD (mise à jour)
+        id: update
+        continue-on-error: ${{ steps.restore.outputs.cache-matched-key != '' }}
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: ./mvnw -B -pl backend dependency-check:update-only
+
+      # seulement une base complète : une base interrompue remplacerait la précédente
+      - name: Base NVD (sauvegarde)
+        if: steps.update.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.NVD_DATA }}
+          key: nvd-${{ github.run_id }}-${{ github.run_attempt }}
+
+  verify:
+    needs: nvd
+    # jamais « sauté » quand nvd échoue : un check requis sauté compterait comme réussi ;
+    # sans base en cache, la restauration échoue et verify avec elle
+    if: ${{ !cancelled() && github.event_name != 'schedule' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    concurrency:
+      group: ci-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      # lu par ./mvnw (Maven 3.9) : base NVD préparée par le job nvd, sans appel à l'API
+      MAVEN_ARGS: -DdataDirectory=/home/runner/.cache/dependency-check-data -DautoUpdate=false
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -49,12 +99,12 @@ jobs:
             e2e/package-lock.json
 
       - name: Base NVD (restauration)
-        id: nvd
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.NVD_DATA }}
           key: nvd-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: nvd-
+          fail-on-cache-miss: true
 
       - name: Outils (Semgrep, gitleaks)
         run: |
@@ -65,15 +115,6 @@ jobs:
 
       - name: Quality gates
         run: ci/verify.sh
-
-      # même si une gate échoue ou si le job est annulé après Dependency-Check, la base mise à jour
-      # sert aux exécutions suivantes ; une base incomplète est simplement complétée la fois d'après
-      - name: Base NVD (sauvegarde)
-        if: always()
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.NVD_DATA }}
-          key: nvd-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Rapports
         if: always()
