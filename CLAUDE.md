@@ -22,7 +22,9 @@ Pendant le développement, travailler en **dev mode Quarkus piloté par le serve
    mode (« Internal Privoxy Error ») car la JVM de dev reçoit le proxy Maven de `settings.xml`.
    Les lancer sous Maven : `./mvnw -B test -DskipDependencyCheck -Dtest=… -Dsurefire.failIfNoSpecifiedTests=false`.
    Même chose pour les règles ArchUnit (`HexagonalArchitectureTest`) : le runner du dev mode ne les
-   voit pas (0 test lancé).
+   voit pas (0 test lancé). Préférer `devui-testing_runTest` à `runTests` : la suite complète dépasse
+   le délai d'un appel MCP. Les tags `spike` et `eval` sont exclus en dev mode
+   (`quarkus.test.exclude-tags`) : l'évaluation appelle le vrai Copilot.
 4. Erreurs : `quarkus_logs` et `devui-exceptions_getLastException`. Base : `quarkus-agroal_executeSQL`.
 5. Appels d'API : cookie obtenu en échangeant le jeton de l'URL de lancement du journal
    (`POST /api/session-auth`, en-tête `Origin: http://127.0.0.1:47625`). Le cookie survit aux
