@@ -56,7 +56,7 @@ public class PreviewJiraTicket {
         if (linked.isPresent()) {
             return new Preview(Mode.UPDATE, null, linked.get().issueKey(), List.of(), null, null, summary, wiki, List.of());
         }
-        JiraAccess.Target target = jira.require();
+        JiraAccess.Target target = jira.require(sessionId);
         List<IssueType> types = TicketForm.types(tracker, target);
         IssueType chosen = TicketForm.chosen(types, issueTypeId);
         return new Preview(Mode.CREATE, target.projectKey(), null, types, TicketForm.defaultType(types).id(), chosen.id(),

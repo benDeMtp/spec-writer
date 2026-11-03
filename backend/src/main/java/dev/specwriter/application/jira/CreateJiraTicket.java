@@ -12,7 +12,6 @@ import dev.specwriter.domain.jira.RequiredField;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.LinkedTicketRepository;
-import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.port.WikiMarkup;
 import dev.specwriter.domain.specification.SpecificationVersion;
@@ -30,17 +29,15 @@ public class CreateJiraTicket {
     private final IssueTracker tracker;
     private final JiraAccess jira;
     private final WikiMarkup markup;
-    private final SessionRepository sessions;
     private final SpecificationRepository versions;
     private final LinkedTicketRepository tickets;
     private final ClockPort clock;
 
-    public CreateJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SessionRepository sessions,
-            SpecificationRepository versions, LinkedTicketRepository tickets, ClockPort clock) {
+    public CreateJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ClockPort clock) {
         this.tracker = tracker;
         this.jira = jira;
         this.markup = markup;
-        this.sessions = sessions;
         this.versions = versions;
         this.tickets = tickets;
         this.clock = clock;
@@ -52,10 +49,7 @@ public class CreateJiraTicket {
         if (!confirm) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "La création du ticket doit être confirmée.");
         }
-        JiraAccess.Target target = jira.require();
-        if (sessions.find(sessionId).isEmpty()) {
-            throw new DomainException(ErrorCode.NOT_FOUND);
-        }
+        JiraAccess.Target target = jira.require(sessionId);
         SpecificationVersion version = versions.find(sessionId, versionNumber)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         if (tickets.findBySession(sessionId).isPresent()) {

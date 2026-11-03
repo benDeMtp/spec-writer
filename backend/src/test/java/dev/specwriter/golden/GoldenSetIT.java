@@ -20,6 +20,7 @@ import dev.specwriter.domain.specification.UseCase;
 import dev.specwriter.infrastructure.llm.LangChainLlmClient;
 import dev.specwriter.support.FixedClock;
 import dev.specwriter.support.InMemoryConsents;
+import dev.specwriter.support.InMemoryProjects;
 import dev.specwriter.support.InMemorySessions;
 import dev.specwriter.support.InMemorySpecifications;
 import dev.specwriter.support.ScriptedChatModel;
@@ -66,7 +67,8 @@ class GoldenSetIT {
         SequentialIdGenerator ids = new SequentialIdGenerator();
         LangChainLlmClient llm = new LangChainLlmClient(model);
 
-        SessionSnapshot s = new StartSession(sessions, llm, policy, clock, ids).run(Files.readString(dir.resolve("need.md")), null);
+        SessionSnapshot s = new StartSession(sessions, new InMemoryProjects(), llm, policy, clock, ids)
+                .run(Files.readString(dir.resolve("need.md")), null);
         Deque<JsonNode> answers = new ArrayDeque<>();
         JSON.readTree(Files.readString(dir.resolve("answers.json"))).forEach(answers::add);
         AnswerQuestion answer = new AnswerQuestion(sessions, llm, policy, clock, ids);

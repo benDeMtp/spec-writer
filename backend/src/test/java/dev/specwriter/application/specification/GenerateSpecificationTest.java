@@ -23,6 +23,7 @@ import dev.specwriter.domain.session.SessionState;
 import dev.specwriter.domain.specification.Assumption;
 import dev.specwriter.support.FixedClock;
 import dev.specwriter.support.InMemoryConsents;
+import dev.specwriter.support.InMemoryProjects;
 import dev.specwriter.support.InMemorySessions;
 import dev.specwriter.support.InMemorySpecifications;
 import dev.specwriter.support.SequentialIdGenerator;
@@ -70,7 +71,7 @@ class GenerateSpecificationTest {
         consents.record(new ConsentRecord(ConsentService.COPILOT, true, Instant.EPOCH));
         llm.questions.add(new ProposeQuestionsResult(List.of(new ProposedQuestion(QuestionTheme.GOAL, "Objectif ?",
                 "Pour cadrer", List.of(), "Gagner du temps", List.of())), List.of(), Set.of()));
-        SessionSnapshot s = new StartSession(sessions, llm, policy, clock, ids).run(NEED, null);
+        SessionSnapshot s = new StartSession(sessions, new InMemoryProjects(), llm, policy, clock, ids).run(NEED, null);
         sessionId = s.session().id();
         llm.questions.add(StubLlm.none());
         new AnswerQuestion(sessions, llm, policy, clock, ids).run(sessionId, s.questionnaire().currentBatch().getFirst().id(),

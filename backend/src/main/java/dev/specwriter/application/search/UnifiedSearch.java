@@ -136,7 +136,7 @@ public class UnifiedSearch {
         if (!jira.consented()) {
             return JiraOutcome.of(JiraStatus.CONSENT_REQUIRED);
         }
-        Optional<JiraAccess.Target> target = jira.target();
+        Optional<JiraAccess.Target> target = jira.targetForCurrentProject();
         if (target.isEmpty()) {
             return JiraOutcome.of(JiraStatus.TOKEN_REJECTED);
         }

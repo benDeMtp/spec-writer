@@ -16,6 +16,9 @@ public class SessionEntity {
     @Id
     public String id;
 
+    @Column(name = "project_id", nullable = false)
+    public String projectId;
+
     @Column(nullable = false)
     public String name;
 

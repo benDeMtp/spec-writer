@@ -18,6 +18,7 @@ import dev.specwriter.infrastructure.llm.EvalCopilot;
 import dev.specwriter.infrastructure.llm.LangChainLlmClient;
 import dev.specwriter.support.FixedClock;
 import dev.specwriter.support.InMemoryConsents;
+import dev.specwriter.support.InMemoryProjects;
 import dev.specwriter.support.InMemorySessions;
 import dev.specwriter.support.InMemorySpecifications;
 import dev.specwriter.support.SequentialIdGenerator;
@@ -181,7 +182,8 @@ public final class EvalRuns {
         List<String> violations = List.of();
         String error = null;
         try {
-            SessionSnapshot s = new StartSession(sessions, llm, policy, clock, ids).run(need, null);
+            SessionSnapshot s = new StartSession(sessions, new InMemoryProjects(), llm, policy, clock, ids)
+                    .run(need, null);
             AnswerQuestion answer = new AnswerQuestion(sessions, llm, policy, clock, ids);
             // au-delà de MAX_BATCHES, seules les contradictions sont encore tranchées : elles bloquent la génération
             while (!s.questionnaire().currentBatch().isEmpty()

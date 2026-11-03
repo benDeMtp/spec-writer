@@ -8,6 +8,7 @@ import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.LocalSearch;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
+import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
@@ -36,7 +37,7 @@ class LocalSearchIT {
     LinkedTicketRepository tickets;
 
     Session session(String need, String name) {
-        Session s = Session.start(UUID.randomUUID(), Need.of(need), name, T0);
+        Session s = Session.start(UUID.randomUUID(), Project.DEFAULT_ID, Need.of(need), name, T0);
         sessions.save(s, Questionnaire.empty());
         return s;
     }

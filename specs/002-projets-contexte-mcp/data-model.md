@@ -1,7 +1,7 @@
 # Data Model: Projets, contexte de projet et accès des agents de code
 
 Complète le modèle de la feature 001 ([data-model.md](../001-local-spec-assistant/data-model.md)).
-Migration Flyway `V7__projects_agents.sql` (research.md R6, R7, R8, R11).
+Migrations Flyway `V7__projects.sql` à `V10__implementation_status_agents.sql` (tasks.md ; research.md R6, R7, R8, R11).
 
 ## Project (nouveau)
 
@@ -91,6 +91,9 @@ Nouveau type `PROJECT_CONTEXT`, dont l'`excerpt` est un extrait exact du context
 utilisé. Il est contrôlé par `TraceabilityValidator` comme `NEED_EXCERPT` (FR-010).
 
 ## Settings (modifiés, feature 001)
+
+Table `app_settings` (une seule ligne), créée par V7 : les réglages de 001 sont répartis entre
+`copilot_settings` et `jira_settings`, sans table commune.
 
 | Champ ajouté | Type | Règles |
 |---|---|---|

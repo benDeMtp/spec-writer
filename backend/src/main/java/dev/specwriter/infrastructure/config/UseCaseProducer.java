@@ -30,6 +30,7 @@ import dev.specwriter.domain.port.GitHubAuthenticator;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.LinkedTicketRepository;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.port.LocalSearch;
 import dev.specwriter.domain.port.SessionRepository;
@@ -109,9 +110,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    StartSession startSession(SessionRepository sessions, LlmClient llm, ConsentPolicy consent, ClockPort clock,
-            IdGenerator ids) {
-        return new StartSession(sessions, llm, consent, clock, ids);
+    StartSession startSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm,
+            ConsentPolicy consent, ClockPort clock, IdGenerator ids) {
+        return new StartSession(sessions, projects, llm, consent, clock, ids);
     }
 
     @Produces
@@ -144,8 +145,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    JiraAccess jiraAccess(SettingsRepository settings, SecretStore secrets, ConsentPolicy consent) {
-        return new JiraAccess(settings, secrets, consent);
+    JiraAccess jiraAccess(SettingsRepository settings, SecretStore secrets, ConsentPolicy consent,
+            SessionRepository sessions, ProjectRepository projects) {
+        return new JiraAccess(settings, secrets, consent, sessions, projects);
     }
 
     @Produces
@@ -185,9 +187,10 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     ImportJiraIssue importJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm,
-            ConsentPolicy consent, SessionRepository sessions, SpecificationRepository versions,
+            ConsentPolicy consent, SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
             LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids) {
-        return new ImportJiraIssue(tracker, jira, markup, llm, consent, sessions, versions, tickets, clock, ids);
+        return new ImportJiraIssue(tracker, jira, markup, llm, consent, sessions, projects, versions, tickets, clock,
+                ids);
     }
 
     @Produces
@@ -207,8 +210,8 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    CreateJiraTicket createJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SessionRepository sessions,
+    CreateJiraTicket createJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup,
             SpecificationRepository versions, LinkedTicketRepository tickets, ClockPort clock) {
-        return new CreateJiraTicket(tracker, jira, markup, sessions, versions, tickets, clock);
+        return new CreateJiraTicket(tracker, jira, markup, versions, tickets, clock);
     }
 }

@@ -7,6 +7,7 @@ import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.jira.LinkedJiraTicket.SyncState;
+import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.specification.SpecificationVersion;
 import dev.specwriter.domain.specification.VersionOrigin;
@@ -106,7 +107,8 @@ class AiEditTest {
 
     @Test
     void sansVersionRien() {
-        Session empty = Session.start(w.ids.next(), dev.specwriter.domain.session.Need.of(JiraWorld.NEED), null, w.clock.now());
+        Session empty = Session.start(w.ids.next(), Project.DEFAULT_ID, dev.specwriter.domain.session.Need.of(JiraWorld.NEED),
+                null, w.clock.now());
         w.sessions.save(empty, dev.specwriter.domain.question.Questionnaire.empty());
         assertThatThrownBy(() -> propose.run(empty.id(), "Modifie")).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));

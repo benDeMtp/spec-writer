@@ -17,6 +17,7 @@ import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.SessionState;
 import dev.specwriter.support.FixedClock;
 import dev.specwriter.support.InMemoryConsents;
+import dev.specwriter.support.InMemoryProjects;
 import dev.specwriter.support.InMemorySessions;
 import dev.specwriter.support.SequentialIdGenerator;
 import dev.specwriter.support.StubLlm;
@@ -43,7 +44,8 @@ class ReviseAnswerTest {
     void setUp() {
         consents.record(new ConsentRecord(ConsentService.COPILOT, true, Instant.EPOCH));
         llm.questions.add(SessionUseCasesTest.batch(QuestionTheme.GOAL, QuestionTheme.ERRORS, QuestionTheme.EDGE_CASES));
-        SessionSnapshot s = new StartSession(sessions, llm, policy, clock, ids).run(SessionUseCasesTest.NEED, null);
+        SessionSnapshot s = new StartSession(sessions, new InMemoryProjects(), llm, policy, clock, ids)
+                .run(SessionUseCasesTest.NEED, null);
         sessionId = s.session().id();
         q = s.questionnaire().currentBatch().stream().map(Question::id).toList();
         answer = new AnswerQuestion(sessions, llm, policy, clock, ids);

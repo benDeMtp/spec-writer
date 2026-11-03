@@ -48,6 +48,7 @@ public class SessionJpaRepository implements SessionRepository {
     public void save(Session s, Questionnaire q) {
         SessionEntity e = Optional.ofNullable(em.find(SessionEntity.class, s.id().toString())).orElseGet(SessionEntity::new);
         e.id = s.id().toString();
+        e.projectId = s.projectId().toString();
         e.name = s.name();
         e.need = s.need().text();
         e.language = s.language().name();
@@ -222,7 +223,8 @@ public class SessionJpaRepository implements SessionRepository {
     }
 
     private static Session toDomain(SessionEntity e) {
-        return new Session(UUID.fromString(e.id), e.name, new Need(e.need), Language.valueOf(e.language),
-                SessionOrigin.valueOf(e.origin), SessionState.valueOf(e.state), e.createdAt, e.updatedAt);
+        return new Session(UUID.fromString(e.id), UUID.fromString(e.projectId), e.name, new Need(e.need),
+                Language.valueOf(e.language), SessionOrigin.valueOf(e.origin), SessionState.valueOf(e.state), e.createdAt,
+                e.updatedAt);
     }
 }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
@@ -27,7 +28,8 @@ class ManageSessionsTest {
     final ManageSessions manage = new ManageSessions(sessions, versions, clock);
 
     Session add(String name) {
-        Session s = Session.start(UUID.randomUUID(), Need.of(SessionUseCasesTest.NEED), name, clock.now());
+        Session s = Session.start(UUID.randomUUID(), Project.DEFAULT_ID, Need.of(SessionUseCasesTest.NEED), name,
+                clock.now());
         sessions.save(s, Questionnaire.empty());
         clock.advance(Duration.ofMinutes(1));
         return s;

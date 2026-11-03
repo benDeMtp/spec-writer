@@ -10,11 +10,14 @@ import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.llm.ProposeQuestionsResult;
 import dev.specwriter.domain.llm.ProposedQuestion;
+import dev.specwriter.domain.project.Project;
+import dev.specwriter.domain.project.ProjectName;
 import dev.specwriter.domain.question.QuestionState;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.session.SessionState;
 import dev.specwriter.support.FixedClock;
 import dev.specwriter.support.InMemoryConsents;
+import dev.specwriter.support.InMemoryProjects;
 import dev.specwriter.support.InMemorySessions;
 import dev.specwriter.support.SequentialIdGenerator;
 import dev.specwriter.support.StubLlm;
@@ -37,6 +40,7 @@ class SessionUseCasesTest {
     final FixedClock clock = new FixedClock();
     final SequentialIdGenerator ids = new SequentialIdGenerator();
     final ConsentPolicy policy = new ConsentPolicy(consents);
+    final InMemoryProjects projects = new InMemoryProjects();
 
     StartSession start;
     AnswerQuestion answer;
@@ -52,7 +56,7 @@ class SessionUseCasesTest {
     @BeforeEach
     void setUp() {
         consents.record(new ConsentRecord(ConsentService.COPILOT, true, Instant.EPOCH));
-        start = new StartSession(sessions, llm, policy, clock, ids);
+        start = new StartSession(sessions, projects, llm, policy, clock, ids);
         answer = new AnswerQuestion(sessions, llm, policy, clock, ids);
         conclude = new ConcludeQuestionnaire(sessions, clock);
     }
@@ -67,6 +71,25 @@ class SessionUseCasesTest {
         assertThat(llm.questionRequests.getFirst().known()).isEmpty();
         assertThat(llm.questionRequests.getFirst().remainingThemes()).contains(QuestionTheme.ACTORS);
         assertThat(s.questionnaire().remainingThemes()).doesNotContain(QuestionTheme.ACTORS);
+    }
+
+    @Test
+    void laSessionEstCreeeDansLeProjetCourant() {
+        Project paie = Project.create(UUID.randomUUID(), ProjectName.of("Paie"), null, null, Instant.EPOCH);
+        Project achats = Project.create(UUID.randomUUID(), ProjectName.of("Achats"), null, null, Instant.EPOCH);
+        projects.save(paie);
+        projects.save(achats);
+        llm.questions.add(batch(QuestionTheme.GOAL));
+        assertThat(start.run(NEED, null).session().projectId()).isEqualTo(Project.DEFAULT_ID);
+
+        projects.saveCurrentProjectId(paie.id());
+        llm.questions.add(batch(QuestionTheme.GOAL));
+        assertThat(start.run(NEED, null).session().projectId()).isEqualTo(paie.id());
+
+        // projet courant supprimé : le premier projet par nom
+        projects.delete(paie.id());
+        llm.questions.add(batch(QuestionTheme.GOAL));
+        assertThat(start.run(NEED, null).session().projectId()).isEqualTo(achats.id());
     }
 
     @Test

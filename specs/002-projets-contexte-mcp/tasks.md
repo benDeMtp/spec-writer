@@ -74,21 +74,21 @@ secret dans les journaux, erreurs au format `Problem`, axe sur chaque écran. S'
 
 **⚠️ CRITICAL** : aucune story ne commence avant la fin de cette phase.
 
-- [ ] T006 [P] Tests du domaine dans `BT/domain/project/ProjectTest.java`, cas par cas :
+- [X] T006 [P] Tests du domaine dans `BT/domain/project/ProjectTest.java`, cas par cas :
   - nom « 1 à 80 caractères, sans espace en début ni en fin », unicité « sans tenir compte de la casse » via `nameKey` ;
   - description « 1 000 caractères maximum, facultative » ;
   - `jiraProjectKey` « facultative, format `[A-Z][A-Z0-9_]{1,9}` » ;
   - projet Jira effectif = clé du projet, sinon projet par défaut des réglages.
-- [ ] T007 Créer `B/domain/project/Project.java`, `ProjectName.java` et `JiraProjectKey.java` (records validés), ainsi que le port `B/domain/port/ProjectRepository.java` (`save`, `find`, `findByNameKey`, `list`, `delete`, `count`). Faire passer T006.
-- [ ] T008 Écrire la migration `BR/db/migration/V7__projects.sql` :
+- [X] T007 Créer `B/domain/project/Project.java`, `ProjectName.java` et `JiraProjectKey.java` (records validés), ainsi que le port `B/domain/port/ProjectRepository.java` (`save`, `find`, `findByNameKey`, `list`, `delete`, `count`). Faire passer T006.
+- [X] T008 Écrire la migration `BR/db/migration/V7__projects.sql` :
   - table `project` (`id`, `name`, `name_key` UNIQUE, `description`, `jira_project_key`, `created_at`, `updated_at`, avec des `CHECK` de longueur conformes à data-model.md) ;
   - création du « Projet par défaut » ;
-  - `ALTER TABLE session` pour ajouter `project_id` `NOT NULL REFERENCES project`, valorisé par le projet par défaut pour toutes les sessions existantes. SQLite impose de reconstruire la table : recopier les triggers FTS de V6 ;
-  - colonne `settings.current_project_id`.
+  - `ALTER TABLE session` pour ajouter `project_id` `REFERENCES project`, valorisé par le projet par défaut pour toutes les sessions existantes. Pas de reconstruction de la table : sous `foreign_keys=ON`, dans la transaction de Flyway, son `DROP` supprimerait en cascade questions, versions et tickets liés. La colonne est ajoutée nullable (SQLite refuse une colonne `REFERENCES` avec une valeur par défaut non nulle), puis rendue obligatoire par deux triggers ;
+  - table `app_settings` à une ligne, avec `current_project_id` (`ON DELETE SET NULL`) : il n'existe pas de table `settings` commune.
   
   Test `BT/infrastructure/persistence/MigrationV7IT.java` : une base V6 avec 3 sessions et leurs versions migre sans perte, et toutes les sessions sont dans le projet par défaut (SC-001).
-- [ ] T009 Ajouter `projectId` au record `B/domain/session/Session.java`, propagé par toutes ses méthodes de copie, à `SessionEntity` et `SessionJpaRepository`. Implémenter `ProjectJpaRepository` (`B/infrastructure/persistence/project/`). Adapter `StartSession` pour créer la session dans le projet courant, et les tests existants (`InMemorySessions`, `Specs`, `JiraWorld`, golden set) avec un projet par défaut.
-- [ ] T010 Résoudre le projet Jira effectif en un point unique, `JiraAccess.effectiveProject(Session)` (`B/application/jira/JiraAccess.java`), et l'utiliser dans `PreviewJiraTicket`, `CreateJiraTicket`, `UnifiedSearch` (partie Jira) et `ImportJiraIssue`. Tests dans `BT/application/jira/` : clé du projet, ou défaut en son absence (FR-006).
+- [X] T009 Ajouter `projectId` au record `B/domain/session/Session.java`, propagé par toutes ses méthodes de copie, à `SessionEntity` et `SessionJpaRepository`. Implémenter `ProjectJpaRepository` (`B/infrastructure/persistence/project/`). Adapter `StartSession` pour créer la session dans le projet courant, et les tests existants (`InMemorySessions`, `Specs`, `JiraWorld`, golden set) avec un projet par défaut.
+- [X] T010 Résoudre le projet Jira effectif en un point unique, `JiraAccess.effectiveProject(Session)` (`B/application/jira/JiraAccess.java`), et l'utiliser dans `PreviewJiraTicket`, `CreateJiraTicket` (`require(sessionId)`) et `UnifiedSearch` (partie Jira, `targetForCurrentProject()`). `ImportJiraIssue` lit un ticket par sa clé : il n'a pas besoin du projet Jira, et sa session va dans le projet courant (T009). Tests dans `BT/application/jira/JiraAccessTest.java` : clé du projet, ou défaut en son absence (FR-006).
 
 **Checkpoint** : toutes les sessions ont un projet ; le comportement de 001 est inchangé (suite complète au vert).
 

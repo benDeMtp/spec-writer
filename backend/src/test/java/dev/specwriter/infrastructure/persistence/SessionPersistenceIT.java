@@ -7,6 +7,7 @@ import dev.specwriter.domain.llm.Contradiction;
 import dev.specwriter.domain.llm.ProposedQuestion;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
+import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.question.QuestionState;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.question.Questionnaire;
@@ -38,7 +39,7 @@ class SessionPersistenceIT {
     SpecificationRepository versions;
 
     Session session() {
-        return Session.start(UUID.randomUUID(),
+        return Session.start(UUID.randomUUID(), Project.DEFAULT_ID,
                 Need.of("Les employés doivent pouvoir réserver une salle de réunion pour une durée donnée."), null, T0);
     }
 

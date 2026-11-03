@@ -32,7 +32,7 @@ class CreateJiraTicketTest {
     @BeforeEach
     void setUp() {
         preview = new PreviewJiraTicket(w.versions, w.tickets, w.markup, w.tracker, w.jira);
-        create = new CreateJiraTicket(w.tracker, w.jira, w.markup, w.sessions, w.versions, w.tickets, w.clock);
+        create = new CreateJiraTicket(w.tracker, w.jira, w.markup, w.versions, w.tickets, w.clock);
         session = w.generatedSession();
         markdown = w.versions.find(session.id(), 1).orElseThrow().markdown();
         w.tracker.required.put("10001", List.of(
@@ -129,7 +129,7 @@ class CreateJiraTicketTest {
     void sansConsentementRienNestAppele() {
         JiraWorld bare = new JiraWorld().configureJira();
         Session s = bare.generatedSession();
-        CreateJiraTicket c = new CreateJiraTicket(bare.tracker, bare.jira, bare.markup, bare.sessions, bare.versions,
+        CreateJiraTicket c = new CreateJiraTicket(bare.tracker, bare.jira, bare.markup, bare.versions,
                 bare.tickets, bare.clock);
         PreviewJiraTicket p = new PreviewJiraTicket(bare.versions, bare.tickets, bare.markup, bare.tracker, bare.jira);
         assertThatThrownBy(() -> c.run(s.id(), 1, true, "10001", Map.of())).isInstanceOfSatisfying(DomainException.class,
