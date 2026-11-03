@@ -103,25 +103,25 @@ spécification ; les actions Jira utilisent la clé du projet.
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] `BT/application/project/ManageProjectsTest.java` :
+- [X] T011 [P] [US1] `BT/application/project/ManageProjectsTest.java` :
   - création, renommage, nom en double refusé (`PROJECT_NAME_TAKEN`) ;
   - suppression avec `MOVE` ou `DELETE` ;
   - « Le dernier projet restant ne peut pas être supprimé » (`LAST_PROJECT`) ;
   - suppression refusée pendant une opération IA en cours ;
   - projet courant conservé, et premier projet par nom si le projet courant est supprimé.
-- [ ] T012 [P] [US1] `BT/application/project/MoveSessionTest.java` : la session et toutes ses versions changent de projet ; la recherche locale du projet cible la trouve, celle du projet source ne la trouve plus.
-- [ ] T013 [P] [US1] `BT/infrastructure/web/ProjectResourceIT.java` :
+- [X] T012 [P] [US1] `BT/application/project/MoveSessionTest.java` : la session et toutes ses versions changent de projet ; la recherche locale du projet cible la trouve, celle du projet source ne la trouve plus.
+- [X] T013 [P] [US1] `BT/infrastructure/web/ProjectResourceIT.java` :
   - CRUD de `contracts/openapi.yaml` (`/api/projects`, `/api/projects/current`, `/api/sessions/{id}/project`) ;
   - vérification de la clé Jira par WireMock : une clé introuvable donne `jiraKeyWarning`, sans bloquer l'enregistrement (FR-007) ;
   - liste et recherche filtrées sur le projet courant (FR-005).
-- [ ] T014 [P] [US1] E2E `E/us7-projects.spec.ts`, scénarios quickstart P1 à P4 avec axe ; l'aperçu de ticket indique `FACT` pour « Facturation » et `PROJ` sinon.
+- [X] T014 [P] [US1] E2E `E/us7-projects.spec.ts`, scénarios quickstart P1 à P4 avec axe ; l'aperçu de ticket indique `FACT` pour « Facturation » et `PROJ` sinon.
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Cas d'usage `B/application/project/` : `CreateProject`, `UpdateProject`, `DeleteProject`, `SelectCurrentProject` et `MoveSession`, câblés dans `B/infrastructure/config/UseCaseProducer.java`. Codes d'erreur `PROJECT_NAME_TAKEN`, `LAST_PROJECT` et `PROJECT_NOT_FOUND` dans `ErrorCode`.
-- [ ] T016 [US1] Filtrer `ManageSessions` (liste) et `FtsLocalSearch` sur `project_id` du projet courant (`B/infrastructure/persistence/search/FtsLocalSearch.java`).
-- [ ] T017 [US1] Créer `B/infrastructure/web/ProjectResource.java` (contrat `/api/projects*` et `/api/sessions/{id}/project`), avec la vérification de la clé Jira via `IssueTracker`.
-- [ ] T018 [P] [US1] Front :
+- [X] T015 [US1] Cas d'usage `B/application/project/` : `CreateProject`, `UpdateProject`, `DeleteProject`, `SelectCurrentProject` et `MoveSession`, câblés dans `B/infrastructure/config/UseCaseProducer.java`. Codes d'erreur `PROJECT_NAME_TAKEN`, `LAST_PROJECT` et `PROJECT_NOT_FOUND` dans `ErrorCode`.
+- [X] T016 [US1] Filtrer `ManageSessions` (liste) et `FtsLocalSearch` sur `project_id` du projet courant (`B/infrastructure/persistence/search/FtsLocalSearch.java`).
+- [X] T017 [US1] Créer `B/infrastructure/web/ProjectResource.java` (contrat `/api/projects*` et `/api/sessions/{id}/project`), avec la vérification de la clé Jira via `IssueTracker`.
+- [X] T018 [P] [US1] Front :
   - `F/core/projects/projects.api.ts` et `projects.store.ts` (projet courant, signal) ;
   - `F/features/projects/projects.page.ts` (liste, création, édition, suppression avec choix déplacer ou supprimer, et confirmation nommée) ;
   - sélecteur de projet courant dans la barre d'en-tête (`F/app.ts`) ;

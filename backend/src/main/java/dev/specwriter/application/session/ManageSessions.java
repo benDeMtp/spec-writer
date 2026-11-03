@@ -1,8 +1,10 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.application.project.CurrentProject;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.ClockPort;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.session.Session;
@@ -11,7 +13,10 @@ import dev.specwriter.domain.specification.SpecificationVersion;
 import java.util.List;
 import java.util.UUID;
 
-/** Lister, renommer et supprimer des sessions, lister leurs versions (FR-017, FR-018). */
+/**
+ * Lister les sessions du projet courant (FR-005 de 002), renommer et supprimer des sessions, lister
+ * leurs versions (FR-017, FR-018).
+ */
 public class ManageSessions {
 
     public record Entry(SessionListing session, int latestVersion) {
@@ -19,17 +24,22 @@ public class ManageSessions {
 
     private final SessionRepository sessions;
     private final SpecificationRepository versions;
+    private final ProjectRepository projects;
     private final ClockPort clock;
 
-    public ManageSessions(SessionRepository sessions, SpecificationRepository versions, ClockPort clock) {
+    public ManageSessions(SessionRepository sessions, SpecificationRepository versions, ProjectRepository projects,
+            ClockPort clock) {
         this.sessions = sessions;
         this.versions = versions;
+        this.projects = projects;
         this.clock = clock;
     }
 
-    /** Les plus récemment modifiées d'abord. */
+    /** Sessions du projet courant, les plus récemment modifiées d'abord. */
     public List<Entry> list() {
+        UUID current = CurrentProject.resolve(projects).id();
         return sessions.list().stream()
+                .filter(s -> current.equals(s.projectId()))
                 .map(s -> new Entry(s, s.readable() ? versions.lastNumber(s.id()) : 0))
                 .toList();
     }

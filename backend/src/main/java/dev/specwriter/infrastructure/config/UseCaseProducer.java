@@ -7,6 +7,12 @@ import dev.specwriter.application.jira.ImportJiraIssue;
 import dev.specwriter.application.jira.JiraAccess;
 import dev.specwriter.application.jira.PreviewJiraTicket;
 import dev.specwriter.application.jira.PushToJira;
+import dev.specwriter.application.project.CheckJiraProjectKey;
+import dev.specwriter.application.project.CreateProject;
+import dev.specwriter.application.project.DeleteProject;
+import dev.specwriter.application.project.MoveSession;
+import dev.specwriter.application.project.SelectCurrentProject;
+import dev.specwriter.application.project.UpdateProject;
 import dev.specwriter.application.search.UnifiedSearch;
 import dev.specwriter.application.session.AnswerQuestion;
 import dev.specwriter.application.session.ConcludeQuestionnaire;
@@ -14,6 +20,7 @@ import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.session.StartSession;
 import dev.specwriter.application.specification.AcceptAiEdit;
 import dev.specwriter.application.specification.GenerateSpecification;
+import dev.specwriter.application.specification.OperationRegistry;
 import dev.specwriter.application.specification.ProposalStore;
 import dev.specwriter.application.specification.ProposeAiEdit;
 import dev.specwriter.application.settings.DeleteJiraSettings;
@@ -137,8 +144,54 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    ManageSessions manageSessions(SessionRepository sessions, SpecificationRepository versions, ClockPort clock) {
-        return new ManageSessions(sessions, versions, clock);
+    ManageSessions manageSessions(SessionRepository sessions, SpecificationRepository versions,
+            ProjectRepository projects, ClockPort clock) {
+        return new ManageSessions(sessions, versions, projects, clock);
+    }
+
+    // ---------- Projets (feature 002, User Story 1) ----------
+
+    @Produces
+    @ApplicationScoped
+    OperationRegistry operationRegistry() {
+        return new OperationRegistry();
+    }
+
+    @Produces
+    @ApplicationScoped
+    CreateProject createProject(ProjectRepository projects, ClockPort clock, IdGenerator ids) {
+        return new CreateProject(projects, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    UpdateProject updateProject(ProjectRepository projects, ClockPort clock) {
+        return new UpdateProject(projects, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DeleteProject deleteProject(ProjectRepository projects, SessionRepository sessions, ManageSessions manageSessions,
+            OperationRegistry operations, ClockPort clock) {
+        return new DeleteProject(projects, sessions, manageSessions, operations, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SelectCurrentProject selectCurrentProject(ProjectRepository projects) {
+        return new SelectCurrentProject(projects);
+    }
+
+    @Produces
+    @ApplicationScoped
+    CheckJiraProjectKey checkJiraProjectKey(JiraAccess jira, IssueTracker tracker) {
+        return new CheckJiraProjectKey(jira, tracker);
+    }
+
+    @Produces
+    @ApplicationScoped
+    MoveSession moveSession(SessionRepository sessions, ProjectRepository projects, ClockPort clock) {
+        return new MoveSession(sessions, projects, clock);
     }
 
     // ---------- Recherche et Jira (User Story 6) ----------
@@ -153,9 +206,9 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     UnifiedSearch unifiedSearch(LocalSearch local, SpecificationRepository versions, LinkedTicketRepository tickets,
-            IssueTracker tracker, JiraAccess jira,
+            IssueTracker tracker, JiraAccess jira, ProjectRepository projects,
             @ConfigProperty(name = "specwriter.jira.search-timeout", defaultValue = "5s") Duration timeout) {
-        return new UnifiedSearch(local, versions, tickets, tracker, jira, timeout);
+        return new UnifiedSearch(local, versions, tickets, tracker, jira, projects, timeout);
     }
 
     @Produces

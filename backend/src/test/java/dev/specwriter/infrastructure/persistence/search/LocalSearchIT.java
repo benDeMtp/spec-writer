@@ -6,9 +6,11 @@ import dev.specwriter.domain.jira.ConflictDetector;
 import dev.specwriter.domain.jira.LinkedJiraTicket;
 import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.LocalSearch;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.project.Project;
+import dev.specwriter.domain.project.ProjectName;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
@@ -35,6 +37,8 @@ class LocalSearchIT {
     SpecificationRepository versions;
     @Inject
     LinkedTicketRepository tickets;
+    @Inject
+    ProjectRepository projects;
 
     Session session(String need, String name) {
         Session s = Session.start(UUID.randomUUID(), Project.DEFAULT_ID, Need.of(need), name, T0);
@@ -43,37 +47,58 @@ class LocalSearchIT {
     }
 
     @Test
+    void uneSessionDeplaceeNEstTrouveeQueDansSonNouveauProjet() {
+        String marker = "zq" + UUID.randomUUID().toString().substring(0, 6);
+        Project other = Project.create(UUID.randomUUID(), ProjectName.of("Projet " + marker), null, null, T0);
+        projects.save(other);
+        try {
+            Session s = session("Les factures du mois " + marker + " doivent être envoyées aux clients avant le cinq.", null);
+            assertThat(search.search(Project.DEFAULT_ID, marker, 10)).extracting(LocalSearch.Hit::sessionId)
+                    .containsExactly(s.id());
+            assertThat(search.search(other.id(), marker, 10)).isEmpty();
+
+            sessions.save(s.movedTo(other.id(), T0.plusSeconds(60)), sessions.questionnaire(s.id()).orElseThrow());
+            assertThat(search.search(Project.DEFAULT_ID, marker, 10)).isEmpty();
+            assertThat(search.search(other.id(), marker, 10)).extracting(LocalSearch.Hit::sessionId)
+                    .containsExactly(s.id());
+            sessions.delete(s.id());
+        } finally {
+            projects.delete(other.id());
+        }
+    }
+
+    @Test
     void titreBesoinEtMarkdownAvecAccentsIgnores() {
         String marker = "zq" + UUID.randomUUID().toString().substring(0, 6);
         Session s = session("Chaque règle de facturation doit être appliquée aux commandes du mois " + marker + " sans exception.",
                 "Facturation " + marker);
-        assertThat(search.search("regle " + marker, 10)).extracting(LocalSearch.Hit::sessionId).containsExactly(s.id());
-        assertThat(search.search("RÈGLE " + marker, 10)).hasSize(1);
-        assertThat(search.search("factu " + marker, 10)).hasSize(1);
-        assertThat(search.search("introuvable " + marker, 10)).isEmpty();
+        assertThat(search.search(Project.DEFAULT_ID, "regle " + marker, 10)).extracting(LocalSearch.Hit::sessionId).containsExactly(s.id());
+        assertThat(search.search(Project.DEFAULT_ID, "RÈGLE " + marker, 10)).hasSize(1);
+        assertThat(search.search(Project.DEFAULT_ID, "factu " + marker, 10)).hasSize(1);
+        assertThat(search.search(Project.DEFAULT_ID, "introuvable " + marker, 10)).isEmpty();
 
         // une nouvelle version met l'index à jour (trigger)
-        assertThat(search.search("Paiement " + marker, 10)).isEmpty();
+        assertThat(search.search(Project.DEFAULT_ID, "Paiement " + marker, 10)).isEmpty();
         versions.save(new SpecificationVersion(UUID.randomUUID(), s.id(), 1, Specs.valid(), "fp", VersionOrigin.GENERATED,
                 "# Paiement en ligne\n\nLe client paie " + marker, T0));
-        assertThat(search.search("paiement " + marker, 10)).singleElement()
+        assertThat(search.search(Project.DEFAULT_ID, "paiement " + marker, 10)).singleElement()
                 .satisfies(h -> assertThat(h.excerpt()).isNotBlank());
 
         // renommage et suppression suivent aussi
         sessions.save(s.rename("Renommée " + marker, T0), Questionnaire.empty());
-        assertThat(search.search("renommee " + marker, 10)).singleElement()
+        assertThat(search.search(Project.DEFAULT_ID, "renommee " + marker, 10)).singleElement()
                 .satisfies(h -> assertThat(h.title()).isEqualTo("Renommée " + marker));
         sessions.delete(s.id());
-        assertThat(search.search(marker, 10)).isEmpty();
+        assertThat(search.search(Project.DEFAULT_ID, marker, 10)).isEmpty();
     }
 
     @Test
     void saisieNonInterpreteeCommeSyntaxeFts() {
         String marker = "zw" + UUID.randomUUID().toString().substring(0, 6);
         session("Les employés doivent pouvoir réserver une salle de réunion " + marker + " pour une durée.", null);
-        assertThat(search.search("salle\" OR \"x", 10)).isNotNull();
-        assertThat(search.search(marker + " (salle) * : ^ réunion\"", 10)).hasSize(1);
-        assertThat(search.search("\"*(){}", 10)).isEmpty();
+        assertThat(search.search(Project.DEFAULT_ID, "salle\" OR \"x", 10)).isNotNull();
+        assertThat(search.search(Project.DEFAULT_ID, marker + " (salle) * : ^ réunion\"", 10)).hasSize(1);
+        assertThat(search.search(Project.DEFAULT_ID, "\"*(){}", 10)).isEmpty();
         assertThat(FtsLocalSearch.toMatch("a \"b\" c*")).isEqualTo("\"a\"* \"b\"* \"c\"*");
     }
 
@@ -83,9 +108,9 @@ class LocalSearchIT {
         for (int i = 0; i < 1000; i++) {
             session("Session de charge numéro " + i + " pour mesurer la recherche plein texte " + marker + " rapidement.", null);
         }
-        search.search("charge " + marker, 50);
+        search.search(Project.DEFAULT_ID, "charge " + marker, 50);
         long start = System.nanoTime();
-        assertThat(search.search("charge " + marker, 50)).hasSize(50);
+        assertThat(search.search(Project.DEFAULT_ID, "charge " + marker, 50)).hasSize(50);
         assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(300);
     }
 

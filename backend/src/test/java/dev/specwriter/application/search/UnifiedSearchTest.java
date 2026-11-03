@@ -33,7 +33,8 @@ class UnifiedSearchTest {
 
     @BeforeEach
     void setUp() {
-        search = new UnifiedSearch(w.local, w.versions, w.tickets, w.tracker, w.jira, Duration.ofMillis(300));
+        search = new UnifiedSearch(w.local, w.versions, w.tickets, w.tracker, w.jira, w.projects,
+                Duration.ofMillis(300));
         linked = w.generatedSession();
         w.link(linked, "PROJ-2", "d");
         w.local.hits.add(new LocalSearch.Hit(localOnly, "Facturation", "…règle…", T1));

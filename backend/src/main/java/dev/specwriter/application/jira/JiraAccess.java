@@ -80,6 +80,11 @@ public class JiraAccess {
         return target().map(t -> t.inProject(effectiveProject(Optional.of(CurrentProject.resolve(projects)))));
     }
 
+    /** Projet Jira d'un projet : sa clé, sinon le projet par défaut ; {@code null} si Jira n'est pas configuré. */
+    public String effectiveProject(Project project) {
+        return effectiveProject(Optional.of(project));
+    }
+
     private String effectiveProject(Optional<Project> project) {
         String defaultKey = settings.jira().map(JiraSettings::defaultProjectKey).orElse(null);
         return project.flatMap(p -> p.effectiveJiraProject(defaultKey)).orElse(defaultKey);

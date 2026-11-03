@@ -45,8 +45,14 @@ paths:
         - { name: targetProjectId, in: query, schema: { type: string, format: uuid }, description: Obligatoire si sessions=MOVE }
       responses:
         '204': { description: Supprimé }
+        '404': { description: 'Projet ou projet cible introuvable (PROJECT_NOT_FOUND)' }
         '409': { description: 'Dernier projet (LAST_PROJECT) ou opération IA en cours (OPERATION_IN_PROGRESS)' }
+        '422': { description: 'Mode absent ou inconnu, ou projet cible manquant ou identique pour MOVE' }
   /api/projects/current:
+    get:
+      summary: Projet courant ; le premier projet par nom s'il n'a jamais été choisi ou a été supprimé (FR-005)
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } }
     put:
       summary: Change le projet courant, conservé d'un lancement à l'autre (FR-005)
       requestBody: { content: { application/json: { schema: { type: object, required: [projectId], properties: { projectId: { type: string, format: uuid } } } } } }
@@ -94,7 +100,9 @@ paths:
     put:
       summary: Déplace une spécification vers un autre projet, avec ses versions (FR-004)
       requestBody: { content: { application/json: { schema: { type: object, required: [projectId], properties: { projectId: { type: string, format: uuid } } } } } }
-      responses: { '204': { description: Déplacée } }
+      responses:
+        '204': { description: Déplacée }
+        '404': { description: 'Spécification (NOT_FOUND) ou projet (PROJECT_NOT_FOUND) introuvable' }
   /api/sessions/{id}/status:
     put:
       summary: Change le statut d'implémentation (FR-026) ; quitter IMPLEMENTED exige confirmUnlock=true

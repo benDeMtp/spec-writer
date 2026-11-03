@@ -2,23 +2,29 @@ import { ChangeDetectionStrategy, Component, ElementRef, inject, viewChild } fro
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { LaunchTokenService } from './core/launch/launch-token.service';
+import { ProjectSwitcherComponent } from './features/projects/project-switcher.component';
 import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 
 /** Shell : lien d'évitement, navigation, zone principale et bandeau d'erreur (T037, FR-029). */
 @Component({
   selector: 'sw-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ProblemBannerComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ProblemBannerComponent, ProjectSwitcherComponent],
   template: `
     <a class="skip" href="#contenu" (click)="focusMain($event)">Aller au contenu</a>
     <div class="layout">
       <header class="rail">
         <a class="brand" routerLink="/">spec-writer</a>
+        <!-- chargé à part : mat-select et ses overlays restent hors du bundle initial -->
+        @defer (on immediate) {
+          <sw-project-switcher />
+        }
         <nav aria-label="Navigation principale">
           <ul>
             <li><a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page">Recherche</a></li>
             <li><a routerLink="/nouveau" routerLinkActive="active" ariaCurrentWhenActive="page">Nouveau besoin</a></li>
             <li><a routerLink="/sessions" routerLinkActive="active" ariaCurrentWhenActive="page">Sessions</a></li>
+            <li><a routerLink="/projets" routerLinkActive="active" ariaCurrentWhenActive="page">Projets</a></li>
             <li><a routerLink="/configuration" routerLinkActive="active" ariaCurrentWhenActive="page">Configuration</a></li>
           </ul>
         </nav>

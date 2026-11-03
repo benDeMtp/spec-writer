@@ -45,6 +45,11 @@ public record Session(
         return new Session(id, projectId, newName, need, language, origin, state, createdAt, now);
     }
 
+    /** Déplacée vers un autre projet, avec ses versions (FR-004 de 002). */
+    public Session movedTo(UUID newProjectId, Instant now) {
+        return new Session(id, newProjectId, name, need, language, origin, state, createdAt, now);
+    }
+
     public Session withLanguage(Language newLanguage, Instant now) {
         if (state == SessionState.GENERATED) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED,

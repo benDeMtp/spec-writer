@@ -23,6 +23,7 @@ function question(id: string, over: Partial<Question> = {}): Question {
 function session(over: Partial<SessionDetail> = {}): SessionDetail {
   return {
     id: 's1',
+    projectId: 'p0',
     name: 'Réservation de salles',
     state: 'QUESTIONING',
     updatedAt: '2026-10-30T09:00:00Z',

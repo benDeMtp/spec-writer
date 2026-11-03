@@ -38,7 +38,7 @@ public class InMemorySessions implements SessionRepository {
     public List<SessionListing> list() {
         List<Session> all = new ArrayList<>(sessions.values());
         all.sort(Comparator.comparing(Session::updatedAt).reversed());
-        return all.stream().map(s -> new SessionListing(s.id(), s.name(), s.state(), s.updatedAt(), true)).toList();
+        return all.stream().map(s -> new SessionListing(s.id(), s.projectId(), s.name(), s.state(), s.updatedAt(), true)).toList();
     }
 
     @Override

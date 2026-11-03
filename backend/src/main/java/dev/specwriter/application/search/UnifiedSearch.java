@@ -1,6 +1,7 @@
 package dev.specwriter.application.search;
 
 import dev.specwriter.application.jira.JiraAccess;
+import dev.specwriter.application.project.CurrentProject;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.jira.IssueTrackerException;
@@ -10,6 +11,7 @@ import dev.specwriter.domain.jira.LinkedJiraTicket;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.LocalSearch;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import java.time.Duration;
 import java.time.Instant;
@@ -65,15 +67,17 @@ public class UnifiedSearch {
     private final LinkedTicketRepository tickets;
     private final IssueTracker tracker;
     private final JiraAccess jira;
+    private final ProjectRepository projects;
     private final Duration jiraTimeout;
 
     public UnifiedSearch(LocalSearch local, SpecificationRepository versions, LinkedTicketRepository tickets,
-            IssueTracker tracker, JiraAccess jira, Duration jiraTimeout) {
+            IssueTracker tracker, JiraAccess jira, ProjectRepository projects, Duration jiraTimeout) {
         this.local = local;
         this.versions = versions;
         this.tickets = tickets;
         this.tracker = tracker;
         this.jira = jira;
+        this.projects = projects;
         this.jiraTimeout = jiraTimeout;
     }
 
@@ -95,7 +99,7 @@ public class UnifiedSearch {
 
         Map<String, Item> items = new LinkedHashMap<>();
         if (page == 0) {
-            for (LocalSearch.Hit hit : local.search(q, LOCAL_LIMIT)) {
+            for (LocalSearch.Hit hit : local.search(CurrentProject.resolve(projects).id(), q, LOCAL_LIMIT)) {
                 LinkedJiraTicket t = bySession.get(hit.sessionId());
                 items.put(hit.sessionId().toString(), new Item(hit.sessionId().toString(), hit.title(),
                         t == null ? Provenance.SPEC_WRITER : Provenance.BOTH, t == null ? null : t.issueKey(),

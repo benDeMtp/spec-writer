@@ -40,6 +40,12 @@ public enum ErrorCode {
             ErrorAction.OPEN_SETTINGS),
     QUOTA_EXHAUSTED(429, "Le quota GitHub Copilot de votre compte est épuisé.", ErrorAction.NONE),
 
+    // Projets (feature 002)
+    PROJECT_NAME_TAKEN(409, "Un projet porte déjà ce nom.", ErrorAction.EDIT_INPUT),
+    PROJECT_NOT_FOUND(404, "Ce projet n'existe plus.", ErrorAction.NONE),
+    LAST_PROJECT(409, "Le dernier projet restant ne peut pas être supprimé.", ErrorAction.NONE),
+    OPERATION_IN_PROGRESS(409, "Une opération de l'IA est en cours. Attendez sa fin, puis réessayez.", ErrorAction.RETRY),
+
     // Jira
     JIRA_NOT_CONFIGURED(409, "Jira n'est pas configuré.", ErrorAction.OPEN_SETTINGS),
     JIRA_UNREACHABLE(503, "Le serveur Jira ne répond pas. Vérifiez l'adresse ou votre connexion.", ErrorAction.RETRY),

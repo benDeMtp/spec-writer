@@ -8,6 +8,7 @@ import { QuestionnairePage, summarize } from './questionnaire.page';
 
 const READY: SessionDetail = {
   id: 's1',
+  projectId: 'p0',
   name: 'Salles',
   state: 'GENERATED',
   updatedAt: '2026-10-30T09:00:00Z',

@@ -124,7 +124,7 @@ public class SessionJpaRepository implements SessionRepository {
     @SuppressWarnings("unchecked")
     public List<SessionListing> list() {
         List<Object[]> rows = em.createNativeQuery(
-                "select id, name, need, language, origin, state, covered_themes, updated_at from session"
+                "select id, name, need, language, origin, state, covered_themes, updated_at, project_id from session"
                         + " order by updated_at desc").getResultList();
         Set<String> damaged = new HashSet<>();
         List<Object[]> questions = em.createNativeQuery(
@@ -140,7 +140,8 @@ public class SessionJpaRepository implements SessionRepository {
             Instant updatedAt = parseInstant((String) r[7]);
             SessionState state = parseEnum(SessionState.class, (String) r[5]);
             boolean readable = !damaged.contains(id) && state != null && updatedAt != null && readableSession(r);
-            out.add(new SessionListing(UUID.fromString(id), (String) r[1], state, updatedAt, readable));
+            out.add(new SessionListing(UUID.fromString(id), UUID.fromString((String) r[8]), (String) r[1], state, updatedAt,
+                    readable));
         }
         return out;
     }

@@ -35,6 +35,8 @@ export interface LinkedTicket {
 }
 
 export interface SessionDetail extends SessionSummary {
+  /** Projet de la spécification (feature 002). */
+  projectId: string;
   linkedTicket: LinkedTicket | null;
   origin: 'LOCAL' | 'JIRA_IMPORT';
   need: string;

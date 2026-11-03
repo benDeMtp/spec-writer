@@ -5,6 +5,8 @@ import { Router, RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
 import { firstValueFrom } from 'rxjs';
 import { JiraApi, PushOutcome } from '../../core/jira/jira.api';
+import { ProjectsApi } from '../../core/projects/projects.api';
+import { ProjectsStore } from '../../core/projects/projects.store';
 import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira.model';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import {
@@ -23,6 +25,7 @@ import { SettingsStore } from '../../core/settings/settings.store';
 import { ConflictDialogComponent } from '../jira/conflict-dialog.component';
 import { CreateTicketDialogComponent, CreateTicketDialogData } from '../jira/create-ticket-dialog.component';
 import { PushDialogComponent, PushDialogData } from '../jira/push-dialog.component';
+import { MoveSessionData, MoveSessionDialogComponent } from '../projects/move-session-dialog.component';
 import { ExportService } from './export.service';
 import { VersionsPanelComponent } from './versions-panel.component';
 
@@ -71,6 +74,9 @@ const SYNC: Record<SyncState, string> = {
             >
               Créer un ticket Jira
             </button>
+          }
+          @if (session() && moveTargets().length) {
+            <button mat-button type="button" (click)="move()">Déplacer vers…</button>
           }
           @if (session()?.origin !== 'JIRA_IMPORT') {
             <a mat-button [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
@@ -315,6 +321,8 @@ export class SpecificationPage {
   private readonly router = inject(Router);
   private readonly exporter = inject(ExportService);
   private readonly settings = inject(SettingsStore);
+  private readonly projects = inject(ProjectsStore);
+  private readonly projectsApi = inject(ProjectsApi);
 
   readonly id = input.required<string>();
   readonly n = input.required<string>();
@@ -338,6 +346,11 @@ export class SpecificationPage {
   protected readonly jiraReady = computed(() => {
     const j = this.settings.jira();
     return !!j && j.enabled && j.tokenSet && !!j.defaultProjectKey;
+  });
+  /** Projets où la spécification peut être déplacée : tous sauf le sien (FR-004 de 002). */
+  protected readonly moveTargets = computed(() => {
+    const projectId = this.session()?.projectId;
+    return this.projects.projects().filter((p) => p.id !== projectId);
   });
   protected readonly language = computed<Language>(() => this.session()?.language ?? 'fr');
   protected readonly functional = computed(() => this.spec()?.requirements.filter((r) => r.category === 'FUNCTIONAL') ?? []);
@@ -393,6 +406,29 @@ export class SpecificationPage {
     this.closeEdit();
     this.status.set(`Version ${version.number} créée. Jira n'a pas été modifié.`);
     await this.router.navigate(['/sessions', this.id(), 'versions', String(version.number)]);
+  }
+
+  /** Déplace la spécification et toutes ses versions vers un autre projet (FR-004 de 002). */
+  protected async move(): Promise<void> {
+    const session = this.session();
+    if (!session) {
+      return;
+    }
+    const target = await firstValueFrom(
+      this.dialog
+        .open<MoveSessionDialogComponent, MoveSessionData, string | null>(MoveSessionDialogComponent, {
+          data: { sessionName: session.name, targets: this.moveTargets() },
+        })
+        .afterClosed(),
+    );
+    if (!target) {
+      return;
+    }
+    await this.projectsApi.moveSession(session.id, target);
+    const name = this.projects.projects().find((p) => p.id === target)?.name ?? '';
+    this.status.set(`Spécification déplacée vers le projet « ${name} ».`);
+    this.session.set(await this.api.get(this.id()));
+    await this.projects.load();
   }
 
   /** Aperçu (type, champs obligatoires) puis création sur confirmation (FR-036 à FR-038). */

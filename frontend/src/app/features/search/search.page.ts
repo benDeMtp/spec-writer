@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Router, RouterLink } from '@angular/router';
+import { ProjectsStore } from '../../core/projects/projects.store';
 import { SearchApi } from '../../core/search/search.api';
 import { JiraStatus, PAGE_SIZE, SearchResult } from '../../core/search/search.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
@@ -150,6 +151,7 @@ export class SearchPage {
   private readonly api = inject(SearchApi);
   private readonly router = inject(Router);
   private readonly consent = inject(ConsentGate);
+  private readonly projects = inject(ProjectsStore);
 
   /** Paramètres d'URL : la recherche se partage et survit au retour arrière. */
   readonly q = input<string>('');
@@ -168,7 +170,9 @@ export class SearchPage {
   });
 
   constructor() {
+    // relancée aussi quand le projet courant change : la recherche porte sur lui (FR-005 de 002)
     effect(() => {
+      this.projects.currentId();
       const q = this.q() ?? '';
       const page = this.pageIndex();
       this.draft.set(q);

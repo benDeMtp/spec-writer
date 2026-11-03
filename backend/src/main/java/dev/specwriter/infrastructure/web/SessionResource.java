@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.web;
 
+import dev.specwriter.application.project.MoveSession;
 import dev.specwriter.application.session.AnswerQuestion;
 import dev.specwriter.application.session.ConcludeQuestionnaire;
 import dev.specwriter.application.session.ManageSessions;
@@ -44,6 +45,9 @@ public class SessionResource {
     public record RenameRequest(String name) {
     }
 
+    public record MoveRequest(String projectId) {
+    }
+
     @Inject
     SessionRepository sessions;
     @Inject
@@ -58,6 +62,8 @@ public class SessionResource {
     ConcludeQuestionnaire concludeQuestionnaire;
     @Inject
     ManageSessions manageSessions;
+    @Inject
+    MoveSession moveSession;
 
     @GET
     public List<SessionViews.SessionSummary> list() {
@@ -112,6 +118,20 @@ public class SessionResource {
         UUID sessionId = Ids.parse(id);
         SessionSnapshot snapshot = answerQuestion.run(sessionId, Ids.parse(questionId), request.value(), skip);
         return SessionViews.detail(snapshot, versions.lastNumber(sessionId), ticket(sessionId));
+    }
+
+    /** Déplace la spécification vers un autre projet, avec ses versions (FR-004 de 002). */
+    @PUT
+    @Path("/{id}/project")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void move(@PathParam("id") String id, MoveRequest request) {
+        UUID projectId;
+        try {
+            projectId = Ids.parse(request == null ? null : request.projectId());
+        } catch (DomainException e) {
+            throw new DomainException(ErrorCode.PROJECT_NOT_FOUND);
+        }
+        moveSession.run(Ids.parse(id), projectId);
     }
 
     @POST

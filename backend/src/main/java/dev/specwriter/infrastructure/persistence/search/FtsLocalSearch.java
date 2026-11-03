@@ -25,7 +25,7 @@ public class FtsLocalSearch implements LocalSearch {
     @Override
     @Transactional
     @SuppressWarnings("unchecked")
-    public List<Hit> search(String terms, int limit) {
+    public List<Hit> search(UUID projectId, String terms, int limit) {
         String match = toMatch(terms);
         if (match.isEmpty()) {
             return List.of();
@@ -34,10 +34,10 @@ public class FtsLocalSearch implements LocalSearch {
                         select f.session_id, s.name,
                                snippet(spec_search, -1, '', '', '…', 16), s.updated_at
                         from spec_search f join session s on s.id = f.session_id
-                        where spec_search match ?1
+                        where spec_search match ?1 and s.project_id = ?3
                         order by bm25(spec_search, 10.0, 3.0, 1.0)
                         limit ?2""")
-                .setParameter(1, match).setParameter(2, limit).getResultList();
+                .setParameter(1, match).setParameter(2, limit).setParameter(3, projectId.toString()).getResultList();
         return rows.stream()
                 .map(r -> new Hit(UUID.fromString((String) r[0]), (String) r[1], (String) r[2], Instant.parse((String) r[3])))
                 .toList();

@@ -40,8 +40,8 @@ final class SessionViews {
     record LinkedTicketView(String issueKey, String issueUrl, String syncState, int linkedVersionNumber) {
     }
 
-    record SessionDetail(UUID id, String name, String state, Instant updatedAt, Integer latestVersion, String jiraKey,
-            LinkedTicketView linkedTicket, String origin, String need, String language, Progress progress, List<QuestionView> currentBatch,
+    record SessionDetail(UUID id, UUID projectId, String name, String state, Instant updatedAt, Integer latestVersion,
+            String jiraKey, LinkedTicketView linkedTicket, String origin, String need, String language, Progress progress, List<QuestionView> currentBatch,
             List<QuestionView> answeredQuestions, List<String> warnings, RevisionView revision) {
     }
 
@@ -80,7 +80,7 @@ final class SessionViews {
         List<String> warnings = new ArrayList<>(snapshot.warnings());
         ConcludeQuestionnaire.warnings(s, q).stream().filter(w -> !warnings.contains(w)).forEach(warnings::add);
         Questionnaire.Progress p = q.progress();
-        return new SessionDetail(s.id(), s.name(), s.state().name(), s.updatedAt(), latestVersion == 0 ? null : latestVersion,
+        return new SessionDetail(s.id(), s.projectId(), s.name(), s.state().name(), s.updatedAt(), latestVersion == 0 ? null : latestVersion,
                 ticket == null ? null : ticket.issueKey(), ticket(ticket), s.origin().name(), s.need().text(), s.language().code(), new Progress(p.answered(), p.skipped(), p.total()),
                 q.currentBatch().stream().map(SessionViews::question).toList(),
                 q.treated().stream().map(SessionViews::question).toList(), warnings,
