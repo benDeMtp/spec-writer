@@ -1,6 +1,8 @@
 package dev.specwriter.infrastructure.llm;
 
 import dev.specwriter.domain.llm.QuestionAndAnswer;
+import dev.specwriter.domain.llm.SourceFacts;
+import dev.specwriter.domain.llm.SummarizeSourcesRequest;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.session.Language;
 import java.util.Collection;
@@ -9,7 +11,8 @@ import java.util.stream.Collectors;
 
 /**
  * Message utilisateur : uniquement des données, chacune entre balises (FR-026, LLM01). Les chevrons
- * du contenu sont neutralisés pour qu'un texte saisi ne puisse pas fermer une balise.
+ * du contenu sont neutralisés pour qu'un texte saisi ne puisse pas fermer une balise. Le contexte du
+ * projet suit la langue, dans {@code <contexte-projet>} (research.md R5 de 002).
  */
 final class UserMessages {
 
@@ -17,38 +20,72 @@ final class UserMessages {
     }
 
     static String questions(String need, Language language, List<QuestionAndAnswer> known,
-            Collection<QuestionTheme> remaining) {
-        return language(language) + "\n" + need(need) + "\n" + answers(known) + "\n<themes-restants>"
+            Collection<QuestionTheme> remaining, String projectContext) {
+        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(known) + "\n<themes-restants>"
                 + remaining.stream().map(Enum::name).sorted().collect(Collectors.joining(" ")) + "</themes-restants>";
     }
 
-    static String reassess(String need, Language language, List<QuestionAndAnswer> known, String changedQuestionId) {
-        return language(language) + "\n" + need(need) + "\n" + answers(known) + "\n<question-modifiee>"
+    static String reassess(String need, Language language, List<QuestionAndAnswer> known, String changedQuestionId,
+            String projectContext) {
+        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(known) + "\n<question-modifiee>"
                 + data(changedQuestionId) + "</question-modifiee>";
     }
 
-    static String generation(String need, Language language, List<QuestionAndAnswer> answers, String correction) {
-        return language(language) + "\n" + need(need) + "\n" + answers(answers) + "\n<correction>" + data(correction)
+    static String generation(String need, Language language, List<QuestionAndAnswer> answers, String correction,
+            String projectContext) {
+        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(answers) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
     static String edit(String need, Language language, List<QuestionAndAnswer> answers, String currentMarkdown,
-            String instruction, String correction) {
-        return language(language) + "\n" + need(need) + "\n" + answers(answers) + "\n" + block("specification-actuelle",
+            String instruction, String correction, String projectContext) {
+        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(answers) + "\n" + block("specification-actuelle",
                 currentMarkdown) + "\n" + block("instruction", instruction) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
     static String merge(String need, Language language, List<QuestionAndAnswer> answers, String localMarkdown,
-            String jiraMarkdown, String correction) {
-        return language(language) + "\n" + need(need) + "\n" + answers(answers) + "\n" + block("version-locale",
+            String jiraMarkdown, String correction, String projectContext) {
+        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(answers) + "\n" + block("version-locale",
                 localMarkdown) + "\n" + block("version-jira", jiraMarkdown) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
-    static String structure(String text, Language language, String correction) {
-        return language(language) + "\n" + block("texte-importe", text) + "\n<correction>" + data(correction)
+    static String structure(String text, Language language, String correction, String projectContext) {
+        return language(language) + "\n" + context(projectContext) + block("texte-importe", text) + "\n<correction>" + data(correction)
                 + "</correction>";
+    }
+
+    /** Lot de pages et de tickets à résumer (summarize-project-sources). */
+    static String sources(Language language, List<SummarizeSourcesRequest.Source> sources, String correction) {
+        StringBuilder out = new StringBuilder(language(language)).append("\n<sources>\n");
+        for (SummarizeSourcesRequest.Source s : sources) {
+            out.append("<source ref=\"").append(attribute(s.ref())).append("\" titre=\"").append(attribute(s.title()))
+                    .append("\">\n").append(data(s.text())).append("\n</source>\n");
+        }
+        return out.append("</sources>\n<correction>").append(data(correction)).append("</correction>").toString();
+    }
+
+    /** Faits extraits et fiche actuelle (build-project-context). */
+    static String buildContext(Language language, List<SourceFacts.Fact> facts, String currentContext,
+            String correction) {
+        StringBuilder out = new StringBuilder(language(language)).append("\n<faits>\n");
+        for (SourceFacts.Fact f : facts) {
+            out.append("<fait categorie=\"").append(f.category() == null ? "" : f.category().name()).append("\" sources=\"")
+                    .append(attribute(String.join(" ", f.refs()))).append("\">").append(data(f.statement())).append("</fait>\n");
+        }
+        return out.append("</faits>\n").append(block("fiche-actuelle", currentContext)).append("\n<correction>")
+                .append(data(correction)).append("</correction>").toString();
+    }
+
+    /** Vide sans contexte : le message est alors celui de 001. */
+    private static String context(String projectContext) {
+        return projectContext == null || projectContext.isBlank() ? "" : block("contexte-projet", projectContext) + "\n";
+    }
+
+    /** Valeur d'attribut : chevrons et guillemets neutralisés. */
+    private static String attribute(String text) {
+        return data(text).replace("\"", "&quot;");
     }
 
     private static String block(String tag, String content) {

@@ -34,6 +34,8 @@ public class SpecificationJpaRepository implements SpecificationRepository {
         e.content = JSON.writeValueAsString(v.content());
         e.markdown = v.markdown();
         e.createdAt = v.createdAt();
+        e.contextHash = v.contextHash() == null ? "" : v.contextHash();
+        e.contextUpdatedAt = v.contextUpdatedAt();
         // persist et non merge : une version existante n'est jamais réécrite
         em.persist(e);
     }
@@ -83,6 +85,6 @@ public class SpecificationJpaRepository implements SpecificationRepository {
     private static SpecificationVersion toDomain(SpecificationVersionEntity e) {
         return new SpecificationVersion(UUID.fromString(e.id), UUID.fromString(e.sessionId), e.number,
                 JSON.readValue(e.content, SpecificationContent.class), e.inputFingerprint, VersionOrigin.valueOf(e.origin),
-                e.markdown, e.createdAt);
+                e.markdown, e.createdAt, e.contextHash, e.contextUpdatedAt);
     }
 }

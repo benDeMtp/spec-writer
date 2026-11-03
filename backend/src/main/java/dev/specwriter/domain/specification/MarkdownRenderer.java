@@ -25,17 +25,18 @@ public final class MarkdownRenderer {
 
     private record Labels(String summary, String details, String useCases, String scenarios, String assumptions, String functional,
             String technical, String actor, String goal, String preconditions, String flow, String alternatives,
-            String source, String needExcerpt, String answer, String assumption, String asA, String given,
+            String source, String needExcerpt, String answer, String assumption, String projectContext, String asA,
+            String given,
             String when, String then, String and, String none, String colon) {
     }
 
     private static final Labels FR = new Labels("Résumé", "Détails", "Use cases", "Scénarios d'acceptation", "Hypothèses",
             "Exigences fonctionnelles", "Exigences techniques", "Acteur", "Objectif", "Préconditions",
-            "Déroulement nominal", "Alternatives", "Source", "extrait du besoin", "réponse", "Hypothèse",
+            "Déroulement nominal", "Alternatives", "Source", "extrait du besoin", "réponse", "Hypothèse", "contexte du projet",
             "En tant que", "Étant donné", "Quand", "Alors", "Et", "Aucune.", " : ");
     private static final Labels EN = new Labels("Summary", "Details", "Use cases", "Acceptance scenarios", "Assumptions",
             "Functional requirements", "Technical requirements", "Actor", "Goal", "Preconditions", "Main flow",
-            "Alternatives", "Source", "need excerpt", "answer", "Assumption", "As a", "Given", "When", "Then", "And",
+            "Alternatives", "Source", "need excerpt", "answer", "Assumption", "project context", "As a", "Given", "When", "Then", "And",
             "None.", ": ");
 
     private MarkdownRenderer() {
@@ -142,6 +143,7 @@ public final class MarkdownRenderer {
             case NEED_EXCERPT -> l.needExcerpt();
             case ANSWER -> l.answer();
             case ASSUMPTION -> l.assumption().toLowerCase(java.util.Locale.ROOT);
+            case PROJECT_CONTEXT -> l.projectContext();
         };
     }
 

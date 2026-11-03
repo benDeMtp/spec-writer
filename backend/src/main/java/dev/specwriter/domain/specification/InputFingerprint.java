@@ -10,8 +10,10 @@ import java.util.HexFormat;
 import java.util.List;
 
 /**
- * Empreinte SHA-256 des entrées d'une génération : besoin, réponses, version de l'outil et langue
- * (FR-014, FR-018, research.md R12). Indépendante de l'ordre de stockage des réponses.
+ * Empreinte SHA-256 des entrées d'une génération : besoin, réponses, version de l'outil, langue et
+ * contexte du projet (FR-014, FR-018, research.md R12 ; FR-011 de 002). Indépendante de l'ordre de
+ * stockage des réponses. Sans contexte, elle est celle de 001 : les versions existantes restent
+ * réutilisables.
  */
 public final class InputFingerprint {
 
@@ -19,6 +21,11 @@ public final class InputFingerprint {
     }
 
     public static String of(String need, List<Question> treated, String toolVersion, Language language) {
+        return of(need, treated, toolVersion, language, "");
+    }
+
+    public static String of(String need, List<Question> treated, String toolVersion, Language language,
+            String contextHash) {
         MessageDigest digest;
         try {
             digest = MessageDigest.getInstance("SHA-256");
@@ -28,6 +35,9 @@ public final class InputFingerprint {
         field(digest, "need", need);
         field(digest, "tool", toolVersion);
         field(digest, "language", language.code());
+        if (contextHash != null && !contextHash.isEmpty()) {
+            field(digest, "context", contextHash);
+        }
         treated.stream()
                 .filter(q -> q.answer() != null)
                 .sorted(Comparator.comparing(q -> q.id().toString()))

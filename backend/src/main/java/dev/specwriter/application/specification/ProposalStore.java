@@ -1,5 +1,6 @@
 package dev.specwriter.application.specification;
 
+import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.TextDiff;
@@ -25,10 +26,12 @@ public class ProposalStore {
 
     /**
      * {@code jiraUpdated} et {@code jiraDescriptionHash} : état Jira lu pour une fusion de conflit,
-     * qui devient la référence à l'acceptation ; nuls pour une modification simple.
+     * qui devient la référence à l'acceptation ; nuls pour une modification simple. Le contexte de
+     * projet utilisé est retenu sur la version acceptée (FR-013d).
      */
     public record Proposal(UUID id, UUID sessionId, int baseVersion, SpecificationContent content, String markdown,
-            String unifiedDiff, VersionOrigin origin, Instant createdAt, Instant jiraUpdated, String jiraDescriptionHash) {
+            String unifiedDiff, VersionOrigin origin, Instant createdAt, Instant jiraUpdated, String jiraDescriptionHash,
+            String contextHash, Instant contextUpdatedAt) {
     }
 
     private final Map<UUID, Proposal> proposals = new ConcurrentHashMap<>();
@@ -43,12 +46,12 @@ public class ProposalStore {
     }
 
     public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
-            Instant jiraUpdated, String jiraDescriptionHash) {
+            Instant jiraUpdated, String jiraDescriptionHash, ProjectContext context) {
         purge();
         String markdown = MarkdownRenderer.render(content, session.language());
         String unified = diff.unified(base.markdown(), markdown, "v" + base.number(), "proposition");
         Proposal p = new Proposal(ids.next(), session.id(), base.number(), content, markdown, unified, origin, clock.now(),
-                jiraUpdated, jiraDescriptionHash);
+                jiraUpdated, jiraDescriptionHash, context.hash(), context.updatedAt());
         proposals.put(p.id(), p);
         return p;
     }

@@ -48,7 +48,7 @@ class ReviseAnswerTest {
                 .run(SessionUseCasesTest.NEED, null);
         sessionId = s.session().id();
         q = s.questionnaire().currentBatch().stream().map(Question::id).toList();
-        answer = new AnswerQuestion(sessions, llm, policy, clock, ids);
+        answer = new AnswerQuestion(sessions, new InMemoryProjects(), llm, policy, clock, ids);
         answer.run(sessionId, q.get(0), "Gagner du temps", false);
         answer.run(sessionId, q.get(1), "", true);
         llm.questions.add(StubLlm.none());

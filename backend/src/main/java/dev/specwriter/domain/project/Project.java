@@ -10,13 +10,14 @@ import java.util.UUID;
 /**
  * Projet qui regroupe des spécifications (data-model.md de 002, FR-001 à FR-006). Immuable :
  * chaque changement crée une copie. La clé Jira, facultative, surcharge le projet Jira par défaut
- * des réglages.
+ * des réglages. Sa fiche de contexte guide toutes les opérations de l'IA (FR-008).
  */
 public record Project(
         UUID id,
         ProjectName name,
         String description,
         JiraProjectKey jiraProjectKey,
+        ProjectContext context,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -29,15 +30,21 @@ public record Project(
         Objects.requireNonNull(id);
         Objects.requireNonNull(name);
         description = validDescription(description);
+        context = context == null ? ProjectContext.NONE : context;
     }
 
     public static Project create(UUID id, ProjectName name, String description, JiraProjectKey jiraProjectKey,
             Instant now) {
-        return new Project(id, name, description, jiraProjectKey, now, now);
+        return new Project(id, name, description, jiraProjectKey, ProjectContext.NONE, now, now);
     }
 
     public Project update(ProjectName newName, String newDescription, JiraProjectKey newKey, Instant now) {
-        return new Project(id, newName, newDescription, newKey, createdAt, now);
+        return new Project(id, newName, newDescription, newKey, context, createdAt, now);
+    }
+
+    /** Nouvelle fiche de contexte, générée ou modifiée à la main (FR-013a, FR-013c). */
+    public Project withContext(ProjectContext newContext) {
+        return new Project(id, name, description, jiraProjectKey, newContext, createdAt, newContext.updatedAt());
     }
 
     public String nameKey() {

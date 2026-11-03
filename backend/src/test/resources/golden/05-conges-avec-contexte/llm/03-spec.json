@@ -1,0 +1,27 @@
+{"operation": "generate-specification", "userContains": ["<contexte-projet>", "remplaçant"], "response": {
+  "title": "Demande de congés payés",
+  "summary": "Le salarié demande des congés ; son responsable accepte ou refuse.",
+  "useCases": [
+    {"title": "Demander des congés", "actor": "salarié", "goal": "Obtenir des jours de congés payés",
+     "preconditions": [], "nominalFlow": ["Choisir les dates en jours entiers", "Envoyer la demande"],
+     "alternatives": ["La demande dépasse le solde : elle est refusée à la saisie"],
+     "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "poser une demande de congés payés"}},
+    {"title": "Répondre à une demande", "actor": "responsable hiérarchique", "goal": "Accepter ou refuser sous 5 jours ouvrés",
+     "preconditions": ["Une demande est en attente"], "nominalFlow": ["Ouvrir la demande", "Accepter ou refuser"],
+     "alternatives": ["Le responsable est absent : la demande va à son remplaçant"],
+     "source": {"kind": "PROJECT_CONTEXT", "questionId": "", "excerpt": "Le responsable hiérarchique valide les demandes de son équipe."}}
+  ],
+  "scenarios": [
+    {"useCaseIndex": 0, "title": "Demande dans le solde", "kind": "NOMINAL", "asA": "salarié",
+     "given": ["mon solde est de 10 jours"], "when": ["je demande 3 jours"], "then": ["la demande part à mon responsable"], "assumption": false},
+    {"useCaseIndex": 0, "title": "Demande au-delà du solde", "kind": "ERROR", "asA": "salarié",
+     "given": ["mon solde est de 2 jours"], "when": ["je demande 3 jours"], "then": ["la demande est refusée et mon solde est affiché"], "assumption": false},
+    {"useCaseIndex": 1, "title": "Acceptation", "kind": "NOMINAL", "asA": "responsable hiérarchique",
+     "given": ["une demande de 3 jours est en attente"], "when": ["je l'accepte"], "then": ["le solde du salarié baisse de 3 jours"], "assumption": false},
+    {"useCaseIndex": 1, "title": "Responsable absent", "kind": "EDGE", "asA": "salarié",
+     "given": ["mon responsable est absent"], "when": ["j'envoie ma demande"], "then": ["la demande est transmise à son remplaçant"], "assumption": false}
+  ],
+  "assumptions": [],
+  "requirements": [
+    {"category": "FUNCTIONAL", "statement": "Le responsable répond sous 5 jours ouvrés."}
+  ]}}

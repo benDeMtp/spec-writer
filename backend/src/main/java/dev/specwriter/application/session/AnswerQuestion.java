@@ -1,5 +1,7 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.application.project.ProjectContexts;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
@@ -24,15 +26,17 @@ import java.util.UUID;
 public class AnswerQuestion {
 
     private final SessionRepository sessions;
+    private final ProjectRepository projects;
     private final LlmClient llm;
     private final ConsentPolicy consent;
     private final ClockPort clock;
     private final IdGenerator ids;
     private final ReviseAnswer revise;
 
-    public AnswerQuestion(SessionRepository sessions, LlmClient llm, ConsentPolicy consent, ClockPort clock,
-            IdGenerator ids) {
+    public AnswerQuestion(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
+            ClockPort clock, IdGenerator ids) {
         this.sessions = sessions;
+        this.projects = projects;
         this.llm = llm;
         this.consent = consent;
         this.clock = clock;
@@ -60,7 +64,7 @@ public class AnswerQuestion {
         Revision revision = Revision.NONE;
         if (revised) {
             consent.requireGranted(ConsentService.COPILOT);
-            ReviseAnswer.Result result = revise.reassess(session, questionnaire, questionId);
+            ReviseAnswer.Result result = revise.reassess(session, questionnaire, questionId, context(session));
             questionnaire = result.questionnaire();
             revision = result.revision();
             if (questionnaire.pending().isEmpty()) {
@@ -69,12 +73,16 @@ public class AnswerQuestion {
             sessions.save(session, questionnaire);
         } else if (questionnaire.pending().isEmpty() && session.state() == SessionState.QUESTIONING) {
             consent.requireGranted(ConsentService.COPILOT);
-            questionnaire = NextBatch.ask(llm, ids, session, questionnaire);
+            questionnaire = NextBatch.ask(llm, ids, session, questionnaire, context(session));
             if (questionnaire.pending().isEmpty()) {
                 session = session.readyToGenerate(clock.now());
             }
             sessions.save(session, questionnaire);
         }
         return new SessionSnapshot(session, questionnaire, List.of(), revision);
+    }
+
+    private String context(Session session) {
+        return ProjectContexts.of(projects, session).markdown();
     }
 }

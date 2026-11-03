@@ -31,9 +31,9 @@ public final class ReviseAnswer {
         this.ids = ids;
     }
 
-    public Result reassess(Session session, Questionnaire questionnaire, UUID changed) {
+    public Result reassess(Session session, Questionnaire questionnaire, UUID changed, String projectContext) {
         ReassessResult result = llm.reassessAfterChange(new ReassessRequest(session.need().text(), session.language(),
-                NextBatch.known(questionnaire), changed.toString()));
+                NextBatch.known(questionnaire), changed.toString(), projectContext));
         Set<String> cited = new HashSet<>(result.obsoleteQuestionIds());
         Set<UUID> obsolete = questionnaire.active().stream()
                 .map(Question::id)

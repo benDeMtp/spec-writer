@@ -27,7 +27,7 @@ class AiEditTest {
 
     @BeforeEach
     void setUp() {
-        propose = new ProposeAiEdit(w.sessions, w.versions, w.llm, w.policy, w.proposals);
+        propose = new ProposeAiEdit(w.sessions, w.projects, w.versions, w.llm, w.policy, w.proposals);
         accept = new AcceptAiEdit(w.sessions, w.versions, w.tickets, w.proposals, w.clock, w.ids);
         session = w.generatedSession();
     }
@@ -99,7 +99,7 @@ class AiEditTest {
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
         JiraWorld bare = new JiraWorld();
         Session s = bare.generatedSession();
-        ProposeAiEdit noConsent = new ProposeAiEdit(bare.sessions, bare.versions, bare.llm, bare.policy, bare.proposals);
+        ProposeAiEdit noConsent = new ProposeAiEdit(bare.sessions, bare.projects, bare.versions, bare.llm, bare.policy, bare.proposals);
         assertThatThrownBy(() -> noConsent.run(s.id(), "Modifie")).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.CONSENT_REQUIRED));
         assertThat(bare.llm.calls()).isZero();

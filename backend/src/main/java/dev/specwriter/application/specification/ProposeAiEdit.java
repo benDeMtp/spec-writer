@@ -1,5 +1,8 @@
 package dev.specwriter.application.specification;
 
+import dev.specwriter.application.project.ProjectContexts;
+import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
@@ -26,14 +29,16 @@ public class ProposeAiEdit {
     public static final int MAX_INSTRUCTION = 2000;
 
     private final SessionRepository sessions;
+    private final ProjectRepository projects;
     private final SpecificationRepository versions;
     private final LlmClient llm;
     private final ConsentPolicy consent;
     private final ProposalStore proposals;
 
-    public ProposeAiEdit(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
-            ConsentPolicy consent, ProposalStore proposals) {
+    public ProposeAiEdit(SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
+            LlmClient llm, ConsentPolicy consent, ProposalStore proposals) {
         this.sessions = sessions;
+        this.projects = projects;
         this.versions = versions;
         this.llm = llm;
         this.consent = consent;
@@ -49,11 +54,12 @@ public class ProposeAiEdit {
         SpecificationVersion base = latest(versions, sessionId);
         consent.requireGranted(ConsentService.COPILOT);
         List<Question> treated = sessions.questionnaire(sessionId).map(Questionnaire::treated).orElse(List.of());
+        ProjectContext context = ProjectContexts.of(projects, session);
         EditRequest request = new EditRequest(session.need().text(), session.language(), DraftValidation.answers(treated),
-                base.markdown(), text, null);
+                base.markdown(), text, null, context.markdown());
         SpecificationContent content = DraftValidation.produce(c -> llm.editSpecification(request.withCorrection(c)),
-                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT);
-        return proposals.propose(session, base, content, VersionOrigin.AI_EDIT, null, null);
+                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, context.markdown());
+        return proposals.propose(session, base, content, VersionOrigin.AI_EDIT, null, null, context);
     }
 
     static SpecificationVersion latest(SpecificationRepository versions, UUID sessionId) {

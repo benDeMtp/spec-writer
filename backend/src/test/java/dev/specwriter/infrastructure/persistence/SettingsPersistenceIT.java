@@ -41,8 +41,10 @@ class SettingsPersistenceIT {
 
     @Test
     void dernierConsentementFaitFoi() {
-        consents.record(new ConsentRecord(ConsentService.JIRA, true, Instant.parse("2026-10-30T10:00:00Z")));
-        consents.record(new ConsentRecord(ConsentService.JIRA, false, Instant.parse("2026-10-30T11:00:00Z")));
+        // la base est partagée avec les IT web, qui enregistrent leurs consentements à l'heure courante
+        Instant now = Instant.now();
+        consents.record(new ConsentRecord(ConsentService.JIRA, true, now.minusSeconds(1)));
+        consents.record(new ConsentRecord(ConsentService.JIRA, false, now));
         assertThat(consents.latest(ConsentService.JIRA)).get().extracting(ConsentRecord::granted).isEqualTo(false);
     }
 }

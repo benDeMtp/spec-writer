@@ -9,8 +9,10 @@ import dev.specwriter.application.project.SelectCurrentProject;
 import dev.specwriter.application.project.UpdateProject;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.port.DocSourceRepository;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
+import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.session.SessionListing;
 import jakarta.inject.Inject;
@@ -25,6 +27,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -42,13 +45,26 @@ public class ProjectResource {
     }
 
     public record ProjectView(UUID id, String name, String description, String jiraProjectKey,
-            String effectiveJiraProjectKey, String jiraKeyWarning, int sessionCount) {
+            String effectiveJiraProjectKey, String jiraKeyWarning, int sessionCount, String context, String contextOrigin,
+            Instant contextUpdatedAt, List<DocSourceView> docSources) {
+    }
+
+    public record DocSourceView(UUID id, String kind, String location, Instant lastReadAt, Integer pagesRead,
+            Integer pagesInError) {
+
+        static DocSourceView of(DocSource s) {
+            DocSource.ReadSummary r = s.lastResult();
+            return new DocSourceView(s.id(), s.kind().name(), s.location(), s.lastReadAt(), r == null ? null : r.pagesRead(),
+                    r == null ? null : r.pagesInError());
+        }
     }
 
     @Inject
     ProjectRepository projects;
     @Inject
     SessionRepository sessions;
+    @Inject
+    DocSourceRepository docSources;
     @Inject
     JiraAccess jira;
     @Inject
@@ -112,6 +128,11 @@ public class ProjectResource {
         deleteProject.run(projectId(id), chosen, target);
     }
 
+    /** Vue d'un projet, sans vérifier sa clé Jira. */
+    ProjectView view(Project p) {
+        return view(p, null, sessionCounts());
+    }
+
     private ProjectView withWarning(Project p) {
         return view(p, checkKey.warning(p).orElse(null), sessionCounts());
     }
@@ -119,7 +140,8 @@ public class ProjectResource {
     private ProjectView view(Project p, String warning, Map<UUID, Long> counts) {
         return new ProjectView(p.id(), p.name().value(), p.description(),
                 p.jiraProjectKey() == null ? null : p.jiraProjectKey().value(), jira.effectiveProject(p), warning,
-                counts.getOrDefault(p.id(), 0L).intValue());
+                counts.getOrDefault(p.id(), 0L).intValue(), p.context().markdown(), p.context().origin().name(),
+                p.context().updatedAt(), docSources.list(p.id()).stream().map(DocSourceView::of).toList());
     }
 
     private Map<UUID, Long> sessionCounts() {
@@ -127,7 +149,7 @@ public class ProjectResource {
     }
 
     /** Un identifiant de projet mal formé désigne un projet introuvable. */
-    private static UUID projectId(String raw) {
+    static UUID projectId(String raw) {
         try {
             return Ids.parse(raw);
         } catch (DomainException e) {

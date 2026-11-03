@@ -1,5 +1,8 @@
 package dev.specwriter.application.specification;
 
+import dev.specwriter.application.project.ProjectContexts;
+import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
@@ -33,6 +36,7 @@ public class GenerateSpecification {
     }
 
     private final SessionRepository sessions;
+    private final ProjectRepository projects;
     private final SpecificationRepository versions;
     private final LlmClient llm;
     private final ConsentPolicy consent;
@@ -40,9 +44,10 @@ public class GenerateSpecification {
     private final IdGenerator ids;
     private final String toolVersion;
 
-    public GenerateSpecification(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
-            ConsentPolicy consent, ClockPort clock, IdGenerator ids, String toolVersion) {
+    public GenerateSpecification(SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
+            LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids, String toolVersion) {
         this.sessions = sessions;
+        this.projects = projects;
         this.versions = versions;
         this.llm = llm;
         this.consent = consent;
@@ -58,7 +63,9 @@ public class GenerateSpecification {
             throw new DomainException(ErrorCode.CONTRADICTION_UNRESOLVED);
         }
         List<Question> treated = questionnaire.treated();
-        String fingerprint = InputFingerprint.of(session.need().text(), treated, toolVersion, session.language());
+        ProjectContext context = ProjectContexts.of(projects, session);
+        String fingerprint = InputFingerprint.of(session.need().text(), treated, toolVersion, session.language(),
+                context.hash());
         var existing = versions.findByFingerprint(sessionId, fingerprint);
         if (existing.isPresent()) {
             return new Generated(existing.get(), true);
@@ -66,13 +73,13 @@ public class GenerateSpecification {
         consent.requireGranted(ConsentService.COPILOT);
 
         GenerationRequest request = new GenerationRequest(session.need().text(), session.language(),
-                DraftValidation.answers(treated));
+                DraftValidation.answers(treated), null, context.markdown());
         SpecificationContent content = DraftValidation.produce(
                 correction -> llm.generateSpecification(correction == null ? request : request.withCorrection(correction)),
-                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT);
+                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, context.markdown());
         SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.lastNumber(sessionId) + 1,
                 content, fingerprint, VersionOrigin.GENERATED, MarkdownRenderer.render(content, session.language()),
-                clock.now());
+                clock.now()).withContext(context.hash(), context.updatedAt());
         versions.save(version);
         sessions.save(session.generated(clock.now()), questionnaire);
         return new Generated(version, false);

@@ -57,7 +57,7 @@ class SessionUseCasesTest {
     void setUp() {
         consents.record(new ConsentRecord(ConsentService.COPILOT, true, Instant.EPOCH));
         start = new StartSession(sessions, projects, llm, policy, clock, ids);
-        answer = new AnswerQuestion(sessions, llm, policy, clock, ids);
+        answer = new AnswerQuestion(sessions, new InMemoryProjects(), llm, policy, clock, ids);
         conclude = new ConcludeQuestionnaire(sessions, clock);
     }
 

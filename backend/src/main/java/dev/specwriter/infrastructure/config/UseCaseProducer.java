@@ -1,5 +1,13 @@
 package dev.specwriter.infrastructure.config;
 
+import dev.specwriter.domain.port.DocumentationReader;
+import dev.specwriter.domain.port.DocSourceRepository;
+import dev.specwriter.application.context.ProposeProjectContext;
+import dev.specwriter.application.context.PreviewContextSources;
+import dev.specwriter.application.context.ManageDocSources;
+import dev.specwriter.application.context.EditContext;
+import dev.specwriter.application.context.ContextProposalStore;
+import dev.specwriter.application.context.AcceptContextProposal;
 import dev.specwriter.application.consent.UpdateConsent;
 import dev.specwriter.application.jira.CreateJiraTicket;
 import dev.specwriter.application.jira.GetJiraIssue;
@@ -124,9 +132,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    AnswerQuestion answerQuestion(SessionRepository sessions, LlmClient llm, ConsentPolicy consent, ClockPort clock,
-            IdGenerator ids) {
-        return new AnswerQuestion(sessions, llm, consent, clock, ids);
+    AnswerQuestion answerQuestion(SessionRepository sessions, ProjectRepository projects, LlmClient llm,
+            ConsentPolicy consent, ClockPort clock, IdGenerator ids) {
+        return new AnswerQuestion(sessions, projects, llm, consent, clock, ids);
     }
 
     @Produces
@@ -137,9 +145,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    GenerateSpecification generateSpecification(SessionRepository sessions, SpecificationRepository versions,
-            LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids) {
-        return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion);
+    GenerateSpecification generateSpecification(SessionRepository sessions, ProjectRepository projects,
+            SpecificationRepository versions, LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids) {
+        return new GenerateSpecification(sessions, projects, versions, llm, consent, clock, ids, toolVersion);
     }
 
     @Produces
@@ -219,9 +227,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    ProposeAiEdit proposeAiEdit(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
-            ConsentPolicy consent, ProposalStore proposals) {
-        return new ProposeAiEdit(sessions, versions, llm, consent, proposals);
+    ProposeAiEdit proposeAiEdit(SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
+            LlmClient llm, ConsentPolicy consent, ProposalStore proposals) {
+        return new ProposeAiEdit(sessions, projects, versions, llm, consent, proposals);
     }
 
     @Produces
@@ -249,9 +257,10 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     PushToJira pushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
-            SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
-            ProposalStore proposals, ClockPort clock, IdGenerator ids) {
-        return new PushToJira(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids);
+            SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ProposalStore proposals, ClockPort clock, IdGenerator ids) {
+        return new PushToJira(tracker, jira, markup, llm, consent, sessions, projects, versions, tickets, proposals, clock,
+                ids);
     }
 
     @Produces
@@ -266,5 +275,46 @@ public class UseCaseProducer {
     CreateJiraTicket createJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup,
             SpecificationRepository versions, LinkedTicketRepository tickets, ClockPort clock) {
         return new CreateJiraTicket(tracker, jira, markup, versions, tickets, clock);
+    }
+
+    // ---------- Contexte de projet (US2 de 002) ----------
+
+    @Produces
+    @ApplicationScoped
+    ContextProposalStore contextProposalStore(TextDiff diff, IdGenerator ids, ClockPort clock) {
+        return new ContextProposalStore(diff, ids, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageDocSources manageDocSources(ProjectRepository projects, DocSourceRepository docSources, IdGenerator ids) {
+        return new ManageDocSources(projects, docSources, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    PreviewContextSources previewContextSources(ProjectRepository projects, DocSourceRepository docSources,
+            DocumentationReader reader, JiraAccess jira, IssueTracker tracker) {
+        return new PreviewContextSources(projects, docSources, reader, jira, tracker);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ProposeProjectContext proposeProjectContext(ProjectRepository projects, DocSourceRepository docSources,
+            DocumentationReader reader, JiraAccess jira, IssueTracker tracker, WikiMarkup markup, LlmClient llm,
+            ConsentPolicy consent, ContextProposalStore proposals, ClockPort clock) {
+        return new ProposeProjectContext(projects, docSources, reader, jira, tracker, markup, llm, consent, proposals, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AcceptContextProposal acceptContextProposal(ProjectRepository projects, ContextProposalStore proposals, ClockPort clock) {
+        return new AcceptContextProposal(projects, proposals, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    EditContext editContext(ProjectRepository projects, ClockPort clock) {
+        return new EditContext(projects, clock);
     }
 }

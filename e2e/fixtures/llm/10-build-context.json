@@ -1,0 +1,3 @@
+{"operation": "build-project-context", "userContains": ["Chaque ligne de facturation porte son taux de TVA."], "response": {
+  "markdown": "## Vocabulaire\n\n## Acteurs\n- Le gestionnaire de facturation contrôle les lignes des factures. [source : FACT-120]\n\n## Règles métier\n- Chaque ligne de facturation porte son taux de TVA. [source : http://127.0.0.1:47698/antora/billing/regle-tva.html]\n\n## Contraintes\n\n## Conventions\n"
+}}

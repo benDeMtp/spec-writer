@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectsApi } from '../../core/projects/projects.api';
 import { Project, ProjectInput } from '../../core/projects/projects.model';
@@ -23,7 +24,7 @@ const EMPTY: Draft = { name: '', description: '', jiraProjectKey: '' };
 @Component({
   selector: 'sw-projects-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, NgTemplateOutlet],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, NgTemplateOutlet, RouterLink],
   template: `
     <h1>Projets</h1>
     <div class="sheet">
@@ -51,6 +52,9 @@ const EMPTY: Draft = { name: '', description: '', jiraProjectKey: '' };
                 @if (p.id !== store.currentId()) {
                   <button mat-stroked-button type="button" (click)="select(p)">Rendre courant</button>
                 }
+                <a mat-button [routerLink]="['/projets', p.id, 'contexte']" [attr.aria-label]="'Contexte du projet ' + p.name">
+                  Contexte
+                </a>
                 <button mat-button type="button" (click)="startEdit(p)" [attr.aria-label]="'Modifier le projet ' + p.name">
                   Modifier
                 </button>

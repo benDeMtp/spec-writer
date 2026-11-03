@@ -6,6 +6,7 @@ import dev.specwriter.domain.jira.IssueType;
 import dev.specwriter.domain.jira.IssueTrackerException.Kind;
 import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
+import dev.specwriter.domain.jira.JiraIssuePage;
 import dev.specwriter.domain.jira.JiraIssueSummary;
 import dev.specwriter.domain.jira.JiraSearchPage;
 import dev.specwriter.domain.jira.RequiredField;
@@ -75,6 +76,16 @@ public class FakeIssueTracker implements IssueTracker {
         }
         fail();
         return new JiraSearchPage(searchResults, startAt, searchResults.size());
+    }
+
+    /** Les tickets de {@link #issues} du projet, du plus récent au plus ancien. */
+    @Override
+    public JiraIssuePage recentIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults) {
+        calls.add("recent " + projectKey + " " + startAt + " " + maxResults);
+        fail();
+        List<JiraIssue> all = issues.values().stream().filter(i -> i.key().startsWith(projectKey + "-"))
+                .sorted(java.util.Comparator.comparing(JiraIssue::updated).reversed()).toList();
+        return new JiraIssuePage(all.stream().skip(startAt).limit(maxResults).toList(), startAt, all.size());
     }
 
     @Override

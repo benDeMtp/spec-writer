@@ -48,9 +48,10 @@ final class SessionViews {
     record VersionSummary(int number, String origin, Instant createdAt, boolean pushedToJira) {
     }
 
+    /** {@code contextUpdatedAt} : date du contexte de projet utilisé, absente sans contexte (FR-013d). */
     record SpecificationView(int number, String origin, Instant createdAt, String title, String summary,
             String details, List<UseCase> useCases, List<AcceptanceScenario> scenarios, List<Assumption> assumptions,
-            List<Requirement> requirements, String markdown) {
+            List<Requirement> requirements, String markdown, Instant contextUpdatedAt) {
     }
 
     record ProposalView(UUID proposalId, int baseVersion, SpecificationView proposed, String unifiedDiff) {
@@ -101,7 +102,7 @@ final class SessionViews {
     static SpecificationView specification(SpecificationVersion v) {
         var c = v.content();
         return new SpecificationView(v.number(), v.origin().name(), v.createdAt(), c.title(), c.summary(), c.details(),
-                c.useCases(), c.scenarios(), c.assumptions(), c.requirements(), v.markdown());
+                c.useCases(), c.scenarios(), c.assumptions(), c.requirements(), v.markdown(), v.contextUpdatedAt());
     }
 
     /** La proposition est présentée comme la version qu'elle deviendra si elle est acceptée. */
@@ -109,6 +110,6 @@ final class SessionViews {
         var c = p.content();
         return new ProposalView(p.id(), p.baseVersion(), new SpecificationView(p.baseVersion() + 1, p.origin().name(),
                 p.createdAt(), c.title(), c.summary(), c.details(), c.useCases(), c.scenarios(), c.assumptions(), c.requirements(),
-                p.markdown()), p.unifiedDiff());
+                p.markdown(), p.contextUpdatedAt()), p.unifiedDiff());
     }
 }

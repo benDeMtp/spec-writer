@@ -21,6 +21,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/specification/specification.page').then((m) => m.SpecificationPage),
   },
   { path: 'sessions', title: 'Sessions · spec-writer', loadComponent: () => import('./features/sessions/sessions.page').then((m) => m.SessionsPage) },
+  {
+    path: 'projets/:id/contexte',
+    title: 'Contexte du projet · spec-writer',
+    loadComponent: () => import('./features/project-context/project-context.page').then((m) => m.ProjectContextPage),
+  },
   { path: 'projets', title: 'Projets · spec-writer', loadComponent: () => import('./features/projects/projects.page').then((m) => m.ProjectsPage) },
   { path: 'configuration', title: 'Configuration · spec-writer', loadComponent: () => import('./features/settings/settings.page').then((m) => m.SettingsPage) },
   { path: '**', redirectTo: '' },

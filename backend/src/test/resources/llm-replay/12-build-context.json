@@ -1,0 +1,9 @@
+{
+  "operation": "build-project-context",
+  "userContains": [
+    "IT-CONTEXTE"
+  ],
+  "response": {
+    "markdown": "## Vocabulaire\n\n## Acteurs\n- Le gestionnaire valide les avoirs. [source : FACT-1]\n\n## Règles métier\n- Chaque ligne de facturation porte son taux de TVA. [source : billing/regle-tva.html]\n\n## Contraintes\n\n## Conventions\n"
+  }
+}

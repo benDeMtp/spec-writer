@@ -10,7 +10,8 @@ import java.util.UUID;
 /**
  * Traçabilité (FR-011, FR-013) : chaque use case a une source vérifiable, une source hypothèse est
  * listée dans les hypothèses, chaque scénario référence un use case et chaque use case a un
- * scénario nominal (US2-3).
+ * scénario nominal (US2-3). Une source « contexte du projet » cite un extrait du contexte utilisé
+ * (FR-010 de 002).
  */
 public final class TraceabilityValidator {
 
@@ -18,6 +19,12 @@ public final class TraceabilityValidator {
     }
 
     public static StructureViolations validate(SpecificationContent content, Set<UUID> answeredQuestions) {
+        return validate(content, answeredQuestions, "");
+    }
+
+    public static StructureViolations validate(SpecificationContent content, Set<UUID> answeredQuestions,
+            String projectContext) {
+        String context = normalized(projectContext);
         List<String> out = new ArrayList<>();
         if (content.useCases().isEmpty()) {
             out.add("la spécification doit contenir au moins un use case");
@@ -44,6 +51,13 @@ public final class TraceabilityValidator {
                         out.add(uc.code() + " : une source hypothèse doit figurer dans les hypothèses");
                     }
                 }
+                case PROJECT_CONTEXT -> {
+                    String excerpt = normalized(s.excerpt());
+                    if (excerpt.isEmpty() || !context.contains(excerpt)) {
+                        out.add(uc.code()
+                                + " : une source « contexte du projet » doit citer un extrait exact du contexte du projet");
+                    }
+                }
             }
             boolean nominal = content.scenarios().stream()
                     .anyMatch(sc -> uc.code().equals(sc.useCaseCode()) && sc.kind() == AcceptanceScenario.Kind.NOMINAL);
@@ -58,6 +72,11 @@ public final class TraceabilityValidator {
             }
         }
         return new StructureViolations(out);
+    }
+
+    /** Casse, espacements et marques Markdown d'emphase ignorés. */
+    private static String normalized(String text) {
+        return text == null ? "" : text.replace("*", "").strip().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
     private static boolean listed(SourceRef source, List<Assumption> assumptions) {

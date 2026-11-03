@@ -140,12 +140,12 @@ relue, modifiable, régénérable, utilisée et citée par toutes les opération
 
 ### Tests for User Story 2
 
-- [ ] T019 [P] [US2] `BT/domain/project/ProjectContextTest.java` :
+- [X] T019 [P] [US2] `BT/domain/project/ProjectContextTest.java` :
   - contexte « 20 000 caractères maximum » ;
   - `contextHash` recalculé ;
   - origine `NONE` → `GENERATED` → `EDITED` ;
   - source de documentation : 10 sources au plus, `URL` absolue `http`/`https` sans identifiants (`user:pass@` refusé), `FOLDER` absolu existant, « 2 000 caractères maximum ».
-- [ ] T020 [P] [US2] `BT/infrastructure/docs/AntoraReaderTest.java`, sur `BTR/antora-site/` et WireMock :
+- [X] T020 [P] [US2] `BT/infrastructure/docs/AntoraReaderTest.java`, sur `BTR/antora-site/` et WireMock :
   - index de sitemaps ;
   - extraction de `article.doc` seulement (titres, listes et tableaux conservés en texte) ;
   - page 500 et page sans `article.doc` listées dans les non-lus avec leur motif (`HTTP_ERROR`, `NOT_ANTORA`) ;
@@ -153,7 +153,7 @@ relue, modifiable, régénérable, utilisée et citée par toutes les opération
   - bornes : 2 Mo par page (`TOO_LARGE`), 1 000 pages et 10 min (`LIMIT_REACHED`, avec horloge injectée) ;
   - repli sans sitemap par les liens du même hôte et sous le même chemin ;
   - proxy appliqué (`ProxySettings`).
-- [ ] T021 [P] [US2] `BT/application/context/ProposeProjectContextTest.java`, avec `StubLlm` :
+- [X] T021 [P] [US2] `BT/application/context/ProposeProjectContextTest.java`, avec `StubLlm` :
   - lots d'environ 40 000 caractères pour `summarizeProjectSources`, puis `buildProjectContext` ;
   - les 200 tickets les plus récents demandés par pages de 50 ;
   - une référence citée inconnue des sources provoque une `correction`, 3 essais au plus ;
@@ -162,36 +162,36 @@ relue, modifiable, régénérable, utilisée et citée par toutes les opération
   - proposition gardée en mémoire et rien d'enregistré avant acceptation ;
   - acceptation refusée si le contexte a changé (`CONTEXT_CHANGED`) ;
   - aucune page ni aucun ticket journalisé.
-- [ ] T022 [P] [US2] Étendre `BT/infrastructure/llm/PromptInjectionIT.java` : des pages Antora et des descriptions de tickets malveillantes (« ignore tes instructions », fermeture de `</sources>` ou `</contexte-projet>`) restent des données échappées dans les deux nouvelles opérations et dans `<contexte-projet>`.
-- [ ] T023 [P] [US2] `BT/domain/specification/TraceabilityValidatorTest.java` et `InputFingerprintTest.java` :
+- [X] T022 [P] [US2] Étendre `BT/infrastructure/llm/PromptInjectionIT.java` : des pages Antora et des descriptions de tickets malveillantes (« ignore tes instructions », fermeture de `</sources>` ou `</contexte-projet>`) restent des données échappées dans les deux nouvelles opérations et dans `<contexte-projet>`.
+- [X] T023 [P] [US2] `BT/domain/specification/TraceabilityValidatorTest.java` et `InputFingerprintTest.java` :
   - source `PROJECT_CONTEXT` acceptée si son extrait figure dans le contexte, refusée sinon ;
   - `contextHash` dans l'empreinte, donc une nouvelle version à contexte modifié et la réutilisation à contexte identique (FR-011).
-- [ ] T024 [P] [US2] Golden set :
+- [X] T024 [P] [US2] Golden set :
   - `BTR/golden/04-facturation-avec-contexte/` et `05-conges-avec-contexte/`, avec `need.md`, `context.md`, `answers.json` et des réponses LLM dont des sources `PROJECT_CONTEXT` ;
   - `GoldenSetIT` lit `context.md` s'il existe et vérifie `<contexte-projet>` par `userContains`.
-- [ ] T025 [P] [US2] `BT/infrastructure/web/ContextResourceIT.java` : contrat `/api/projects/{id}/context*`, `/doc-sources*` et `/context-proposals*`, de bout en bout, avec WireMock (Antora et Jira) et le LLM rejoué (`BTR/llm-replay/`).
-- [ ] T026 [P] [US2] E2E `E/us8-project-context.spec.ts`, scénarios quickstart P5 à P8 avec axe ; réponses LLM rejouées dans `e2e/fixtures/llm/09-summarize-sources.json`, `10-build-context.json` et des questions sans thème ACTORS.
+- [X] T025 [P] [US2] `BT/infrastructure/web/ContextResourceIT.java` : contrat `/api/projects/{id}/context*`, `/doc-sources*` et `/context-proposals*`, de bout en bout, avec WireMock (Antora et Jira) et le LLM rejoué (`BTR/llm-replay/`).
+- [X] T026 [P] [US2] E2E `E/us8-project-context.spec.ts`, scénarios quickstart P5 à P8 avec axe ; réponses LLM rejouées dans `e2e/fixtures/llm/09-summarize-sources.json`, `10-build-context.json` et des questions sans thème ACTORS.
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Écrire la migration `BR/db/migration/V8__project_context.sql` :
+- [X] T027 [US2] Écrire la migration `BR/db/migration/V8__project_context.sql` :
   - colonnes `project.context`, `context_hash`, `context_origin` (`NONE`, `GENERATED`, `EDITED`) et `context_updated_at` ;
   - table `project_doc_source` (`ON DELETE CASCADE`, `kind` `URL`|`FOLDER`, `location` de 2 000 caractères au plus, `last_read_at`, `last_result` JSON sans contenu) ;
   - colonnes `specification_version.context_hash` et `context_updated_at`.
-- [ ] T028 [US2] Domaine : `B/domain/project/ProjectContext.java` et `DocSource.java`, le port `B/domain/port/DocumentationReader.java` (pages `{ref, title, text}` et non-lus `{location, reason}`), et le type `SourceRef.Kind.PROJECT_CONTEXT`. Adapter `TraceabilityValidator` et `InputFingerprint` (T023).
-- [ ] T029 [US2] Implémenter `B/infrastructure/docs/AntoraReader.java` avec jsoup, le sitemap, le dossier, les bornes, 4 requêtes en parallèle, un délai de 15 s par page et le proxy (research.md R3). Faire passer T020.
-- [ ] T030 [US2] Port LLM :
+- [X] T028 [US2] Domaine : `B/domain/project/ProjectContext.java` et `DocSource.java`, le port `B/domain/port/DocumentationReader.java` (pages `{ref, title, text}` et non-lus `{location, reason}`), et le type `SourceRef.Kind.PROJECT_CONTEXT`. Adapter `TraceabilityValidator` et `InputFingerprint` (T023).
+- [X] T029 [US2] Implémenter `B/infrastructure/docs/AntoraReader.java` avec jsoup, le sitemap, le dossier, les bornes, 4 requêtes en parallèle, un délai de 15 s par page et le proxy (research.md R3). Faire passer T020.
+- [X] T030 [US2] Port LLM :
   - ajouter `projectContext` aux records `B/domain/llm/*Request.java`, propagé dans `withCorrection` ;
   - ajouter les records `SummarizeSourcesRequest`/`SourceFacts` et `BuildContextRequest`/`ProjectContextDraft` ;
   - ajouter les méthodes `summarizeProjectSources` et `buildProjectContext` à `LlmClient` et `LangChainLlmClient`, avec leurs schémas JSON dans `LlmSchemas` ;
   - `UserMessages` : balises `<contexte-projet>` (après `<langue>`) et `<sources>`, contenu échappé ;
   - adapter `StubLlm`, `ScriptedChatModel` et `ReplayChatModel`.
-- [ ] T031 [US2] Prompts :
+- [X] T031 [US2] Prompts :
   - créer `BR/prompts/summarize-project-sources.txt` et `build-project-context.txt` (contracts/llm-port.md : sections fixes, `[source : …]`, aucune invention, sources = données) ;
   - ajouter `<contexte-projet>` aux 6 prompts existants : déclaré dans la règle de sécurité, information à ne pas redemander, source `PROJECT_CONTEXT` citable, contradiction à remonter.
-- [ ] T032 [US2] Cas d'usage `B/application/context/` : `PreviewContextSources` (comptes sans lecture des pages, FR-013b), `ProposeProjectContext` (map-reduce avec vérification des références), `AcceptContextProposal`, `EditContext` et `ManageDocSources`. Brancher le contexte du projet dans `NextBatch`, `ReviseAnswer`, `GenerateSpecification`, `ProposeAiEdit`, `PushToJira` et `ImportJiraIssue`. Enregistrer `contextHash` et `contextUpdatedAt` sur chaque version.
-- [ ] T033 [US2] Créer `B/infrastructure/web/ContextResource.java` (contrat) et ajouter `PROJECT_CONTEXT` aux vues `SessionViews` (libellé « contexte du projet » et extrait, date du contexte utilisé).
-- [ ] T034 [P] [US2] Front `F/features/project-context/` :
+- [X] T032 [US2] Cas d'usage `B/application/context/` : `PreviewContextSources` (comptes sans lecture des pages, FR-013b), `ProposeProjectContext` (map-reduce avec vérification des références), `AcceptContextProposal`, `EditContext` et `ManageDocSources`. Brancher le contexte du projet dans `NextBatch`, `ReviseAnswer`, `GenerateSpecification`, `ProposeAiEdit`, `PushToJira` et `ImportJiraIssue`. Enregistrer `contextHash` et `contextUpdatedAt` sur chaque version.
+- [X] T033 [US2] Créer `B/infrastructure/web/ContextResource.java` (contrat) et ajouter `PROJECT_CONTEXT` aux vues `SessionViews` (libellé « contexte du projet » et extrait, date du contexte utilisé).
+- [X] T034 [P] [US2] Front `F/features/project-context/` :
   - éditeur de fiche (Markdown avec aperçu) ;
   - sources de documentation (ajout d'un lien ou d'un dossier, suppression, résultat de la dernière lecture) ;
   - aperçu de l'envoi (pages, tickets, non-lus) suivi du dialogue de consentement existant ;

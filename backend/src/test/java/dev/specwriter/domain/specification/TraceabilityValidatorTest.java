@@ -40,6 +40,27 @@ class TraceabilityValidatorTest {
     }
 
     @Test
+    void sourceContexteDuProjetCiteUnExtraitDuContexte() {
+        String context = "## Acteurs\n- Le **gestionnaire de facturation** valide les factures.\n- Le comptable lettre.";
+        SourceRef cited = new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "gestionnaire de facturation");
+        assertThat(checkWithContext(cited, context).isEmpty()).isTrue();
+        // casse et espaces ne comptent pas
+        assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "Le  COMPTABLE lettre"), context)
+                .isEmpty()).isTrue();
+        assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "le directeur signe"), context)
+                .messages()).anyMatch(m -> m.contains("contexte du projet"));
+        assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, " "), context).messages())
+                .anyMatch(m -> m.contains("contexte du projet"));
+        // sans contexte, aucune source ne peut le citer
+        assertThat(check(cited, List.of()).messages()).anyMatch(m -> m.contains("contexte du projet"));
+    }
+
+    static StructureViolations checkWithContext(SourceRef source, String context) {
+        return TraceabilityValidator.validate(Specs.with(List.of(Specs.useCase("UC-01", source)),
+                List.of(Specs.scenario("SC-01-01", "UC-01", Kind.NOMINAL)), List.of()), Set.of(Specs.Q1), context);
+    }
+
+    @Test
     void scenarioRattacheEtScenarioNominalAttendu() {
         SourceRef need = new SourceRef(SourceRef.Kind.NEED_EXCERPT, null, "payer");
         StructureViolations v = TraceabilityValidator.validate(Specs.with(List.of(Specs.useCase("UC-01", need)),

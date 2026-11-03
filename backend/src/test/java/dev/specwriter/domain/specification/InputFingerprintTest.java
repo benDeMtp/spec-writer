@@ -31,6 +31,18 @@ class InputFingerprintTest {
     }
 
     @Test
+    void leContexteDuProjetEntreDansLEmpreinte() {
+        List<Question> treated = IdentifierAssignerTest.treated();
+        String sans = InputFingerprint.of(NEED, treated, "0.1.0", Language.FR);
+        // sans contexte, l'empreinte est celle de 001 : les versions existantes restent réutilisables
+        assertThat(InputFingerprint.of(NEED, treated, "0.1.0", Language.FR, "")).isEqualTo(sans);
+        String avec = InputFingerprint.of(NEED, treated, "0.1.0", Language.FR, "a".repeat(64));
+        assertThat(avec).isNotEqualTo(sans)
+                .isEqualTo(InputFingerprint.of(NEED, treated, "0.1.0", Language.FR, "a".repeat(64)));
+        assertThat(InputFingerprint.of(NEED, treated, "0.1.0", Language.FR, "b".repeat(64))).isNotEqualTo(avec);
+    }
+
+    @Test
     void decoupageAmbiguImpossible() {
         assertThat(InputFingerprint.of("ab", List.of(), "c", Language.FR))
                 .isNotEqualTo(InputFingerprint.of("a", List.of(), "bc", Language.FR));

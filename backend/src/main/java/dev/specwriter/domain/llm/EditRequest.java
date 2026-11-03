@@ -9,13 +9,19 @@ import java.util.List;
  * consigne système.
  */
 public record EditRequest(String need, Language language, List<QuestionAndAnswer> answers, String currentMarkdown,
-        String instruction, String correction) {
+        String instruction, String correction, String projectContext) {
 
     public EditRequest {
         answers = List.copyOf(answers);
+        projectContext = projectContext == null ? "" : projectContext;
+    }
+
+    public EditRequest(String need, Language language, List<QuestionAndAnswer> answers, String currentMarkdown,
+            String instruction, String correction) {
+        this(need, language, answers, currentMarkdown, instruction, correction, "");
     }
 
     public EditRequest withCorrection(String newCorrection) {
-        return new EditRequest(need, language, answers, currentMarkdown, instruction, newCorrection);
+        return new EditRequest(need, language, answers, currentMarkdown, instruction, newCorrection, projectContext);
     }
 }

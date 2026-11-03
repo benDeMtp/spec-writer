@@ -1,0 +1,5 @@
+{"operation": "summarize-project-sources", "userContains": ["Taux de TVA"], "response": {
+  "facts": [
+    {"category": "BUSINESS_RULE", "statement": "Chaque ligne de facturation porte son taux de TVA.", "refs": ["http://127.0.0.1:47698/antora/billing/regle-tva.html"]},
+    {"category": "ACTOR", "statement": "Le gestionnaire de facturation contrôle les lignes des factures.", "refs": ["FACT-120"]}
+  ]}}

@@ -30,8 +30,8 @@ class PushToJiraTest {
 
     @BeforeEach
     void setUp() {
-        push = new PushToJira(w.tracker, w.jira, w.markup, w.llm, w.policy, w.sessions, w.versions, w.tickets, w.proposals,
-                w.clock, w.ids);
+        push = new PushToJira(w.tracker, w.jira, w.markup, w.llm, w.policy, w.sessions, w.projects, w.versions,
+                w.tickets, w.proposals, w.clock, w.ids);
         session = w.generatedSession();
         w.link(session, "PROJ-5", "wiki:ancienne description");
         localMarkdown = w.versions.find(session.id(), 1).orElseThrow().markdown();
@@ -138,7 +138,7 @@ class PushToJiraTest {
     void consentementEtElementsAbsents() {
         JiraWorld bare = new JiraWorld().configureJira();
         PushToJira p = new PushToJira(bare.tracker, bare.jira, bare.markup, bare.llm, bare.policy, bare.sessions,
-                bare.versions, bare.tickets, bare.proposals, bare.clock, bare.ids);
+                bare.projects, bare.versions, bare.tickets, bare.proposals, bare.clock, bare.ids);
         assertThatThrownBy(() -> p.run(session.id(), 1, true, null)).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.CONSENT_REQUIRED));
         assertThat(bare.tracker.calls).isEmpty();
@@ -156,8 +156,8 @@ class PushToJiraTest {
     void reprendreOuFusionnerDemandeLeConsentementCopilot() {
         JiraWorld noCopilot = new JiraWorld().configureJira().grant(ConsentService.JIRA);
         PushToJira p = new PushToJira(noCopilot.tracker, noCopilot.jira, noCopilot.markup, noCopilot.llm, noCopilot.policy,
-                noCopilot.sessions, noCopilot.versions, noCopilot.tickets, noCopilot.proposals, noCopilot.clock,
-                noCopilot.ids);
+                noCopilot.sessions, noCopilot.projects, noCopilot.versions, noCopilot.tickets, noCopilot.proposals,
+                noCopilot.clock, noCopilot.ids);
         Session s = noCopilot.generatedSession();
         noCopilot.link(s, "PROJ-6", "wiki:a");
         noCopilot.editInJira("PROJ-6", "wiki:b");

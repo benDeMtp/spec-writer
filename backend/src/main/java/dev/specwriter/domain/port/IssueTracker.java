@@ -4,6 +4,7 @@ import dev.specwriter.domain.jira.CreatedIssue;
 import dev.specwriter.domain.jira.IssueType;
 import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
+import dev.specwriter.domain.jira.JiraIssuePage;
 import dev.specwriter.domain.jira.JiraSearchPage;
 import dev.specwriter.domain.jira.RequiredField;
 import java.util.List;
@@ -37,6 +38,13 @@ public interface IssueTracker {
      * La requête JQL est construite par l'adaptateur : {@code terms} n'est jamais interprété.
      */
     JiraSearchPage searchText(JiraEndpoint endpoint, String projectKey, String terms, int startAt, int maxResults);
+
+    /**
+     * Tickets d'un projet, du plus récemment modifié au plus ancien, avec leur description
+     * ({@code search}, JQL {@code project = X ORDER BY updated DESC}, champs
+     * {@code summary,description,updated}). Sert à la fiche de contexte (research.md R4 de 002).
+     */
+    JiraIssuePage recentIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults);
 
     /** Lecture d'un ticket ({@code issue/{key}}, champs {@code summary,description,updated}). */
     JiraIssue getIssue(JiraEndpoint endpoint, String issueKey);

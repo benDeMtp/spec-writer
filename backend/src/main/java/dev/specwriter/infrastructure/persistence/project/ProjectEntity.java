@@ -25,6 +25,19 @@ public class ProjectEntity {
     @Column(name = "jira_project_key")
     public String jiraProjectKey;
 
+    @Column(nullable = false)
+    public String context;
+
+    @Column(name = "context_hash", nullable = false)
+    public String contextHash;
+
+    @Column(name = "context_origin", nullable = false)
+    public String contextOrigin;
+
+    @Convert(converter = InstantTextConverter.class)
+    @Column(name = "context_updated_at")
+    public Instant contextUpdatedAt;
+
     @Convert(converter = InstantTextConverter.class)
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;

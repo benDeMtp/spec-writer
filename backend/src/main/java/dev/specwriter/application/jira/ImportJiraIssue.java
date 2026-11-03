@@ -1,5 +1,7 @@
 package dev.specwriter.application.jira;
 
+import dev.specwriter.domain.project.Project;
+import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.application.project.CurrentProject;
 import dev.specwriter.application.specification.DraftValidation;
 import dev.specwriter.domain.consent.ConsentPolicy;
@@ -78,13 +80,15 @@ public class ImportJiraIssue {
         String text = markup.toMarkdown(issue.description(), target.issueUrl(issue.key())).strip();
         boolean truncated = text.length() > Need.MAX_LENGTH;
         Need need = need(truncated ? text.substring(0, Need.MAX_LENGTH) : text, issue.summary());
-        Session session = Session.imported(ids.next(), CurrentProject.resolve(projects).id(), need, issue.summary(),
-                clock.now());
-        SpecificationContent content = structure(llm, need.text(), session.language());
+        Project project = CurrentProject.resolve(projects);
+        Session session = Session.imported(ids.next(), project.id(), need, issue.summary(), clock.now());
+        ProjectContext context = project.context();
+        SpecificationContent content = structure(llm, need.text(), session.language(), context.markdown());
 
         SpecificationVersion version = new SpecificationVersion(ids.next(), session.id(), 1, content,
                 "jira-import:" + issue.key() + ":" + issue.updated(), VersionOrigin.JIRA_IMPORT,
-                MarkdownRenderer.render(content, session.language()), clock.now());
+                MarkdownRenderer.render(content, session.language()), clock.now())
+                .withContext(context.hash(), context.updatedAt());
         LinkedJiraTicket ticket = new LinkedJiraTicket(session.id(), issue.key(), target.issueUrl(issue.key()), null, 1,
                 issue.updated(), ConflictDetector.hash(issue.description()), clock.now(), null,
                 LinkedJiraTicket.SyncState.IN_SYNC);
@@ -108,9 +112,9 @@ public class ImportJiraIssue {
     }
 
     /** Structuration d'un texte importé ; un texte non structurable donne {@code IMPORT_UNSTRUCTURABLE}. */
-    static SpecificationContent structure(LlmClient llm, String text, Language language) {
-        StructureImportRequest request = new StructureImportRequest(text, language, null);
+    static SpecificationContent structure(LlmClient llm, String text, Language language, String projectContext) {
+        StructureImportRequest request = new StructureImportRequest(text, language, null, projectContext);
         return DraftValidation.produce(c -> llm.structureImportedText(request.withCorrection(c)), List.of(), language,
-                ErrorCode.IMPORT_UNSTRUCTURABLE);
+                ErrorCode.IMPORT_UNSTRUCTURABLE, projectContext);
     }
 }

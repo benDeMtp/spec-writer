@@ -184,7 +184,7 @@ public final class EvalRuns {
         try {
             SessionSnapshot s = new StartSession(sessions, new InMemoryProjects(), llm, policy, clock, ids)
                     .run(need, null);
-            AnswerQuestion answer = new AnswerQuestion(sessions, llm, policy, clock, ids);
+            AnswerQuestion answer = new AnswerQuestion(sessions, new InMemoryProjects(), llm, policy, clock, ids);
             // au-delà de MAX_BATCHES, seules les contradictions sont encore tranchées : elles bloquent la génération
             while (!s.questionnaire().currentBatch().isEmpty()
                     && (s.questionnaire().currentBatch().getFirst().batch() <= MAX_BATCHES
@@ -195,7 +195,7 @@ public final class EvalRuns {
                 s = answer.run(s.session().id(), q.id(), reply.skip() ? "" : reply.answer(), reply.skip());
             }
             new ConcludeQuestionnaire(sessions, clock).run(s.session().id());
-            SpecificationContent content = new GenerateSpecification(sessions, new InMemorySpecifications(), llm, policy,
+            SpecificationContent content = new GenerateSpecification(sessions, new InMemoryProjects(), new InMemorySpecifications(), llm, policy,
                     clock, ids, "eval").run(s.session().id()).version().content();
             scenarios = content.scenarios().size();
             violations = ScenarioStructureValidator.validate(content).messages();

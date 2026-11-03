@@ -10,6 +10,8 @@ import dev.specwriter.application.specification.GenerateSpecification;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentRecord;
 import dev.specwriter.domain.consent.ConsentService;
+import dev.specwriter.domain.project.Project;
+import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.scenario.ScenarioStructureValidator;
@@ -66,12 +68,26 @@ class GoldenSetIT {
         FixedClock clock = new FixedClock();
         SequentialIdGenerator ids = new SequentialIdGenerator();
         LangChainLlmClient llm = new LangChainLlmClient(model);
+        // context.md, s'il existe : la fiche de contexte du projet par défaut (feature 002, FR-011)
+        InMemoryProjects projects = new InMemoryProjects();
+        Path contextFile = dir.resolve("context.md");
+        String context = Files.exists(contextFile) ? Files.readString(contextFile) : "";
+        if (!context.isEmpty()) {
+            Project project = projects.find(Project.DEFAULT_ID).orElseThrow();
+            projects.save(project.withContext(ProjectContext.edited(context, Instant.EPOCH)));
+            try (Stream<Path> files = Files.list(dir.resolve("llm"))) {
+                for (Path f : files.toList()) {
+                    assertThat(JSON.readTree(Files.readString(f)).path("userContains").toString())
+                            .as("%s reçoit le contexte", f.getFileName()).contains("<contexte-projet>");
+                }
+            }
+        }
 
-        SessionSnapshot s = new StartSession(sessions, new InMemoryProjects(), llm, policy, clock, ids)
+        SessionSnapshot s = new StartSession(sessions, projects, llm, policy, clock, ids)
                 .run(Files.readString(dir.resolve("need.md")), null);
         Deque<JsonNode> answers = new ArrayDeque<>();
         JSON.readTree(Files.readString(dir.resolve("answers.json"))).forEach(answers::add);
-        AnswerQuestion answer = new AnswerQuestion(sessions, llm, policy, clock, ids);
+        AnswerQuestion answer = new AnswerQuestion(sessions, projects, llm, policy, clock, ids);
         while (!s.questionnaire().currentBatch().isEmpty()) {
             Question q = s.questionnaire().currentBatch().getFirst();
             JsonNode a = answers.poll();
@@ -80,7 +96,8 @@ class GoldenSetIT {
         }
         assertThat(answers).as("réponses non utilisées").isEmpty();
         new ConcludeQuestionnaire(sessions, clock).run(s.session().id());
-        SpecificationVersion version = new GenerateSpecification(sessions, versions, llm, policy, clock, ids, "golden")
+        SpecificationVersion version = new GenerateSpecification(sessions, projects, versions, llm, policy, clock, ids,
+                "golden")
                 .run(s.session().id()).version();
 
         assertThat(model.exhausted()).as("tous les appels LLM prévus ont eu lieu").isTrue();
@@ -88,7 +105,8 @@ class GoldenSetIT {
         Set<java.util.UUID> treated = sessions.questionnaire(s.session().id()).orElseThrow().treated().stream()
                 .map(Question::id).collect(Collectors.toSet());
         assertThat(ScenarioStructureValidator.validate(c).messages()).isEmpty();
-        assertThat(TraceabilityValidator.validate(c, treated).messages()).isEmpty();
+        assertThat(TraceabilityValidator.validate(c, treated, projects.find(Project.DEFAULT_ID)
+                .orElseThrow().context().markdown()).messages()).isEmpty();
         for (int i = 0; i < c.useCases().size(); i++) {
             assertThat(c.useCases().get(i).code()).isEqualTo("UC-%02d".formatted(i + 1));
         }

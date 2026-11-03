@@ -7,17 +7,21 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.llm.BuildContextRequest;
 import dev.specwriter.domain.llm.Contradiction;
 import dev.specwriter.domain.llm.DraftSpecification;
 import dev.specwriter.domain.llm.EditRequest;
 import dev.specwriter.domain.llm.GenerationRequest;
 import dev.specwriter.domain.llm.MergeRequest;
+import dev.specwriter.domain.llm.ProjectContextDraft;
 import dev.specwriter.domain.llm.ProposeQuestionsRequest;
 import dev.specwriter.domain.llm.ProposeQuestionsResult;
 import dev.specwriter.domain.llm.ProposedQuestion;
 import dev.specwriter.domain.llm.ReassessRequest;
 import dev.specwriter.domain.llm.ReassessResult;
+import dev.specwriter.domain.llm.SourceFacts;
 import dev.specwriter.domain.llm.StructureImportRequest;
+import dev.specwriter.domain.llm.SummarizeSourcesRequest;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.port.WikiMarkup;
 import dev.specwriter.domain.question.QuestionTheme;
@@ -77,42 +81,56 @@ public class LangChainLlmClient implements LlmClient {
     @Override
     public ProposeQuestionsResult proposeQuestions(ProposeQuestionsRequest request) {
         String user = UserMessages.questions(request.need(), request.language(), request.known(),
-                request.remainingThemes());
+                request.remainingThemes(), request.projectContext());
         return call("propose-questions", user, LlmSchemas.QUESTIONS, LangChainLlmClient::toQuestions);
     }
 
     @Override
     public DraftSpecification generateSpecification(GenerationRequest request) {
         String user = UserMessages.generation(request.need(), request.language(), request.answers(),
-                request.correction());
+                request.correction(), request.projectContext());
         return call("generate-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public ReassessResult reassessAfterChange(ReassessRequest request) {
         String user = UserMessages.reassess(request.need(), request.language(), request.known(),
-                request.changedQuestionId());
+                request.changedQuestionId(), request.projectContext());
         return call("reassess-after-change", user, LlmSchemas.REASSESS, LangChainLlmClient::toReassess);
     }
 
     @Override
     public DraftSpecification editSpecification(EditRequest request) {
         String user = UserMessages.edit(request.need(), request.language(), request.answers(), request.currentMarkdown(),
-                request.instruction(), request.correction());
+                request.instruction(), request.correction(), request.projectContext());
         return call("edit-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public DraftSpecification mergeConflict(MergeRequest request) {
         String user = UserMessages.merge(request.need(), request.language(), request.answers(), request.localMarkdown(),
-                request.jiraMarkdown(), request.correction());
+                request.jiraMarkdown(), request.correction(), request.projectContext());
         return call("merge-conflict", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public DraftSpecification structureImportedText(StructureImportRequest request) {
-        String user = UserMessages.structure(request.text(), request.language(), request.correction());
+        String user = UserMessages.structure(request.text(), request.language(), request.correction(),
+                request.projectContext());
         return call("structure-imported-text", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
+    }
+
+    @Override
+    public SourceFacts summarizeProjectSources(SummarizeSourcesRequest request) {
+        String user = UserMessages.sources(request.language(), request.sources(), request.correction());
+        return call("summarize-project-sources", user, LlmSchemas.FACTS, LangChainLlmClient::toFacts);
+    }
+
+    @Override
+    public ProjectContextDraft buildProjectContext(BuildContextRequest request) {
+        String user = UserMessages.buildContext(request.language(), request.facts(), request.currentContext(),
+                request.correction());
+        return call("build-project-context", user, LlmSchemas.PROJECT_CONTEXT, LangChainLlmClient::toContext);
     }
 
     private <T> T call(String operation, String user, ResponseFormat format, Function<String, T> parse) {
@@ -146,6 +164,22 @@ public class LangChainLlmClient implements LlmClient {
         return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
                 TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
                 draft.requirements());
+    }
+
+    private static SourceFacts toFacts(String json) {
+        SourceFacts facts = JSON.readValue(json, SourceFacts.class);
+        if (facts == null || facts.facts().stream().anyMatch(f -> f.category() == null || blank(f.statement()))) {
+            throw new IllegalArgumentException("fait sans catégorie ou sans énoncé");
+        }
+        return facts;
+    }
+
+    private static ProjectContextDraft toContext(String json) {
+        ProjectContextDraft draft = JSON.readValue(json, ProjectContextDraft.class);
+        if (draft == null || draft.markdown() == null) {
+            throw new IllegalArgumentException("fiche absente");
+        }
+        return new ProjectContextDraft(TABLES.wikiTablesToMarkdown(draft.markdown()));
     }
 
     private static ProposeQuestionsResult toQuestions(String json) {

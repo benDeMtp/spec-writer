@@ -1,0 +1,6 @@
+{"operation": "propose-questions", "userContains": ["<contexte-projet>", "Le responsable hiérarchique valide"], "response": {
+  "questions": [
+    {"theme": "EDGE_CASES", "label": "Que devient la demande si le responsable est absent ?", "rationale": "Le délai de réponse de 5 jours ouvrés doit être tenu",
+     "suggestions": ["La demande est transmise à son remplaçant", "La demande attend son retour"], "defaultValue": "La demande est transmise à son remplaçant", "dependsOnQuestionIds": []}
+  ],
+  "contradictions": [], "coveredThemes": ["ACTORS", "GOAL", "NOMINAL_FLOW", "BUSINESS_RULES", "ERRORS", "NON_FUNCTIONAL"]}}

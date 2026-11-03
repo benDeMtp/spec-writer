@@ -2,9 +2,12 @@ package dev.specwriter.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.specwriter.domain.port.DocSourceRepository;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.JiraProjectKey;
 import dev.specwriter.domain.project.Project;
+import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.project.ProjectName;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -21,6 +24,9 @@ class ProjectPersistenceIT {
 
     @Inject
     ProjectRepository projects;
+
+    @Inject
+    DocSourceRepository sources;
 
     UUID created;
 
@@ -39,6 +45,31 @@ class ProjectPersistenceIT {
             assertThat(p.jiraProjectKey()).isNull();
         });
         assertThat(projects.findByNameKey("projet par défaut")).isPresent();
+    }
+
+    @Test
+    void contexteEtSourcesRelusALIdentique() {
+        Project p = Project.create(UUID.randomUUID(), ProjectName.of("Paie " + UUID.randomUUID()), null, null, T0)
+                .withContext(ProjectContext.generated("## Acteurs\n- gestionnaire de paie", T0.plusSeconds(5)));
+        created = p.id();
+        projects.save(p);
+        assertThat(projects.find(p.id())).contains(p);
+
+        DocSource first = DocSource.create(UUID.randomUUID(), p.id(), DocSource.Kind.URL, "https://docs.example.com/paie/");
+        DocSource second = DocSource.create(UUID.randomUUID(), p.id(), DocSource.Kind.URL, "http://localhost:8080/");
+        sources.save(first);
+        sources.save(second);
+        DocSource read = first.read(T0.plusSeconds(10), new DocSource.ReadSummary(30, 1, false));
+        sources.save(read);
+        assertThat(sources.list(p.id())).containsExactly(read, second);
+        assertThat(sources.find(first.id())).contains(read);
+        sources.delete(second.id());
+        assertThat(sources.list(p.id())).containsExactly(read);
+
+        // supprimer le projet supprime ses sources (ON DELETE CASCADE)
+        projects.delete(p.id());
+        created = null;
+        assertThat(sources.list(p.id())).isEmpty();
     }
 
     @Test

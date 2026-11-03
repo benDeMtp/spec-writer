@@ -57,7 +57,7 @@ export interface VersionSummary {
 }
 
 export interface SourceRef {
-  kind: 'NEED_EXCERPT' | 'ANSWER' | 'ASSUMPTION';
+  kind: 'NEED_EXCERPT' | 'ANSWER' | 'ASSUMPTION' | 'PROJECT_CONTEXT';
   questionId: string | null;
   excerpt: string;
 }
@@ -112,4 +112,6 @@ export interface Specification {
   assumptions: Assumption[];
   requirements: Requirement[];
   markdown: string;
+  /** Date du contexte de projet utilisé, absente sans contexte (FR-013d de 002). */
+  contextUpdatedAt?: string | null;
 }

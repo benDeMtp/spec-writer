@@ -58,7 +58,7 @@ final class LlmSchemas {
                     .addProperty("nominalFlow", array(string()))
                     .addProperty("alternatives", array(string()))
                     .addProperty("source", JsonObjectSchema.builder()
-                            .addEnumProperty("kind", List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION"))
+                            .addEnumProperty("kind", List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION", "PROJECT_CONTEXT"))
                             .addStringProperty("questionId")
                             .addStringProperty("excerpt")
                             .build())
@@ -82,6 +82,20 @@ final class LlmSchemas {
                     .addEnumProperty("category", List.of("FUNCTIONAL", "TECHNICAL"))
                     .addStringProperty("statement")
                     .build()))
+            .build());
+
+    /** Faits sourcés d'un lot de pages et de tickets (feature 002, research.md R4). */
+    static final ResponseFormat FACTS = format("facts", JsonObjectSchema.builder()
+            .addProperty("facts", array(JsonObjectSchema.builder()
+                    .addEnumProperty("category", List.of("VOCABULARY", "ACTOR", "BUSINESS_RULE", "CONSTRAINT", "CONVENTION"))
+                    .addStringProperty("statement")
+                    .addProperty("refs", array(string()))
+                    .build()))
+            .build());
+
+    /** Fiche de contexte de projet, en Markdown (feature 002, research.md R4). */
+    static final ResponseFormat PROJECT_CONTEXT = format("project_context", JsonObjectSchema.builder()
+            .addStringProperty("markdown")
             .build());
 
     private LlmSchemas() {

@@ -3,6 +3,7 @@ package dev.specwriter.infrastructure.persistence.project;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.project.JiraProjectKey;
 import dev.specwriter.domain.project.Project;
+import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.project.ProjectName;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -27,6 +28,10 @@ public class ProjectJpaRepository implements ProjectRepository {
         e.nameKey = p.nameKey();
         e.description = p.description();
         e.jiraProjectKey = p.jiraProjectKey() == null ? null : p.jiraProjectKey().value();
+        e.context = p.context().markdown();
+        e.contextHash = p.context().hash();
+        e.contextOrigin = p.context().origin().name();
+        e.contextUpdatedAt = p.context().updatedAt();
         e.createdAt = p.createdAt();
         e.updatedAt = p.updatedAt();
         em.merge(e);
@@ -83,7 +88,9 @@ public class ProjectJpaRepository implements ProjectRepository {
     }
 
     private static Project toDomain(ProjectEntity e) {
+        ProjectContext context = new ProjectContext(e.context, e.contextHash, ProjectContext.Origin.valueOf(e.contextOrigin),
+                e.contextUpdatedAt);
         return new Project(UUID.fromString(e.id), new ProjectName(e.name), e.description,
-                JiraProjectKey.ofNullable(e.jiraProjectKey), e.createdAt, e.updatedAt);
+                JiraProjectKey.ofNullable(e.jiraProjectKey), context, e.createdAt, e.updatedAt);
     }
 }

@@ -45,6 +45,8 @@ public enum ErrorCode {
     PROJECT_NOT_FOUND(404, "Ce projet n'existe plus.", ErrorAction.NONE),
     LAST_PROJECT(409, "Le dernier projet restant ne peut pas être supprimé.", ErrorAction.NONE),
     OPERATION_IN_PROGRESS(409, "Une opération de l'IA est en cours. Attendez sa fin, puis réessayez.", ErrorAction.RETRY),
+    CONTEXT_CHANGED(409, "Le contexte du projet a changé depuis cette proposition. Régénérez-la ou gardez la fiche actuelle.",
+            ErrorAction.NONE),
 
     // Jira
     JIRA_NOT_CONFIGURED(409, "Jira n'est pas configuré.", ErrorAction.OPEN_SETTINGS),

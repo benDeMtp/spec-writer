@@ -14,14 +14,24 @@ final class JqlBuilder {
     private JqlBuilder() {
     }
 
+    /** Tous les tickets du projet, du plus récemment modifié au plus ancien. */
+    static String recent(String projectKey) {
+        requireProject(projectKey);
+        return "project = " + projectKey + " ORDER BY updated DESC";
+    }
+
     static String textSearch(String projectKey, String terms) {
-        if (projectKey == null || !PROJECT.matcher(projectKey).matches()) {
-            throw new IllegalArgumentException("Clé de projet invalide");
-        }
+        requireProject(projectKey);
         String cleaned = LUCENE.matcher(terms == null ? "" : terms).replaceAll(" ").replaceAll("\\s+", " ").trim();
         if (cleaned.replace("\"", "").isBlank()) {
             throw new IllegalArgumentException("Recherche vide");
         }
         return "project = " + projectKey + " AND text ~ \"" + cleaned.replace("\"", "\\\"") + "\"";
+    }
+
+    private static void requireProject(String projectKey) {
+        if (projectKey == null || !PROJECT.matcher(projectKey).matches()) {
+            throw new IllegalArgumentException("Clé de projet invalide");
+        }
     }
 }

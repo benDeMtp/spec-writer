@@ -1,5 +1,6 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.domain.project.Project;
 import dev.specwriter.application.project.CurrentProject;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
@@ -40,9 +41,10 @@ public class StartSession {
 
     public SessionSnapshot run(String needText, String name) {
         Need need = Need.of(needText);
-        Session session = Session.start(ids.next(), CurrentProject.resolve(projects).id(), need, name, clock.now());
+        Project project = CurrentProject.resolve(projects);
+        Session session = Session.start(ids.next(), project.id(), need, name, clock.now());
         consent.requireGranted(ConsentService.COPILOT);
-        Questionnaire questionnaire = NextBatch.ask(llm, ids, session, Questionnaire.empty());
+        Questionnaire questionnaire = NextBatch.ask(llm, ids, session, Questionnaire.empty(), project.context().markdown());
         if (questionnaire.pending().isEmpty()) {
             session = session.readyToGenerate(clock.now());
         }

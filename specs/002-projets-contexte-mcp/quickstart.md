@@ -24,7 +24,7 @@ simulé par WireMock et le LLM rejoué. Ils sont lancés sur le jar par `npm --p
 | P2 | US1 | Créer « Facturation » avec la clé `FACT`, y créer une spec, ouvrir « Créer un ticket Jira ». | L'aperçu indique `FACT`. Une spec d'un projet sans clé indique `PROJ`. |
 | P3 | US1 | Changer de projet courant, relancer l'outil. | La liste et la recherche ne montrent que le projet choisi, qui est toujours courant après le redémarrage. |
 | P4 | US1 | Supprimer un projet qui contient des specs, en choisissant « déplacer ». | Les specs sont dans le projet cible. Le dernier projet ne peut pas être supprimé. |
-| P5 | US2 | Ajouter la source Antora (URL), demander la génération du contexte. | L'aperçu annonce 30 pages, 1 page en erreur et N tickets. Après accord, la fiche proposée cite ses sources. Rien n'est enregistré avant « Accepter ». |
+| P5 | US2 | Ajouter la source Antora (URL), demander la génération du contexte. | L'aperçu, compté sur le sitemap sans lire les pages, annonce 32 pages et 120 tickets. Après accord, la fiche proposée cite ses sources et liste les pages non lues. Rien n'est enregistré avant « Accepter », puis la source indique « 30 pages lues, 1 en erreur ». |
 | P6 | US2 | Modifier la fiche à la main, puis régénérer. | Une proposition apparaît, avec un diff par rapport à la fiche modifiée. « Garder la mienne » ne change rien. |
 | P7 | US2 | Démarrer une spec dont le besoin ne nomme pas les acteurs, dans un projet dont le contexte les nomme. | Aucune question sur les acteurs. Les use cases ont des sources « contexte du projet ». |
 | P8 | US2 | Régénérer une spec après modification du contexte, puis sans modification. | Une nouvelle version, puis la réutilisation de la version existante (FR-011). |

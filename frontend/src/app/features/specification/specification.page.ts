@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -39,12 +40,17 @@ const SYNC: Record<SyncState, string> = {
 @Component({
   selector: 'sw-specification-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AiEditPanelComponent, MarkdownComponent, MatButtonModule, RouterLink, ScenarioComponent, VersionsPanelComponent],
+  imports: [AiEditPanelComponent, DatePipe, MarkdownComponent, MatButtonModule, RouterLink, ScenarioComponent, VersionsPanelComponent],
   template: `
     @if (spec(); as v) {
       <header class="head">
         <h1>{{ v.title }}</h1>
-        <p class="meta">Version {{ v.number }} · {{ session()?.name }}</p>
+        <p class="meta">
+          Version {{ v.number }} · {{ session()?.name }}
+          @if (v.contextUpdatedAt) {
+            · contexte du {{ v.contextUpdatedAt | date: 'd MMM y, HH:mm' }}
+          }
+        </p>
         @if (session()?.linkedTicket; as t) {
           <p class="ticket">
             Liée au ticket
@@ -531,7 +537,7 @@ export class SpecificationPage {
     return this.spec()?.scenarios.filter((s) => s.useCaseCode === code) ?? [];
   }
 
-  /** Lien vers la source du use case (FR-011) : extrait du besoin, réponse citée ou hypothèse. */
+  /** Lien vers la source du use case (FR-011) : extrait du besoin, réponse, contexte du projet ou hypothèse. */
   protected sourceLabel(uc: UseCase): string {
     const s = uc.source;
     if (!s) {
@@ -544,6 +550,8 @@ export class SpecificationPage {
         const q = this.session()?.answeredQuestions.find((x) => x.id === s.questionId);
         return q ? `Réponse à « ${q.label} » : ${q.answer}` : `Réponse : « ${s.excerpt} »`;
       }
+      case 'PROJECT_CONTEXT':
+        return `Contexte du projet : « ${s.excerpt} »`;
       default:
         return `Hypothèse${s.excerpt ? ` : ${s.excerpt}` : ''}`;
     }

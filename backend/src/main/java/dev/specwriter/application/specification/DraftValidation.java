@@ -35,6 +35,12 @@ public final class DraftValidation {
      */
     public static SpecificationContent produce(Function<String, DraftSpecification> call, List<Question> treated,
             Language language, ErrorCode failure) {
+        return produce(call, treated, language, failure, "");
+    }
+
+    /** @param projectContext contexte du projet, que les sources PROJECT_CONTEXT citent mot pour mot */
+    public static SpecificationContent produce(Function<String, DraftSpecification> call, List<Question> treated,
+            Language language, ErrorCode failure, String projectContext) {
         Set<UUID> treatedIds = treated.stream().map(Question::id).collect(Collectors.toSet());
         String correction = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -50,7 +56,7 @@ public final class DraftValidation {
             IdentifierAssigner.Assigned assigned = IdentifierAssigner.assign(draft, treated, language);
             StructureViolations violations = assigned.violations()
                     .and(ScenarioStructureValidator.validate(assigned.content()))
-                    .and(TraceabilityValidator.validate(assigned.content(), treatedIds));
+                    .and(TraceabilityValidator.validate(assigned.content(), treatedIds, projectContext));
             if (violations.isEmpty()) {
                 return assigned.content();
             }
