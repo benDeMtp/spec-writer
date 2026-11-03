@@ -251,11 +251,17 @@ relue, modifiable, régénérable, utilisée et citée par toutes les opération
   - position « 26 à 50 sur N » et total approximatif ;
   - en cas d'erreur Jira, la page locale est rendue avec `jiraError` et le curseur Jira est inchangé (FR-022).
 - [ ] T043 [P] [US4] `BT/infrastructure/jira/JiraIssuePagingIT.java` (WireMock `FACT`) : `startAt`, `maxResults=25`, JQL `project = FACT ORDER BY updated DESC` nettoyée, `total` lu ; mot-clé échappé dans la JQL.
+- [ ] T063 [P] [US4] `BT/infrastructure/jira/JiraRateLimiterTest.java` (horloge et attente simulées, research.md R13) :
+  - les 8 premières requêtes n'attendent pas, la 9ᵉ attend jusqu'à « plus ancienne + 1 s » ;
+  - sur une rafale de 50 requêtes, aucune fenêtre d'une seconde n'en contient plus de 8 ;
+  - une attente au-delà de 10 s échoue en `RATE_LIMITED`, une interruption en `UNREACHABLE` ;
+  - dans `JiraRestClientIT` (WireMock), 20 recherches et une nouvelle tentative après 429 : au plus 8 requêtes reçues par seconde (FR-022a).
 - [ ] T044 [P] [US4] E2E `E/us10-jira-paging.spec.ts`, scénario quickstart P10 : pages suivante et précédente, position affichée, recherche de 70 résultats triée par date, Jira coupé avec la page conservée et un message, axe.
 
 ### Implementation for User Story 4
 
 - [ ] T045 [US4] Ajouter `IssueTracker.searchPage(endpoint, jql, startAt, max)` et `JiraSearchPage.total` (`B/domain/jira/`). Créer le cas d'usage `B/application/jira/ListProjectIssues.java` et la ressource `GET /api/jira/projects/{key}/issues`. Réécrire `UnifiedSearch` avec un curseur opaque, encodé en base64url d'un JSON signé par HMAC avec une clé de processus, pour qu'un curseur modifié soit refusé. `GET /api/search?cursor=` suit le contrat.
+- [ ] T064 [US4] Créer `B/infrastructure/jira/JiraRateLimiter.java` (fenêtre glissante, file équitable, attente plafonnée à 10 s, seuil `specwriter.jira.max-requests-per-second=8`) et l'appeler au début de `JiraRestClient.once()`. Faire passer T063. Indépendante du reste d'US4.
 - [ ] T046 [P] [US4] Front :
   - `F/features/jira-issues/jira-issues.page.ts` (liste paginée des tickets du projet courant, lien vers le détail et l'import) ;
   - pagination de `F/features/search/` avec une pile de curseurs pour la page précédente, la position et le message d'erreur Jira sans perdre la page ;

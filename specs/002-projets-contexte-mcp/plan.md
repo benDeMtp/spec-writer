@@ -14,6 +14,7 @@ La feature prolonge l'outil local de la feature 001 sur cinq points :
   modifie et la régénère. Elle est injectée dans toutes les opérations LLM et citée comme source.
 - **Suppression** d'une version ou d'une spécification locale, sans toucher à Jira.
 - **Liste des tickets Jira paginée** et liste unique de recherche paginée par 25.
+- **Débit vers Jira limité** à 8 requêtes par seconde, les requêtes en excès attendant leur tour (FR-022a, research.md R13).
 - **Agents de code** :
   - accès par MCP via une passerelle stdio, `spec-writer-mcp`, qui s'authentifie par un secret du
     dossier de données ;

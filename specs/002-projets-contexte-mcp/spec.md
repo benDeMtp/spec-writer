@@ -35,6 +35,9 @@ Une **feature à implémenter** est une spécification qu'un agent de code peut 
   → A: sans clé à manipuler : l'agent lance la commande locale de spec-writer dédiée à MCP, qui
   s'authentifie auprès de l'outil grâce à un secret rangé dans le dossier de données, lisible par
   le seul compte de l'utilisateur ; régénérer ce secret coupe tous les accès.
+- Q: Faut-il limiter le débit des appels à Jira ? → A: oui : jamais plus de 8 requêtes par
+  seconde vers Jira, toutes opérations confondues. Au-delà, les requêtes attendent leur tour au
+  lieu d'échouer.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -363,6 +366,11 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   affichée.
 - **FR-022**: Une erreur de Jira pendant un changement de page DOIT laisser la page affichée en
   place, avec un message qui propose de réessayer (FR-028 et FR-045 de 001).
+- **FR-022a**: L'outil NE DOIT jamais envoyer plus de 8 requêtes à Jira sur une même seconde,
+  toutes opérations confondues (recherche, pagination, import, envoi, création, vérification de
+  la configuration, lecture des tickets pour la fiche de contexte), nouvelles tentatives après un
+  refus de débit (429) comprises. Une requête en excès attend son tour ; si l'attente dépasse
+  10 secondes, l'opération échoue avec l'erreur de débit de FR-028 (001).
 
 **Accès des agents de code**
 

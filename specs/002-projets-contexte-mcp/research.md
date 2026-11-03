@@ -256,3 +256,27 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   sans le runtime Copilot.
 - **Opérations Copilot** : la génération du contexte consomme une quinzaine de requêtes. Le
   consentement Copilot de 001 couvre cet envoi, et l'interface annonce le volume (FR-013b).
+
+## R13. Limite de débit vers Jira (FR-022a)
+
+- **Decision** : un limiteur maison `JiraRateLimiter` (`infrastructure/jira`, `@ApplicationScoped`)
+  à **fenêtre glissante** : il garde les instants des 8 dernières requêtes, et une nouvelle requête
+  attend que la plus ancienne ait au moins une seconde. Il est appelé au début de
+  `JiraRestClient.once()`, qui correspond à exactement une requête HTTP : les pages de createmeta,
+  la pagination et les nouvelles tentatives après un 429 (R10 de 001) sont donc comptées.
+  - Limiteur **unique pour l'application** : une installation ne parle qu'à un serveur Jira.
+  - File **équitable** (`ReentrantLock(true)`) : les requêtes passent dans leur ordre d'arrivée.
+  - Attente plafonnée à **10 s** : au-delà, `IssueTrackerException(RATE_LIMITED)`, sans envoyer
+    la requête. Une interruption donne `UNREACHABLE`, comme dans `call()`.
+  - Seuil lu dans `specwriter.jira.max-requests-per-second` (8 par défaut), pour les tests.
+  - Horloge (`ClockPort`) et attente injectées, pour des tests unitaires sans `sleep` réel.
+- **Rationale** : la fenêtre glissante garantit au plus 8 requêtes sur toute seconde, là où un
+  espacement fixe de 125 ms en laisse passer 9 sur un intervalle fermé. Faire attendre plutôt que
+  refuser garde les parcours paginés et la lecture des tickets de la fiche de contexte fluides.
+- **Alternatives considered** :
+  - SmallRye Fault Tolerance `@RateLimit` : rejette l'appel en excès (`RateLimitException`) au
+    lieu de le faire attendre, et ajoute une extension.
+  - Guava `RateLimiter` (`@Beta`) ou Bucket4j : une dépendance de plus (R12) pour une trentaine de
+    lignes.
+  - Un `ClientRequestFilter` : il risquerait de bloquer un thread d'E/S du client REST.
+
