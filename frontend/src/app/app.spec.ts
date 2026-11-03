@@ -20,7 +20,7 @@ describe('App (shell)', () => {
     expect(el.querySelector('a.skip')?.getAttribute('href')).toBe('#contenu');
     expect(el.querySelector('nav')?.getAttribute('aria-label')).toBe('Navigation principale');
     const links = Array.from(el.querySelectorAll('nav a')).map((a) => a.textContent?.trim());
-    expect(links).toEqual(['Recherche', 'Nouveau besoin', 'Sessions', 'Projets', 'Configuration']);
+    expect(links).toEqual(['Recherche', 'Nouveau besoin', 'Sessions', 'Projets', 'Journal', 'Configuration']);
     expect(el.querySelector('main#contenu')).toBeTruthy();
   });
 });

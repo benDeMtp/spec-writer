@@ -27,6 +27,7 @@ export const routes: Routes = [
     loadComponent: () => import('./features/project-context/project-context.page').then((m) => m.ProjectContextPage),
   },
   { path: 'projets', title: 'Projets · spec-writer', loadComponent: () => import('./features/projects/projects.page').then((m) => m.ProjectsPage) },
+  { path: 'journal', title: 'Journal · spec-writer', loadComponent: () => import('./features/journal/journal.page').then((m) => m.JournalPage) },
   { path: 'configuration', title: 'Configuration · spec-writer', loadComponent: () => import('./features/settings/settings.page').then((m) => m.SettingsPage) },
   { path: '**', redirectTo: '' },
 ];
