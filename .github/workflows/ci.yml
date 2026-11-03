@@ -1,8 +1,8 @@
 # GitHub Actions : quality gates obligatoires avant fusion dans main (constitution, research.md R16).
 # À rendre obligatoire dans Settings › Branches › règle de protection de main (« ci / verify »).
-# Secret à déclarer : NVD_API_KEY (OWASP Dependency-Check ; sans clé, la base NVD se télécharge
-# très lentement). Le job nvd tient la base NVD à jour dans le cache ; le job verify l'utilise sans
-# appeler l'API. Une panne de l'API NVD ne bloque donc pas la CI dès qu'une base existe en cache.
+# Le job nvd tient la base de Dependency-Check à jour dans le cache, à partir des flux JSON 2.0
+# publiés par NIST (un fichier par année, puis le flux « modified ») : pas d'API NVD, pas de clé.
+# Le job verify utilise cette base sans rien télécharger.
 name: ci
 
 on:
@@ -21,17 +21,19 @@ env:
   NVD_DATA: /home/runner/.cache/dependency-check-data
 
 jobs:
-  # Base NVD de Dependency-Check, mise en cache : un premier remplissage complet peut prendre des
-  # heures quand l'API NVD est lente ; ensuite, seules les mises à jour sont téléchargées.
+  # Base NVD de Dependency-Check, mise en cache : le premier remplissage lit tous les flux annuels,
+  # les suivants seulement le flux des modifications récentes.
   nvd:
     runs-on: ubuntu-24.04
-    timeout-minutes: 355
+    timeout-minutes: 60
     # un nouveau push n'interrompt pas un remplissage en cours
     concurrency:
       group: nvd-${{ github.ref }}
       cancel-in-progress: false
     env:
-      MAVEN_ARGS: -DdataDirectory=/home/runner/.cache/dependency-check-data -DnvdValidForHours=12
+      MAVEN_ARGS: >-
+        -DdataDirectory=/home/runner/.cache/dependency-check-data -DnvdValidForHours=12
+        -DnvdDatafeedUrl=https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -49,12 +51,10 @@ jobs:
           key: nvd-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: nvd-
 
-      # API NVD en panne : avec une base déjà en cache, on continue avec elle (avertissement)
+      # flux NIST indisponibles : avec une base déjà en cache, on continue avec elle (avertissement)
       - name: Base NVD (mise à jour)
         id: update
         continue-on-error: ${{ steps.restore.outputs.cache-matched-key != '' }}
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: ./mvnw -B -pl backend dependency-check:update-only
 
       # seulement une base complète : une base interrompue remplacerait la précédente
