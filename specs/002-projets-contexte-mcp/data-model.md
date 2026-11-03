@@ -47,6 +47,16 @@ Même cycle de vie que les propositions d'édition de 001 (`ProposalStore`) :
 - à l'acceptation, `contextOrigin` vaut `GENERATED`. Une modification manuelle ultérieure le fait
   passer à `EDITED`.
 
+## ContextGeneration (en mémoire, non persistée)
+
+Une par projet au plus, gardée 30 minutes après sa fin (research.md R14) :
+- `status` (`RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELLED`), `step` (`READING_DOCS`,
+  `READING_TICKETS`, `SUMMARIZING`, `BUILDING`), `current`, `done`, `total`, `startedAt`,
+  `finishedAt` ;
+- `errors` : `{kind, location, reason, httpStatus, message}`, sans contenu de page ni de ticket ;
+- `proposal` : la `ContextProposal` obtenue, une fois réussie. Une génération interrompue n'en a
+  pas.
+
 ## Session (modifiée, feature 001)
 
 | Champ ajouté | Type | Règles |
@@ -99,6 +109,15 @@ Table `app_settings` (une seule ligne), créée par V7 : les réglages de 001 so
 |---|---|---|
 | currentProjectId | UUID | Projet courant, conservé d'un lancement à l'autre (FR-005). S'il est absent ou supprimé, c'est le premier projet par nom. |
 | agentAccessEnabled | booléen | `false` par défaut (FR-024). |
+
+## Fichier `logs/journal.jsonl` (dossier de données, hors base)
+
+Journal des avertissements et des erreurs (FR-031, research.md R15) :
+- une entrée JSON par ligne : `at`, `level` (`WARN`, `ERROR`), `logger`, `message`, `cause`,
+  `stack` (20 lignes au plus), tout expurgé par `RedactingLogFilter.redact` ;
+- rotation par taille : 2 Mo, 4 sauvegardes (`journal.jsonl.1` à `.4`), soit 10 Mo au plus ;
+- relu du plus récent au plus ancien pour les 500 dernières entrées ; une ligne illisible est
+  ignorée.
 
 ## Fichier `agent-endpoint.json` (dossier de données, hors base)
 

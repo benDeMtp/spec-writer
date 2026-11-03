@@ -199,6 +199,28 @@ relue, modifiable, régénérable, utilisée et citée par toutes les opération
   
   Page de spécification : source « contexte du projet » et « contexte du <date> » sur la version.
 
+### Progression, erreurs et journal (FR-013f, FR-013g, FR-031, research.md R14 et R15)
+
+- [ ] T065 [P] [US2] `BT/application/context/ContextGenerationsTest.java` (exécution synchrone injectée) :
+  - étapes, élément en cours et compteurs signalés dans l'ordre (pages, tickets par pages de 50, lots, rédaction) ;
+  - une seule génération par projet (`OPERATION_IN_PROGRESS`), consentement vérifié avant le démarrage ;
+  - interruption avant une page, une page de tickets ou un appel au LLM : statut `CANCELLED`, aucune proposition ;
+  - erreurs détaillées : page (motif, code HTTP), source injoignable, Jira, correction demandée à l'IA, cause d'un échec ; aucun contenu ;
+  - génération terminée consultable 30 minutes, puis oubliée.
+- [ ] T066 [P] [US2] Étendre `BT/infrastructure/docs/AntoraReaderTest.java` : chaque page signalée à l'écouteur, `httpStatus` 500 sur `tarifs-2025.html`, avertissement journalisé avec l'adresse et le motif, sans texte de page.
+- [ ] T067 [P] [US2] `BT/infrastructure/logging/JournalHandlerTest.java` et `LogJournalTest.java` : une entrée JSON par ligne, cause et pile expurgées (jeton `ghp_…`, en-tête `Authorization`), niveau WARN au moins, rotation à 2 Mo sur 5 fichiers, relecture des 500 dernières du plus récent au plus ancien, filtre par niveau, ligne illisible ignorée.
+- [ ] T068 [US2] Backend de la génération suivie :
+  - port `GenerationProgress` et `DocumentationReader.read(source, listener)` ; `Unread.httpStatus` ;
+  - `ProposeProjectContext` informe la progression et lit le drapeau d'interruption ;
+  - `B/application/context/ContextGenerations.java` (une par projet, thread virtuel, 30 minutes) ;
+  - `ContextResource` : `POST /context-generations` (202), `GET` et `DELETE /context-generations/current`, à la place de `POST /context-proposals` ;
+  - erreurs journalisées en WARN sans contenu. Faire passer T065 et T066, adapter `ContextResourceIT`.
+- [ ] T069 [US2] Journal : `B/infrastructure/logging/JournalHandler.java` (enregistré au démarrage, `logs/journal.jsonl`), `LogJournal.java` et `B/infrastructure/web/JournalResource.java` (`GET /api/journal`). Faire passer T067 et `JournalResourceIT`.
+- [ ] T070 [P] [US2] Front :
+  - page du contexte : progression (étape, élément en cours, barre `role="progressbar"`, annonces `aria-live` limitées aux changements d'étape), « Interrompre », reprise au retour sur la page, détail des erreurs avec un lien vers le journal ;
+  - écran `F/features/journal/` (route `/journal`, lien dans la navigation) : filtre par niveau, cause et pile dépliables, « Copier », « Actualiser ».
+- [ ] T071 [US2] E2E `E/us8-project-context.spec.ts` : scénarios quickstart P5a et P5b avec axe ; délai WireMock sur les pages pour observer la progression.
+
 **Checkpoint** : US1 et US2 utilisables ; le golden set avec contexte passe.
 
 ---

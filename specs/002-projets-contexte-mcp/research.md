@@ -280,3 +280,66 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     lignes.
   - Un `ClientRequestFilter` : il risquerait de bloquer un thread d'E/S du client REST.
 
+
+## R14. Progression, interruption et erreurs de la génération du contexte (FR-013f, FR-013g)
+
+- **Decision** : la génération devient une **opération en arrière-plan**, suivie par interrogation.
+  - `POST /api/projects/{id}/context-generations` vérifie le consentement, démarre la génération
+    et répond `202` avec son état. Une génération déjà en cours pour ce projet donne `409
+    OPERATION_IN_PROGRESS`.
+  - `GET /api/projects/{id}/context-generations/current` renvoie l'état ; le front l'interroge
+    toutes les secondes tant qu'elle n'est pas terminée, et le retrouve s'il revient sur la page.
+  - `DELETE /api/projects/{id}/context-generations/current` l'interrompt.
+  - État : `status` (`RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELLED`), `step` (`READING_DOCS`,
+    `READING_TICKETS`, `SUMMARIZING`, `BUILDING`), `current` (adresse de la page ou clé du ticket
+    en cours), `done` et `total` de l'étape, `errors`, et `proposal` une fois réussie. Une
+    génération terminée reste consultable 30 minutes, comme sa proposition.
+  - `ContextGenerations` (`application/context`) garde une génération par projet et l'exécute sur
+    un thread virtuel. Le cas d'usage `ProposeProjectContext` reçoit un `GenerationProgress` (port
+    d'`application`), qu'il informe à chaque page, ticket, lot et appel au LLM.
+  - `DocumentationReader.read(source, listener)` signale chaque page lue ou non lue ; `Unread`
+    gagne `httpStatus` (nul sans réponse HTTP).
+  - Interruption **coopérative** : un drapeau lu avant chaque page, chaque page de tickets et
+    chaque appel au LLM. Un appel au LLM déjà parti va à son terme, puis son résultat est ignoré.
+  - Erreurs (FR-013g) : `{kind, location, reason, httpStatus, message}`, avec `kind` parmi
+    `PAGE`, `SOURCE`, `JIRA`, `CORRECTION` et `FAILURE`. Les messages ne citent que des
+    adresses, des clés de ticket et des motifs, jamais un contenu.
+  - Chaque erreur est aussi écrite au niveau WARN dans le journal (R15), sans contenu ;
+    l'avancement, lui, n'est jamais journalisé.
+- **Rationale** : une génération dure jusqu'à 10 minutes (SC-004a), au-delà des délais d'une
+  requête HTTP ; une opération suivie survit à un rechargement de la page. L'interrogation passe
+  par le filtre d'origine et le cookie existants (R14 de 001), sans canal de plus.
+- **Alternatives considered** :
+  - Server-Sent Events : un canal de plus à protéger, à reconnecter après un rechargement, pour un
+    rafraîchissement d'une seconde que l'interrogation donne déjà ;
+  - WebSocket : bidirectionnel, inutile ici ;
+  - garder la requête synchrone avec un délai allongé : aucune progression, et la génération est
+    perdue si l'onglet se ferme.
+
+## R15. Journal des erreurs consultable dans l'interface (FR-031)
+
+- **Decision** : un handler de journal dédié, `JournalHandler` (`infrastructure/logging`),
+  enregistré au démarrage sur le logger racine, au niveau WARN.
+  - Il écrit `${specwriter.data-dir.resolved}/logs/journal.jsonl`, avec la rotation par taille de
+    JBoss LogManager (`SizeRotatingFileHandler`, 2 Mo, 4 sauvegardes, donc 5 fichiers).
+  - Une entrée par ligne, en JSON : `at`, `level`, `logger`, `message`, `cause` (classe et message
+    de chaque cause) et `stack` (20 lignes au plus).
+  - Tout passe par `RedactingLogFilter.redact`, y compris la cause et la pile, que le filtre de la
+    console ne touche pas.
+  - `LogJournal` relit les fichiers du plus récent au plus ancien et renvoie les 500 dernières
+    entrées. Une ligne illisible est ignorée.
+  - `GET /api/journal?level=WARN|ERROR` : les entrées, les plus récentes d'abord.
+  - Écran `/journal` : filtre par niveau, cause dépliable, bouton « Copier » (texte brut de
+    l'entrée), « Actualiser ». La page du contexte y renvoie depuis le détail des erreurs.
+  - Les erreurs de lecture Antora (page, code HTTP, motif), les échecs Jira et les sorties
+    invalides du LLM sont journalisés en WARN, sans contenu.
+- **Rationale** : un JSON par ligne se relit sans analyser un format de texte multiligne, et le
+  handler dédié peut expurger la cause et la pile. Le fichier tournant borne la place occupée
+  (10 Mo) et survit au redémarrage, souvent provoqué par l'erreur qu'on cherche.
+- **Alternatives considered** :
+  - handler fichier de Quarkus (`quarkus.log.file.*`) avec un format texte : il faut analyser des
+    entrées sur plusieurs lignes, et le filtre ne masque pas la pile ;
+  - extension `quarkus-logging-json` : une dépendance de plus (R12) pour une seule sortie ;
+  - mémoire seule : l'erreur qui a fait redémarrer l'outil serait perdue ;
+  - un tableau en base : des écritures SQLite pour chaque avertissement, et un journal perdu si la
+    base est en cause.

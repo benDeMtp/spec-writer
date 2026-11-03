@@ -85,12 +85,29 @@ paths:
                   pages: { type: integer }
                   tickets: { type: integer }
                   unreadable: { type: array, items: { $ref: '#/components/schemas/UnreadSource' } }
-  /api/projects/{id}/context-proposals:
+  /api/projects/{id}/context-generations:
     post:
-      summary: Génère une proposition de fiche (FR-013a) ; exige le consentement Copilot
+      summary: Démarre la génération d'une proposition de fiche en arrière-plan (FR-013a, FR-013f, R14) ; exige le consentement Copilot
       responses:
-        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextProposal' } } } }
+        '202': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextGeneration' } } } }
+        '409': { description: Une génération est déjà en cours pour ce projet (OPERATION_IN_PROGRESS) }
         '428': { description: Consentement Copilot requis }
+  /api/projects/{id}/context-generations/current:
+    get:
+      summary: État de la génération en cours ou de la dernière, gardée 30 minutes (FR-013f, FR-013g)
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextGeneration' } } } }
+        '404': { description: Aucune génération pour ce projet }
+    delete:
+      summary: Interrompt la génération en cours ; rien n'est proposé ni enregistré
+      responses: { '204': { description: Interruption demandée } }
+  /api/journal:
+    get:
+      summary: Les 500 dernières entrées WARN et ERROR du journal, expurgées, les plus récentes d'abord (FR-031, R15)
+      parameters:
+        - { name: level, in: query, schema: { enum: [WARN, ERROR] }, description: 'Sans niveau : les deux' }
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/JournalEntry' } } } } }
   /api/projects/{id}/context-proposals/{proposalId}/accept:
     post:
       summary: Accepte la proposition ; refusée si le contexte a changé depuis (409 CONTEXT_CHANGED)
@@ -238,6 +255,37 @@ components:
       properties:
         location: { type: string }
         reason: { enum: [UNREACHABLE, NOT_ANTORA, HTTP_ERROR, TOO_LARGE, REDIRECT_OTHER_HOST, LIMIT_REACHED] }
+        httpStatus: { type: integer, description: 'Code HTTP reçu, absent sans réponse' }
+    ContextGeneration:
+      type: object
+      properties:
+        status: { enum: [RUNNING, SUCCEEDED, FAILED, CANCELLED] }
+        step: { enum: [READING_DOCS, READING_TICKETS, SUMMARIZING, BUILDING] }
+        current: { type: string, description: 'Adresse de la page ou clé du ticket en cours de lecture' }
+        done: { type: integer }
+        total: { type: integer }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        errors: { type: array, items: { $ref: '#/components/schemas/GenerationError' } }
+        proposal: { $ref: '#/components/schemas/ContextProposal' }
+    GenerationError:
+      type: object
+      description: Sans aucun contenu de page ni de ticket (FR-013g)
+      properties:
+        kind: { enum: [PAGE, SOURCE, JIRA, CORRECTION, FAILURE] }
+        location: { type: string }
+        reason: { type: string }
+        httpStatus: { type: integer }
+        message: { type: string }
+    JournalEntry:
+      type: object
+      properties:
+        at: { type: string, format: date-time }
+        level: { enum: [WARN, ERROR] }
+        logger: { type: string }
+        message: { type: string }
+        cause: { type: string }
+        stack: { type: array, items: { type: string } }
     ContextProposal:
       type: object
       properties:

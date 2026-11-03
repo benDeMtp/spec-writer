@@ -38,6 +38,11 @@ Une **feature à implémenter** est une spécification qu'un agent de code peut 
 - Q: Faut-il limiter le débit des appels à Jira ? → A: oui : jamais plus de 8 requêtes par
   seconde vers Jira, toutes opérations confondues. Au-delà, les requêtes attendent leur tour au
   lieu d'échouer.
+- Q: Comment suivre une génération de contexte et comprendre ses erreurs ? → A: la génération
+  affiche sa progression (étape, page ou ticket en cours de lecture, compteurs) et peut être
+  interrompue. Le détail de ses erreurs est affiché sur la page du contexte. Un écran « Journal »
+  montre les avertissements et les erreurs de l'outil, expurgés, conservés dans un fichier tournant
+  du dossier de données pour rester visibles après un redémarrage.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -121,6 +126,13 @@ source « contexte du projet ».
 7. **Given** une documentation injoignable ou qui n'est pas un site Antora, **When** l'utilisateur
    demande la génération, **Then** l'outil indique ce qui n'a pas pu être lu et propose de générer
    à partir des seuls tickets, ou de saisir le contexte à la main.
+8. **Given** une génération de contexte en cours, **When** l'utilisateur suit la page du contexte,
+   **Then** il voit l'étape en cours, la page ou le ticket en cours de lecture et l'avancement
+   (« page 12 sur 32 », « ticket 50 sur 120 ») ; s'il l'interrompt, rien n'est proposé ni
+   enregistré.
+9. **Given** une génération terminée avec des pages en erreur, **When** l'utilisateur consulte le
+   détail des erreurs ou l'écran « Journal », **Then** il voit pour chaque page son adresse, le
+   motif et le code HTTP, sans aucun contenu de page ni de ticket.
 
 ---
 
@@ -332,6 +344,16 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **FR-013e**: La lecture d'une documentation DOIT être bornée : 1 000 pages au maximum par
   source et 10 minutes au maximum ; l'outil indique quand une borne est atteinte. Les tickets pris
   en compte sont les 200 plus récemment modifiés du projet Jira.
+- **FR-013f**: Pendant une génération de contexte, l'outil DOIT afficher l'étape en cours (lecture
+  de la documentation, lecture des tickets Jira, extraction des faits, rédaction de la fiche), la
+  page ou le ticket en cours de lecture et l'avancement de l'étape (pages, tickets ou lots traités
+  sur le total), mis à jour au moins toutes les 2 secondes. L'utilisateur DOIT pouvoir quitter la
+  page puis la retrouver en cours, et interrompre la génération : rien n'est alors proposé ni
+  enregistré. Une seule génération à la fois par projet.
+- **FR-013g**: À la fin d'une génération, réussie, interrompue ou en échec, l'outil DOIT afficher
+  le détail de ses erreurs : pour chaque source ou page non lue, son adresse, le motif et le code
+  HTTP s'il y en a un ; les erreurs Jira ; les corrections demandées à l'IA et leur motif ; la
+  cause d'un échec. Ce détail ne contient aucun contenu de page ni de ticket.
 
 **Suppression locale**
 
@@ -421,6 +443,14 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **FR-030**: Les nouveaux écrans et dialogues (projets, contexte, suppressions, pagination,
   accès des agents) DOIVENT respecter les exigences d'interface de 001 (FR-027 à FR-029 : WCAG 2.1
   AA, messages d'erreur utiles).
+- **FR-031**: L'outil DOIT proposer un écran « Journal » qui affiche les 500 dernières entrées
+  d'avertissement et d'erreur du backend (date, niveau, origine, message, cause), les plus récentes
+  d'abord, filtrables par niveau et copiables pour un signalement. Ces entrées sont écrites dans un
+  fichier du dossier de données, avec rotation (5 fichiers de 2 Mo au plus), et restent visibles
+  après un redémarrage. Le message, la cause et la pile d'appels sont expurgés comme la console
+  (FR-025 et FR-034 de 001) ; le journal ne contient jamais de secret, de besoin, de réponse, de
+  contenu de spécification, de page ni de ticket (FR-012). L'adresse d'une page et la clé d'un
+  ticket peuvent y figurer.
 
 ### Key Entities
 
@@ -436,6 +466,9 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **Version de spécification** (001) : indique si un contexte a été utilisé et sa date.
 - **Source « contexte du projet »** : nouveau type de source d'un use case ou d'une hypothèse,
   avec l'extrait du contexte.
+- **Génération de contexte** : opération en cours ou terminée d'un projet (étape, élément en cours
+  de lecture, compteurs, erreurs, proposition obtenue), gardée en mémoire et jamais journalisée.
+- **Entrée de journal** : date, niveau (avertissement, erreur), origine, message et cause expurgés.
 - **Secret d'accès des agents** : secret généré par l'outil dans le dossier de données, lu par la
   commande MCP, régénérable par l'utilisateur, jamais affiché.
 - **Accès d'agent** : entrée de journal (date, agent, opération, feature, ancien et nouveau statut
