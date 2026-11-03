@@ -153,11 +153,6 @@
       <artifactId>flexmark-jira-converter</artifactId>
       <version>${flexmark.version}</version>
     </dependency>
-    <dependency>
-      <groupId>com.vladsch.flexmark</groupId>
-      <artifactId>flexmark-jira-converter</artifactId>
-      <version>${flexmark.version}</version>
-    </dependency>
 
     <!-- Tests -->
     <dependency>
