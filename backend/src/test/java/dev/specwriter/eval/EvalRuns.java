@@ -13,6 +13,7 @@ import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.scenario.ScenarioStructureValidator;
 import dev.specwriter.domain.specification.SpecificationContent;
+import dev.specwriter.infrastructure.llm.CopilotSdkGateway;
 import dev.specwriter.infrastructure.llm.EvalCopilot;
 import dev.specwriter.infrastructure.llm.LangChainLlmClient;
 import dev.specwriter.support.FixedClock;
@@ -61,6 +62,7 @@ public final class EvalRuns {
             ErrorCode.CONTRADICTION_UNRESOLVED);
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static Result result;
+    private static RuntimeException failure;
 
     /** Une question posée, la réponse de l'utilisateur simulé et le verdict du juge. */
     public record Asked(String label, boolean contradiction, String answer, String verdict, String reason) {
@@ -94,11 +96,39 @@ public final class EvalRuns {
     private EvalRuns() {
     }
 
+    /** Une seule exécution par JVM : un échec est rejoué tel quel, sans relancer les appels Copilot. */
     public static synchronized Result result() {
+        if (failure != null) {
+            throw failure;
+        }
         if (result == null) {
-            result = run();
+            try {
+                result = run();
+            } catch (RuntimeException e) {
+                failure = e;
+                throw e;
+            }
         }
         return result;
+    }
+
+    /** Copilot indisponible un instant : jusqu'à 3 tentatives, espacées de 10 puis 20 s. */
+    static <T> T retrying(java.util.function.Supplier<T> call) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return call.get();
+            } catch (CopilotSdkGateway.GatewayException e) {
+                if (attempt == 3 || e.kind() != CopilotSdkGateway.GatewayException.Kind.UNAVAILABLE) {
+                    throw e;
+                }
+                try {
+                    Thread.sleep(10_000L * attempt);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
     }
 
     private static Result run() {
@@ -153,8 +183,10 @@ public final class EvalRuns {
         try {
             SessionSnapshot s = new StartSession(sessions, llm, policy, clock, ids).run(need, null);
             AnswerQuestion answer = new AnswerQuestion(sessions, llm, policy, clock, ids);
+            // au-delà de MAX_BATCHES, seules les contradictions sont encore tranchées : elles bloquent la génération
             while (!s.questionnaire().currentBatch().isEmpty()
-                    && s.questionnaire().currentBatch().getFirst().batch() <= MAX_BATCHES) {
+                    && (s.questionnaire().currentBatch().getFirst().batch() <= MAX_BATCHES
+                            || s.questionnaire().currentBatch().getFirst().isContradiction())) {
                 Question q = s.questionnaire().currentBatch().getFirst();
                 SimulatedUser.Reply reply = user.answer(need, reference, q);
                 asked.add(new Asked(q.label(), q.isContradiction(), reply.skip() ? "(passée)" : reply.answer(), null, null));

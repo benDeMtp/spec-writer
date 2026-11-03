@@ -113,6 +113,29 @@ class IdentifierAssignerTest {
     }
 
     @Test
+    void resumeEtDetailsBornes() {
+        DraftSource need = new DraftSource("NEED_EXCERPT", "", "payer");
+        DraftSpecification ok = new DraftSpecification("T", "r".repeat(4_000), "d".repeat(20_000),
+                List.of(uc("Payer", need)), List.of(sc(0, "NOMINAL")), List.of(), List.of());
+        DraftSpecification tooLong = new DraftSpecification("T", "r".repeat(4_001), "d".repeat(20_001),
+                ok.useCases(), ok.scenarios(), List.of(), List.of());
+
+        IdentifierAssigner.Assigned a = IdentifierAssigner.assign(ok, List.of(), Language.FR);
+        assertThat(a.violations().isEmpty()).isTrue();
+        assertThat(a.content().details()).hasSize(20_000);
+        assertThat(IdentifierAssigner.assign(tooLong, List.of(), Language.FR).violations().messages())
+                .contains("le résumé dépasse 4 000 caractères", "les détails dépassent 20 000 caractères");
+    }
+
+    @Test
+    void detailsAbsentsDeLaSortieVides() {
+        DraftSpecification draft = new DraftSpecification("T", "R", List.of(), List.of(), List.of(), List.of());
+
+        assertThat(draft.details()).isEmpty();
+        assertThat(IdentifierAssigner.assign(draft, List.of(), Language.FR).content().details()).isEmpty();
+    }
+
+    @Test
     void titreTronqueACentVingtCaracteres() {
         DraftSpecification draft = new DraftSpecification("t".repeat(200), "R", List.of(), List.of(), List.of(), List.of());
         assertThat(IdentifierAssigner.assign(draft, List.of(), Language.FR).content().title()).hasSize(120);

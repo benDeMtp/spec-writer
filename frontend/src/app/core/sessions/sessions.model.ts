@@ -101,7 +101,10 @@ export interface Specification {
   origin: string;
   createdAt: string;
   title: string;
+  /** Markdown (FR-012b). */
   summary: string;
+  /** Markdown, vide si la version n'a pas de détails (FR-012b). */
+  details: string;
   useCases: UseCase[];
   scenarios: Scenario[];
   assumptions: Assumption[];

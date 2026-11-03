@@ -9,16 +9,24 @@ import java.util.List;
 public record DraftSpecification(
         String title,
         String summary,
+        String details,
         List<DraftUseCase> useCases,
         List<DraftScenario> scenarios,
         List<DraftAssumption> assumptions,
         List<DraftRequirement> requirements) {
 
     public DraftSpecification {
+        details = details == null ? "" : details;
         useCases = List.copyOf(useCases);
         scenarios = List.copyOf(scenarios);
         assumptions = List.copyOf(assumptions);
         requirements = List.copyOf(requirements);
+    }
+
+    /** Sans détails. */
+    public DraftSpecification(String title, String summary, List<DraftUseCase> useCases, List<DraftScenario> scenarios,
+            List<DraftAssumption> assumptions, List<DraftRequirement> requirements) {
+        this(title, summary, "", useCases, scenarios, assumptions, requirements);
     }
 
     public record DraftUseCase(

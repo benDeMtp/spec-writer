@@ -41,6 +41,43 @@ class JiraFormatConverterTest {
     }
 
     @Test
+    void tableauWikiDuLlmConvertiSansToucherAuMarkdown() {
+        String text = """
+                Le client **paie** *vite*, avec `code` et une [doc](https://x.fr).
+
+                ||Moyen||Frais||
+                |Carte|0 €|
+                |Virement|1 €|
+
+                | Déjà | GFM |
+                | --- | --- |
+                | a | b |
+                """;
+        String md = converter.wikiTablesToMarkdown(text);
+
+        assertThat(md).contains("Le client **paie** *vite*, avec `code` et une [doc](https://x.fr).\n\n")
+                .contains("| Moyen | Frais |\n| --- | --- |\n| Carte | 0 € |\n| Virement | 1 € |\n")
+                .contains("| Déjà | GFM |\n| --- | --- |\n| a | b |")
+                .doesNotContain("||");
+        assertThat(converter.wikiTablesToMarkdown("Sans tableau, a|b.")).isEqualTo("Sans tableau, a|b.");
+        assertThat(converter.wikiTablesToMarkdown(null)).isEmpty();
+    }
+
+    @Test
+    void resumeAvecTableauEtSautDeLigneVersWiki() {
+        String wiki = converter.toWiki("""
+                Ligne une\\
+                ligne deux.
+
+                | Moyen | Frais |
+                | --- | --- |
+                | Carte | 0 € |
+                """);
+
+        assertThat(wiki).contains("Ligne une\nligne deux.").contains("||Moyen||Frais||").contains("|Carte|0 €|");
+    }
+
+    @Test
     void caracteresSpeciauxDuWikiEchappes() {
         String wiki = converter.toWiki("prix {total} [lien] a|b x^2 ~env c+d et_e");
         assertThat(wiki).contains("\\{total\\}").contains("\\[lien\\]").contains("a\\|b").contains("x\\^2")

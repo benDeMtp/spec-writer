@@ -57,6 +57,11 @@ public class JiraWorld {
         public String toMarkdown(String wiki, String issueUrl) {
             return wiki == null ? "" : wiki.startsWith("wiki:") ? wiki.substring(5) : wiki;
         }
+
+        @Override
+        public String wikiTablesToMarkdown(String markdown) {
+            return markdown == null ? "" : markdown;
+        }
     };
     public final TextDiff diff = (before, after, l1, l2) -> "--- " + l1 + "\n+++ " + l2 + "\n";
     public final ProposalStore proposals = new ProposalStore(diff, ids, clock);

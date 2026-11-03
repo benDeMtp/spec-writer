@@ -42,6 +42,9 @@ public class JiraFormatConverter implements WikiMarkup {
     private static final Pattern SAFE_URL = Pattern.compile("(?i)^(?:https?://|mailto:)\\S+$");
     private static final String PLACEHOLDER = "\u0000";
     private static final Pattern TOKEN = Pattern.compile("\u0000(\\d+)\u0000");
+    /** Ligne de séparation d'un tableau Markdown : {@code | --- | :---: |}. */
+    private static final Pattern GFM_SEPARATOR = Pattern.compile("^\\|?\\s*:?-{3,}:?\\s*(\\|\\s*:?-{3,}:?\\s*)*\\|?\\s*$");
+    private static final Pattern MD_FENCE = Pattern.compile("^ {0,3}(```|~~~)");
 
     private final Parser parser;
     private final HtmlRenderer renderer;
@@ -85,6 +88,45 @@ public class JiraFormatConverter implements WikiMarkup {
                         }
                     })));
         }
+    }
+
+    @Override
+    public String wikiTablesToMarkdown(String markdown) {
+        if (markdown == null || markdown.isEmpty()) {
+            return "";
+        }
+        String[] lines = markdown.replace("\r\n", "\n").split("\n", -1);
+        StringBuilder out = new StringBuilder();
+        boolean code = false;
+        int i = 0;
+        while (i < lines.length) {
+            if (MD_FENCE.matcher(lines[i]).find()) {
+                code = !code;
+            }
+            if (code || !lines[i].startsWith("|")) {
+                out.append(lines[i++]).append('\n');
+                continue;
+            }
+            int end = i;
+            while (end < lines.length && lines[end].startsWith("|")) {
+                end++;
+            }
+            List<String> block = List.of(lines).subList(i, end);
+            if (block.stream().anyMatch(l -> GFM_SEPARATOR.matcher(l).matches())) {
+                block.forEach(l -> out.append(l).append('\n'));
+            } else {
+                if (!out.isEmpty() && !out.toString().endsWith("\n\n")) {
+                    out.append('\n');
+                }
+                out.append(new WikiReader(String.join("\n", block), null).read());
+                if (end < lines.length && !lines[end].isBlank()) {
+                    out.append('\n');
+                }
+            }
+            i = end;
+        }
+        String result = out.toString();
+        return markdown.endsWith("\n") ? result : result.substring(0, result.length() - 1);
     }
 
     @Override

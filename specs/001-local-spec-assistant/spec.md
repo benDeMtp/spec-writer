@@ -301,6 +301,16 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   incomplet NE DOIT PAS être présenté comme valide.
 - **FR-012a**: Le Gherkin exécutable (fichiers `.feature`, mots-clés `Feature` / `Scenario`) est
   hors périmètre.
+- **FR-012b**: Le résumé et une section « Détails », facultative, DOIVENT accepter du texte riche
+  en Markdown : paragraphes, listes, tableaux, gras, italique, code et liens sûrs (`http`, `https`,
+  `mailto`). Ils sont affichés mis en forme dans l'outil, exportés tels quels et convertis en wiki
+  markup pour Jira. Un titre de niveau 1 ou 2 y est rétrogradé, pour ne pas casser la structure du
+  document. Un tableau rédigé en wiki markup Jira par le modèle est converti en tableau Markdown.
+  Bornes : 4 000 caractères pour le résumé, 20 000 pour les détails. Lors d'un import Jira, ce que
+  le ticket contient hors use cases (tableaux, règles, données de référence) va dans les détails.
+- **FR-012c**: Les autres champs (titres, acteurs, objectifs, étapes, scénarios, hypothèses,
+  exigences) restent du texte simple, mais leurs retours à la ligne DOIVENT être conservés à
+  l'affichage, à l'export et dans Jira.
 - **FR-013**: Le système NE DOIT PAS introduire de comportement métier absent du besoin et des
   réponses sans le marquer comme hypothèse.
 - **FR-014**: À entrées identiques (besoin, réponses, version de l'outil), la structure de la

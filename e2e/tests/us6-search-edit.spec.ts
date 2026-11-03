@@ -94,6 +94,14 @@ test.describe.serial('US6 recherche et modification assistée', () => {
     await expect(page.getByText('Liée au ticket')).toContainText('PROJ-102');
     await expect(page.getByText('Liée au ticket')).toContainText('à jour avec Jira');
 
+    // FR-012b et FR-012c : le tableau écrit en wiki par le modèle est un vrai tableau, et le saut
+    // de ligne d'un champ simple est conservé
+    const details = page.getByRole('region', { name: 'Détails' });
+    await expect(details.getByRole('columnheader', { name: 'Créneau' })).toBeVisible();
+    await expect(details.getByRole('row', { name: /Après-midi\s+3/ })).toBeVisible();
+    await expect(details).not.toContainText('||');
+    expect(await page.locator('dd', { hasText: 'le jour venu' }).first().innerText()).toBe("Disposer d'une place\nle jour venu");
+
     await page.getByLabel("Ce que l'IA doit changer").fill("Ajoute l'annulation jusqu'à la veille E2E-EDIT");
     await page.getByRole('button', { name: 'Proposer une modification' }).click();
     const diff = page.getByRole('region', { name: 'Différences avec la version actuelle' });
@@ -142,6 +150,7 @@ test.describe.serial('US6 recherche et modification assistée', () => {
     await expect(preview.getByLabel('Description envoyée à Jira')).toContainText(
       'h1. Réservation du parking visiteurs avec annulation',
     );
+    await expect(preview.getByLabel('Description envoyée à Jira')).toContainText('||Créneau||Places||');
     await dialogOpen();
     await expectNoA11yViolations(page);
     await preview.getByRole('button', { name: 'Envoyer vers Jira' }).click();

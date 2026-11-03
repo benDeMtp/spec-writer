@@ -446,7 +446,8 @@ components:
       properties:
         number: { type: integer }
         title: { type: string }
-        summary: { type: string }
+        summary: { type: string, description: Markdown (FR-012b) }
+        details: { type: string, description: Markdown, vide si absent (FR-012b) }
         useCases: { type: array, items: { type: object } }
         scenarios: { type: array, items: { type: object, description: Voir contracts/scenario-format.md } }
         assumptions: { type: array, items: { type: object } }

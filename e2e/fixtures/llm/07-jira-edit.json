@@ -6,11 +6,12 @@
   "response": {
     "title": "Réservation du parking visiteurs avec annulation",
     "summary": "Les salariés réservent et annulent une place de parking pour un visiteur.",
+    "details": "Places réservées aux visiteurs :\n\n| Créneau | Places |\n| --- | --- |\n| Matin | 5 |\n| Après-midi | 3 |",
     "useCases": [
       {
         "title": "Réserver une place de parking",
         "actor": "salarié",
-        "goal": "Disposer d'une place le jour venu",
+        "goal": "Disposer d'une place\nle jour venu",
         "preconditions": [],
         "nominalFlow": [
           "Choisir le jour",
