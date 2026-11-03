@@ -24,7 +24,10 @@ Une **feature à implémenter** est une spécification qu'un agent de code peut 
   à implémenter » à « en cours », puis à « implémentée ». Chaque changement est consigné et
   l'utilisateur peut revenir en arrière.
 - Q: Quand une feature « en cours » ou « implémentée » reçoit une nouvelle version, que devient
-  son statut ? → A: il ne change pas ; l'utilisateur le met à jour lui-même.
+  son statut ? → A: (révisé) une feature « implémentée » ne peut plus recevoir de nouvelle version
+  ni être mise à jour ; pour la faire évoluer, l'utilisateur rétablit un statut antérieur après
+  confirmation, ou crée une nouvelle spécification à partir d'elle. Pour les autres statuts, une
+  nouvelle version ne change pas le statut.
 - Q: Comment paginer la liste unique de la recherche (spécifications locales et tickets Jira) ?
   → A: une seule liste paginée par 25, toutes sources confondues, triée par date de dernière
   modification.
@@ -209,10 +212,14 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
    **When** il tente d'appeler le serveur MCP, **Then** l'appel est refusé.
 6. **Given** des accès d'agents, **When** l'utilisateur consulte le journal des accès, **Then** il
    voit, pour chaque accès, la date, l'agent et la feature consultée, sans le contenu.
-7. **Given** un agent connecté et une feature « prête à implémenter », **When** l'agent la passe à
+7. **Given** une feature « implémentée », **When** l'utilisateur ou un agent tente de la modifier
+   (nouvelle version, modification par l'IA, import ou envoi Jira), **Then** l'action est refusée
+   avec la raison ; l'utilisateur peut rétablir un statut antérieur après confirmation, ou créer
+   une évolution dans une nouvelle spécification.
+8. **Given** un agent connecté et une feature « prête à implémenter », **When** l'agent la passe à
    « en cours » puis à « implémentée », **Then** l'outil affiche ces statuts, le journal des accès
    consigne les deux changements, et l'utilisateur peut rétablir le statut précédent.
-8. **Given** un agent connecté, **When** il tente de modifier le contenu d'une feature ou de
+9. **Given** un agent connecté, **When** il tente de modifier le contenu d'une feature ou de
    passer une feature « brouillon » à « en cours », **Then** l'opération est refusée.
 
 ---
@@ -249,6 +256,11 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   autre détail.
 - L'outil n'est pas lancé : la commande MCP indique à l'agent que spec-writer doit être ouvert ;
   aucun service ne tourne en arrière-plan pour lui.
+- Le ticket Jira lié à une feature implémentée est modifié dans Jira : l'outil le signale à
+  l'affichage, mais n'importe rien tant que la feature est verrouillée ; une évolution peut
+  partir de la version Jira.
+- Une génération ou une proposition de l'IA est en cours quand un agent passe la feature à
+  « implémentée » : le résultat n'est pas enregistré et l'utilisateur en est averti.
 - L'accès des agents est désactivé alors qu'un agent est connecté : ses requêtes suivantes sont
   refusées.
 
@@ -376,9 +388,18 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   nouvelle spécification est « brouillon ». Une nouvelle version (génération, modification par
   l'IA, import ou fusion Jira) NE DOIT PAS changer le statut : l'utilisateur le met à jour
   lui-même.
+- **FR-026a**: Une spécification « implémentée » DOIT être verrouillée : aucune nouvelle version
+  (génération, modification par l'IA, import ou fusion depuis Jira), aucune suppression de version,
+  aucun envoi vers Jira, aucune modification de ses réponses. Les actions concernées sont
+  indisponibles et l'outil explique pourquoi. La suppression de la spécification entière reste
+  possible (FR-016).
+- **FR-026b**: Pour faire évoluer une spécification implémentée, l'utilisateur DOIT pouvoir soit
+  rétablir un statut antérieur, après une confirmation qui rappelle qu'elle a été implémentée et
+  depuis quand, soit créer une nouvelle spécification dans le même projet à partir de sa dernière
+  version (évolution), qui démarre en « brouillon » et cite la spécification d'origine.
 - **FR-027**: Un agent DOIT pouvoir faire passer une feature de « prête à implémenter » à « en
   cours », et de « en cours » à « implémentée ». Il NE DOIT pouvoir faire aucune autre
-  modification. Chaque changement de statut par un agent est consigné (FR-028) et l'utilisateur
+  modification, et en particulier ne peut pas déverrouiller une feature implémentée. Chaque changement de statut par un agent est consigné (FR-028) et l'utilisateur
   peut rétablir le statut précédent.
 - **FR-028**: Chaque accès d'un agent DOIT être consigné localement (date, nom annoncé par
   l'agent, opération, feature concernée), sans le contenu, et consultable par l'utilisateur. Le nom
@@ -402,7 +423,8 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   source dans les spécifications.
 - **Source de documentation** : lien ou dossier local d'un site Antora rattaché à un projet, avec
   la date et le résultat de sa dernière lecture (pages lues, pages en erreur).
-- **Spécification** (session de 001) : rattachée à un projet ; reçoit un statut d'implémentation.
+- **Spécification** (session de 001) : rattachée à un projet ; reçoit un statut d'implémentation,
+  la date de passage à « implémentée » et, pour une évolution, la spécification d'origine.
 - **Version de spécification** (001) : indique si un contexte a été utilisé et sa date.
 - **Source « contexte du projet »** : nouveau type de source d'un use case ou d'une hypothèse,
   avec l'extrait du contexte.
