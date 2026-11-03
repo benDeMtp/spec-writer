@@ -56,15 +56,15 @@ secret dans les journaux, erreurs au format `Problem`, axe sur chaque écran. S'
 
 **Purpose** : dépendance, règles d'architecture, jeux d'essai partagés
 
-- [ ] T001 Rebaser `feature/005-projets-mcp` sur `main` après la fusion de la PR #2 et de la PR du texte riche. Vérifier `./mvnw -B -o verify -DskipDependencyCheck` au vert avant toute modification.
-- [ ] T002 Ajouter `org.jsoup:jsoup` 1.23.2 (MIT) à `backend/pom.xml`, avec la propriété `jsoup.version`. Déclarer la licence dans `NOTICE`. Vérifier qu'elle se résout hors ligne (`./mvnw -o`).
-- [ ] T003 [P] Étendre `BT/architecture/HexagonalArchitectureTest.java` avec deux règles :
+- [X] T001 Rebaser `feature/005-projets-mcp` sur `main` après la fusion de la PR #2 et de la PR du texte riche. Vérifier `./mvnw -B -o verify -DskipDependencyCheck` au vert avant toute modification.
+- [X] T002 Ajouter `org.jsoup:jsoup` 1.23.2 (MIT) à `backend/pom.xml`, avec la propriété `jsoup.version`. Déclarer la licence dans `NOTICE`. Vérifier qu'elle se résout hors ligne (`./mvnw -o`).
+- [X] T003 [P] Étendre `BT/architecture/HexagonalArchitectureTest.java` avec deux règles :
   - le paquet `dev.specwriter.mcp..` ne dépend d'aucune classe de `domain`, `application` ou `infrastructure` ;
   - tout cas d'usage d'écriture d'une session, dont la liste est tenue dans le test, appelle `SpecificationLock.requireEditable` (research.md R7).
   
   Les règles échouent tant que le paquet et le garde n'existent pas : les marquer `@Disabled("T047")` jusqu'à T047.
-- [ ] T004 [P] Créer le site Antora de test `e2e/fixtures/antora/` : un `sitemap.xml` de type index renvoyant vers `sitemap-billing.xml`, 30 pages HTML avec `<article class="doc">` (vocabulaire, acteurs, règles de facturation), une page qui répond 500, un lien vers un autre hôte et une page sans `article.doc`. Le servir par WireMock dans `e2e/fixtures/jira/mappings/antora.json` et le copier en dossier dans `BTR/antora-site/`.
-- [ ] T005 [P] Créer le projet Jira simulé `FACT` dans `e2e/fixtures/jira/mappings/fact.json` : 120 tickets, `GET /rest/api/2/search` paginé (`startAt`, `maxResults=25`, `total=120`, tri `updated DESC`), le ticket `FACT-1` lié dans le scénario P9, et une réponse JQL avec mot-clé (60 tickets) pour P10.
+- [X] T004 [P] Créer le site Antora de test `e2e/fixtures/jira/__files/antora/` (WireMock ne sert que les fichiers de `__files`) : un `sitemap.xml` de type index renvoyant vers `sitemap-billing.xml`, 30 pages HTML avec `<article class="doc">` (vocabulaire, acteurs, règles de facturation), une page qui répond 500, un lien vers un autre hôte et une page sans `article.doc`. Le servir par WireMock dans `e2e/fixtures/jira/mappings/antora.json` et le copier en dossier dans `BTR/antora-site/`.
+- [X] T005 [P] Créer le projet Jira simulé `FACT` dans `e2e/fixtures/jira/mappings/fact.json` : 120 tickets, `GET /rest/api/2/search` paginé (`startAt`, `maxResults=25`, `total=120`, tri `updated DESC`), le ticket `FACT-1` lié dans le scénario P9, et une réponse JQL avec mot-clé (60 tickets) pour P10.
 
 ---
 

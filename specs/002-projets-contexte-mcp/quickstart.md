@@ -9,9 +9,10 @@ simulé par WireMock et le LLM rejoué. Ils sont lancés sur le jar par `npm --p
 
 - **Projet Jira simulé** : `FACT`, avec 120 tickets dans `e2e/fixtures/jira/`. Le projet Jira par
   défaut de la configuration est `PROJ`.
-- **Site Antora de test** : `e2e/fixtures/antora/`, avec un `sitemap.xml`, 30 pages `article.doc`,
-  une page en erreur 500 et un lien vers un autre hôte. Il est servi par WireMock et existe aussi en
-  dossier local.
+- **Site Antora de test** : `e2e/fixtures/jira/__files/antora/`, avec un `sitemap.xml`, 30 pages
+  `article.doc`, une page en erreur 500, une page sans `article.doc` et un lien vers un autre hôte.
+  Il est servi par WireMock sous `http://127.0.0.1:47698/antora/` (WireMock ne sert que les
+  fichiers de `__files`) et existe aussi en dossier local (`backend/src/test/resources/antora-site/`).
 - **Réponses LLM rejouées** pour `summarize-project-sources` et `build-project-context`
   (`e2e/fixtures/llm/`).
 

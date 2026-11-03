@@ -1,0 +1,55 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "/antora/"
+      },
+      "response": {
+        "status": 302,
+        "headers": {
+          "Location": "/antora/billing/index.html"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/antora/sitemap(-billing)?\\.xml"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/xml; charset=utf-8"
+        },
+        "bodyFileName": "antora/{{request.pathSegments.[1]}}",
+        "transformers": ["response-template"]
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "GET",
+        "url": "/antora/billing/tarifs-2025.html"
+      },
+      "response": {
+        "status": 500
+      }
+    },
+    {
+      "priority": 5,
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/antora/billing/[a-z0-9-]+\\.html"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/html; charset=utf-8"
+        },
+        "bodyFileName": "antora/billing/{{request.pathSegments.[2]}}",
+        "transformers": ["response-template"]
+      }
+    }
+  ]
+}

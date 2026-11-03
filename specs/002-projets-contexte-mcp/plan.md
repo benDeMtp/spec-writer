@@ -154,7 +154,7 @@ frontend/src/app/features/
 ├── specification/           # + statut, verrou, suppression de version, évolution
 └── settings/                # + carte « Accès des agents » (activation, commande, régénération, journal)
 e2e/
-├── fixtures/antora/         # site Antora de test (sitemap, pages, erreurs)
+├── fixtures/jira/__files/antora/  # site Antora de test (sitemap, pages, erreurs)
 ├── mcp-client.ts            # client MCP stdio de test
 └── tests/us7-projects.spec.ts … us11-agents.spec.ts
 jreleaser.yml                # + lanceur spec-writer-mcp

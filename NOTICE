@@ -8,3 +8,6 @@ Java de GitHub Copilot (copilot-sdk-java, MIT). Ils n'embarquent pas le runtime 
 (copilot-sdk-java-runtime), qui contient des composants soumis à leurs propres conditions de
 licence, sans droit de redistribution établi (notamment OneAuthInterop, Microsoft Software
 License Terms) : l'utilisateur installe lui-même le Copilot CLI de GitHub.
+
+Il embarque la bibliothèque jsoup (https://jsoup.org, licence MIT), utilisée pour lire la
+documentation Antora d'un projet.
