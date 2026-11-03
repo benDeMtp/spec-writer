@@ -73,8 +73,9 @@ test.describe.serial('US8 contexte de projet', () => {
     const proposal = page.getByLabel('Fiche proposée');
     await expect(proposal).toContainText('[source : FACT-120]');
     await expect(proposal).toContainText('[source : http://127.0.0.1:47698/antora/billing/regle-tva.html]');
-    await expect(page.locator('ul.unread')).toContainText('tarifs-2025.html : erreur du serveur');
-    await expect(page.locator('ul.unread')).toContainText('recherche.html : pas une page Antora');
+    await page.getByText(/Détail des erreurs/).click();
+    await expect(page.locator('ul.errors')).toContainText('tarifs-2025.html : erreur du serveur (HTTP 500)');
+    await expect(page.locator('ul.errors')).toContainText('recherche.html : pas une page Antora');
     await expectNoA11yViolations(page);
     expect((await project()).contextOrigin).toBe('NONE');
 
@@ -83,6 +84,64 @@ test.describe.serial('US8 contexte de projet', () => {
     await expect(page.getByText("Proposée par l'IA et acceptée le")).toBeVisible();
     await expect(page.locator('ul.sources > li')).toContainText('30 pages lues, 1 en erreur');
     expect((await project()).contextOrigin).toBe('GENERATED');
+  });
+
+  test('P5a : progression suivie, retrouvée après un aller-retour, puis interruption', async () => {
+    // pages servies lentement pour observer la progression
+    const slow = await jira.post('/__admin/mappings', {
+      data: {
+        priority: 1,
+        request: { method: 'GET', urlPathPattern: '/antora/billing/[a-z0-9-]+\\.html' },
+        response: {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          bodyFileName: 'antora/billing/{{request.pathSegments.[2]}}',
+          transformers: ['response-template'],
+          fixedDelayMilliseconds: 800,
+        },
+      },
+    });
+    expect(slow.status()).toBe(201);
+    try {
+      await page.getByRole('button', { name: 'Proposer une fiche' }).click();
+      await page.getByRole('button', { name: 'Envoyer à Copilot' }).click();
+      const progress = page.getByRole('group', { name: 'Lecture de la documentation' });
+      await expect(progress).toBeVisible();
+      await expect(progress).toContainText(/page \d+ sur 32/);
+      await expect(progress).toContainText('En cours : http://127.0.0.1:47698/antora/');
+      await expectNoA11yViolations(page);
+
+      await page.goto('/projets');
+      await page.getByRole('link', { name: 'Contexte du projet Facturation contexte' }).click();
+      await expect(page.getByRole('group', { name: 'Lecture de la documentation' })).toContainText(/page \d+ sur 32/);
+
+      await page.getByRole('button', { name: 'Interrompre' }).click();
+      await expect(page.locator('p.outcome')).toHaveText("Génération interrompue. Rien n'a été proposé ni enregistré.", {
+        timeout: 15_000,
+      });
+      await expect(page.getByRole('heading', { name: 'Fiche proposée' })).toHaveCount(0);
+      expect((await project()).contextOrigin).toBe('GENERATED');
+    } finally {
+      await jira.post('/__admin/mappings/reset');
+    }
+  });
+
+  test('P5b : le journal montre la page en erreur, sans contenu', async () => {
+    await page.getByRole('link', { name: 'Journal' }).click();
+    await expect(page.getByRole('heading', { name: 'Journal', level: 1 })).toBeVisible();
+    const entry = page.locator('ol.entries > li').filter({ hasText: 'tarifs-2025.html' }).first();
+    await expect(entry).toContainText('Avertissement');
+    await expect(entry).toContainText('HTTP 500');
+    await expect(page.locator('ol.entries')).not.toContainText('Chaque ligne de facturation');
+    await expectNoA11yViolations(page);
+
+    await page.getByRole('combobox', { name: 'Niveau' }).click();
+    await page.getByRole('option', { name: 'Erreurs' }).click();
+    await expect(page.locator('ol.entries > li').filter({ hasText: 'tarifs-2025.html' })).toHaveCount(0);
+
+    const journal = (await (await page.request.get('/api/journal?level=WARN')).json()) as { message: string }[];
+    expect(journal.some((e) => e.message.includes('tarifs-2025.html'))).toBe(true);
+    await page.goto(`/projets/${projectId}/contexte`);
   });
 
   test('P6 : fiche modifiée à la main, puis proposition comparée et « Garder la mienne »', async () => {

@@ -10,6 +10,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import dev.specwriter.domain.port.DocumentationReader;
 import dev.specwriter.domain.port.DocumentationReader.Page;
 import dev.specwriter.domain.port.DocumentationReader.Result;
 import dev.specwriter.domain.port.DocumentationReader.Unread;
@@ -24,9 +25,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -114,8 +120,59 @@ class AntoraReaderTest {
         assertThat(acteur.text()).contains("## Droits", "- lettrer une facture");
 
         assertThat(r.unread()).containsExactlyInAnyOrder(
-                new Unread(base() + "/antora/billing/tarifs-2025.html", UnreadReason.HTTP_ERROR),
+                new Unread(base() + "/antora/billing/tarifs-2025.html", UnreadReason.HTTP_ERROR, 500),
                 new Unread(base() + "/antora/billing/recherche.html", UnreadReason.NOT_ANTORA));
+        assertThat(r.limitReached()).isFalse();
+    }
+
+    @Test
+    void chaquePageSignaleeEtPagesNonLuesJournaliseesSansContenu() {
+        List<String> seen = Collections.synchronizedList(new ArrayList<>());
+        List<String> logged = Collections.synchronizedList(new ArrayList<>());
+        java.util.logging.Logger logger = java.util.logging.Logger.getLogger(AntoraReader.class.getName());
+        Handler capture = new Handler() {
+            @Override
+            public void publish(LogRecord record) {
+                logged.add(record.getLevel() + " " + new java.util.logging.SimpleFormatter().formatMessage(record));
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        logger.addHandler(capture);
+        try {
+            reader.read(url(base() + "/antora/"), (location, done, total) -> seen.add(location + " " + total));
+        } finally {
+            logger.removeHandler(capture);
+        }
+        assertThat(seen).hasSize(32).allSatisfy(s -> assertThat(s).endsWith(" 32"))
+                .contains(base() + "/antora/billing/regle-tva.html 32");
+        assertThat(logged).singleElement().satisfies(l -> assertThat(l)
+                .startsWith("WARN").contains("tarifs-2025.html", "HTTP_ERROR", "HTTP 500")
+                .doesNotContain("TVA"));
+    }
+
+    @Test
+    void lectureInterrompueAvantLaPageSuivante() {
+        int[] count = {0};
+        Result r = reader.read(url(base() + "/antora/"), new DocumentationReader.Listener() {
+            @Override
+            public void reading(String location, int done, int total) {
+                count[0]++;
+            }
+
+            @Override
+            public boolean cancelled() {
+                return count[0] >= 5;
+            }
+        });
+        assertThat(count[0]).isBetween(5, 5 + 4);
+        assertThat(r.pages().size() + r.unread().size()).isLessThan(32);
         assertThat(r.limitReached()).isFalse();
     }
 
@@ -147,7 +204,7 @@ class AntoraReaderTest {
         site.stubFor(get(urlPathEqualTo("/antora/billing/regle-tva.html")).atPriority(1)
                 .willReturn(aResponse().withStatus(301).withHeader("Location", "https://autre-hote.example/tva.html")));
         Result r = reader.read(url(base() + "/antora/"));
-        assertThat(r.unread()).contains(new Unread(base() + "/antora/billing/regle-tva.html", UnreadReason.REDIRECT_OTHER_HOST));
+        assertThat(r.unread()).contains(new Unread(base() + "/antora/billing/regle-tva.html", UnreadReason.REDIRECT_OTHER_HOST, 301));
         assertThat(r.pages()).hasSize(29);
     }
 

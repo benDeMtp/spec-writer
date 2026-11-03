@@ -1,7 +1,7 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { ContextPreview, ContextProposal, DocSource, DocSourceKind, Project } from './projects.model';
+import { ContextGeneration, ContextPreview, DocSource, DocSourceKind, Project } from './projects.model';
 
 /** Contexte d'un projet : fiche, sources de documentation et propositions de l'IA (US2 de 002). */
 @Injectable({ providedIn: 'root' })
@@ -28,8 +28,29 @@ export class ContextApi {
     return firstValueFrom(this.http.get<ContextPreview>(`${this.base(projectId)}/context-proposals/preview`));
   }
 
-  propose(projectId: string): Promise<ContextProposal> {
-    return firstValueFrom(this.http.post<ContextProposal>(`${this.base(projectId)}/context-proposals`, null));
+  /** Démarre la génération en arrière-plan (research.md R14). */
+  start(projectId: string): Promise<ContextGeneration> {
+    return firstValueFrom(this.http.post<ContextGeneration>(`${this.base(projectId)}/context-generations`, null));
+  }
+
+  /** Génération en cours ou dernière génération ; null s'il n'y en a aucune. Sans bandeau d'erreur. */
+  async current(projectId: string): Promise<ContextGeneration | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<ContextGeneration>(`${this.base(projectId)}/context-generations/current`, {
+          headers: new HttpHeaders({ 'X-Sw-Silent': '1' }),
+        }),
+      );
+    } catch (e) {
+      if (e instanceof HttpErrorResponse && e.status === 404) {
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  cancel(projectId: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${this.base(projectId)}/context-generations/current`));
   }
 
   accept(projectId: string, proposalId: string): Promise<Project> {

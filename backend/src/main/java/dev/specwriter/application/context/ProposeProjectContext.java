@@ -74,19 +74,49 @@ public class ProposeProjectContext {
     }
 
     public ContextProposalStore.ContextProposal run(UUID projectId) {
+        return run(projectId, GenerationProgress.NONE);
+    }
+
+    /**
+     * @throws GenerationProgress.Cancelled si l'interruption est constatée avant une page, une page
+     *         de tickets ou un appel au LLM
+     */
+    public ContextProposalStore.ContextProposal run(UUID projectId, GenerationProgress progress) {
         Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
         consent.requireGranted(ConsentService.COPILOT);
 
         List<Source> sources = new ArrayList<>();
         List<Unread> unread = new ArrayList<>();
-        for (DocSource source : docSources.list(projectId)) {
-            DocumentationReader.Result read = reader.read(source);
+        List<DocSource> declared = docSources.list(projectId);
+        if (!declared.isEmpty()) {
+            progress.step(GenerationProgress.Step.READING_DOCS, 0);
+        }
+        int[] offset = {0};
+        for (DocSource source : declared) {
+            DocumentationReader.Result read = reader.read(source, new DocumentationReader.Listener() {
+                @Override
+                public void reading(String location, int done, int total) {
+                    progress.advance(location, offset[0] + done, total == 0 ? 0 : offset[0] + total);
+                }
+
+                @Override
+                public boolean cancelled() {
+                    return progress.cancelled();
+                }
+            });
+            requireNotCancelled(progress);
+            offset[0] += read.pages().size() + read.unread().size();
             read.pages().forEach(p -> sources.add(new Source(p.ref(), p.title(), p.text())));
             unread.addAll(read.unread());
+            read.unread().forEach(u -> progress.error(GenerationError.of(u, source.location())));
             docSources.save(source.read(clock.now(), new DocSource.ReadSummary(read.pages().size(),
                     (int) read.unread().stream().filter(ProposeProjectContext::inError).count(), read.limitReached())));
         }
-        ProjectTickets.Read tickets = ProjectTickets.read(jira, tracker, project);
+        ProjectTickets.Read tickets = ProjectTickets.read(jira, tracker, project, progress);
+        if (tickets.failure() != null) {
+            progress.error(new GenerationError(GenerationError.Kind.JIRA, "Jira " + tickets.target().projectKey(),
+                    tickets.failure().kind().name(), null, tickets.failure().errorCode().defaultMessage()));
+        }
         for (JiraIssue issue : tickets.issues()) {
             sources.add(new Source(issue.key(), issue.summary(),
                     markup.toMarkdown(issue.description(), tickets.target().issueUrl(issue.key()))));
@@ -101,10 +131,17 @@ public class ProposeProjectContext {
         Language language = LanguageDetector.detect(sample(sources));
         Set<String> known = sources.stream().map(Source::ref).collect(Collectors.toCollection(LinkedHashSet::new));
         List<SourceFacts.Fact> facts = new ArrayList<>();
-        for (List<Source> batch : batches(sources)) {
-            facts.addAll(summarize(language, batch));
+        List<List<Source>> batches = batches(sources);
+        progress.step(GenerationProgress.Step.SUMMARIZING, batches.size());
+        for (int i = 0; i < batches.size(); i++) {
+            progress.advance(null, i, batches.size());
+            facts.addAll(summarize(language, batches.get(i), progress));
         }
-        String markdown = build(language, facts, project.context(), known);
+        progress.advance(null, batches.size(), batches.size());
+        progress.step(GenerationProgress.Step.BUILDING, 1);
+        String markdown = build(language, facts, project.context(), known, progress);
+        progress.advance(null, 1, 1);
+        requireNotCancelled(progress);
         return proposals.propose(project, markdown, cited(markdown), unread);
     }
 
@@ -137,14 +174,16 @@ public class ProposeProjectContext {
         return out;
     }
 
-    private List<SourceFacts.Fact> summarize(Language language, List<Source> batch) {
+    private List<SourceFacts.Fact> summarize(Language language, List<Source> batch, GenerationProgress progress) {
         Set<String> refs = batch.stream().map(Source::ref).collect(Collectors.toSet());
         SummarizeSourcesRequest request = new SummarizeSourcesRequest(language, batch, "");
-        return retry(correction -> llm.summarizeProjectSources(request.withCorrection(correction)).facts(), facts -> {
+        return retry(progress, "extraction des faits",
+                correction -> llm.summarizeProjectSources(request.withCorrection(correction)).facts(), facts -> {
             List<String> problems = new ArrayList<>();
             for (SourceFacts.Fact f : facts) {
                 if (f.refs().isEmpty()) {
-                    problems.add("le fait « " + f.statement() + " » ne cite aucune source du lot");
+                    // le fait lui-même n'est pas cité : le motif d'une correction est affiché (FR-013g)
+                    problems.add("un fait de la catégorie " + f.category() + " ne cite aucune source du lot");
                 }
                 f.refs().stream().filter(r -> !refs.contains(r))
                         .forEach(r -> problems.add("la source " + r + " ne fait pas partie du lot"));
@@ -153,9 +192,11 @@ public class ProposeProjectContext {
         });
     }
 
-    private String build(Language language, List<SourceFacts.Fact> facts, ProjectContext current, Set<String> known) {
+    private String build(Language language, List<SourceFacts.Fact> facts, ProjectContext current, Set<String> known,
+            GenerationProgress progress) {
         BuildContextRequest request = new BuildContextRequest(language, facts, current.markdown(), "");
-        return retry(correction -> llm.buildProjectContext(request.withCorrection(correction)), (ProjectContextDraft d) -> {
+        return retry(progress, "rédaction de la fiche", correction -> llm.buildProjectContext(request.withCorrection(correction)),
+                (ProjectContextDraft d) -> {
             List<String> problems = new ArrayList<>();
             String markdown = d.markdown() == null ? "" : d.markdown().strip();
             if (markdown.isEmpty()) {
@@ -170,18 +211,28 @@ public class ProposeProjectContext {
         }).markdown().strip();
     }
 
-    /** Appel au LLM, puis jusqu'à 2 nouvelles demandes avec les écarts constatés. */
-    private static <T> T retry(Function<String, T> call, Function<T, List<String>> check) {
+    /** Appel au LLM, puis jusqu'à 2 nouvelles demandes avec les écarts constatés, signalés (FR-013g). */
+    private static <T> T retry(GenerationProgress progress, String operation, Function<String, T> call,
+            Function<T, List<String>> check) {
         String correction = "";
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            requireNotCancelled(progress);
             T result = call.apply(correction);
             List<String> problems = check.apply(result);
             if (problems.isEmpty()) {
                 return result;
             }
             correction = String.join("\n", problems);
+            progress.error(new GenerationError(GenerationError.Kind.CORRECTION, null, operation, null,
+                    "Essai " + attempt + " sur " + MAX_ATTEMPTS + " : " + String.join(" ; ", problems)));
         }
         throw new DomainException(ErrorCode.LLM_INVALID_OUTPUT);
+    }
+
+    private static void requireNotCancelled(GenerationProgress progress) {
+        if (progress.cancelled()) {
+            throw new GenerationProgress.Cancelled();
+        }
     }
 
     /** Références citées par la fiche, dans leur ordre d'apparition. */

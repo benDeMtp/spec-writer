@@ -4,9 +4,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { provideRouter } from '@angular/router';
 import { provideMarkdown } from 'ngx-markdown';
-import { Project } from '../../core/projects/projects.model';
+import { ContextGeneration, Project } from '../../core/projects/projects.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
-import { ProjectContextPage } from './project-context.page';
+import { CONTEXT_POLL_MS, ProjectContextPage } from './project-context.page';
 
 const FACT: Project = {
   id: 'p1',
@@ -23,6 +23,30 @@ const FACT: Project = {
     { id: 's1', kind: 'URL', location: 'https://docs.example.com/billing/', lastReadAt: '2026-11-02T10:00:00Z', pagesRead: 30, pagesInError: 1 },
   ],
 };
+
+const CURRENT = '/api/projects/p1/context-generations/current';
+const PROPOSAL = {
+  proposalId: 'x1',
+  markdown: '## Acteurs\n- Le comptable lettre. [source : FACT-1]',
+  unifiedDiff: '--- actuelle\n+++ proposition\n@@ -1,2 +1,2 @@\n ## Acteurs\n-- Le comptable\n+- Le comptable lettre. [source : FACT-1]\n',
+  sources: ['FACT-1'],
+  unread: [],
+};
+
+function generation(over: Partial<ContextGeneration>): ContextGeneration {
+  return {
+    status: 'RUNNING',
+    step: 'READING_DOCS',
+    current: null,
+    done: 0,
+    total: 0,
+    startedAt: '2026-11-03T10:00:00Z',
+    finishedAt: null,
+    errors: [],
+    proposal: null,
+    ...over,
+  };
+}
 
 async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
   for (let i = 0; i < 3; i++) {
@@ -51,6 +75,7 @@ describe('ProjectContextPage', () => {
         provideHttpClientTesting(),
         provideMarkdown(),
         { provide: ConsentGate, useValue: { ensure: async () => consent } },
+        { provide: CONTEXT_POLL_MS, useValue: 0 },
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
       ],
     });
@@ -60,6 +85,8 @@ describe('ProjectContextPage', () => {
     el = fixture.nativeElement;
     fixture.detectChanges();
     ctrl.expectOne('/api/projects').flush([FACT]);
+    await settle(fixture);
+    ctrl.expectOne(CURRENT).flush(null, { status: 404, statusText: 'Not Found' });
     await settle(fixture);
   });
 
@@ -108,7 +135,7 @@ describe('ProjectContextPage', () => {
     expect(el.textContent).toContain('Aucune source.');
   });
 
-  it("annonce l'envoi, demande l'accord, puis accepte la proposition", async () => {
+  async function startGeneration(): Promise<void> {
     button(el, 'Proposer une fiche')!.click();
     ctrl.expectOne('/api/projects/p1/context-proposals/preview').flush({
       pages: 32,
@@ -118,31 +145,76 @@ describe('ProjectContextPage', () => {
     await settle(fixture);
     expect(el.textContent).toContain('Seront envoyés à Copilot : 32 pages de documentation et 120 tickets Jira.');
     expect(el.textContent).toContain('https://down.example.com/ : injoignable');
-
     button(el, 'Envoyer à Copilot')!.click();
     await settle(fixture);
-    ctrl.expectOne((r) => r.method === 'POST' && r.url === '/api/projects/p1/context-proposals').flush({
-      proposalId: 'x1',
-      markdown: '## Acteurs\n- Le comptable lettre. [source : FACT-1]',
-      unifiedDiff: '--- actuelle\n+++ proposition\n@@ -1,2 +1,2 @@\n ## Acteurs\n-- Le comptable\n+- Le comptable lettre. [source : FACT-1]\n',
-      sources: ['FACT-1'],
-      unread: [{ location: 'https://docs.example.com/billing/tarifs.html', reason: 'HTTP_ERROR' }],
-    });
+    ctrl.expectOne((r) => r.method === 'POST' && r.url === '/api/projects/p1/context-generations').flush(generation({ step: null }));
+    await settle(fixture);
+  }
+
+  it("suit la progression, détaille les erreurs, puis accepte la proposition", async () => {
+    await startGeneration();
+    ctrl.expectOne(CURRENT).flush(
+      generation({ current: 'https://docs.example.com/billing/tva.html', done: 12, total: 32 }),
+    );
+    await settle(fixture);
+    expect(el.textContent).toContain('Lecture de la documentation');
+    expect(el.textContent).toContain('page 12 sur 32');
+    expect(el.textContent).toContain('En cours : https://docs.example.com/billing/tva.html');
+    expect(el.querySelector('progress')!.getAttribute('max')).toBe('32');
+    expect(el.textContent).toContain('Lecture de la documentation…');
+
+    ctrl.expectOne(CURRENT).flush(generation({ step: 'READING_TICKETS', current: 'FACT-71', done: 50, total: 120 }));
+    await settle(fixture);
+    expect(el.textContent).toContain('ticket 50 sur 120');
+
+    ctrl.expectOne(CURRENT).flush(
+      generation({
+        status: 'SUCCEEDED',
+        step: 'BUILDING',
+        done: 1,
+        total: 1,
+        finishedAt: '2026-11-03T10:01:00Z',
+        proposal: PROPOSAL,
+        errors: [
+          { kind: 'PAGE', location: 'https://docs.example.com/billing/tarifs.html', reason: 'HTTP_ERROR', httpStatus: 500, message: null },
+          { kind: 'CORRECTION', location: null, reason: 'rédaction de la fiche', httpStatus: null, message: 'Essai 1 sur 3 : la référence X ne correspond à aucune source lue' },
+        ],
+      }),
+    );
     await settle(fixture);
     ctrl.expectOne('/api/projects').flush([FACT]);
     await settle(fixture);
     expect(el.textContent).toContain('Fiche proposée');
-    expect(el.textContent).toContain('tarifs.html : erreur du serveur');
+    expect(el.textContent).toContain('Détail des erreurs (2)');
+    expect(el.textContent).toContain('Page non lue https://docs.example.com/billing/tarifs.html : erreur du serveur (HTTP 500)');
+    expect(el.textContent).toContain("Correction demandée à l'IA (rédaction de la fiche) : Essai 1 sur 3");
+    expect(el.querySelector('a[href="/journal"]')).toBeTruthy();
 
     button(el, 'Accepter')!.click();
     ctrl.expectOne('/api/projects/p1/context-proposals/x1/accept').flush({
       ...FACT,
-      context: '## Acteurs\n- Le comptable lettre. [source : FACT-1]',
+      context: PROPOSAL.markdown,
       contextOrigin: 'GENERATED',
     });
     await settle(fixture);
     expect(el.textContent).toContain("Proposée par l'IA et acceptée le");
     expect(button(el, 'Accepter')).toBeUndefined();
+  });
+
+  it('interrompt la génération : rien n’est proposé', async () => {
+    await startGeneration();
+    ctrl.expectOne(CURRENT).flush(generation({ done: 3, total: 32 }));
+    await settle(fixture);
+    button(el, 'Interrompre')!.click();
+    ctrl.expectOne((r) => r.method === 'DELETE' && r.url === CURRENT).flush(null);
+    await settle(fixture);
+    ctrl.expectOne(CURRENT).flush(generation({ status: 'CANCELLED', finishedAt: '2026-11-03T10:00:30Z' }));
+    await settle(fixture);
+    ctrl.expectOne('/api/projects').flush([FACT]);
+    await settle(fixture);
+    expect(el.textContent).toContain("Génération interrompue. Rien n'a été proposé ni enregistré.");
+    expect(el.textContent).not.toContain('Fiche proposée');
+    expect(button(el, 'Proposer une fiche')).toBeTruthy();
   });
 
   it("n'envoie rien sans accord, et « Garder la mienne » ne change rien", async () => {
@@ -152,12 +224,14 @@ describe('ProjectContextPage', () => {
     consent = false;
     button(el, 'Envoyer à Copilot')!.click();
     await settle(fixture);
-    ctrl.expectNone('/api/projects/p1/context-proposals');
+    ctrl.expectNone('/api/projects/p1/context-generations');
 
     consent = true;
     button(el, 'Envoyer à Copilot')!.click();
     await settle(fixture);
-    ctrl.expectOne('/api/projects/p1/context-proposals').flush({ proposalId: 'x2', markdown: 'm', unifiedDiff: '', sources: [], unread: [] });
+    ctrl.expectOne('/api/projects/p1/context-generations').flush(generation({}));
+    await settle(fixture);
+    ctrl.expectOne(CURRENT).flush(generation({ status: 'SUCCEEDED', finishedAt: '2026-11-03T10:01:00Z', proposal: PROPOSAL }));
     await settle(fixture);
     ctrl.expectOne('/api/projects').flush([FACT]);
     await settle(fixture);
@@ -165,5 +239,40 @@ describe('ProjectContextPage', () => {
     await settle(fixture);
     expect(el.textContent).toContain('Fiche actuelle conservée.');
     expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('## Acteurs\n- Le comptable');
+  });
+});
+
+describe('ProjectContextPage, retour sur la page', () => {
+  it('reprend une génération en cours', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideMarkdown(),
+        { provide: CONTEXT_POLL_MS, useValue: 0 },
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
+      ],
+    });
+    const ctrl = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(ProjectContextPage);
+    fixture.componentRef.setInput('id', 'p1');
+    fixture.detectChanges();
+    ctrl.expectOne('/api/projects').flush([FACT]);
+    await settle(fixture);
+    ctrl.expectOne(CURRENT).flush(generation({ step: 'SUMMARIZING', done: 1, total: 2 }));
+    await settle(fixture);
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('Extraction des faits');
+    expect(el.textContent).toContain('lot 1 sur 2');
+    expect(button(el, 'Proposer une fiche')).toBeUndefined();
+    ctrl.expectOne(CURRENT).flush(generation({ status: 'FAILED', finishedAt: '2026-11-03T10:02:00Z', errors: [
+      { kind: 'FAILURE', location: null, reason: 'LLM_INVALID_OUTPUT', httpStatus: null, message: "La réponse de l'IA est invalide." },
+    ] }));
+    await settle(fixture);
+    ctrl.expectOne('/api/projects').flush([FACT]);
+    await settle(fixture);
+    expect(el.textContent).toContain("La génération a échoué : La réponse de l'IA est invalide.");
+    ctrl.verify();
   });
 });

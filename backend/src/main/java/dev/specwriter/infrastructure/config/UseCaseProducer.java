@@ -6,6 +6,7 @@ import dev.specwriter.application.context.ProposeProjectContext;
 import dev.specwriter.application.context.PreviewContextSources;
 import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.context.EditContext;
+import dev.specwriter.application.context.ContextGenerations;
 import dev.specwriter.application.context.ContextProposalStore;
 import dev.specwriter.application.context.AcceptContextProposal;
 import dev.specwriter.application.consent.UpdateConsent;
@@ -304,6 +305,15 @@ public class UseCaseProducer {
             DocumentationReader reader, JiraAccess jira, IssueTracker tracker, WikiMarkup markup, LlmClient llm,
             ConsentPolicy consent, ContextProposalStore proposals, ClockPort clock) {
         return new ProposeProjectContext(projects, docSources, reader, jira, tracker, markup, llm, consent, proposals, clock);
+    }
+
+    /** Une génération par thread virtuel : la lecture et les appels au LLM sont bloquants (research.md R14). */
+    @Produces
+    @ApplicationScoped
+    ContextGenerations contextGenerations(ProposeProjectContext propose, ProjectRepository projects, ConsentPolicy consent,
+            ContextProposalStore proposals, ClockPort clock) {
+        return new ContextGenerations(propose, projects, consent, proposals,
+                task -> Thread.ofVirtual().name("generation-contexte").start(task), clock);
     }
 
     @Produces

@@ -41,6 +41,7 @@ export interface DocSource {
 export interface UnreadSource {
   location: string;
   reason: UnreadReason;
+  httpStatus?: number | null;
 }
 
 /** Ce qui sera envoyé à Copilot, compté sans lire les pages (FR-013b). */
@@ -57,4 +58,29 @@ export interface ContextProposal {
   unifiedDiff: string;
   sources: string[];
   unread: UnreadSource[];
+}
+
+export type GenerationStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
+export type GenerationStep = 'READING_DOCS' | 'READING_TICKETS' | 'SUMMARIZING' | 'BUILDING';
+
+/** Erreur d'une génération, sans contenu de page ni de ticket (FR-013g). */
+export interface GenerationError {
+  kind: 'PAGE' | 'SOURCE' | 'JIRA' | 'CORRECTION' | 'FAILURE';
+  location: string | null;
+  reason: string;
+  httpStatus: number | null;
+  message: string | null;
+}
+
+/** Génération du contexte en arrière-plan, suivie par interrogation (FR-013f, research.md R14). */
+export interface ContextGeneration {
+  status: GenerationStatus;
+  step: GenerationStep | null;
+  current: string | null;
+  done: number;
+  total: number;
+  startedAt: string;
+  finishedAt: string | null;
+  errors: GenerationError[];
+  proposal: ContextProposal | null;
 }

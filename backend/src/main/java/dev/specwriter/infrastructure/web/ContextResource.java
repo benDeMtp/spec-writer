@@ -5,7 +5,9 @@ import dev.specwriter.application.context.ContextProposalStore.ContextProposal;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.context.PreviewContextSources;
-import dev.specwriter.application.context.ProposeProjectContext;
+import dev.specwriter.application.context.ContextGenerations;
+import dev.specwriter.application.context.ContextGenerations.Snapshot;
+import dev.specwriter.application.context.GenerationError;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.DocumentationReader.Unread;
@@ -23,6 +25,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -51,6 +54,17 @@ public class ContextResource {
         }
     }
 
+    /** État d'une génération : étape, élément en cours, avancement, erreurs et proposition (FR-013f, FR-013g). */
+    public record GenerationView(String status, String step, String current, int done, int total, Instant startedAt,
+            Instant finishedAt, List<GenerationError> errors, ContextProposalView proposal) {
+
+        static GenerationView of(Snapshot s) {
+            return new GenerationView(s.status().name(), s.step() == null ? null : s.step().name(), s.current(), s.done(),
+                    s.total(), s.startedAt(), s.finishedAt(), s.errors(),
+                    s.proposal() == null ? null : ContextProposalView.of(s.proposal()));
+        }
+    }
+
     @Inject
     ProjectResource projectViews;
     @Inject
@@ -60,7 +74,7 @@ public class ContextResource {
     @Inject
     PreviewContextSources previewSources;
     @Inject
-    ProposeProjectContext proposeContext;
+    ContextGenerations generations;
     @Inject
     AcceptContextProposal acceptProposal;
 
@@ -93,11 +107,25 @@ public class ContextResource {
         return new PreviewView(p.pages(), p.tickets(), p.unreadable());
     }
 
+    /** Démarre la génération en arrière-plan (research.md R14) ; son état se suit par interrogation. */
     @POST
-    @Path("/context-proposals")
-    public Response propose(@PathParam("id") String id) {
-        ContextProposal p = proposeContext.run(ProjectResource.projectId(id));
-        return Response.status(Response.Status.CREATED).entity(ContextProposalView.of(p)).build();
+    @Path("/context-generations")
+    public Response startGeneration(@PathParam("id") String id) {
+        Snapshot s = generations.start(ProjectResource.projectId(id));
+        return Response.status(Response.Status.ACCEPTED).entity(GenerationView.of(s)).build();
+    }
+
+    @GET
+    @Path("/context-generations/current")
+    public GenerationView currentGeneration(@PathParam("id") String id) {
+        return generations.current(ProjectResource.projectId(id)).map(GenerationView::of)
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Aucune génération du contexte pour ce projet."));
+    }
+
+    @DELETE
+    @Path("/context-generations/current")
+    public void cancelGeneration(@PathParam("id") String id) {
+        generations.cancel(ProjectResource.projectId(id));
     }
 
     @POST

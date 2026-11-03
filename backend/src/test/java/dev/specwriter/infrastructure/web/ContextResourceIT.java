@@ -5,6 +5,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static dev.specwriter.support.LocalApi.api;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -13,6 +14,7 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.path.json.JsonPath;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Map;
@@ -74,19 +76,43 @@ class ContextResourceIT {
                 .extract().path("id");
     }
 
+    /** Démarre la génération, puis l'interroge jusqu'à sa fin (research.md R14). */
+    JsonPath generate() {
+        api().post("/api/projects/" + projectId + "/context-generations").then().statusCode(202)
+                .body("status", equalTo("RUNNING")).body("startedAt", notNullValue());
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30);
+        while (true) {
+            JsonPath state = api().get("/api/projects/" + projectId + "/context-generations/current").then().statusCode(200)
+                    .extract().jsonPath();
+            if (!"RUNNING".equals(state.getString("status")) || System.nanoTime() > deadline) {
+                return state;
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return state;
+            }
+        }
+    }
+
     @Test
     void apercuPropositionPuisAcceptation() {
         addFolder();
         api().get("/api/projects/" + projectId + "/context-proposals/preview").then().statusCode(200)
                 .body("pages", equalTo(31)).body("tickets", equalTo(1)).body("unreadable", hasSize(0));
 
-        var proposal = api().post("/api/projects/" + projectId + "/context-proposals").then().statusCode(201)
-                .body("markdown", containsString("[source : billing/regle-tva.html]"))
-                .body("sources", equalTo(java.util.List.of("FACT-1", "billing/regle-tva.html")))
-                .body("unread.location", hasItem("billing/recherche.html"))
-                .body("unifiedDiff", notNullValue())
-                .extract();
-        String proposalId = proposal.path("proposalId");
+        api().get("/api/projects/" + projectId + "/context-generations/current").then().statusCode(404);
+        JsonPath state = generate();
+        assertThat(state.getString("status")).isEqualTo("SUCCEEDED");
+        assertThat(state.getString("step")).isEqualTo("BUILDING");
+        assertThat(state.getString("proposal.markdown")).contains("[source : billing/regle-tva.html]");
+        assertThat(state.getList("proposal.sources")).containsExactly("FACT-1", "billing/regle-tva.html");
+        assertThat(state.getList("proposal.unread.location")).contains("billing/recherche.html");
+        assertThat(state.getString("proposal.unifiedDiff")).isNotNull();
+        assertThat(state.getList("errors.location")).contains("billing/recherche.html");
+        assertThat(state.getList("errors.reason")).contains("NOT_ANTORA");
+        String proposalId = state.getString("proposal.proposalId");
 
         // rien n'est enregistré avant l'acceptation
         api().get("/api/projects/current").then().statusCode(200);
@@ -103,8 +129,7 @@ class ContextResourceIT {
     @Test
     void propositionRefuseeSiLeContexteAChange() {
         addFolder();
-        String proposalId = api().post("/api/projects/" + projectId + "/context-proposals").then().statusCode(201)
-                .extract().path("proposalId");
+        String proposalId = generate().getString("proposal.proposalId");
         api().body(Map.of("markdown", "## Acteurs\n- modifié à la main")).put("/api/projects/" + projectId + "/context")
                 .then().statusCode(200).body("contextOrigin", equalTo("EDITED"))
                 .body("context", equalTo("## Acteurs\n- modifié à la main"));
@@ -131,7 +156,13 @@ class ContextResourceIT {
     @Test
     void sansSourceNiTicketLaGenerationEstRefusee() {
         SearchAndJiraResourceIT.consent("JIRA", false);
-        api().post("/api/projects/" + projectId + "/context-proposals").then().statusCode(422)
-                .body("code", equalTo("VALIDATION_FAILED"));
+        JsonPath state = generate();
+        assertThat(state.getString("status")).isEqualTo("FAILED");
+        assertThat(state.getString("errors[-1].kind")).isEqualTo("FAILURE");
+        assertThat(state.getString("errors[-1].reason")).isEqualTo("VALIDATION_FAILED");
+        // sans consentement Copilot, rien ne démarre
+        SearchAndJiraResourceIT.consent("COPILOT", false);
+        api().post("/api/projects/" + projectId + "/context-generations").then().statusCode(428);
+        SearchAndJiraResourceIT.consent("COPILOT", true);
     }
 }

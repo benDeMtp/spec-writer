@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, InjectionToken, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,19 +8,48 @@ import { RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
 import { ContextApi } from '../../core/projects/context.api';
 import {
+  ContextGeneration,
   ContextPreview,
   ContextProposal,
   DocSource,
   DocSourceKind,
+  GenerationError,
+  GenerationStep,
   Project,
   UnreadReason,
-  UnreadSource,
 } from '../../core/projects/projects.model';
 import { ProjectsApi } from '../../core/projects/projects.api';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { UnifiedDiffComponent } from '../../shared/ui/unified-diff.component';
 
 const MAX_CONTEXT = 20_000;
+
+const STEPS: Record<GenerationStep, string> = {
+  READING_DOCS: 'Lecture de la documentation',
+  READING_TICKETS: 'Lecture des tickets Jira',
+  SUMMARIZING: 'Extraction des faits',
+  BUILDING: 'Rédaction de la fiche',
+};
+
+const KINDS: Record<GenerationError['kind'], string> = {
+  PAGE: 'Page non lue',
+  SOURCE: 'Source non lue',
+  JIRA: 'Jira',
+  CORRECTION: "Correction demandée à l'IA",
+  FAILURE: 'Échec',
+};
+
+const JIRA_REASONS: Record<string, string> = {
+  UNREACHABLE: 'injoignable',
+  UNAUTHORIZED: 'jeton refusé',
+  FORBIDDEN: 'droits insuffisants',
+  NOT_FOUND: 'projet introuvable',
+  RATE_LIMITED: 'trop de requêtes',
+  REJECTED: 'requête refusée',
+};
+
+/** Intervalle d'interrogation de l'état d'une génération (research.md R14) ; réduit par les tests. */
+export const CONTEXT_POLL_MS = new InjectionToken<number>('CONTEXT_POLL_MS', { factory: () => 1000 });
 
 const REASONS: Record<UnreadReason, string> = {
   UNREACHABLE: 'injoignable',
@@ -132,6 +161,25 @@ const REASONS: Record<UnreadReason, string> = {
 
       <section class="sheet" aria-labelledby="ai-title">
         <h2 id="ai-title">Proposer une fiche avec l'IA</h2>
+        @if (generation(); as g) {
+          @if (g.status === 'RUNNING') {
+            <div class="progress" role="group" aria-labelledby="progress-step">
+              <p id="progress-step" class="step">{{ stepLabel(g) }}</p>
+              @if (g.total > 0) {
+                <progress [value]="g.done" [max]="g.total" [attr.aria-label]="stepLabel(g)"></progress>
+              } @else {
+                <progress [attr.aria-label]="stepLabel(g)"></progress>
+              }
+              <p class="meta">{{ counter(g) }}</p>
+              @if (g.current) {
+                <p class="current">En cours : <span>{{ g.current }}</span></p>
+              }
+              <button mat-stroked-button type="button" (click)="cancel()" [disabled]="cancelling()">Interrompre</button>
+            </div>
+          } @else {
+            <p class="outcome">{{ outcomeLabel(g) }}</p>
+          }
+        }
         @if (proposal(); as pr) {
           <h3>Fiche proposée</h3>
           <sw-unified-diff [diff]="pr.unifiedDiff" label="Différences avec la fiche actuelle" />
@@ -140,14 +188,6 @@ const REASONS: Record<UnreadReason, string> = {
           </div>
           @if (pr.sources.length) {
             <p class="meta">Sources citées : {{ pr.sources.length }}</p>
-          }
-          @if (pr.unread.length) {
-            <h3>Non lues</h3>
-            <ul class="unread">
-              @for (u of pr.unread; track u.location) {
-                <li>{{ u.location }} : {{ reason(u) }}</li>
-              }
-            </ul>
           }
           <div class="actions">
             <button mat-flat-button type="button" (click)="accept(pr)" [disabled]="busy()">Accepter</button>
@@ -158,22 +198,33 @@ const REASONS: Record<UnreadReason, string> = {
           @if (s.unreadable.length) {
             <ul class="unread">
               @for (u of s.unreadable; track u.location) {
-                <li>{{ u.location }} : {{ reason(u) }}</li>
+                <li>{{ u.location }} : {{ reason(u.reason) }}</li>
               }
             </ul>
           }
           <div class="actions">
-            <button mat-flat-button type="button" (click)="propose()" [disabled]="busy() || !s.pages && !s.tickets">
+            <button mat-flat-button type="button" (click)="propose()" [disabled]="busy() || (!s.pages && !s.tickets)">
               Envoyer à Copilot
             </button>
             <button mat-button type="button" (click)="sending.set(null)" [disabled]="busy()">Annuler</button>
           </div>
-        } @else {
+        } @else if (generation()?.status !== 'RUNNING') {
           <p class="hint">
             L'IA lit les sources de documentation et les 200 derniers tickets du projet Jira, puis propose une fiche qui
             cite ses sources. Rien n'est enregistré avant votre accord.
           </p>
           <button mat-stroked-button type="button" (click)="prepare()" [disabled]="busy()">Proposer une fiche</button>
+        }
+        @if (finishedErrors().length) {
+          <details class="errors-detail">
+            <summary>Détail des erreurs ({{ finishedErrors().length }})</summary>
+            <ul class="errors">
+              @for (e of finishedErrors(); track $index) {
+                <li>{{ errorLabel(e) }}</li>
+              }
+            </ul>
+            <p><a routerLink="/journal">Voir le journal</a></p>
+          </details>
         }
       </section>
     }
@@ -255,8 +306,37 @@ const REASONS: Record<UnreadReason, string> = {
       overflow-wrap: anywhere;
       font-weight: 600;
     }
-    .unread li {
+    .unread li,
+    .errors li,
+    .current span {
       overflow-wrap: anywhere;
+    }
+    .progress {
+      display: grid;
+      gap: 0.25rem;
+      margin-bottom: 1rem;
+    }
+    .progress progress {
+      width: 100%;
+      height: 0.75rem;
+    }
+    .step {
+      margin: 0;
+      font-weight: 650;
+    }
+    .current {
+      margin: 0 0 0.5rem;
+    }
+    .outcome {
+      margin: 0 0 0.75rem;
+      font-weight: 600;
+    }
+    .errors-detail {
+      margin-top: 1rem;
+    }
+    .errors {
+      margin: 0.5rem 0;
+      padding-left: 1.25rem;
     }
   `,
 })
@@ -276,14 +356,43 @@ export class ProjectContextPage {
   protected readonly sending = signal<ContextPreview | null>(null);
   protected readonly proposal = signal<ContextProposal | null>(null);
   protected readonly busy = signal(false);
+  protected readonly generation = signal<ContextGeneration | null>(null);
+  protected readonly cancelling = signal(false);
+  /** Erreurs d'une génération terminée (FR-013g). */
+  protected readonly finishedErrors = computed(() => {
+    const g = this.generation();
+    return g && g.status !== 'RUNNING' ? g.errors : [];
+  });
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly pollMs = inject(CONTEXT_POLL_MS);
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastStep: GenerationStep | null = null;
   protected readonly announce = signal('');
   protected readonly dirty = computed(() => this.draft().trim() !== (this.project()?.context ?? ''));
 
   constructor() {
     effect(() => {
       const id = this.id();
-      untracked(() => void this.load(id));
+      untracked(() => void this.load(id).then(() => this.resume(id)));
     });
+    this.destroyRef.onDestroy(() => this.stopPolling());
+  }
+
+  /** Au retour sur la page : la génération en cours, ou la dernière si sa proposition est encore d'actualité. */
+  private async resume(id: string): Promise<void> {
+    const g = await this.api.current(id);
+    if (!g) {
+      return;
+    }
+    const p = this.project();
+    const stale = g.finishedAt && p?.contextUpdatedAt && new Date(p.contextUpdatedAt) >= new Date(g.finishedAt);
+    this.generation.set(g);
+    this.lastStep = g.step;
+    if (g.status === 'RUNNING') {
+      this.poll(id);
+    } else if (g.status === 'SUCCEEDED' && !stale) {
+      this.proposal.set(g.proposal);
+    }
   }
 
   private async load(id: string): Promise<void> {
@@ -317,8 +426,59 @@ export class ProjectContextPage {
     return `${s.pagesRead ?? 0} ${(s.pagesRead ?? 0) > 1 ? 'pages lues' : 'page lue'}${errors}, le ${at}`;
   }
 
-  protected reason(u: UnreadSource): string {
-    return REASONS[u.reason] ?? u.reason;
+  protected reason(reason: string): string {
+    return REASONS[reason as UnreadReason] ?? reason;
+  }
+
+  protected stepLabel(g: ContextGeneration): string {
+    return g.step ? STEPS[g.step] : 'Démarrage de la génération';
+  }
+
+  protected counter(g: ContextGeneration): string {
+    const unit: Record<GenerationStep, [string, string]> = {
+      READING_DOCS: ['page', 'pages'],
+      READING_TICKETS: ['ticket', 'tickets'],
+      SUMMARIZING: ['lot', 'lots'],
+      BUILDING: ['étape', 'étapes'],
+    };
+    if (!g.step) {
+      return '';
+    }
+    const [one, many] = unit[g.step];
+    if (g.total > 0) {
+      return `${one} ${g.done} sur ${g.total}`;
+    }
+    return `${g.done} ${g.done > 1 ? many : one}`;
+  }
+
+  protected outcomeLabel(g: ContextGeneration): string {
+    switch (g.status) {
+      case 'SUCCEEDED':
+        return 'Génération terminée.';
+      case 'CANCELLED':
+        return "Génération interrompue. Rien n'a été proposé ni enregistré.";
+      default: {
+        const failure = g.errors.find((e) => e.kind === 'FAILURE');
+        return `La génération a échoué${failure?.message ? ' : ' + failure.message : '.'}`;
+      }
+    }
+  }
+
+  protected errorLabel(e: GenerationError): string {
+    const kind = KINDS[e.kind];
+    const where = e.location ? ` ${e.location}` : '';
+    const http = e.httpStatus ? ` (HTTP ${e.httpStatus})` : '';
+    switch (e.kind) {
+      case 'PAGE':
+      case 'SOURCE':
+        return `${kind}${where} : ${this.reason(e.reason)}${http}`;
+      case 'JIRA':
+        return `${kind}${where} : ${JIRA_REASONS[e.reason] ?? e.reason}${e.message ? '. ' + e.message : ''}`;
+      case 'CORRECTION':
+        return `${kind} (${e.reason}) : ${e.message ?? ''}`;
+      default:
+        return `${kind} : ${e.message ?? e.reason}`;
+    }
   }
 
   protected summary(s: ContextPreview): string {
@@ -380,14 +540,71 @@ export class ProjectContextPage {
     if (!p || !(await this.consent.ensure('COPILOT'))) {
       return;
     }
-    this.announce.set('Lecture des sources et rédaction de la fiche…');
     await this.run(async () => {
-      const proposal = await this.api.propose(p.id);
+      const g = await this.api.start(p.id);
       this.sending.set(null);
-      this.proposal.set(proposal);
-      this.announce.set('Fiche proposée. Relisez-la, puis acceptez-la ou gardez la vôtre.');
-      await this.reload(false);
+      this.proposal.set(null);
+      this.lastStep = null;
+      this.generation.set(g);
+      this.announce.set('Génération du contexte démarrée.');
+      this.poll(p.id);
     });
+  }
+
+  protected async cancel(): Promise<void> {
+    const p = this.project();
+    if (!p) {
+      return;
+    }
+    this.cancelling.set(true);
+    await this.run(() => this.api.cancel(p.id));
+  }
+
+  /** Interroge l'état chaque seconde jusqu'à la fin ; n'annonce que les changements d'étape. */
+  private poll(id: string): void {
+    this.stopPolling();
+    this.pollTimer = setTimeout(async () => {
+      this.pollTimer = null;
+      let g: ContextGeneration | null;
+      try {
+        g = await this.api.current(id);
+      } catch {
+        this.poll(id);
+        return;
+      }
+      if (!g) {
+        this.generation.set(null);
+        return;
+      }
+      this.generation.set(g);
+      if (g.status === 'RUNNING') {
+        if (g.step && g.step !== this.lastStep) {
+          this.lastStep = g.step;
+          this.announce.set(`${STEPS[g.step]}…`);
+        }
+        this.poll(id);
+        return;
+      }
+      await this.finished(g);
+    }, this.pollMs);
+  }
+
+  private async finished(g: ContextGeneration): Promise<void> {
+    this.cancelling.set(false);
+    if (g.status === 'SUCCEEDED' && g.proposal) {
+      this.proposal.set(g.proposal);
+      this.announce.set('Fiche proposée. Relisez-la, puis acceptez-la ou gardez la vôtre.');
+    } else {
+      this.announce.set(this.outcomeLabel(g));
+    }
+    await this.reload(false);
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
   }
 
   protected async accept(pr: ContextProposal): Promise<void> {

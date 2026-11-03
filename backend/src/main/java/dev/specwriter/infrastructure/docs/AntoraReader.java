@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
@@ -61,7 +62,11 @@ public class AntoraReader implements DocumentationReader {
     }
 
     /** Réponse d'une page : son contenu, ou le motif pour lequel elle n'a pas été lue. */
-    private record Fetched(URI uri, String body, UnreadReason failure) {
+    private record Fetched(URI uri, String body, UnreadReason failure, Integer status) {
+
+        Fetched(URI uri, String body, UnreadReason failure) {
+            this(uri, body, failure, null);
+        }
     }
 
     private static final class TooLarge extends IOException {
@@ -92,32 +97,45 @@ public class AntoraReader implements DocumentationReader {
     }
 
     @Override
-    public Result read(DocSource source) {
+    public Result read(DocSource source, Listener listener) {
         Instant deadline = clock.now().plus(limits.maxDuration());
-        return source.kind() == DocSource.Kind.FOLDER ? readFolder(Path.of(source.location()), deadline)
-                : readSite(root(source), deadline);
+        Result result = source.kind() == DocSource.Kind.FOLDER ? readFolder(Path.of(source.location()), deadline, listener)
+                : readSite(root(source), deadline, listener);
+        result.unread().stream().filter(u -> u.reason() != UnreadReason.NOT_ANTORA).forEach(u -> LOG.warnf(
+                "Documentation : %s non lue (%s%s)", u.location(), u.reason(),
+                u.httpStatus() == null ? "" : ", HTTP " + u.httpStatus()));
+        return result;
+    }
+
+    private static Unread unread(String location, Fetched f) {
+        return new Unread(location, f.failure(), f.status());
     }
 
     // ---------- Site distant ou local ----------
 
-    private Result readSite(URI root, Instant deadline) {
+    private Result readSite(URI root, Instant deadline, Listener listener) {
         Optional<List<URI>> fromSitemap = sitemapPages(root);
         if (fromSitemap.isPresent()) {
-            return readPages(fromSitemap.get(), deadline);
+            return readPages(fromSitemap.get(), deadline, listener);
         }
-        return crawl(root, deadline);
+        return crawl(root, deadline, listener);
     }
 
-    private Result readPages(List<URI> uris, Instant deadline) {
+    private Result readPages(List<URI> uris, Instant deadline, Listener listener) {
         List<Page> pages = Collections.synchronizedList(new ArrayList<>());
         List<Unread> unread = Collections.synchronizedList(new ArrayList<>());
         List<URI> selected = uris.size() > limits.maxPages() ? uris.subList(0, limits.maxPages()) : uris;
         boolean[] stopped = {uris.size() > limits.maxPages()};
         Semaphore slots = new Semaphore(limits.parallelism());
+        AtomicInteger done = new AtomicInteger();
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<?>> running = new ArrayList<>();
             for (URI uri : selected) {
                 slots.acquireUninterruptibly();
+                if (listener.cancelled()) {
+                    slots.release();
+                    break;
+                }
                 if (clock.now().isAfter(deadline)) {
                     slots.release();
                     stopped[0] = true;
@@ -125,9 +143,10 @@ public class AntoraReader implements DocumentationReader {
                 }
                 running.add(executor.submit(() -> {
                     try {
+                        listener.reading(uri.toString(), done.getAndIncrement(), selected.size());
                         Fetched f = fetch(uri);
                         if (f.failure() != null) {
-                            unread.add(new Unread(uri.toString(), f.failure()));
+                            unread.add(unread(uri.toString(), f));
                         } else {
                             page(uri.toString(), f.body(), f.uri().toString()).ifPresentOrElse(pages::add,
                                     () -> unread.add(new Unread(uri.toString(), UnreadReason.NOT_ANTORA)));
@@ -143,7 +162,7 @@ public class AntoraReader implements DocumentationReader {
     }
 
     /** Sans sitemap : les liens du même hôte et sous le même chemin, depuis la page d'accueil. */
-    private Result crawl(URI root, Instant deadline) {
+    private Result crawl(URI root, Instant deadline, Listener listener) {
         List<Page> pages = new ArrayList<>();
         List<Unread> unread = new ArrayList<>();
         Set<URI> seen = new LinkedHashSet<>();
@@ -155,14 +174,18 @@ public class AntoraReader implements DocumentationReader {
             if (!seen.add(withoutFragment(uri))) {
                 continue;
             }
+            if (listener.cancelled()) {
+                break;
+            }
             if (pages.size() + unread.size() >= limits.maxPages() || clock.now().isAfter(deadline)) {
                 stopped = true;
                 break;
             }
+            listener.reading(uri.toString(), pages.size() + unread.size(), 0);
             Fetched f = fetch(uri);
             if (f.failure() != null) {
                 if (!uri.equals(root) || pages.isEmpty()) {
-                    unread.add(new Unread(uri.toString(), f.failure()));
+                    unread.add(unread(uri.toString(), f));
                 }
                 continue;
             }
@@ -230,14 +253,14 @@ public class AntoraReader implements DocumentationReader {
                     URI current = uri;
                     URI next = response.headers().firstValue("Location").map(current::resolve).orElse(null);
                     if (next == null || !sameHost(start, next)) {
-                        return new Fetched(uri, null, UnreadReason.REDIRECT_OTHER_HOST);
+                        return new Fetched(uri, null, UnreadReason.REDIRECT_OTHER_HOST, status);
                     }
                     uri = next;
                     continue;
                 }
                 if (status != 200) {
                     response.body().close();
-                    return new Fetched(uri, null, UnreadReason.HTTP_ERROR);
+                    return new Fetched(uri, null, UnreadReason.HTTP_ERROR, status);
                 }
                 return new Fetched(uri, bounded(response.body()), null);
             }
@@ -265,16 +288,21 @@ public class AntoraReader implements DocumentationReader {
 
     // ---------- Dossier local ----------
 
-    private Result readFolder(Path folder, Instant deadline) {
+    private Result readFolder(Path folder, Instant deadline, Listener listener) {
         List<Page> pages = new ArrayList<>();
         List<Unread> unread = new ArrayList<>();
         boolean stopped = false;
-        for (Path file : htmlFiles(folder)) {
+        List<Path> files = htmlFiles(folder);
+        for (Path file : files) {
             String ref = folder.relativize(file).toString().replace('\\', '/');
+            if (listener.cancelled()) {
+                break;
+            }
             if (pages.size() + unread.size() >= limits.maxPages() || clock.now().isAfter(deadline)) {
                 stopped = true;
                 break;
             }
+            listener.reading(ref, pages.size() + unread.size(), Math.min(files.size(), limits.maxPages()));
             try {
                 if (Files.size(file) > limits.maxPageBytes()) {
                     unread.add(new Unread(ref, UnreadReason.TOO_LARGE));

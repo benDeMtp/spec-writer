@@ -21,8 +21,8 @@ final class ProjectTickets {
     static final int MAX = 200;
     static final int PAGE = 50;
 
-    /** Tickets lus, ou ce qui n'a pas pu l'être. */
-    record Read(List<JiraIssue> issues, Optional<Unread> unread, JiraAccess.Target target) {
+    /** Tickets lus, ou ce qui n'a pas pu l'être, et pourquoi. */
+    record Read(List<JiraIssue> issues, Optional<Unread> unread, JiraAccess.Target target, IssueTrackerException failure) {
     }
 
     private ProjectTickets() {
@@ -47,24 +47,31 @@ final class ProjectTickets {
         }).orElse(0);
     }
 
-    static Read read(JiraAccess jira, IssueTracker tracker, Project project) {
+    static Read read(JiraAccess jira, IssueTracker tracker, Project project, GenerationProgress progress) {
         Optional<JiraAccess.Target> target = target(jira, project);
         if (target.isEmpty()) {
-            return new Read(List.of(), Optional.empty(), null);
+            return new Read(List.of(), Optional.empty(), null, null);
         }
         JiraAccess.Target t = target.get();
         List<JiraIssue> issues = new ArrayList<>();
+        progress.step(GenerationProgress.Step.READING_TICKETS, 0);
         try {
             for (int start = 0; start < MAX; start += PAGE) {
+                if (progress.cancelled()) {
+                    throw new GenerationProgress.Cancelled();
+                }
                 JiraIssuePage page = tracker.recentIssues(t.endpoint(), t.projectKey(), start, PAGE);
                 issues.addAll(page.issues());
+                int total = Math.min(MAX, page.total());
+                progress.advance(page.issues().isEmpty() ? t.projectKey() : page.issues().getLast().key(),
+                        Math.min(issues.size(), total), total);
                 if (page.issues().size() < PAGE || start + PAGE >= page.total()) {
                     break;
                 }
             }
-            return new Read(issues.stream().limit(MAX).toList(), Optional.empty(), t);
+            return new Read(issues.stream().limit(MAX).toList(), Optional.empty(), t, null);
         } catch (IssueTrackerException e) {
-            return new Read(issues, Optional.of(new Unread("Jira " + t.projectKey(), UnreadReason.UNREACHABLE)), t);
+            return new Read(issues, Optional.of(new Unread("Jira " + t.projectKey(), UnreadReason.UNREACHABLE)), t, e);
         }
     }
 }
