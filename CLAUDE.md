@@ -1,8 +1,10 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est décrite dans `specs/001-local-spec-assistant/` (spec, plan, research,
-tasks). La constitution est dans `.specify/memory/constitution.md`.
+La feature en cours est `specs/002-projets-contexte-mcp/` (projets, contexte de projet généré
+depuis une documentation Antora, suppression locale, Jira paginé, passerelle MCP pour les agents
+de code). Elle prolonge `specs/001-local-spec-assistant/`, dont les décisions restent valables.
+La constitution est dans `.specify/memory/constitution.md`.
 
 ## Boucle de développement (research.md R17)
 

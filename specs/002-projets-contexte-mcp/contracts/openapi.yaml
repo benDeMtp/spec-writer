@@ -1,0 +1,264 @@
+openapi: 3.1.0
+info:
+  title: Spec Writer — API locale, ajouts de la feature 002
+  version: 0.2.0
+  description: |
+    Complète `specs/001-local-spec-assistant/contracts/openapi.yaml`, dont les règles de sécurité
+    s'appliquent sans changement : cookie `sw_launch`, contrôle d'`Origin`, JSON obligatoire en
+    écriture, erreurs au format `Problem`.
+
+    Deux familles d'API :
+    - `/api/**` (interface web) : cookie de lancement ;
+    - `/api/agent/**` (passerelle MCP) : `Authorization: Bearer <secret de agent-endpoint.json>`.
+      Toute requête qui porte un en-tête `Origin` est refusée (403). Le cookie ne donne pas accès
+      à cette famille, et le secret ne donne pas accès à `/api/**` (research.md R2).
+servers:
+  - url: http://127.0.0.1:47615
+security:
+  - launchCookie: []
+
+paths:
+  /api/projects:
+    get:
+      summary: Liste des projets, triés par nom (FR-002)
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Project' } } } } }
+    post:
+      summary: Crée un projet (FR-001)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ProjectInput' } } } }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } }
+        '409': { description: 'Nom déjà utilisé (code PROJECT_NAME_TAKEN)' }
+        '422': { description: Saisie invalide }
+  /api/projects/{id}:
+    put:
+      summary: Renomme ou modifie un projet ; vérifie la clé Jira si Jira est configuré (FR-007)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ProjectInput' } } } }
+      responses:
+        '200':
+          description: Projet enregistré, avec l'avertissement éventuel sur la clé Jira
+          content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } }
+    delete:
+      summary: Supprime un projet (FR-002)
+      parameters:
+        - { name: sessions, in: query, required: true, schema: { enum: [MOVE, DELETE] } }
+        - { name: targetProjectId, in: query, schema: { type: string, format: uuid }, description: Obligatoire si sessions=MOVE }
+      responses:
+        '204': { description: Supprimé }
+        '409': { description: 'Dernier projet (LAST_PROJECT) ou opération IA en cours (OPERATION_IN_PROGRESS)' }
+  /api/projects/current:
+    put:
+      summary: Change le projet courant, conservé d'un lancement à l'autre (FR-005)
+      requestBody: { content: { application/json: { schema: { type: object, required: [projectId], properties: { projectId: { type: string, format: uuid } } } } } }
+      responses: { '204': { description: Enregistré } }
+  /api/projects/{id}/context:
+    put:
+      summary: Enregistre la fiche de contexte modifiée à la main (FR-013c) ; origine EDITED
+      requestBody: { content: { application/json: { schema: { type: object, required: [markdown], properties: { markdown: { type: string, maxLength: 20000 } } } } } }
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } } }
+  /api/projects/{id}/doc-sources:
+    post:
+      summary: Ajoute une source de documentation Antora (FR-013)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/DocSourceInput' } } } }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/DocSource' } } } }
+        '422': { description: 'Adresse ou dossier invalide (identifiants dans l’URL, chemin relatif…)' }
+  /api/projects/{id}/doc-sources/{sourceId}:
+    delete:
+      responses: { '204': { description: Supprimée } }
+  /api/projects/{id}/context-proposals/preview:
+    get:
+      summary: Ce qui sera envoyé à Copilot avant génération (FR-013b) ; lit le sitemap, sans lire les pages
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pages: { type: integer }
+                  tickets: { type: integer }
+                  unreadable: { type: array, items: { $ref: '#/components/schemas/UnreadSource' } }
+  /api/projects/{id}/context-proposals:
+    post:
+      summary: Génère une proposition de fiche (FR-013a) ; exige le consentement Copilot
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextProposal' } } } }
+        '428': { description: Consentement Copilot requis }
+  /api/projects/{id}/context-proposals/{proposalId}/accept:
+    post:
+      summary: Accepte la proposition ; refusée si le contexte a changé depuis (409 CONTEXT_CHANGED)
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } } }
+
+  /api/sessions/{id}/project:
+    put:
+      summary: Déplace une spécification vers un autre projet, avec ses versions (FR-004)
+      requestBody: { content: { application/json: { schema: { type: object, required: [projectId], properties: { projectId: { type: string, format: uuid } } } } } }
+      responses: { '204': { description: Déplacée } }
+  /api/sessions/{id}/status:
+    put:
+      summary: Change le statut d'implémentation (FR-026) ; quitter IMPLEMENTED exige confirmUnlock=true
+      requestBody: { content: { application/json: { schema: { type: object, required: [status], properties: { status: { $ref: '#/components/schemas/ImplementationStatus' }, confirmUnlock: { type: boolean } } } } } }
+      responses:
+        '200': { description: Statut enregistré }
+        '409': { description: 'Confirmation requise (UNLOCK_CONFIRMATION_REQUIRED)' }
+  /api/sessions/{id}/evolutions:
+    post:
+      summary: Crée une évolution d'une spécification implémentée (FR-026b)
+      responses: { '201': { description: 'Nouvelle session, en DRAFT, qui cite son origine' } }
+  /api/sessions/{id}/versions/{n}:
+    delete:
+      summary: Supprime une version locale (FR-014 à FR-019) ; Jira n'est pas modifié
+      responses:
+        '204': { description: Supprimée }
+        '409': { description: 'Spécification verrouillée (SPECIFICATION_LOCKED) ou opération en cours (OPERATION_IN_PROGRESS)' }
+
+  /api/jira/projects/{key}/issues:
+    get:
+      summary: Tickets du projet Jira, du plus récemment modifié au plus ancien, par 25 (FR-020, FR-021)
+      parameters:
+        - { name: startAt, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/IssuePage' } } } }
+        '503': { description: Jira injoignable ; la page affichée reste en place (FR-022) }
+  /api/search:
+    get:
+      summary: Liste unique paginée par 25 (FR-021a), dans le projet courant
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, maxLength: 200 } }
+        - { name: cursor, in: query, schema: { type: string }, description: Curseur opaque renvoyé par la page précédente (research.md R9) }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SearchPage' } } } }
+
+  /api/settings/agent-access:
+    get:
+      summary: État de l'accès des agents et ligne de configuration à déclarer dans un agent
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled: { type: boolean }
+                  command: { type: string, description: 'Commande à déclarer, ex. /Applications/spec-writer.app/Contents/MacOS/spec-writer-mcp' }
+                  mcpJson: { type: string, description: Extrait de configuration MCP prêt à copier, sans secret }
+    put:
+      summary: Active ou désactive l'accès des agents (FR-024)
+      requestBody: { content: { application/json: { schema: { type: object, required: [enabled], properties: { enabled: { type: boolean } } } } } }
+      responses: { '204': { description: Enregistré } }
+  /api/settings/agent-access/secret:
+    post:
+      summary: Régénère le secret ; les accès qui utilisaient l'ancien sont coupés (FR-024)
+      responses: { '204': { description: Régénéré ; le secret n'est jamais renvoyé } }
+  /api/settings/agent-access/log:
+    get:
+      summary: Journal des accès des agents, par 25 (FR-028)
+      parameters:
+        - { name: startAt, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200': { content: { application/json: { schema: { type: object, properties: { total: { type: integer }, entries: { type: array, items: { $ref: '#/components/schemas/AgentAccess' } } } } } } }
+
+  /api/agent/projects:
+    get:
+      security: [ { agentSecret: [] } ]
+      summary: Projets (outil MCP list_projects)
+      responses: { '200': { description: 'Liste {id, name, description, jiraProjectKey}' } }
+  /api/agent/projects/{id}/features:
+    get:
+      security: [ { agentSecret: [] } ]
+      summary: Features à implémenter, READY ou IN_PROGRESS (outil MCP list_features)
+      responses: { '200': { description: 'Liste {id, title, status, latestVersion, updatedAt}' } }
+  /api/agent/features/{id}:
+    get:
+      security: [ { agentSecret: [] } ]
+      summary: Contenu complet d'une feature (outil MCP get_feature)
+      responses:
+        '200': { description: 'Markdown de la dernière version, identique à l’export, et contexte du projet' }
+        '404': { description: 'Introuvable : supprimée, déplacée ou non à implémenter' }
+  /api/agent/features/{id}/status:
+    put:
+      security: [ { agentSecret: [] } ]
+      summary: Statut par un agent (outil MCP set_feature_status), READY→IN_PROGRESS ou IN_PROGRESS→IMPLEMENTED (FR-027)
+      responses:
+        '200': { description: Statut enregistré et consigné }
+        '409': { description: 'Transition interdite (TRANSITION_NOT_ALLOWED)' }
+
+components:
+  securitySchemes:
+    launchCookie: { type: apiKey, in: cookie, name: sw_launch }
+    agentSecret: { type: http, scheme: bearer }
+  schemas:
+    ImplementationStatus: { enum: [DRAFT, READY, IN_PROGRESS, IMPLEMENTED] }
+    ProjectInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        description: { type: string, maxLength: 1000 }
+        jiraProjectKey: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,9}$' }
+    Project:
+      allOf:
+        - $ref: '#/components/schemas/ProjectInput'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            effectiveJiraProjectKey: { type: string, description: 'Clé du projet, sinon projet Jira par défaut' }
+            jiraKeyWarning: { type: string, description: 'Clé introuvable dans Jira (FR-007), sinon absente' }
+            context: { type: string }
+            contextOrigin: { enum: [NONE, GENERATED, EDITED] }
+            contextUpdatedAt: { type: string, format: date-time }
+            docSources: { type: array, items: { $ref: '#/components/schemas/DocSource' } }
+            sessionCount: { type: integer }
+    DocSourceInput:
+      type: object
+      required: [kind, location]
+      properties:
+        kind: { enum: [URL, FOLDER] }
+        location: { type: string, maxLength: 2000 }
+    DocSource:
+      allOf:
+        - $ref: '#/components/schemas/DocSourceInput'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            lastReadAt: { type: string, format: date-time }
+            pagesRead: { type: integer }
+            pagesInError: { type: integer }
+    UnreadSource:
+      type: object
+      properties:
+        location: { type: string }
+        reason: { enum: [UNREACHABLE, NOT_ANTORA, HTTP_ERROR, TOO_LARGE, REDIRECT_OTHER_HOST, LIMIT_REACHED] }
+    ContextProposal:
+      type: object
+      properties:
+        proposalId: { type: string, format: uuid }
+        markdown: { type: string }
+        unifiedDiff: { type: string }
+        sources: { type: array, items: { type: string }, description: URL de page ou clé de ticket citées }
+        unread: { type: array, items: { $ref: '#/components/schemas/UnreadSource' } }
+    IssuePage:
+      type: object
+      properties:
+        startAt: { type: integer }
+        total: { type: integer }
+        issues: { type: array, items: { type: object, properties: { key: { type: string }, summary: { type: string }, updated: { type: string, format: date-time }, linkedSessionId: { type: string, format: uuid } } } }
+    SearchPage:
+      type: object
+      properties:
+        items: { type: array, description: 'Mêmes colonnes que FR-041 de 001 ; 25 au plus' }
+        position: { type: string, example: '26 à 50 sur 120' }
+        approximateTotal: { type: boolean }
+        nextCursor: { type: string }
+        jiraError: { type: string, description: 'Présent si Jira n’a pas répondu (FR-045 de 001)' }
+    AgentAccess:
+      type: object
+      properties:
+        at: { type: string, format: date-time }
+        agentName: { type: string }
+        operation: { enum: [LIST_PROJECTS, LIST_FEATURES, GET_FEATURE, SET_STATUS] }
+        projectName: { type: string }
+        featureTitle: { type: string }
+        oldStatus: { $ref: '#/components/schemas/ImplementationStatus' }
+        newStatus: { $ref: '#/components/schemas/ImplementationStatus' }
