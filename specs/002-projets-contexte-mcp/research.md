@@ -18,8 +18,13 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
 - **Rationale** :
   - les agents visés (Claude Code, Copilot, Cursor, JetBrains) savent tous lancer un serveur MCP
     stdio, et c'est le seul mode qui permet l'authentification sans clé de la clarification Q3 ;
-  - l'extension Quarkiverse `quarkus-mcp-server` (2.0.x) ne cible que Quarkus 3.x : elle n'est pas
-    utilisable avec Quarkus 4 ;
+  - l'extension Quarkiverse `quarkus-mcp-server` n'existe pas encore pour Quarkus 4. Sa branche
+    `main` vise Quarkus 3.40.1.1, et l'issue
+    [#1055](https://github.com/quarkiverse/quarkus-mcp-server/issues/1055) « Upgrade Quarkus to
+    4.0.x », ouverte le 2026-10-05, prévoit une branche séparée ; la 2.1.0 visera encore Quarkus
+    3.40 LTS. Aucun essai sur Quarkus 4.0.0.Beta2 n'a été fait. Ce point est à revoir quand une
+    version pour Quarkus 4 sortira, mais il ne change pas la décision, qui repose d'abord sur
+    l'authentification sans clé ;
   - une passerelle sans Quarkus démarre en moins de 500 ms et ne duplique ni la base ni la logique ;
   - le domaine reste unique, et l'API agent est testée comme les autres ressources REST.
 - **Protocole** :
@@ -32,8 +37,8 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
 - **Alternatives considered** :
   - MCP Streamable HTTP servi par l'outil : cela impose une clé dans la configuration de l'agent
     (refusé en clarification) et expose une surface supplémentaire au navigateur (DNS rebinding) ;
-  - `quarkus-mcp-server-stdio` dans une seconde application Quarkus : incompatible Quarkus 4, et
-    environ 2 s de démarrage par session d'agent.
+  - `quarkus-mcp-server-stdio` dans une seconde application Quarkus : aucune version pour Quarkus
+    4 à ce jour (issue #1055), et environ 2 s de démarrage par session d'agent.
 
 ## R2. Authentification de la passerelle (FR-024, FR-024a)
 

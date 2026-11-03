@@ -168,5 +168,5 @@ Maven supplémentaire. Une règle ArchUnit lui interdit toute dépendance vers `
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| Passerelle MCP stdio en second point d'entrée du jar | MCP stdio est le seul mode qui permet l'authentification sans clé choisie en clarification (Q3), et l'extension Quarkus MCP ne prend pas en charge Quarkus 4 | MCP HTTP servi par l'outil : clé à recopier dans la configuration de l'agent et exposition au navigateur ; seconde application Quarkus : incompatible et environ 2 s de démarrage |
+| Passerelle MCP stdio en second point d'entrée du jar | MCP stdio est le seul mode qui permet l'authentification sans clé choisie en clarification (Q3) ; de plus, l'extension Quarkus MCP n'a pas encore de version pour Quarkus 4 (issue #1055, ouverte) | MCP HTTP servi par l'outil : clé à recopier dans la configuration de l'agent et exposition au navigateur ; seconde application Quarkus avec l'extension stdio : pas de version pour Quarkus 4 et environ 2 s de démarrage |
 | Nouvelle dépendance jsoup | Extraire `article.doc` de pages HTML non fiables, sans les exécuter | Expressions régulières sur du HTML : fragiles et dangereuses ; lire les sources AsciiDoc : exige l'accès au dépôt et la résolution des inclusions |
