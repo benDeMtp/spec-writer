@@ -44,7 +44,7 @@ final class QuestionJudge {
         prompt.append("</questions>");
         for (int attempt = 1; attempt <= 2; attempt++) {
             Map<Integer, JsonNode> byIndex = new HashMap<>();
-            JSON.readTree(gateway.complete(model, PROMPT, prompt.toString(), SCHEMA)).path("verdicts")
+            JSON.readTree(EvalRuns.retrying(() -> gateway.complete(model, PROMPT, prompt.toString(), SCHEMA))).path("verdicts")
                     .forEach(v -> byIndex.put(v.path("index").asInt(), v));
             if (java.util.stream.IntStream.rangeClosed(1, asked.size()).allMatch(i -> byIndex.containsKey(i)
                     && VERDICTS.contains(byIndex.get(i).path("verdict").asString("")))) {

@@ -645,7 +645,7 @@ l'aperçu wiki contient `||`.
 - [X] T163 [P] Front : `F/features/specification/specification.page.ts` rend le résumé et les détails avec `ngx-markdown` (options partagées), et conserve les retours à la ligne des autres champs (`white-space: pre-line`) ; modèle `details` dans `sessions.model.ts`.
 - [X] T164 Golden set régénéré et relu ; fixtures LLM (`E/fixtures/llm`, `BTR/llm-replay`) complétées de `details` ; import de `PROJ-102` avec `details` dans `06-jira-import-structure.json`.
 - [X] T165 E2E `E/us6-search-edit.spec.ts` : après import de `PROJ-102`, tableau et sauts de ligne sur la page de spécification, sans violation axe ; aperçu wiki avec `||`.
-- [ ] T166 Relancer l'évaluation LLM (`-Peval`) et committer `last-run.json` (les prompts changent).
+- [X] T166 Relancer l'évaluation LLM (`-Peval`) et committer `last-run.json` (les prompts changent).
 
 ---
 

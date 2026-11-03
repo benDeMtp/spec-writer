@@ -29,10 +29,17 @@ final class SimulatedUser {
 
     Reply answer(String need, String reference, Question question) {
         String prompt = "<besoin>\n" + need + "\n</besoin>\n<reference>\n" + reference + "\n</reference>\n<question>\n"
-                + question.label() + (question.suggestions().isEmpty() ? "" : "\nSuggestions : "
+                + (question.isContradiction() ? "[contradiction à trancher] " : "") + question.label() + (question.suggestions().isEmpty() ? "" : "\nSuggestions : "
                         + String.join(" ; ", question.suggestions())) + "\n</question>";
-        JsonNode reply = JSON.readTree(gateway.complete(model, PROMPT, prompt, SCHEMA));
+        JsonNode reply = JSON.readTree(EvalRuns.retrying(() -> gateway.complete(model, PROMPT, prompt, SCHEMA)));
         String answer = reply.path("answer").asString("").strip();
-        return new Reply(answer, reply.path("skip").asBoolean(false) || answer.isEmpty());
+        boolean skip = reply.path("skip").asBoolean(false) || answer.isEmpty();
+        // une contradiction n'est jamais passée : la génération resterait bloquée
+        return question.isContradiction() && skip ? new Reply(firstSuggestion(question), false) : new Reply(answer, skip);
+    }
+
+    private static String firstSuggestion(Question question) {
+        return question.suggestions().isEmpty() ? "Je confirme ce que dit la spécification de référence."
+                : question.suggestions().getFirst();
     }
 }
