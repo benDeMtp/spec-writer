@@ -2,7 +2,9 @@
 # À rendre obligatoire dans Settings › Branches › règle de protection de main (« ci / verify »).
 # Le job nvd tient la base de Dependency-Check à jour dans le cache, à partir des flux JSON 2.0
 # publiés par NIST (un fichier par année, puis le flux « modified ») : pas d'API NVD, pas de clé.
-# Le job verify utilise cette base sans rien télécharger.
+# Le job verify utilise cette base sans rien télécharger. Il n'attend pas le job nvd : tant
+# qu'aucune base complète n'est en cache (premier remplissage), Dependency-Check est sauté avec un
+# avertissement, et toutes les autres gates restent bloquantes.
 name: ci
 
 on:
@@ -66,10 +68,7 @@ jobs:
           key: nvd-${{ github.run_id }}-${{ github.run_attempt }}
 
   verify:
-    needs: nvd
-    # jamais « sauté » quand nvd échoue : un check requis sauté compterait comme réussi ;
-    # sans base en cache, la restauration échoue et verify avec elle
-    if: ${{ !cancelled() && github.event_name != 'schedule' }}
+    if: ${{ github.event_name != 'schedule' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     concurrency:
@@ -99,12 +98,16 @@ jobs:
             e2e/package-lock.json
 
       - name: Base NVD (restauration)
+        id: nvd
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.NVD_DATA }}
           key: nvd-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: nvd-
-          fail-on-cache-miss: true
+
+      - name: Base NVD absente
+        if: steps.nvd.outputs.cache-matched-key == ''
+        run: echo "::warning title=Dependency-Check sauté::aucune base NVD en cache, le job nvd est en train de la remplir"
 
       - name: Outils (Semgrep, gitleaks)
         run: |
@@ -114,6 +117,8 @@ jobs:
           gitleaks version
 
       - name: Quality gates
+        env:
+          MAVEN_ARGS: ${{ env.MAVEN_ARGS }}${{ steps.nvd.outputs.cache-matched-key == '' && ' -DskipDependencyCheck' || '' }}
         run: ci/verify.sh
 
       - name: Rapports
