@@ -1,0 +1,80 @@
+{
+  "date" : "2026-11-02T13:16:27Z",
+  "fingerprint" : "69f3984096676752564448f67fd8dcc75f9cbb901781a002c7df2c5d89da4620",
+  "model" : "défaut du compte",
+  "copilotSdk" : "1.0.28-preview.0",
+  "copilotCli" : "embarqué",
+  "runs" : 3,
+  "scores" : {
+    "questionRelevance" : 0.963,
+    "scenarioStructure" : 1.0
+  },
+  "details" : [ {
+    "case" : "01-reservation-salle",
+    "run" : 1,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 1,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 1,
+    "questions" : 0,
+    "irrelevant" : [ ],
+    "scenarios" : 3,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "01-reservation-salle",
+    "run" : 2,
+    "questions" : 0,
+    "irrelevant" : [ ],
+    "scenarios" : 3,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 2,
+    "questions" : 9,
+    "irrelevant" : [ {
+      "question" : "Qui supporte réellement les frais de traitement : le client (ajoutés au total du panier) ou la boutique (paiement gratuit pour le client) ? Comment sont-ils calculés et affichés ?",
+      "verdict" : "REDONDANTE",
+      "reason" : "Reformule la question 1 déjà posée et tranchée ; seule l'ajout sur le calcul et l'affichage est nouveau, mais la question reste une répétition de la contradiction déjà résolue."
+    } ],
+    "scenarios" : 4,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 2,
+    "questions" : 0,
+    "irrelevant" : [ ],
+    "scenarios" : 3,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "01-reservation-salle",
+    "run" : 3,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 8,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 3,
+    "questions" : 10,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 3,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 4,
+    "structureViolations" : [ ]
+  } ]
+}

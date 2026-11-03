@@ -36,7 +36,7 @@ npm --prefix frontend start
 # E2E et accessibilité : jar et Jira simulé (WireMock) démarrés par le globalSetup
 npm --prefix e2e test
 
-# Suite d'évaluation LLM (vrai Copilot, consomme des AI Credits)
+# Suite d'évaluation LLM (vrai Copilot, consomme des AI Credits) : voir plus bas
 ./mvnw -pl backend verify -Peval
 
 # Toutes les quality gates, comme la CI
@@ -75,7 +75,28 @@ Un changement de comportement sans test qui l'a fait échouer d'abord n'est pas 
 | Accessibilité (axe, dans les E2E) | aucune violation WCAG 2.1 AA |
 | OWASP Dependency-Check, `npm audit` | aucune vulnérabilité haute |
 | Semgrep, gitleaks | aucun constat |
-| Évaluation LLM (`ci/check-eval.sh`, à venir : T138) | à jour si les prompts changent, scores au-dessus de la base |
+| Évaluation LLM (`ci/check-eval.sh`) | à jour si les prompts, le code LLM, le golden set, le Copilot SDK ou le modèle par défaut changent ; scores au-dessus de la base |
+
+### Évaluation LLM (principe IV)
+
+La CI n'appelle jamais Copilot. Elle vérifie que `backend/src/test/resources/eval/last-run.json`
+correspond au code (empreinte) et que ses scores n'ont pas reculé. Après toute modification d'un
+prompt, du code de `infrastructure/llm`, du golden set, de la version du Copilot SDK ou du modèle
+par défaut, la CI demande donc de relancer l'évaluation :
+
+1. Connectez le Copilot CLI une fois : `copilot login`.
+2. Lancez `./mvnw -pl backend verify -Peval -DskipDependencyCheck`. Pour 3 exécutions des 3
+   besoins, comptez de l'ordre de 150 requêtes Copilot (questions, réponses simulées, jugement,
+   génération), décomptées de votre quota selon le modèle.
+3. Relisez le détail de `last-run.json` (questions jugées non pertinentes, violations de
+   structure), puis committez-le avec le changement.
+
+Options : `-Deval.runs=1` pour un essai rapide (à ne pas committer), `-Deval.model=<id>` pour un
+autre modèle, `-Deval.copilot-home=<dossier>` si votre Copilot CLI n'utilise pas `~/.copilot`.
+
+Les seuils sont dans `baseline.json` : un score doit atteindre le plus haut de son minimum (critère
+de succès de la spec) et de sa base moins la tolérance (0,02), qui absorbe la variabilité du LLM.
+Quand les scores progressent durablement, relevez la base dans la même merge request.
 
 ### Sécurité
 

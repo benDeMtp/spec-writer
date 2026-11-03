@@ -299,6 +299,14 @@ et le mode WAL. Le test est `BT/spike/SqliteHibernateSpikeIT.java`.
   - suite d'évaluation LLM : un profil Maven `eval`, lancé manuellement ou de façon planifiée avec
     un vrai compte Copilot. Elle mesure la pertinence des questions et la structure des scénarios.
     Un recul des scores bloque la fusion.
+    *Amendement (T137, T138)* : la suite est lancée en local par le mainteneur, après
+    `copilot login`. Un utilisateur simulé répond d'après `expected.md`, un juge LLM applique une
+    grille de critères (SC-004) ; les scores sont la moyenne de 3 exécutions. La CI n'appelle pas
+    Copilot : `ci/check-eval.sh` compare l'empreinte de `last-run.json` (prompts, code LLM, golden
+    set, suite d'évaluation, version du Copilot SDK, modèle par défaut) et ses scores à
+    `baseline.json`, avec une tolérance de 0,02 qui ne descend jamais sous les critères de succès.
+    Une évaluation réelle planifiée en CI demanderait un compte Copilot technique : écartée tant
+    qu'il n'y en a pas.
 - **Alternatives considered** : quarkus-playwright (pas encore compatible Quarkus 4).
 
 ## R12. Déterminisme de la génération (FR-014)

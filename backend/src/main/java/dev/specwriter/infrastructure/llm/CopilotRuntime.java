@@ -41,6 +41,9 @@ public class CopilotRuntime implements CopilotSdkGateway {
     private static final Logger LOG = Logger.getLogger(CopilotRuntime.class);
     private static final long CALL_TIMEOUT_SECONDS = 180;
 
+    /** Version du CLI embarqué par le SDK utilisé : un CLI plus ancien ne comprend pas son protocole. */
+    static final String CLI_MIN_VERSION = "1.0.105";
+
     @ConfigProperty(name = "specwriter.data-dir.resolved")
     String dataDir;
 
@@ -51,8 +54,7 @@ public class CopilotRuntime implements CopilotSdkGateway {
     @ConfigProperty(name = "specwriter.copilot.cli-path")
     Optional<String> cliPath;
 
-    /** Version du CLI embarqué par le SDK utilisé : un CLI plus ancien ne comprend pas son protocole. */
-    @ConfigProperty(name = "specwriter.copilot.cli-min-version", defaultValue = "1.0.105")
+    @ConfigProperty(name = "specwriter.copilot.cli-min-version", defaultValue = CLI_MIN_VERSION)
     String cliMinVersion;
 
     private CopilotClient client;
@@ -60,11 +62,9 @@ public class CopilotRuntime implements CopilotSdkGateway {
     /** Client démarré à la demande ; partagé avec l'authentification GitHub. */
     public synchronized CopilotClient client() {
         if (client == null) {
-            Path home = UserDirectories.createPrivateDirectories(Path.of(dataDir, "copilot"),
-                    UserDirectories.fromSystem().posix());
             CopilotClientOptions options = new CopilotClientOptions()
                     .setUseLoggedInUser(true)
-                    .setCopilotHome(home.toString())
+                    .setCopilotHome(copilotHome().toString())
                     .setLogLevel("error");
             // le Copilot CLI lit HTTPS_PROXY et NO_PROXY, pas les propriétés Java (T139)
             Map<String, String> env = proxy.isEmpty() ? System.getenv() : proxy.childEnvironment(System.getenv());
@@ -97,8 +97,13 @@ public class CopilotRuntime implements CopilotSdkGateway {
         return client;
     }
 
+    /** {@code COPILOT_HOME} propre à l'outil, créé à la demande en {@code rwx------}. */
+    Path copilotHome() {
+        return UserDirectories.createPrivateDirectories(Path.of(dataDir, "copilot"), UserDirectories.fromSystem().posix());
+    }
+
     /** Sortie de {@code copilot --version}, vide si le CLI ne répond pas en 20 s. */
-    private static String versionOutput(Path cli, Map<String, String> env) {
+    static String versionOutput(Path cli, Map<String, String> env) {
         ProcessBuilder pb = new ProcessBuilder(cli.toString(), "--version").redirectErrorStream(true);
         pb.environment().clear();
         pb.environment().putAll(env);

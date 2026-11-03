@@ -1,0 +1,11 @@
+{
+  "tolerance": 0.02,
+  "minimum": {
+    "questionRelevance": 0.9,
+    "scenarioStructure": 1.0
+  },
+  "scores": {
+    "questionRelevance": 0.9,
+    "scenarioStructure": 1.0
+  }
+}
