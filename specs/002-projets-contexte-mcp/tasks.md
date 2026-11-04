@@ -223,40 +223,40 @@ relue, modifiable, régénérable, utilisée et citée par toutes les opération
 
 ### Deux fiches et questions de clarification (FR-008a, FR-013h, FR-013i, research.md R16)
 
-- [ ] T072 [P] [US2] Tests du domaine et de la persistance :
+- [X] T072 [P] [US2] Tests du domaine et de la persistance :
   - `ProjectContextTest` : deux fiches, hash combiné, date la plus récente ;
   - `BT/domain/project/ContextQuestionTest.java` : numérotation `Q-n`, états, longueurs ;
   - `ProjectPersistenceIT` : fiche technique et questions (V9), cascade à la suppression du projet.
-- [ ] T073 [P] [US2] Étendre `ProposeProjectContextTest` et `ContextGenerationsTest` :
+- [X] T073 [P] [US2] Étendre `ProposeProjectContextTest` et `ContextGenerationsTest` :
   - deux fiches, références vérifiées dans chacune, `Q-n` connues ;
   - 10 questions au plus, une question sur un point couvert par une réponse ou passée est refusée par une `correction` ;
   - réponse et passage enregistrés aussitôt, avec un numéro ;
   - révision sans relire les sources ni Jira, réponses citées ; génération expirée → `NOT_FOUND` ;
   - acceptation par fiche, `CONTEXT_CHANGED` par fiche.
-- [ ] T074 [P] [US2] `PromptInjectionIT` et `TraceabilityValidatorTest` : `<contexte-fonctionnel>`, `<contexte-technique>`, `<reponses>` et `<questions-passees>` échappés ; source `PROJECT_CONTEXT` acceptée si l'extrait figure dans l'une des deux fiches.
-- [ ] T075 [P] [US2] Golden set `BTR/golden/06-api-avec-contexte-technique/` (`context.md`, `technical.md`, exigences techniques issues de la fiche technique) ; `GoldenSetIT` lit `technical.md`.
-- [ ] T076 [US2] Migration `BR/db/migration/V9__context_sheets.sql` (colonnes `technical_context*`, table `project_context_question`), domaine (`ContextSheet`, `Project.technicalContext`, `ContextQuestion`, port `ContextQuestionRepository`) et persistance JPA. Faire passer T072.
-- [ ] T077 [US2] Port LLM et prompts :
+- [X] T074 [P] [US2] `PromptInjectionIT` et `TraceabilityValidatorTest` : `<contexte-fonctionnel>`, `<contexte-technique>`, `<reponses>` et `<questions-passees>` échappés ; source `PROJECT_CONTEXT` acceptée si l'extrait figure dans l'une des deux fiches.
+- [X] T075 [P] [US2] Golden set `BTR/golden/06-api-avec-contexte-technique/` (`context.md`, `technical.md`, exigences techniques issues de la fiche technique) ; `GoldenSetIT` lit `technical.md`.
+- [X] T076 [US2] Migration `BR/db/migration/V9__context_sheets.sql` (colonnes `technical_context*`, table `project_context_question`), domaine (`ContextSheet`, `Project.technicalContext`, `ContextQuestion`, port `ContextQuestionRepository`) et persistance JPA. Faire passer T072.
+- [X] T077 [US2] Port LLM et prompts :
   - `ProjectContextInput(functional, technical)` dans les 6 requêtes, avec les deux balises ;
   - nouvelles catégories de faits ;
   - `BuildContextRequest` avec les deux fiches actuelles, les réponses et les questions passées ; `ProjectContextDraft(functional, technical, questions)` ;
   - `LlmSchemas`, `UserMessages` ;
   - les 8 prompts. Faire passer T074.
-- [ ] T078 [US2] Application :
+- [X] T078 [US2] Application :
   - `ProposeProjectContext` (deux fiches, questions, faits gardés pour la révision) ;
   - `ContextGenerations.revise` ;
   - `AnswerContextQuestion` et `ManageContextQuestions` ;
   - `AcceptContextProposal` par fiche, `EditContext` par fiche ;
   - les opérations sur les spécifications reçoivent les deux fiches ;
   - `InputFingerprint` et version avec le hash combiné. Faire passer T073 et T075.
-- [ ] T079 [US2] `ContextResource` : `PUT /context/{sheet}`, réponses aux questions, `revise`, `accept` par fiche, `GET`/`PUT /context-questions`. Adapter `ContextResourceIT`.
-- [ ] T080 [P] [US2] Front, page du contexte :
+- [X] T079 [US2] `ContextResource` : `PUT /context/{sheet}`, réponses aux questions, `revise`, `accept` par fiche, `GET`/`PUT /context-questions`. Adapter `ContextResourceIT`.
+- [X] T080 [P] [US2] Front, page du contexte :
   - deux onglets « Fonctionnel » et « Technique », chacun avec son éditeur, son aperçu et son origine ;
   - proposition fiche par fiche, avec diff, « Accepter » ou « Garder la mienne » ;
   - questions de clarification (suggestions, réponse libre, « Passer »), puis « Réviser la proposition » ;
   - historique des réponses `Q-n`, modifiables ;
   - spécification : l'extrait « contexte du projet » nomme sa fiche.
-- [ ] T081 [US2] E2E `E/us8-project-context.spec.ts` : scénarios quickstart P5c et P5d avec axe ; réponses LLM rejouées (`10-build-context.json` avec questions, `13-revise-context.json`).
+- [X] T081 [US2] E2E `E/us8-project-context.spec.ts` : scénarios quickstart P5c et P5d avec axe ; réponses LLM rejouées (`10-build-context.json` avec questions, `09b-revise-context.json`, rangé avant `10-` pour être retenu en premier).
 
 **Checkpoint** : US1 et US2 utilisables ; le golden set avec contexte passe.
 

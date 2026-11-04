@@ -1,4 +1,4 @@
-{"operation": "generate-specification", "userContains": ["<contexte-projet>", "émettre un avoir"], "response": {
+{"operation": "generate-specification", "userContains": ["<contexte-fonctionnel>", "émettre un avoir"], "response": {
   "title": "Émission d'un avoir",
   "summary": "Le gestionnaire de facturation corrige une facture émise par un avoir.",
   "useCases": [

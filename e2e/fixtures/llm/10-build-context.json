@@ -1,3 +1,8 @@
 {"operation": "build-project-context", "userContains": ["Chaque ligne de facturation porte son taux de TVA."], "response": {
-  "markdown": "## Vocabulaire\n\n## Acteurs\n- Le gestionnaire de facturation contrôle les lignes des factures. [source : FACT-120]\n\n## Règles métier\n- Chaque ligne de facturation porte son taux de TVA. [source : http://127.0.0.1:47698/antora/billing/regle-tva.html]\n\n## Contraintes\n\n## Conventions\n"
+  "functional": "## Vision et objectifs\n\n## Acteurs\n- Le gestionnaire de facturation contrôle les lignes des factures. [source : FACT-120]\n\n## Vocabulaire\n\n## Règles métier\n- Chaque ligne de facturation porte son taux de TVA. [source : http://127.0.0.1:47698/antora/billing/regle-tva.html]\n\n## Contraintes fonctionnelles\n",
+  "technical": "## Architecture\n- Les factures sont contrôlées ligne par ligne avant émission. [source : FACT-119]\n\n## Contraintes techniques\n\n## Conventions de code\n\n## Intégrations\n",
+  "questions": [
+    {"sheet": "TECHNICAL", "label": "Quel système calcule la TVA ?", "rationale": "Aucune source ne décrit où le calcul est fait.", "suggestions": ["L'ERP", "Le service de facturation"]},
+    {"sheet": "FUNCTIONAL", "label": "Quelle est la vision du produit ?", "rationale": "La section Vision et objectifs est vide.", "suggestions": []}
+  ]
 }}
