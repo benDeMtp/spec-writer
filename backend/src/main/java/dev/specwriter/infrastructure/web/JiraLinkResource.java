@@ -35,6 +35,9 @@ import java.util.Map;
 @Produces(MediaType.APPLICATION_JSON)
 public class JiraLinkResource {
 
+    @Inject
+    SourceLinks sourceLinks;
+
     public record PushRequest(Boolean confirm, Integer versionNumber, String conflictResolution) {
     }
 
@@ -122,7 +125,7 @@ public class JiraLinkResource {
         return switch (outcome) {
             case PushToJira.Pushed p -> Response.ok(SessionViews.ticket(p.ticket())).build();
             case PushToJira.TakenFromJira t -> Response.ok(SessionViews.ticket(t.ticket())).build();
-            case PushToJira.MergeProposed m -> Response.accepted(SessionViews.proposal(m.proposal())).build();
+            case PushToJira.MergeProposed m -> Response.accepted(sourceLinks.complete(SessionViews.proposal(m.proposal()))).build();
             case PushToJira.Conflict c -> Response.status(Response.Status.CONFLICT).type(Problem.MEDIA_TYPE)
                     .entity(ConflictProblem.of(c)).build();
         };

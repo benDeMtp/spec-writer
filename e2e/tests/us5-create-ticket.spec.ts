@@ -157,6 +157,8 @@ test.describe.serial('US5 création du ticket Jira', () => {
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('combobox', { name: 'Type de ticket' }).click();
     await page.getByRole('option', { name: 'Bug' }).click();
+    // la liste précédente doit être refermée, sinon le second clic la vise pendant sa fermeture
+    await expect(page.getByRole('listbox')).toHaveCount(0);
     await expect(dialog.getByRole('combobox', { name: 'Équipe' })).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: 'Créer le ticket' })).toBeEnabled();
     await dialog.getByRole('combobox', { name: 'Type de ticket' }).click();

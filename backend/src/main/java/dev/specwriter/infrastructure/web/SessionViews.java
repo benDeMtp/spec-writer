@@ -1,5 +1,9 @@
 package dev.specwriter.infrastructure.web;
 
+import dev.specwriter.domain.knowledge.ArchitectureModel;
+import dev.specwriter.domain.knowledge.KnowledgeSelection;
+import dev.specwriter.domain.specification.SpecificationContent;
+import java.util.Map;
 import dev.specwriter.application.session.ConcludeQuestionnaire;
 import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.session.SessionSnapshot;
@@ -51,13 +55,37 @@ final class SessionViews {
     record VersionSummary(int number, String origin, Instant createdAt, boolean pushedToJira) {
     }
 
-    /** {@code contextUpdatedAt} : date du contexte de projet utilisé, absente sans contexte (FR-013d). */
+    /**
+     * {@code contextUpdatedAt} : date de la fiche générale utilisée, absente sans fiche (FR-013d) ;
+     * {@code architecture} : faits calculés par l'outil (FR-039 à FR-041) ; {@code links} : adresse
+     * des sources de la connaissance (ticket Jira, page web), par référence.
+     */
     record SpecificationView(int number, String origin, Instant createdAt, String title, String summary,
             String details, List<UseCase> useCases, List<AcceptanceScenario> scenarios, List<Assumption> assumptions,
-            List<Requirement> requirements, String markdown, Instant contextUpdatedAt) {
+            List<Requirement> requirements, String markdown, Instant contextUpdatedAt,
+            List<SpecificationContent.AdrDeviation> adrDeviations, ArchitectureView architecture,
+            Map<String, String> links) {
+
+        SpecificationView withLinks(Map<String, String> newLinks) {
+            return new SpecificationView(number, origin, createdAt, title, summary, details, useCases, scenarios,
+                    assumptions, requirements, markdown, contextUpdatedAt, adrDeviations, architecture, newLinks);
+        }
+    }
+
+    /** Modules impactés, échanges et constats de production de la sélection enregistrée (R22, R24). */
+    record ArchitectureView(List<KnowledgeSelection.ImpactedModule> modules, List<ArchitectureModel.Exchange> exchanges,
+            List<ArchitectureModel.DeploymentFact> deploymentFacts) {
+
+        static ArchitectureView of(KnowledgeSelection k) {
+            return new ArchitectureView(k.modules(), k.exchanges(), k.deploymentFacts());
+        }
     }
 
     record ProposalView(UUID proposalId, int baseVersion, SpecificationView proposed, String unifiedDiff) {
+
+        ProposalView withLinks(Map<String, String> links) {
+            return new ProposalView(proposalId, baseVersion, proposed.withLinks(links), unifiedDiff);
+        }
     }
 
     private SessionViews() {
@@ -110,7 +138,8 @@ final class SessionViews {
     static SpecificationView specification(SpecificationVersion v) {
         var c = v.content();
         return new SpecificationView(v.number(), v.origin().name(), v.createdAt(), c.title(), c.summary(), c.details(),
-                c.useCases(), c.scenarios(), c.assumptions(), c.requirements(), v.markdown(), v.contextUpdatedAt());
+                c.useCases(), c.scenarios(), c.assumptions(), c.requirements(), v.markdown(), v.contextUpdatedAt(),
+                c.adrDeviations(), ArchitectureView.of(v.knowledge()), Map.of());
     }
 
     /** La proposition est présentée comme la version qu'elle deviendra si elle est acceptée. */
@@ -118,6 +147,7 @@ final class SessionViews {
         var c = p.content();
         return new ProposalView(p.id(), p.baseVersion(), new SpecificationView(p.baseVersion() + 1, p.origin().name(),
                 p.createdAt(), c.title(), c.summary(), c.details(), c.useCases(), c.scenarios(), c.assumptions(), c.requirements(),
-                p.markdown(), p.contextUpdatedAt()), p.unifiedDiff());
+                p.markdown(), p.contextUpdatedAt(), c.adrDeviations(), ArchitectureView.of(p.knowledge().selection()),
+                Map.of()), p.unifiedDiff());
     }
 }

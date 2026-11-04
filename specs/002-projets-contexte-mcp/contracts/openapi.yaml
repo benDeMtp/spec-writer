@@ -186,6 +186,14 @@ paths:
       summary: Crée une évolution d'une spécification implémentée (FR-026b)
       responses: { '201': { description: 'Nouvelle session, en DRAFT, qui cite son origine' } }
   /api/sessions/{id}/versions/{n}:
+    get:
+      summary: >-
+        Version de spécification (SpecificationView de 001), complétée par adrDeviations
+        [{adrRef, decision, deviation}], architecture {modules [{name, scope}], exchanges [{source,
+        destination, kind DIRECT|INDIRECT|MISSING, via}], deploymentFacts [{kind, element, other}]} et
+        links (référence citée → adresse : ticket Jira, page ou ADR). Même vue dans les propositions
+        de modification assistée.
+      responses: { '200': { description: SpecificationView } }
     delete:
       summary: Supprime une version locale (FR-014 à FR-019) ; Jira n'est pas modifié
       responses:

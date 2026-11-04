@@ -55,6 +55,11 @@ export class JiraApi {
     );
   }
 
+  /** Réessaie le lien « relates to » de la story créée vers le ticket fermé (FR-035 de 002). */
+  retryRelation(sessionId: string): Promise<LinkedTicket> {
+    return firstValueFrom(this.http.post<LinkedTicket>(`${session(sessionId)}/jira/relation/retry`, {}));
+  }
+
   /** Le conflit (409) est un résultat attendu : lui seul ne passe pas par le bandeau d'erreur. */
   async push(sessionId: string, versionNumber: number, resolution?: ConflictResolution): Promise<PushOutcome> {
     const body = { confirm: true, versionNumber, ...(resolution ? { conflictResolution: resolution } : {}) };

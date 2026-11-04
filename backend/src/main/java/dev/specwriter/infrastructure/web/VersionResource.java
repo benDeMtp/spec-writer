@@ -27,6 +27,9 @@ import java.util.UUID;
 public class VersionResource {
 
     @Inject
+    SourceLinks sourceLinks;
+
+    @Inject
     SessionRepository sessions;
     @Inject
     SpecificationRepository versions;
@@ -50,14 +53,14 @@ public class VersionResource {
     public Response generate(@PathParam("id") String id) {
         GenerateSpecification.Generated generated = generateSpecification.run(Ids.parse(id));
         return Response.status(generated.reused() ? Response.Status.OK : Response.Status.CREATED)
-                .entity(SessionViews.specification(generated.version())).build();
+                .entity(sourceLinks.complete(SessionViews.specification(generated.version()))).build();
     }
 
     @GET
     @Path("/{n}")
     public SessionViews.SpecificationView get(@PathParam("id") String id, @PathParam("n") int number) {
         UUID sessionId = existing(id);
-        return versions.find(sessionId, number).map(SessionViews::specification)
+        return versions.find(sessionId, number).map(SessionViews::specification).map(sourceLinks::complete)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
     }
 

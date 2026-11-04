@@ -30,6 +30,17 @@ import { MoveSessionData, MoveSessionDialogComponent } from '../projects/move-se
 import { ExportService } from './export.service';
 import { VersionsPanelComponent } from './versions-panel.component';
 
+const EFFORTS: Record<DeploymentFact['kind'], string> = {
+  NOT_DEPLOYED: 'aucune instance en production, à déployer',
+  MULTIPLE_INSTANCES: 'plusieurs instances en production',
+  CROSS_INFRASTRUCTURE: 'traverse des infrastructures (ouverture réseau ou exposition à prévoir)',
+  SHARED_INFRASTRUCTURE: "dépend d'une infrastructure partagée",
+};
+
+type DeploymentFact = NonNullable<Specification['architecture']>['deploymentFacts'][number];
+
+const ADR_NAME = /adr[-_ ]?\d+/i;
+
 const SYNC: Record<SyncState, string> = {
   IN_SYNC: 'à jour avec Jira',
   LOCAL_AHEAD: 'modifications à envoyer',
@@ -139,7 +150,14 @@ const SYNC: Record<SyncState, string> = {
                   <dd><ul>@for (a of uc.alternatives; track $index) {<li>{{ a }}</li>}</ul></dd>
                 }
                 <dt>Source</dt>
-                <dd class="source">{{ sourceLabel(uc) }}</dd>
+                <dd class="source">
+                  {{ sourceLabel(uc) }}
+                  @if (sourceLink(uc); as href) {
+                    <a [href]="href" target="_blank" rel="noopener noreferrer">{{ refText(uc) }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a>
+                  } @else if (uc.source?.ref) {
+                    {{ refText(uc) }}
+                  }
+                </dd>
               </dl>
             </article>
           }
@@ -176,6 +194,71 @@ const SYNC: Record<SyncState, string> = {
           <h2 id="technical">Exigences techniques</h2>
           <ul>@for (r of technical(); track r.code) {<li><span class="code">{{ r.code }}</span> {{ r.statement }}</li>} @empty {<li>Aucune.</li>}</ul>
         </section>
+
+        @if (v.architecture; as a) {
+          @if (a.modules.length || a.exchanges.length) {
+            <section aria-labelledby="architecture">
+              <h2 id="architecture">Architecture</h2>
+              @if (a.modules.length) {
+                <h3>Modules impactés</h3>
+                <ul>
+                  @for (m of a.modules; track m.name) {
+                    <li>{{ m.name }} <span class="scope">({{ m.scope === 'PROJECT' ? 'propre au projet' : 'commun' }})</span></li>
+                  }
+                </ul>
+              }
+              @if (a.exchanges.length) {
+                <h3>Flux</h3>
+                <ul>
+                  @for (x of a.exchanges; track $index) {
+                    <li>
+                      {{ x.source }} → {{ x.destination }} :
+                      @if (x.kind === 'MISSING') {
+                        <strong>flux manquant, à créer</strong>
+                      } @else {
+                        flux existant{{ x.via ? ', via ' + x.via : '' }}
+                      }
+                    </li>
+                  }
+                </ul>
+              }
+            </section>
+          }
+        }
+        @if (v.adrDeviations?.length) {
+          <section aria-labelledby="deviations">
+            <h2 id="deviations">Écarts aux ADR</h2>
+            <ul class="deviations">
+              @for (d of v.adrDeviations; track d.adrRef) {
+                <li>
+                  @if (v.links?.[d.adrRef]; as href) {
+                    <a [href]="href" target="_blank" rel="noopener noreferrer">{{ pageName(d.adrRef) }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a>
+                  } @else {
+                    <strong>{{ d.adrRef }}</strong>
+                  }
+                  <dl>
+                    @if (d.decision) {
+                      <dt>Décision</dt>
+                      <dd>{{ d.decision }}</dd>
+                    }
+                    <dt>Écart</dt>
+                    <dd>{{ d.deviation }}</dd>
+                  </dl>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+        @if (v.architecture?.deploymentFacts?.length) {
+          <section aria-labelledby="efforts">
+            <h2 id="efforts">Efforts supplémentaires (déploiement)</h2>
+            <ul>
+              @for (f of v.architecture?.deploymentFacts; track $index) {
+                <li>{{ f.element }}{{ f.other ? ' → ' + f.other : '' }} : {{ effortLabel(f.kind) }}</li>
+              }
+            </ul>
+          </section>
+        }
       </div>
       @if (versions().length > 1) {
         <aside class="side">
@@ -335,8 +418,14 @@ export class SpecificationPage {
   /** `?edit=1` : ouvre la modification assistée, par exemple après l'import d'un ticket. */
   readonly edit = input<string | undefined>();
 
-  protected readonly editing = signal(false);
-  protected readonly mergeProposal = signal<Proposal | null>(null);
+  /**
+   * Proposition transmise par la page précédente : le besoin proposé comme modification assistée
+   * du ticket importé (« C'est la même », FR-035 de 002).
+   */
+  private readonly passedProposal =
+    (this.router.currentNavigation()?.extras.state?.['proposal'] as Proposal | undefined) ?? null;
+  protected readonly editing = signal(!!this.passedProposal);
+  protected readonly mergeProposal = signal<Proposal | null>(this.passedProposal);
   protected readonly pushing = signal(false);
   protected readonly exporting = signal(false);
   protected readonly status = signal('');
@@ -553,13 +642,34 @@ export class SpecificationPage {
       case 'PROJECT_CONTEXT':
         return `Contexte du projet : « ${s.excerpt} »`;
       case 'JIRA_ISSUE':
-        return `Ticket ${s.ref}`;
+        return 'Ticket';
       case 'DOC_PAGE':
-        return `Page ${s.ref}`;
+        return ADR_NAME.test(this.pageName(s.ref ?? '')) ? 'ADR' : 'Page';
       case 'ARCH_ELEMENT':
-        return `Élément d'architecture ${s.ref}`;
+        return "Élément d'architecture";
       default:
         return `Hypothèse${s.excerpt ? ` : ${s.excerpt}` : ''}`;
     }
+  }
+
+  /** Adresse de la source citée : ticket Jira, page ou ADR ; absente pour un élément d'architecture. */
+  protected sourceLink(uc: UseCase): string | null {
+    const ref = uc.source?.ref;
+    return ref ? (this.spec()?.links?.[ref] ?? null) : null;
+  }
+
+  protected refText(uc: UseCase): string {
+    const s = uc.source;
+    return s?.kind === 'DOC_PAGE' ? this.pageName(s.ref ?? '') : (s?.ref ?? '');
+  }
+
+  /** Dernier segment d'une adresse de page, sans extension : « adr-005 » pour …/adr/adr-005.html. */
+  protected pageName(ref: string): string {
+    const last = ref.replace(/[?#].*$/, '').replace(/\/+$/, '').split('/').pop() ?? ref;
+    return last.replace(/\.html?$/, '') || ref;
+  }
+
+  protected effortLabel(kind: DeploymentFact['kind']): string {
+    return EFFORTS[kind];
   }
 }

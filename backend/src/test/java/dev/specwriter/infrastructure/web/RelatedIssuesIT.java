@@ -144,7 +144,11 @@ class RelatedIssuesIT {
                 .then().statusCode(200).body("sessionId", equalTo(id)).body("relatesTo", equalTo("FACT-7"));
         api().get("/api/sessions/" + id + "/related-issues").then().body("decision", equalTo("LINK_NEW"));
 
-        api().post("/api/sessions/" + id + "/versions").then().statusCode(201);
+        // la story cite le ticket proche, ramené à sa clé exacte, avec son lien (T110, T116)
+        api().post("/api/sessions/" + id + "/versions").then().statusCode(201)
+                .body("useCases[0].source.kind", equalTo("JIRA_ISSUE")).body("useCases[0].source.ref", equalTo("FACT-7"))
+                .body("links['FACT-7']", equalTo("http://127.0.0.1:" + jira.port() + "/browse/FACT-7"))
+                .body("architecture.modules", hasSize(0)).body("adrDeviations", hasSize(0));
         api().body(Map.of("versionNumber", 1)).post("/api/sessions/" + id + "/jira/preview").then().statusCode(200)
                 .body("relatesTo", equalTo("FACT-7")).body("projectKey", equalTo("FACT"));
         api().body(Map.of("confirm", true, "versionNumber", 1, "issueTypeId", "10001")).post("/api/sessions/" + id + "/jira")

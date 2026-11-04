@@ -28,6 +28,9 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 public class RelatedIssuesResource {
 
+    @Inject
+    SourceLinks sourceLinks;
+
     public record DecisionInput(String decision, String key) {
     }
 
@@ -70,7 +73,7 @@ public class RelatedIssuesResource {
         DecisionInput in = input == null ? new DecisionInput(null, null) : input;
         ResolveRelatedIssue.Outcome outcome = resolve.run(Ids.parse(id), decision(in.decision()), in.key());
         return new DecisionView(outcome.sessionId(), outcome.relatesTo(),
-                outcome.proposal() == null ? null : SessionViews.proposal(outcome.proposal()));
+                outcome.proposal() == null ? null : sourceLinks.complete(SessionViews.proposal(outcome.proposal())));
     }
 
     private static RelatedIssues.Decision decision(String raw) {

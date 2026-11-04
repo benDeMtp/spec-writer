@@ -38,6 +38,7 @@ describe('CreateTicketDialogComponent', () => {
     syncState: 'IN_SYNC',
     linkedVersionNumber: 1,
   }));
+  const retryRelation = vi.fn();
   const close = vi.fn();
   let fixture: ComponentFixture<CreateTicketDialogComponent>;
   let el: HTMLElement;
@@ -47,7 +48,7 @@ describe('CreateTicketDialogComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: JiraApi, useValue: { preview, create } },
+        { provide: JiraApi, useValue: { preview, create, retryRelation } },
         { provide: MAT_DIALOG_DATA, useValue: { sessionId: 's1', versionNumber: 1 } },
         { provide: MatDialogRef, useValue: { close, disableClose: false } },
       ],
@@ -94,5 +95,31 @@ describe('CreateTicketDialogComponent', () => {
     expect(preview).toHaveBeenLastCalledWith('s1', 1, '10002');
     expect(el.textContent).toContain('« Composants » ne peut pas être rempli ici');
     expect(button(el, 'Créer le ticket').disabled).toBe(true);
+  });
+
+  it("annonce le lien « relates to » et propose de le réessayer s'il a échoué", async () => {
+    preview.mockResolvedValueOnce({ ...PREVIEW, requiredFields: [], relatesTo: 'PROJ-7' });
+    fixture.componentInstance['changeType']('10001');
+    await settle(fixture);
+    expect(el.textContent).toContain('La story sera liée à PROJ-7 par « relates to ».');
+
+    const ticket = {
+      issueKey: 'PROJ-42',
+      issueUrl: 'https://jira/browse/PROJ-42',
+      syncState: 'IN_SYNC' as const,
+      linkedVersionNumber: 1,
+      relatesTo: 'PROJ-7',
+    };
+    create.mockResolvedValueOnce({ ...ticket, relatesToLink: 'FAILED' } as never);
+    retryRelation.mockResolvedValueOnce({ ...ticket, relatesToLink: 'LINKED' });
+    button(el, 'Créer le ticket').click();
+    await settle(fixture);
+    expect(el.querySelector('[role=alert]')?.textContent).toContain("n'a pas pu être créé");
+
+    button(el, 'Réessayer le lien').click();
+    await settle(fixture);
+    expect(retryRelation).toHaveBeenCalledWith('s1');
+    expect(el.textContent).toContain('La story est liée à PROJ-7 par « relates to ».');
+    expect(el.querySelector('[role=alert]')).toBeNull();
   });
 });

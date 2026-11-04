@@ -8,7 +8,7 @@
       {"title": "Annuler une facture", "actor": "gestionnaire", "goal": "Annuler une facture émise",
        "preconditions": ["La facture est émise"], "nominalFlow": ["Choisir la facture", "Émettre l'avoir total", "Confirmer"],
        "alternatives": [],
-       "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "annuler une facture émise par un avoir total"}}
+       "source": {"kind": "JIRA_ISSUE", "questionId": "", "excerpt": "", "ref": "fact-7"}}
     ],
     "scenarios": [
       {"useCaseIndex": 0, "title": "Avoir total émis", "kind": "NOMINAL", "asA": "gestionnaire",

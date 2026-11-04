@@ -1,7 +1,23 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { SessionDetail, SessionSummary, Specification, VersionSummary } from './sessions.model';
+import { Proposal } from '../jira/jira.model';
+import {
+  IssueComparison,
+  RelatedDecision,
+  RelatedIssues,
+  SessionDetail,
+  SessionSummary,
+  Specification,
+  VersionSummary,
+} from './sessions.model';
+
+/** Suite d'un choix parmi les tickets proches ; pour SAME, la session importée et sa proposition. */
+export interface DecisionOutcome {
+  sessionId: string;
+  relatesTo: string | null;
+  proposal: Proposal | null;
+}
 
 /** Accès à /api/sessions et /api/sessions/{id}/versions. */
 @Injectable({ providedIn: 'root' })
@@ -50,6 +66,28 @@ export class SessionsApi {
 
   version(id: string, n: number): Promise<Specification> {
     return firstValueFrom(this.http.get<Specification>(`/api/sessions/${encodeURIComponent(id)}/versions/${n}`));
+  }
+
+  relatedIssues(id: string): Promise<RelatedIssues> {
+    return firstValueFrom(this.http.get<RelatedIssues>(`/api/sessions/${encodeURIComponent(id)}/related-issues`));
+  }
+
+  compare(id: string, key: string): Promise<IssueComparison> {
+    return firstValueFrom(
+      this.http.post<IssueComparison>(
+        `/api/sessions/${encodeURIComponent(id)}/related-issues/${encodeURIComponent(key)}/comparison`,
+        {},
+      ),
+    );
+  }
+
+  decide(id: string, decision: RelatedDecision, key?: string): Promise<DecisionOutcome> {
+    return firstValueFrom(
+      this.http.put<DecisionOutcome>(`/api/sessions/${encodeURIComponent(id)}/related-issues/decision`, {
+        decision,
+        ...(key ? { key } : {}),
+      }),
+    );
   }
 
   private answerUrl(id: string, questionId: string): string {

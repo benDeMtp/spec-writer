@@ -16,16 +16,25 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { SessionsApi } from '../../core/sessions/sessions.api';
-import { SessionDetail } from '../../core/sessions/sessions.model';
+import { RelatedIssues, SessionDetail } from '../../core/sessions/sessions.model';
 import { ProgressComponent } from './progress.component';
 import { QuestionCardComponent } from './question-card.component';
+import { RelatedChoice, RelatedIssuesComponent } from './related-issues.component';
 import { count } from '../../shared/text';
 
 /** Questionnaire : lots de questions, conclusion à tout moment, génération (US2). */
 @Component({
   selector: 'sw-questionnaire-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, ProgressComponent, QuestionCardComponent],
+  imports: [
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    ProgressComponent,
+    QuestionCardComponent,
+    RelatedIssuesComponent,
+  ],
   template: `
     @if (session(); as s) {
       <h1>{{ s.name }}</h1>
@@ -40,7 +49,9 @@ import { count } from '../../shared/text';
           <p class="status warn" role="alert">{{ w }}</p>
         }
 
-        @if (s.currentBatch.length) {
+        @if (awaiting(); as r) {
+          <sw-related-issues [sessionId]="s.id" [related]="r" (decided)="onDecided($event)" />
+        } @else if (s.currentBatch.length) {
           @for (q of s.currentBatch; track q.id) {
             <sw-question-card [question]="q" [busy]="busy()" (answered)="answer(q.id, $event)" (skipped)="skip(q.id)" />
           }
@@ -215,10 +226,41 @@ export class QuestionnairePage implements OnInit {
   protected readonly editing = signal<string | null>(null);
   protected readonly draft = signal('');
   protected readonly revisionMessage = signal('');
+  /** Tickets proches qui attendent un choix avant les questions (FR-034 de 002). */
+  protected readonly awaiting = signal<RelatedIssues | null>(null);
   private readonly cards = viewChildren(QuestionCardComponent);
   private readonly firstPendingId = computed(() => this.session()?.currentBatch[0]?.id ?? null);
 
   async ngOnInit(): Promise<void> {
+    const detail = await this.api.get(this.id());
+    if (detail.state === 'QUESTIONING' && !detail.currentBatch.length && !detail.answeredQuestions.length) {
+      // session créée sans questions : des tickets proches attendent peut-être un choix
+      const related = await this.api.relatedIssues(this.id()).catch(() => null);
+      if (related && related.decision === null && related.issues.length) {
+        this.awaiting.set(related);
+        this.session.set(detail);
+        afterNextRender(() => document.getElementById('related-title')?.focus(), { injector: this.injector });
+        return;
+      }
+    }
+    this.show(detail, true);
+  }
+
+  /** « C'est la même » ouvre le ticket importé avec le besoin proposé ; sinon les questions commencent. */
+  protected async onDecided(choice: RelatedChoice): Promise<void> {
+    if (choice.decision === 'SAME') {
+      const proposal = choice.outcome.proposal;
+      await this.router.navigate(['/sessions', choice.outcome.sessionId, 'versions', proposal?.baseVersion ?? 1], {
+        state: proposal ? { proposal } : {},
+      });
+      return;
+    }
+    this.awaiting.set(null);
+    if (choice.outcome.relatesTo) {
+      this.revisionMessage.set(
+        `La story rédigée sera liée à ${choice.outcome.relatesTo} par « relates to » à la création du ticket.`,
+      );
+    }
     this.show(await this.api.get(this.id()), true);
   }
 

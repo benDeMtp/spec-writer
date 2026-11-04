@@ -42,6 +42,8 @@ export interface PushPreview {
   summary: string;
   descriptionWiki: string;
   requiredFields: RequiredField[] | null;
+  /** Ticket fermé auquel la nouvelle story sera liée par « relates to » (FR-035 de 002). */
+  relatesTo?: string | null;
 }
 
 export type ConflictResolution = 'OVERWRITE' | 'TAKE_JIRA' | 'AI_MERGE';

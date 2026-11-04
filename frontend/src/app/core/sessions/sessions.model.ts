@@ -32,6 +32,9 @@ export interface LinkedTicket {
   issueUrl: string;
   syncState: SyncState;
   linkedVersionNumber: number;
+  /** Ticket fermé lié par « relates to » et état du lien (FR-035 de 002). */
+  relatesTo?: string | null;
+  relatesToLink?: 'PENDING' | 'LINKED' | 'FAILED' | null;
 }
 
 export interface SessionDetail extends SessionSummary {
@@ -116,4 +119,54 @@ export interface Specification {
   markdown: string;
   /** Date du contexte de projet utilisé, absente sans contexte (FR-013d de 002). */
   contextUpdatedAt?: string | null;
+  /** Écarts aux ADR cités (FR-037 de 002). */
+  adrDeviations?: AdrDeviation[];
+  /** Faits d'architecture calculés par l'outil (FR-039 à FR-041 de 002). */
+  architecture?: Architecture | null;
+  /** Adresse de chaque référence citée : ticket, page ou ADR. */
+  links?: Record<string, string>;
+}
+
+export interface AdrDeviation {
+  adrRef: string;
+  decision: string | null;
+  deviation: string;
+}
+
+export interface Architecture {
+  modules: { name: string; scope: 'PROJECT' | 'COMMON' }[];
+  exchanges: { source: string; destination: string; kind: 'DIRECT' | 'INDIRECT' | 'MISSING'; via: string | null }[];
+  deploymentFacts: {
+    kind: 'NOT_DEPLOYED' | 'MULTIPLE_INSTANCES' | 'CROSS_INFRASTRUCTURE' | 'SHARED_INFRASTRUCTURE';
+    element: string;
+    other: string | null;
+  }[];
+}
+
+export type RelatedDecision = 'LINK_NEW' | 'SAME' | 'DIFFERENT' | 'NONE';
+
+/** Tickets proches du besoin, montrés avant les questions (FR-034 de 002). */
+export interface RelatedIssues {
+  status: 'PENDING' | 'READY' | 'PARTIAL' | 'UNAVAILABLE';
+  issues: RelatedIssue[];
+  decision: RelatedDecision | null;
+}
+
+export interface RelatedIssue {
+  key: string;
+  title: string;
+  status: string;
+  closed: boolean;
+  /** Faux si Jira n'a pas pu être relu : statut indexé, daté de updatedAt. */
+  statusFresh: boolean;
+  updatedAt: string | null;
+  reason: string | null;
+  url: string | null;
+}
+
+export interface IssueComparison {
+  key: string;
+  common: string[];
+  different: string[];
+  suggestion: 'SAME' | 'DIFFERENT';
 }
