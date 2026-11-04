@@ -106,6 +106,31 @@ final class LlmSchemas {
                     .build()))
             .build());
 
+    /** Tickets proches retenus (feature 002, research.md R23). */
+    static final ResponseFormat RELATED_ISSUES = format("related_issues", JsonObjectSchema.builder()
+            .addProperty("related", array(JsonObjectSchema.builder()
+                    .addStringProperty("key")
+                    .addStringProperty("reason")
+                    .build()))
+            .build());
+
+    /** Comparaison du besoin et d'un ticket (feature 002, research.md R23). */
+    static final ResponseFormat ISSUE_COMPARISON = format("issue_comparison", JsonObjectSchema.builder()
+            .addProperty("common", array(string()))
+            .addProperty("different", array(string()))
+            .addEnumProperty("suggestion", List.of("SAME", "DIFFERENT"))
+            .build());
+
+    /** Modules impactés et échanges supposés (feature 002, research.md R22). */
+    static final ResponseFormat IMPACT = format("impact", JsonObjectSchema.builder()
+            .addProperty("modules", array(string()))
+            .addProperty("exchanges", array(JsonObjectSchema.builder()
+                    .addStringProperty("from")
+                    .addStringProperty("to")
+                    .addStringProperty("reason")
+                    .build()))
+            .build());
+
     private LlmSchemas() {
     }
 

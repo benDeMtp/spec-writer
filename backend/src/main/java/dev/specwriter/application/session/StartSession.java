@@ -2,6 +2,9 @@ package dev.specwriter.application.session;
 
 import dev.specwriter.domain.llm.ProjectContextInput;
 import dev.specwriter.domain.project.Project;
+import dev.specwriter.application.knowledge.FindRelatedIssues;
+import dev.specwriter.application.knowledge.RelatedIssues;
+import dev.specwriter.application.knowledge.RelatedIssuesStore;
 import dev.specwriter.application.project.CurrentProject;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
@@ -17,7 +20,8 @@ import java.util.List;
 
 /**
  * Crée une session à partir d'un besoin, dans le projet courant (FR-004 de 002), et calcule le
- * premier lot de questions (FR-001, FR-002).
+ * premier lot de questions (FR-001, FR-002), sauf si des tickets proches attendent le choix de
+ * l'utilisateur (FR-034 de 002).
  * Le besoin est validé avant tout envoi ; rien n'est envoyé sans consentement (FR-024). Si le LLM
  * échoue, aucune session n'est créée et le texte reste dans le formulaire.
  */
@@ -29,15 +33,25 @@ public class StartSession {
     private final ConsentPolicy consent;
     private final ClockPort clock;
     private final IdGenerator ids;
+    private final FindRelatedIssues findRelated;
+    private final RelatedIssuesStore related;
 
     public StartSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
             ClockPort clock, IdGenerator ids) {
+        this(sessions, projects, llm, consent, clock, ids, null, null);
+    }
+
+    /** Avec les tickets proches (FR-034) : s'il y en a, les questions attendent le choix de l'utilisateur. */
+    public StartSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
+            ClockPort clock, IdGenerator ids, FindRelatedIssues findRelated, RelatedIssuesStore related) {
         this.sessions = sessions;
         this.projects = projects;
         this.llm = llm;
         this.consent = consent;
         this.clock = clock;
         this.ids = ids;
+        this.findRelated = findRelated;
+        this.related = related;
     }
 
     public SessionSnapshot run(String needText, String name) {
@@ -45,6 +59,14 @@ public class StartSession {
         Project project = CurrentProject.resolve(projects);
         Session session = Session.start(ids.next(), project.id(), need, name, clock.now());
         consent.requireGranted(ConsentService.COPILOT);
+        if (findRelated != null) {
+            RelatedIssues found = findRelated.find(session, project);
+            related.save(session.id(), found);
+            if (found.awaitingDecision()) {
+                sessions.save(session, Questionnaire.empty());
+                return new SessionSnapshot(session, Questionnaire.empty(), List.of());
+            }
+        }
         Questionnaire questionnaire = NextBatch.ask(llm, ids, session, Questionnaire.empty(),
                 ProjectContextInput.of(project.contexts()));
         if (questionnaire.pending().isEmpty()) {

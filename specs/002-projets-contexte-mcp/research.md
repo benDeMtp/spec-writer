@@ -621,6 +621,12 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     statut indexé et sa date sont montrés.
   - Les questions de clarification ne sont demandées qu'après le choix de l'utilisateur sur ces
     tickets (ou « aucun ne correspond »).
+  - **Implémentation (T108)** : la recherche se fait à la création de la session, de façon
+    synchrone (index local, un appel `judgeRelatedIssues`, relecture des statuts). Sans ticket
+    proche, le premier lot de questions est demandé aussitôt, comme avant ; avec des tickets, la
+    session est créée sans questions et le lot est demandé par la décision. L'état `PENDING` du
+    contrat reste réservé à une recherche asynchrone future. Le lien et son état (`PENDING`,
+    `LINKED`, `FAILED`) sont gardés dans `session.relates_to` et `session.relates_to_link`.
   - **Fermé** : la session garde `relatesTo`. À la création du ticket (flux de 001), l'aperçu
     annonce le lien, puis `POST /rest/api/2/issueLink` crée le lien, avec le type dont le sens
     sortant est « relates to » (lu une fois par `GET /rest/api/2/issueLinkType`). Un échec du lien

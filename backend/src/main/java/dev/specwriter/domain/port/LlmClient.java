@@ -1,5 +1,11 @@
 package dev.specwriter.domain.port;
 
+import dev.specwriter.domain.llm.ImpactRequest;
+import dev.specwriter.domain.llm.ImpactResult;
+import dev.specwriter.domain.llm.CompareIssueRequest;
+import dev.specwriter.domain.llm.IssueComparison;
+import dev.specwriter.domain.llm.RelatedIssuesRequest;
+import dev.specwriter.domain.llm.RelatedIssuesJudgement;
 import dev.specwriter.domain.llm.BuildContextRequest;
 import dev.specwriter.domain.llm.DraftSpecification;
 import dev.specwriter.domain.llm.EditRequest;
@@ -39,4 +45,13 @@ public interface LlmClient {
 
     /** Fiche de contexte rédigée à partir des faits et de la fiche actuelle (research.md R4 de 002). */
     ProjectContextDraft buildProjectContext(BuildContextRequest request);
+
+    /** Tickets qui traitent du même problème que le besoin, 5 au plus (research.md R23 de 002). */
+    RelatedIssuesJudgement judgeRelatedIssues(RelatedIssuesRequest request);
+
+    /** Commun et écarts entre le besoin et un ticket non fermé (research.md R23 de 002). */
+    IssueComparison compareWithIssue(CompareIssueRequest request);
+
+    /** Modules impactés et échanges supposés, parmi les éléments candidats (research.md R22 de 002). */
+    ImpactResult identifyImpact(ImpactRequest request);
 }

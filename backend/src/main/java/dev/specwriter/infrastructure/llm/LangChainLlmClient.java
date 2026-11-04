@@ -22,6 +22,12 @@ import dev.specwriter.domain.llm.ReassessResult;
 import dev.specwriter.domain.llm.SourceFacts;
 import dev.specwriter.domain.llm.StructureImportRequest;
 import dev.specwriter.domain.llm.SummarizeSourcesRequest;
+import dev.specwriter.domain.llm.CompareIssueRequest;
+import dev.specwriter.domain.llm.ImpactRequest;
+import dev.specwriter.domain.llm.ImpactResult;
+import dev.specwriter.domain.llm.IssueComparison;
+import dev.specwriter.domain.llm.RelatedIssuesJudgement;
+import dev.specwriter.domain.llm.RelatedIssuesRequest;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.port.WikiMarkup;
 import dev.specwriter.domain.question.QuestionTheme;
@@ -161,6 +167,23 @@ public class LangChainLlmClient implements LlmClient {
         return call("build-project-context", user, LlmSchemas.PROJECT_CONTEXT, LangChainLlmClient::toContext);
     }
 
+    @Override
+    public RelatedIssuesJudgement judgeRelatedIssues(RelatedIssuesRequest request) {
+        return call("judge-related-issues", UserMessages.relatedIssues(request), LlmSchemas.RELATED_ISSUES,
+                LangChainLlmClient::toRelated);
+    }
+
+    @Override
+    public IssueComparison compareWithIssue(CompareIssueRequest request) {
+        return call("compare-with-issue", UserMessages.compareIssue(request), LlmSchemas.ISSUE_COMPARISON,
+                LangChainLlmClient::toComparison);
+    }
+
+    @Override
+    public ImpactResult identifyImpact(ImpactRequest request) {
+        return call("identify-impact", UserMessages.impact(request), LlmSchemas.IMPACT, LangChainLlmClient::toImpact);
+    }
+
     private <T> T call(String operation, String user, ResponseFormat format, Function<String, T> parse) {
         String system = prompt(operation);
         long start = System.nanoTime();
@@ -205,6 +228,30 @@ public class LangChainLlmClient implements LlmClient {
         return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
                 TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
                 draft.requirements());
+    }
+
+    private static RelatedIssuesJudgement toRelated(String json) {
+        RelatedIssuesJudgement judgement = JSON.readValue(json, RelatedIssuesJudgement.class);
+        if (judgement == null || judgement.related().stream().anyMatch(r -> blank(r.key()))) {
+            throw new IllegalArgumentException("ticket proche sans clé");
+        }
+        return judgement;
+    }
+
+    private static IssueComparison toComparison(String json) {
+        IssueComparison comparison = JSON.readValue(json, IssueComparison.class);
+        if (comparison == null || comparison.suggestion() == null) {
+            throw new IllegalArgumentException("comparaison sans suggestion");
+        }
+        return comparison;
+    }
+
+    private static ImpactResult toImpact(String json) {
+        ImpactResult impact = JSON.readValue(json, ImpactResult.class);
+        if (impact == null || impact.exchanges().stream().anyMatch(e -> blank(e.from()) || blank(e.to()))) {
+            throw new IllegalArgumentException("échange sans émetteur ou sans destinataire");
+        }
+        return impact;
     }
 
     private static SourceFacts toFacts(String json) {

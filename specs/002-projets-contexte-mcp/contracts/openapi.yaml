@@ -121,7 +121,11 @@ paths:
       responses: { '200': { content: { application/json: { schema: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/KnowledgeHit' } } } } } }
   /api/sessions/{id}/related-issues:
     get:
-      summary: Tickets proches du besoin (FR-034, R23), avant les questions ; PENDING tant que la recherche tourne
+      summary: >-
+        Tickets proches du besoin (FR-034, R23), calculés à la création de la session : s'il y en a,
+        la session est créée sans questions et les questions sont demandées au choix (decision).
+        UNAVAILABLE sans ticket indexé. Aperçu et création du ticket Jira (001) ajoutent relatesTo, et
+        la vue du ticket lié relatesTo et relatesToLink.
       responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/RelatedIssues' } } } } }
   /api/sessions/{id}/related-issues/{key}/comparison:
     post:
@@ -140,7 +144,22 @@ paths:
                 decision: { enum: [LINK_NEW, SAME, DIFFERENT, NONE] }
                 key: { type: string, description: Requis sauf pour NONE }
       responses:
-        '200': { content: { application/json: { schema: { type: object, properties: { sessionId: { type: string, format: uuid }, relatesTo: { type: string } } } } } }
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId: { type: string, format: uuid, description: "Session qui continue, ou session importée pour SAME" }
+                  relatesTo: { type: string }
+                  proposal: { type: object, description: "SAME : modification assistée proposée sur le ticket importé (ProposalView de 001)" }
+        '422': { description: "Choix inconnu, ticket hors des tickets proches, LINK_NEW sur un ticket non fermé ou SAME sur un ticket fermé" }
+  /api/sessions/{id}/jira/relation/retry:
+    post:
+      summary: Réessaie le lien « relates to » de la story créée vers le ticket fermé (FR-035)
+      responses:
+        '200': { description: "Ticket lié de la session (LinkedTicketView de 001), avec relatesTo et relatesToLink : PENDING, LINKED ou FAILED" }
+        '404': { description: Story pas encore créée, ou aucun ticket à lier }
   /api/journal:
     get:
       summary: Les 500 dernières entrées WARN et ERROR du journal, expurgées, les plus récentes d'abord (FR-031, R15)

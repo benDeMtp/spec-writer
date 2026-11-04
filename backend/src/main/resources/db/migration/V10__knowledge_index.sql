@@ -82,6 +82,8 @@ ALTER TABLE project ADD COLUMN jira_sync_mark TEXT;
 
 -- Story liée « relates to » à un ticket fermé (FR-035) et connaissance transmise (research.md R24)
 ALTER TABLE session ADD COLUMN relates_to TEXT;
+ALTER TABLE session ADD COLUMN relates_to_link TEXT CHECK (relates_to_link IS NULL
+                                                           OR relates_to_link IN ('PENDING', 'LINKED', 'FAILED'));
 ALTER TABLE specification_version ADD COLUMN knowledge TEXT;
 
 -- Modèle d'embedding remplacé par un dossier local (research.md R19)

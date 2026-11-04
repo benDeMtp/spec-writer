@@ -39,6 +39,8 @@ public class FakeIssueTracker implements IssueTracker {
     public final Map<String, TrackedIssue> tracked = new LinkedHashMap<>();
     /** Liens créés : {@code type sortant -> entrant}. */
     public final List<String> links = new ArrayList<>();
+    /** Panne de la seule création de lien. */
+    public Kind linkFailure;
 
     private void fail() {
         if (failure != null) {
@@ -191,6 +193,9 @@ public class FakeIssueTracker implements IssueTracker {
     public void createLink(JiraEndpoint endpoint, String typeName, String outwardKey, String inwardKey) {
         calls.add("link " + outwardKey + " " + inwardKey);
         fail();
+        if (linkFailure != null) {
+            throw new IssueTrackerException(linkFailure, "simulé");
+        }
         links.add(typeName + " " + outwardKey + " -> " + inwardKey);
         writes.add("link " + outwardKey);
     }

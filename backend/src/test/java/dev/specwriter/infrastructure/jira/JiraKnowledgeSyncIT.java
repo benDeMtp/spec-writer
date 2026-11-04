@@ -141,6 +141,14 @@ class JiraKnowledgeSyncIT {
     void auPlusHuitRequetesParSeconde() {
         jira.stubFor(get(urlPathEqualTo("/rest/api/2/issue/FACT-9")).willReturn(okJson("""
                 {"key":"FACT-9","fields":{"status":{"name":"À faire","statusCategory":{"key":"new"}}}}""")));
+        // chauffe : la première connexion arrive en retard et fausserait la mesure à l'arrivée
+        client.issueStatus(endpoint(), "FACT-9");
+        try {
+            Thread.sleep(1_200);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        jira.resetRequests();
         for (int i = 0; i < 20; i++) {
             client.issueStatus(endpoint(), "FACT-9");
         }

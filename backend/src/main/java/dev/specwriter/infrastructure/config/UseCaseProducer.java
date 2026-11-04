@@ -9,6 +9,12 @@ import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ContextGenerations;
 import dev.specwriter.application.knowledge.Indexations;
+import dev.specwriter.application.knowledge.CompareWithIssue;
+import dev.specwriter.application.knowledge.FindRelatedIssues;
+import dev.specwriter.application.knowledge.RelatedIssuesStore;
+import dev.specwriter.application.session.ResolveRelatedIssue;
+import dev.specwriter.application.jira.RetryRelatedLink;
+import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
 import dev.specwriter.application.knowledge.SynchronizeKnowledge;
@@ -138,8 +144,45 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     StartSession startSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm,
-            ConsentPolicy consent, ClockPort clock, IdGenerator ids) {
-        return new StartSession(sessions, projects, llm, consent, clock, ids);
+            ConsentPolicy consent, ClockPort clock, IdGenerator ids, FindRelatedIssues findRelated,
+            RelatedIssuesStore related) {
+        return new StartSession(sessions, projects, llm, consent, clock, ids, findRelated, related);
+    }
+
+    @Produces
+    @ApplicationScoped
+    RelatedIssuesStore relatedIssuesStore() {
+        return new RelatedIssuesStore();
+    }
+
+    @Produces
+    @ApplicationScoped
+    FindRelatedIssues findRelatedIssues(KnowledgeIndex index, EmbeddingPort embedding, LlmClient llm,
+            ConsentPolicy consent, JiraAccess jira, IssueTracker tracker, Indexations indexations) {
+        return new FindRelatedIssues(index, embedding, llm, consent, jira, tracker, indexations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    CompareWithIssue compareWithIssue(SessionRepository sessions, RelatedIssuesStore related, JiraAccess jira,
+            IssueTracker tracker, WikiMarkup markup, LlmClient llm, ConsentPolicy consent) {
+        return new CompareWithIssue(sessions, related, jira, tracker, markup, llm, consent);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ResolveRelatedIssue resolveRelatedIssue(SessionRepository sessions, ProjectRepository projects,
+            RelatedIssuesStore related, SessionRelationRepository relations, ImportJiraIssue importIssue,
+            ProposeAiEdit proposeEdit, ManageSessions manageSessions, LlmClient llm, ClockPort clock, IdGenerator ids) {
+        return new ResolveRelatedIssue(sessions, projects, related, relations, importIssue, proposeEdit, manageSessions,
+                llm, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    RetryRelatedLink retryRelatedLink(IssueTracker tracker, JiraAccess jira, LinkedTicketRepository tickets,
+            SessionRelationRepository relations) {
+        return new RetryRelatedLink(tracker, jira, tickets, relations);
     }
 
     @Produces
@@ -278,15 +321,16 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     PreviewJiraTicket previewJiraTicket(SpecificationRepository versions, LinkedTicketRepository tickets, WikiMarkup markup,
-            IssueTracker tracker, JiraAccess jira) {
-        return new PreviewJiraTicket(versions, tickets, markup, tracker, jira);
+            IssueTracker tracker, JiraAccess jira, SessionRelationRepository relations) {
+        return new PreviewJiraTicket(versions, tickets, markup, tracker, jira, relations);
     }
 
     @Produces
     @ApplicationScoped
     CreateJiraTicket createJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup,
-            SpecificationRepository versions, LinkedTicketRepository tickets, ClockPort clock) {
-        return new CreateJiraTicket(tracker, jira, markup, versions, tickets, clock);
+            SpecificationRepository versions, LinkedTicketRepository tickets, ClockPort clock,
+            SessionRelationRepository relations) {
+        return new CreateJiraTicket(tracker, jira, markup, versions, tickets, clock, relations);
     }
 
     // ---------- Contexte de projet (US2 de 002) ----------

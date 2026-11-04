@@ -7,7 +7,9 @@ import dev.specwriter.domain.jira.LinkedJiraTicket;
 import dev.specwriter.domain.jira.RequiredField;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.LinkedTicketRepository;
+import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
+import dev.specwriter.domain.session.SessionRelation;
 import dev.specwriter.domain.port.WikiMarkup;
 import dev.specwriter.domain.specification.SpecificationVersion;
 import java.util.List;
@@ -26,9 +28,10 @@ public class PreviewJiraTicket {
 
     public enum Mode { CREATE, UPDATE }
 
+    /** {@code relatesTo} : ticket fermé auquel la nouvelle story sera liée par « relates to » (FR-035 de 002). */
     public record Preview(Mode mode, String projectKey, String issueKey, List<IssueType> issueTypes,
             String defaultIssueTypeId, String issueTypeId, String summary, String descriptionWiki,
-            List<RequiredField> requiredFields) {
+            List<RequiredField> requiredFields, String relatesTo) {
     }
 
     private final SpecificationRepository versions;
@@ -36,9 +39,16 @@ public class PreviewJiraTicket {
     private final WikiMarkup markup;
     private final IssueTracker tracker;
     private final JiraAccess jira;
+    private final SessionRelationRepository relations;
 
     public PreviewJiraTicket(SpecificationRepository versions, LinkedTicketRepository tickets, WikiMarkup markup,
             IssueTracker tracker, JiraAccess jira) {
+        this(versions, tickets, markup, tracker, jira, CreateJiraTicket.NO_RELATIONS);
+    }
+
+    public PreviewJiraTicket(SpecificationRepository versions, LinkedTicketRepository tickets, WikiMarkup markup,
+            IssueTracker tracker, JiraAccess jira, SessionRelationRepository relations) {
+        this.relations = relations;
         this.versions = versions;
         this.tickets = tickets;
         this.markup = markup;
@@ -54,12 +64,14 @@ public class PreviewJiraTicket {
         String wiki = markup.toWiki(version.markdown());
         Optional<LinkedJiraTicket> linked = tickets.findBySession(sessionId);
         if (linked.isPresent()) {
-            return new Preview(Mode.UPDATE, null, linked.get().issueKey(), List.of(), null, null, summary, wiki, List.of());
+            return new Preview(Mode.UPDATE, null, linked.get().issueKey(), List.of(), null, null, summary, wiki, List.of(),
+                    null);
         }
         JiraAccess.Target target = jira.require(sessionId);
         List<IssueType> types = TicketForm.types(tracker, target);
         IssueType chosen = TicketForm.chosen(types, issueTypeId);
         return new Preview(Mode.CREATE, target.projectKey(), null, types, TicketForm.defaultType(types).id(), chosen.id(),
-                summary, wiki, TicketForm.toFill(tracker, target, chosen.id()));
+                summary, wiki, TicketForm.toFill(tracker, target, chosen.id()),
+                relations.find(sessionId).map(SessionRelation::relatesTo).orElse(null));
     }
 }

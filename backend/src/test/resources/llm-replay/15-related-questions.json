@@ -1,0 +1,5 @@
+{
+  "operation": "propose-questions",
+  "userContains": ["IT-PROCHES"],
+  "response": {"questions": [], "contradictions": [], "coveredThemes": []}
+}

@@ -1,6 +1,9 @@
 package dev.specwriter.infrastructure.llm;
 
 import dev.specwriter.domain.llm.BuildContextRequest;
+import dev.specwriter.domain.llm.CompareIssueRequest;
+import dev.specwriter.domain.llm.ImpactRequest;
+import dev.specwriter.domain.llm.RelatedIssuesRequest;
 import dev.specwriter.domain.llm.ProjectContextInput;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.llm.SourceFacts;
@@ -92,6 +95,35 @@ final class UserMessages {
         }
         return out.append("</questions-passees>\n<correction>").append(data(r.correction())).append("</correction>")
                 .toString();
+    }
+
+    /** Besoin et tickets candidats (judge-related-issues, R23 de 002). */
+    static String relatedIssues(RelatedIssuesRequest r) {
+        StringBuilder out = new StringBuilder(language(r.language())).append('\n').append(need(r.need()))
+                .append("\n<candidats>\n");
+        for (RelatedIssuesRequest.Candidate c : r.candidates()) {
+            out.append("<ticket ref=\"").append(attribute(c.key())).append("\" statut=\"").append(attribute(c.status()))
+                    .append("\">\n").append(data(c.title())).append('\n').append(data(c.excerpt())).append("\n</ticket>\n");
+        }
+        return out.append("</candidats>").toString();
+    }
+
+    /** Besoin et ticket non fermé (compare-with-issue, R23 de 002). */
+    static String compareIssue(CompareIssueRequest r) {
+        return language(r.language()) + "\n" + need(r.need()) + "\n<ticket ref=\"" + attribute(r.key()) + "\" statut=\""
+                + attribute(r.status()) + "\">\n" + data(r.title()) + "\n" + data(r.description()) + "\n</ticket>";
+    }
+
+    /** Besoin, réponses et éléments d'architecture candidats (identify-impact, R22 de 002). */
+    static String impact(ImpactRequest r) {
+        StringBuilder out = new StringBuilder(language(r.language())).append('\n').append(need(r.need())).append('\n')
+                .append(answers(r.answers())).append("\n<elements>\n");
+        for (ImpactRequest.Element e : r.candidates()) {
+            out.append("<element nom=\"").append(attribute(e.name())).append("\" type=\"").append(attribute(e.type()))
+                    .append("\" portee=\"").append(attribute(e.scope())).append("\" technologie=\"")
+                    .append(attribute(e.technology())).append("\">").append(data(e.description())).append("</element>\n");
+        }
+        return out.append("</elements>").toString();
     }
 
     /** Fiches fonctionnelle et technique ; une fiche vide est omise, et sans fiche le message est celui de 001. */

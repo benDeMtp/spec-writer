@@ -14,7 +14,8 @@ final class JiraThrottle {
 
     static final int PER_SECOND = 8;
     static final Duration MAX_WAIT = Duration.ofSeconds(10);
-    private static final long SECOND = Duration.ofSeconds(1).toNanos();
+    /** Une seconde, plus une marge : FR-022a se juge à l'arrivée chez Jira, après la gigue du réseau. */
+    private static final long SECOND = Duration.ofMillis(1_050).toNanos();
 
     private final int perSecond;
     private final long maxWait;

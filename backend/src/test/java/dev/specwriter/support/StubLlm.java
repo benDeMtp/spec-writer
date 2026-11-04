@@ -16,6 +16,12 @@ import dev.specwriter.domain.llm.SourceFacts;
 import dev.specwriter.domain.llm.StructureImportRequest;
 import dev.specwriter.domain.llm.SummarizeSourcesRequest;
 import dev.specwriter.domain.port.LlmClient;
+import dev.specwriter.domain.llm.CompareIssueRequest;
+import dev.specwriter.domain.llm.ImpactRequest;
+import dev.specwriter.domain.llm.ImpactResult;
+import dev.specwriter.domain.llm.IssueComparison;
+import dev.specwriter.domain.llm.RelatedIssuesJudgement;
+import dev.specwriter.domain.llm.RelatedIssuesRequest;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -40,6 +46,12 @@ public class StubLlm implements LlmClient {
     public final Deque<ProjectContextDraft> contexts = new ArrayDeque<>();
     public final List<SummarizeSourcesRequest> summarizeRequests = new ArrayList<>();
     public final List<BuildContextRequest> contextRequests = new ArrayList<>();
+    public final Deque<RelatedIssuesJudgement> judgements = new ArrayDeque<>();
+    public final Deque<IssueComparison> comparisons = new ArrayDeque<>();
+    public final Deque<ImpactResult> impacts = new ArrayDeque<>();
+    public final List<RelatedIssuesRequest> relatedRequests = new ArrayList<>();
+    public final List<CompareIssueRequest> compareRequests = new ArrayList<>();
+    public final List<ImpactRequest> impactRequests = new ArrayList<>();
     /** Erreur levée par {@code structureImportedText} à la place d'une réponse. */
     public ErrorCode structureFailure;
     /** Appelé avant chaque rédaction du contexte : simule un appel long, par exemple. */
@@ -113,6 +125,24 @@ public class StubLlm implements LlmClient {
         return next(contexts);
     }
 
+    @Override
+    public RelatedIssuesJudgement judgeRelatedIssues(RelatedIssuesRequest request) {
+        relatedRequests.add(request);
+        return next(judgements);
+    }
+
+    @Override
+    public IssueComparison compareWithIssue(CompareIssueRequest request) {
+        compareRequests.add(request);
+        return next(comparisons);
+    }
+
+    @Override
+    public ImpactResult identifyImpact(ImpactRequest request) {
+        impactRequests.add(request);
+        return next(impacts);
+    }
+
     private static <T> T next(Deque<T> queue) {
         if (queue.isEmpty()) {
             throw new DomainException(ErrorCode.LLM_UNAVAILABLE);
@@ -123,6 +153,7 @@ public class StubLlm implements LlmClient {
     /** Nombre total d'appels au LLM. */
     public int calls() {
         return questionRequests.size() + reassessRequests.size() + generationRequests.size() + editRequests.size()
-                + mergeRequests.size() + structureRequests.size() + summarizeRequests.size() + contextRequests.size();
+                + mergeRequests.size() + structureRequests.size() + summarizeRequests.size() + contextRequests.size()
+                + relatedRequests.size() + compareRequests.size() + impactRequests.size();
     }
 }

@@ -314,13 +314,13 @@ flux manquants et les efforts de déploiement ; une fiche générale à la main.
 
 #### Tickets proches
 
-- [ ] T106 [P] [US2] Tests :
+- [X] T106 [P] [US2] Tests :
   - `BT/application/knowledge/FindRelatedIssuesTest.java` : 20 candidats par la recherche, `judgeRelatedIssues` en garde 5 au plus avec leur raison ; sans consentement Copilot ou en cas d'échec, les 3 meilleurs sans raison ; statut relu, ou statut indexé avec sa date et `statusFresh=false` ; index partiel signalé ;
   - `BT/application/knowledge/ResolveRelatedIssueTest.java` : `LINK_NEW` enregistre `relatesTo` ; `SAME` remplace la session par l'import du ticket puis propose le besoin en modification assistée ; `DIFFERENT` et `NONE` laissent la rédaction continuer ; les questions ne sont demandées qu'après le choix ;
   - `BT/application/knowledge/CompareWithIssueTest.java` : « commun » et « différent », 8 points au plus chacun, suggestion `SAME`|`DIFFERENT` ;
   - `BT/application/jira/CreateJiraTicketTest.java` : avec `relatesTo`, l'aperçu annonce le lien, le lien est créé après la story ; un échec du lien laisse la story créée et propose de réessayer.
-- [ ] T107 [US2] Port LLM : opérations `judgeRelatedIssues`, `compareWithIssue` et `identifyImpact` (contracts/llm-port.md) : records de requête et de résultat, `LlmClient`, `LangChainLlmClient` (délai interactif), `LlmSchemas`, `UserMessages` (`<candidats>`, `<ticket>`, `<elements>`), prompts `BR/prompts/judge-related-issues.txt`, `compare-with-issue.txt`, `identify-impact.txt` ; `StubLlm`, `ScriptedChatModel`, rejeux. Étendre `PromptInjectionIT` à ces balises.
-- [ ] T108 [US2] Application et web : `FindRelatedIssues`, `CompareWithIssue`, `ResolveRelatedIssue`, lien dans `CreateJiraTicket`, attente du choix avant `NextBatch` ; ressource `/api/sessions/{id}/related-issues`, `/comparison` et `/decision`. Faire passer T106. Test `BT/infrastructure/web/RelatedIssuesIT.java` (WireMock : statut, type de lien, création du lien).
+- [X] T107 [US2] Port LLM : opérations `judgeRelatedIssues`, `compareWithIssue` et `identifyImpact` (contracts/llm-port.md) : records de requête et de résultat, `LlmClient`, `LangChainLlmClient` (délai interactif), `LlmSchemas`, `UserMessages` (`<candidats>`, `<ticket>`, `<elements>`), prompts `BR/prompts/judge-related-issues.txt`, `compare-with-issue.txt`, `identify-impact.txt` ; `StubLlm`, `ScriptedChatModel`, rejeux. Étendre `PromptInjectionIT` à ces balises.
+- [X] T108 [US2] Application et web : `FindRelatedIssues`, `CompareWithIssue`, `ResolveRelatedIssue`, lien dans `CreateJiraTicket`, attente du choix avant `NextBatch` ; ressource `/api/sessions/{id}/related-issues`, `/comparison` et `/decision`. Faire passer T106. Test `BT/infrastructure/web/RelatedIssuesIT.java` (WireMock : statut, type de lien, création du lien).
 
 #### Rédaction avec la connaissance
 

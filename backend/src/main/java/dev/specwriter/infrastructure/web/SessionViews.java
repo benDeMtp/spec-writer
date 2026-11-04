@@ -10,6 +10,7 @@ import dev.specwriter.domain.question.QuestionState;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SessionRelation;
 import dev.specwriter.domain.session.SessionListing;
 import dev.specwriter.domain.specification.Assumption;
 import dev.specwriter.domain.specification.Requirement;
@@ -37,7 +38,9 @@ final class SessionViews {
     record RevisionView(List<String> removed, List<String> added) {
     }
 
-    record LinkedTicketView(String issueKey, String issueUrl, String syncState, int linkedVersionNumber) {
+    /** {@code relatesTo} et {@code relatesToLink} : ticket fermé lié par « relates to » et état du lien (FR-035 de 002). */
+    record LinkedTicketView(String issueKey, String issueUrl, String syncState, int linkedVersionNumber, String relatesTo,
+            String relatesToLink) {
     }
 
     record SessionDetail(UUID id, UUID projectId, String name, String state, Instant updatedAt, Integer latestVersion,
@@ -72,7 +75,12 @@ final class SessionViews {
     }
 
     static LinkedTicketView ticket(LinkedJiraTicket t) {
-        return t == null ? null : new LinkedTicketView(t.issueKey(), t.issueUrl(), t.syncState().name(), t.linkedVersionNumber());
+        return ticket(t, null);
+    }
+
+    static LinkedTicketView ticket(LinkedJiraTicket t, SessionRelation relation) {
+        return t == null ? null : new LinkedTicketView(t.issueKey(), t.issueUrl(), t.syncState().name(), t.linkedVersionNumber(),
+                relation == null ? null : relation.relatesTo(), relation == null ? null : relation.link().name());
     }
 
     static SessionDetail detail(SessionSnapshot snapshot, int latestVersion, LinkedJiraTicket ticket) {
