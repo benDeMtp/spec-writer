@@ -516,7 +516,15 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     écoulé, interruption immédiate). Ce qui est indexé avant une interruption est gardé.
   - **Déclencheurs** : enregistrement d'une source (complète), ouverture d'un besoin
     (incrémentale, sans attendre), bouton « Resynchroniser » (incrémentale, ou complète au choix).
-    Aucune indexation au démarrage de l'outil.
+    Aucune indexation au démarrage de l'outil. Une source enregistrée pendant une indexation est
+    relue par une indexation complète dès la fin de celle-ci (une seule en attente par projet,
+    annulée par « Interrompre ») ; l'ouverture d'un besoin pendant une indexation est sans effet.
+  - **Écritures concurrentes** : l'indexation écrit par petites transactions pendant que
+    l'utilisateur travaille. Chaque transaction SQLite prend le verrou d'écriture dès son début
+    (`transaction_mode=IMMEDIATE` dans l'URL JDBC) et attend son tour (`busy_timeout=5000`) : sans
+    cela, une transaction qui lit puis écrit (création d'une session) échoue aussitôt en
+    `SQLITE_BUSY_SNAPSHOT`. La fin d'une synchronisation relit la source avant d'enregistrer ses
+    repères, pour ne pas effacer un workspace déclaré entre-temps.
   - **Jira** : `project = KEY AND updated >= "<repère - 1 jour>" ORDER BY updated ASC`, par pages
     de 50 (Jira lit la date JQL dans le fuseau de l'utilisateur : la marge d'un jour évite d'en
     manquer ; relire quelques tickets inchangés ne coûte rien, l'empreinte les écarte), dans la limite de débit de R13. Le repère est la plus grande date `updated` lue. La

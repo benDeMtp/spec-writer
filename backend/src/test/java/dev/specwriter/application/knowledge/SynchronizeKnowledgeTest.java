@@ -67,7 +67,7 @@ class SynchronizeKnowledgeTest {
     Path tmp;
 
     /** Suivi qui garde les étapes et les erreurs ; interrompt au besoin. */
-    static final class Recorder implements IndexationProgress {
+    static class Recorder implements IndexationProgress {
         final List<Step> steps = new ArrayList<>();
         final List<IndexationError> errors = new ArrayList<>();
         volatile boolean cancel;
@@ -153,6 +153,46 @@ class SynchronizeKnowledgeTest {
         world.tracker.calls.clear();
         sync.run(P, Mode.INCREMENTAL, new Recorder());
         assertThat(world.tracker.calls).containsExactly("updatedSince PROJ 2026-10-28T08:30:00Z 0");
+    }
+
+    /**
+     * Un workspace déclaré, changé ou retiré pendant la synchronisation n'est pas écrasé par la source
+     * lue au départ (vu en E2E, T117) ; l'empreinte lue ne s'applique qu'au workspace lu.
+     */
+    @Test
+    void workspaceDeclarePendantLaSynchronisationGarde() {
+        sources.save(sources.find(P).withArchitecture(null, null));
+        Recorder declaring = new Recorder() {
+            @Override
+            public void step(Step step, int total) {
+                super.step(step, total);
+                if (step == Step.DOCUMENTATION) {
+                    sources.save(sources.find(P).withArchitecture("/c4/nouveau.dsl", "facturation"));
+                }
+            }
+        };
+        sync.run(P, Mode.FULL, declaring);
+        assertThat(sources.find(P)).satisfies(s -> {
+            assertThat(s.workspace()).isEqualTo("/c4/nouveau.dsl");
+            assertThat(s.architectureHash()).isNull();
+            assertThat(s.syncedAt()).isEqualTo(world.clock.now());
+        });
+
+        Recorder changing = new Recorder() {
+            @Override
+            public void step(Step step, int total) {
+                super.step(step, total);
+                if (step == Step.EMBEDDING) {
+                    sources.save(sources.find(P).withArchitecture("/c4/autre.dsl", null));
+                }
+            }
+        };
+        sync.run(P, Mode.FULL, changing);
+        assertThat(sources.find(P).workspace()).isEqualTo("/c4/autre.dsl");
+        assertThat(sources.find(P).architectureHash()).isNull();
+
+        sync.run(P, Mode.FULL, new Recorder());
+        assertThat(sources.find(P).architectureHash()).isEqualTo("h1");
     }
 
     @Test
@@ -308,6 +348,58 @@ class SynchronizeKnowledgeTest {
         world.clock.advance(Duration.ofMinutes(31));
         executor.runAll();
         assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::mode).isEqualTo(Mode.INCREMENTAL);
+    }
+
+    /**
+     * Une source enregistrée pendant une indexation (déclenchement complet) est lue juste après, sans
+     * nouvelle action ; l'ouverture d'un besoin (incrémentale) n'ajoute rien ; une interruption annule
+     * la suite (vu en E2E, T117 : le workspace déclaré après la documentation n'était pas indexé).
+     */
+    @Test
+    void sourceEnregistreePendantUneIndexationLueEnSuite() {
+        ManualExecutor executor = new ManualExecutor();
+        Indexations indexations = new Indexations(sync, world.projects, executor, world.clock);
+        indexations.trigger(P, Mode.INCREMENTAL);
+        indexations.trigger(P, Mode.INCREMENTAL);
+        indexations.trigger(P, Mode.FULL);
+        assertThat(executor.tasks).hasSize(1);
+
+        executor.runAll();
+        assertThat(executor.tasks).hasSize(1);
+        assertThat(indexations.current(P)).get().satisfies(s -> {
+            assertThat(s.status()).isEqualTo(Indexations.Status.RUNNING);
+            assertThat(s.mode()).isEqualTo(Mode.FULL);
+        });
+        executor.runAll();
+        assertThat(executor.tasks).isEmpty();
+        assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::status)
+                .isEqualTo(Indexations.Status.SUCCEEDED);
+
+        indexations.trigger(P, Mode.INCREMENTAL);
+        indexations.trigger(P, Mode.FULL);
+        indexations.cancel(P);
+        executor.runAll();
+        assertThat(executor.tasks).isEmpty();
+        assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::status)
+                .isEqualTo(Indexations.Status.CANCELLED);
+    }
+
+    /** Une bibliothèque absente du jar ne laisse pas l'indexation « en cours » pour toujours (T117). */
+    @Test
+    void bibliothequeAbsenteTermineEnEchec() {
+        ManualExecutor executor = new ManualExecutor();
+        ArchitectureReader missingLibrary = (workspace, ownership) -> {
+            throw new NoClassDefFoundError("org/slf4j/LoggerFactory");
+        };
+        Indexations indexations = new Indexations(new SynchronizeKnowledge(world.projects, sources, world.docSources,
+                world.docs, missingLibrary, world.jira, world.tracker, index, embedding, world.clock), world.projects,
+                executor, world.clock);
+        indexations.start(P, Mode.FULL);
+        executor.runAll();
+        assertThat(indexations.current(P)).get().satisfies(s -> {
+            assertThat(s.status()).isEqualTo(Indexations.Status.FAILED);
+            assertThat(s.errors()).extracting(IndexationError::reason).contains("INTERNAL_ERROR");
+        });
     }
 
     @Test

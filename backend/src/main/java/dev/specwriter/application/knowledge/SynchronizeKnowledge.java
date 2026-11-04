@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -84,8 +85,14 @@ public class SynchronizeKnowledge {
         EmbeddingPort.State model = prepareModel(progress);
         Instant mark = jira(project, source, mode, progress);
         documentation(projectId, progress);
-        source = architecture(source, mode, progress);
-        sources.save(source.synced(mark, now));
+        KnowledgeSource read = architecture(source, mode, progress);
+        // la source a pu changer pendant la synchronisation : seule l'empreinte du workspace lu s'applique
+        KnowledgeSource latest = sources.find(projectId);
+        KnowledgeSource kept = Objects.equals(latest.workspace(), read.workspace())
+                && Objects.equals(latest.ownership(), read.ownership())
+                        ? latest.withArchitectureHash(read.architectureHash())
+                        : latest;
+        sources.save(kept.synced(mark, now));
         if (model == EmbeddingPort.State.READY) {
             vectors(projectId, progress);
         }

@@ -124,8 +124,9 @@ public class OnnxEmbeddingAdapter implements EmbeddingPort {
             LOG.infof("Modèle d'embedding prêt : %s", id);
         } catch (ModelException e) {
             fail(e.reason() + " : " + e.getMessage());
-        } catch (IOException | RuntimeException e) {
-            // ONNX Runtime ou le tokenizer refusent un fichier illisible par des exceptions non vérifiées
+        } catch (IOException | RuntimeException | LinkageError e) {
+            // ONNX Runtime ou le tokenizer refusent un fichier illisible par des exceptions non vérifiées ;
+            // une bibliothèque native introuvable laisse la recherche par les termes (FR-043)
             fail(e.getClass().getSimpleName());
         }
         return state;

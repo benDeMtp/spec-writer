@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -35,6 +36,8 @@ public class Indexations {
     }
 
     private final Map<UUID, Indexation> indexations = new ConcurrentHashMap<>();
+    /** Source enregistrée pendant une indexation : relue par une indexation complète juste après. */
+    private final Set<UUID> pendingFull = ConcurrentHashMap.newKeySet();
     private final SynchronizeKnowledge synchronize;
     private final ProjectRepository projects;
     private final Executor executor;
@@ -72,8 +75,9 @@ public class Indexations {
     }
 
     /**
-     * Déclenchement automatique (enregistrement d'une source, ouverture d'un besoin) : sans attendre,
-     * et sans effet si une indexation est déjà en cours.
+     * Déclenchement automatique (enregistrement d'une source, ouverture d'un besoin) : sans attendre.
+     * Pendant une indexation, l'ouverture d'un besoin est sans effet ; une source enregistrée est
+     * relue par une indexation complète dès la fin de celle en cours.
      */
     public void trigger(UUID projectId, Mode mode) {
         if (!automatic) {
@@ -82,7 +86,17 @@ public class Indexations {
         try {
             start(projectId, mode);
         } catch (DomainException e) {
+            if (e.code() == ErrorCode.OPERATION_IN_PROGRESS && mode == Mode.FULL) {
+                pendingFull.add(projectId);
+            }
             LOG.debugf("Indexation non déclenchée (%s)", e.code());
+        }
+    }
+
+    /** Fin d'une indexation : lance l'indexation complète demandée entre-temps. */
+    private void followUp(UUID projectId) {
+        if (pendingFull.remove(projectId)) {
+            trigger(projectId, Mode.FULL);
         }
     }
 
@@ -92,6 +106,7 @@ public class Indexations {
     }
 
     public void cancel(UUID projectId) {
+        pendingFull.remove(projectId);
         Indexation i = indexations.get(projectId);
         if (i != null) {
             i.cancel();
@@ -149,6 +164,12 @@ public class Indexations {
                             ErrorCode.INTERNAL_ERROR.defaultMessage()));
                     finish(Status.FAILED);
                 }
+            } catch (LinkageError e) {
+                // bibliothèque absente ou native introuvable : l'indexation ne doit pas rester « en cours »
+                LOG.error("Indexation de la connaissance en échec : bibliothèque manquante", e);
+                error(new IndexationError(IndexationError.Kind.FAILURE, null, ErrorCode.INTERNAL_ERROR.name(), null,
+                        ErrorCode.INTERNAL_ERROR.defaultMessage()));
+                finish(Status.FAILED);
             } finally {
                 synchronized (this) {
                     worker = null;
@@ -156,6 +177,7 @@ public class Indexations {
                 // l'interruption visait l'appel coupé, pas la suite du thread
                 Thread.interrupted();
             }
+            followUp(projectId);
         }
 
         private synchronized String stepName() {

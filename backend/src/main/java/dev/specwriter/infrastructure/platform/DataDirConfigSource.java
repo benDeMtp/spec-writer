@@ -21,13 +21,23 @@ public class DataDirConfigSource implements ConfigSource {
     public DataDirConfigSource() {
         UserDirectories dirs = UserDirectories.fromSystem();
         Path data = UserDirectories.createPrivateDirectories(dirs.dataDir(), dirs.posix());
-        String url = "jdbc:sqlite:" + data.resolve("spec-writer.db")
-                + "?journal_mode=WAL&foreign_keys=true&busy_timeout=5000";
+        String url = jdbcUrl(data.resolve("spec-writer.db"));
         int port = PortSelector.choose(Integer.getInteger("specwriter.port", PortSelector.DEFAULT_PORT), LaunchMode.current());
         this.values = Map.of(
                 "quarkus.datasource.jdbc.url", url,
                 "quarkus.http.port", Integer.toString(port),
                 "specwriter.data-dir.resolved", data.toString());
+    }
+
+    /**
+     * URL JDBC de la base : WAL, clés étrangères, attente de 5 s sur un verrou, et verrou d'écriture
+     * pris dès le début de chaque transaction ({@code BEGIN IMMEDIATE}). Sans ce dernier, une
+     * transaction qui lit puis écrit échoue aussitôt en {@code SQLITE_BUSY} si une autre a écrit
+     * entre-temps, par exemple l'indexation de la connaissance (FR-033 de 002).
+     */
+    public static String jdbcUrl(Path database) {
+        return "jdbc:sqlite:" + database + "?journal_mode=WAL&foreign_keys=true&busy_timeout=5000"
+                + "&transaction_mode=IMMEDIATE";
     }
 
     @Override

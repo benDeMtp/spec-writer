@@ -1,6 +1,0 @@
-{"operation": "propose-questions", "userContains": ["<fiche-generale>", "émettre un avoir"], "response": {
-  "questions": [
-    {"theme": "NOMINAL_FLOW", "label": "Comment le client est-il informé de l'avoir ?", "rationale": "Le client doit savoir que sa facture est corrigée",
-     "suggestions": ["Un courriel avec l'avoir en PDF", "Aucune information"], "defaultValue": "Un courriel avec l'avoir en PDF", "dependsOnQuestionIds": []}
-  ],
-  "contradictions": [], "coveredThemes": ["ACTORS", "GOAL", "BUSINESS_RULES", "ERRORS", "EDGE_CASES", "NON_FUNCTIONAL"]}}
