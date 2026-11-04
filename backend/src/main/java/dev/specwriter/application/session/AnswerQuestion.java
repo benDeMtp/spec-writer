@@ -1,7 +1,6 @@
 package dev.specwriter.application.session;
 
-import dev.specwriter.domain.llm.ProjectContextInput;
-import dev.specwriter.application.project.ProjectContexts;
+import dev.specwriter.application.knowledge.SessionKnowledge;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
@@ -27,7 +26,7 @@ import java.util.UUID;
 public class AnswerQuestion {
 
     private final SessionRepository sessions;
-    private final ProjectRepository projects;
+    private final SessionKnowledge knowledge;
     private final LlmClient llm;
     private final ConsentPolicy consent;
     private final ClockPort clock;
@@ -36,8 +35,13 @@ public class AnswerQuestion {
 
     public AnswerQuestion(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
             ClockPort clock, IdGenerator ids) {
+        this(sessions, llm, consent, clock, ids, SessionKnowledge.sheetOnly(projects));
+    }
+
+    public AnswerQuestion(SessionRepository sessions, LlmClient llm, ConsentPolicy consent, ClockPort clock,
+            IdGenerator ids, SessionKnowledge knowledge) {
         this.sessions = sessions;
-        this.projects = projects;
+        this.knowledge = knowledge;
         this.llm = llm;
         this.consent = consent;
         this.clock = clock;
@@ -65,7 +69,8 @@ public class AnswerQuestion {
         Revision revision = Revision.NONE;
         if (revised) {
             consent.requireGranted(ConsentService.COPILOT);
-            ReviseAnswer.Result result = revise.reassess(session, questionnaire, questionId, context(session));
+            ReviseAnswer.Result result = revise.reassess(session, questionnaire, questionId,
+                    knowledge.forQuestions(session, NextBatch.known(questionnaire)));
             questionnaire = result.questionnaire();
             revision = result.revision();
             if (questionnaire.pending().isEmpty()) {
@@ -74,16 +79,12 @@ public class AnswerQuestion {
             sessions.save(session, questionnaire);
         } else if (questionnaire.pending().isEmpty() && session.state() == SessionState.QUESTIONING) {
             consent.requireGranted(ConsentService.COPILOT);
-            questionnaire = NextBatch.ask(llm, ids, session, questionnaire, context(session));
+            questionnaire = NextBatch.ask(llm, ids, session, questionnaire, knowledge);
             if (questionnaire.pending().isEmpty()) {
                 session = session.readyToGenerate(clock.now());
             }
             sessions.save(session, questionnaire);
         }
         return new SessionSnapshot(session, questionnaire, List.of(), revision);
-    }
-
-    private ProjectContextInput context(Session session) {
-        return ProjectContextInput.of(ProjectContexts.of(projects, session));
     }
 }

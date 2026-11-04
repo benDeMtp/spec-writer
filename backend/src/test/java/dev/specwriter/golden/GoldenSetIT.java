@@ -10,7 +10,11 @@ import dev.specwriter.application.specification.GenerateSpecification;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentRecord;
 import dev.specwriter.domain.consent.ConsentService;
-import dev.specwriter.domain.llm.ProjectContextInput;
+import dev.specwriter.application.knowledge.AnalyzeArchitecture;
+import dev.specwriter.application.knowledge.SelectKnowledge;
+import dev.specwriter.application.knowledge.SessionKnowledge;
+import dev.specwriter.application.specification.DraftValidation;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
@@ -22,7 +26,9 @@ import dev.specwriter.domain.specification.SpecificationVersion;
 import dev.specwriter.domain.specification.TraceabilityValidator;
 import dev.specwriter.domain.specification.UseCase;
 import dev.specwriter.infrastructure.llm.LangChainLlmClient;
+import dev.specwriter.support.FakeEmbedding;
 import dev.specwriter.support.FixedClock;
+import dev.specwriter.support.InMemoryKnowledgeIndex;
 import dev.specwriter.support.InMemoryConsents;
 import dev.specwriter.support.InMemoryProjects;
 import dev.specwriter.support.InMemorySessions;
@@ -35,6 +41,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -70,30 +77,35 @@ class GoldenSetIT {
         FixedClock clock = new FixedClock();
         SequentialIdGenerator ids = new SequentialIdGenerator();
         LangChainLlmClient llm = new LangChainLlmClient(model);
-        // context.md et technical.md, s'ils existent : les fiches fonctionnelle et technique du projet
-        // par défaut (feature 002, FR-008a, FR-011)
+        // general.md, s'il existe : la fiche générale du projet par défaut (feature 002, FR-008, FR-011) ;
+        // knowledge.json, s'il existe : l'index de connaissance du projet (R24, T111)
         InMemoryProjects projects = new InMemoryProjects();
-        String context = read(dir.resolve("context.md"));
-        String technical = read(dir.resolve("technical.md"));
-        if (!context.isEmpty() || !technical.isEmpty()) {
-            Project project = projects.find(Project.DEFAULT_ID).orElseThrow()
-                    .withContext(ContextSheet.FUNCTIONAL, ProjectContext.edited(context, Instant.EPOCH))
-                    .withContext(ContextSheet.TECHNICAL, ProjectContext.edited(technical, Instant.EPOCH));
-            projects.save(project);
+        String general = read(dir.resolve("general.md"));
+        InMemoryKnowledgeIndex index = KnowledgeFixture.read(dir.resolve("knowledge.json"), Project.DEFAULT_ID);
+        if (!general.isEmpty()) {
+            // jusqu'à la fusion des fiches (T113), la fiche générale est portée par la fiche fonctionnelle
+            projects.save(projects.find(Project.DEFAULT_ID).orElseThrow()
+                    .withContext(ContextSheet.FUNCTIONAL, ProjectContext.edited(general, Instant.EPOCH)));
+        }
+        if (!general.isEmpty() || Files.exists(dir.resolve("knowledge.json"))) {
             try (Stream<Path> files = Files.list(dir.resolve("llm"))) {
                 for (Path f : files.toList()) {
-                    assertThat(JSON.readTree(Files.readString(f)).path("userContains").toString())
-                            .as("%s reçoit le contexte", f.getFileName())
-                            .containsAnyOf("<contexte-fonctionnel>", "<contexte-technique>");
+                    JsonNode step = JSON.readTree(Files.readString(f));
+                    if (!"identify-impact".equals(step.path("operation").asString())) {
+                        assertThat(step.path("userContains").toString()).as("%s reçoit la connaissance", f.getFileName())
+                                .contains("<connaissance-projet>");
+                    }
                 }
             }
         }
+        SessionKnowledge knowledge = new SelectKnowledge(projects, index, new FakeEmbedding(),
+                new AnalyzeArchitecture(index, llm, policy));
 
-        SessionSnapshot s = new StartSession(sessions, projects, llm, policy, clock, ids)
+        SessionSnapshot s = new StartSession(sessions, projects, llm, policy, clock, ids, null, null, knowledge)
                 .run(Files.readString(dir.resolve("need.md")), null);
         Deque<JsonNode> answers = new ArrayDeque<>();
         JSON.readTree(Files.readString(dir.resolve("answers.json"))).forEach(answers::add);
-        AnswerQuestion answer = new AnswerQuestion(sessions, projects, llm, policy, clock, ids);
+        AnswerQuestion answer = new AnswerQuestion(sessions, llm, policy, clock, ids, knowledge);
         while (!s.questionnaire().currentBatch().isEmpty()) {
             Question q = s.questionnaire().currentBatch().getFirst();
             JsonNode a = answers.poll();
@@ -102,18 +114,18 @@ class GoldenSetIT {
         }
         assertThat(answers).as("réponses non utilisées").isEmpty();
         new ConcludeQuestionnaire(sessions, clock).run(s.session().id());
-        SpecificationVersion version = new GenerateSpecification(sessions, projects, versions, llm, policy, clock, ids,
-                "golden")
-                .run(s.session().id()).version();
+        SpecificationVersion version = new GenerateSpecification(sessions, versions, llm, policy, clock, ids, "golden",
+                knowledge).run(s.session().id()).version();
 
         assertThat(model.exhausted()).as("tous les appels LLM prévus ont eu lieu").isTrue();
         SpecificationContent c = version.content();
-        Set<java.util.UUID> treated = sessions.questionnaire(s.session().id()).orElseThrow().treated().stream()
-                .map(Question::id).collect(Collectors.toSet());
+        List<Question> treatedQuestions = sessions.questionnaire(s.session().id()).orElseThrow().treated();
+        Set<java.util.UUID> treated = treatedQuestions.stream().map(Question::id).collect(Collectors.toSet());
         assertThat(ScenarioStructureValidator.validate(c).messages()).isEmpty();
-        assertThat(TraceabilityValidator.validate(c, treated,
-                ProjectContextInput.of(projects.find(Project.DEFAULT_ID).orElseThrow().contexts()).combined()).messages())
-                .isEmpty();
+        // l'analyse d'architecture est gardée pour la session : aucun nouvel appel
+        ProjectKnowledge used = knowledge.forSpecification(s.session(), DraftValidation.answers(treatedQuestions));
+        assertThat(TraceabilityValidator.validate(c, treated, used).messages()).isEmpty();
+        assertThat(version.knowledge()).isEqualTo(used.selection());
         for (int i = 0; i < c.useCases().size(); i++) {
             assertThat(c.useCases().get(i).code()).isEqualTo("UC-%02d".formatted(i + 1));
         }

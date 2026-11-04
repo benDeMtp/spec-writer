@@ -3,6 +3,11 @@ package dev.specwriter.infrastructure.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import dev.specwriter.domain.knowledge.ArchScope;
+import dev.specwriter.domain.knowledge.ArchitectureModel;
+import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.KnowledgeSelection;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.Contradiction;
 import dev.specwriter.domain.llm.ProposedQuestion;
 import dev.specwriter.domain.port.SessionRepository;
@@ -14,6 +19,7 @@ import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.specification.MarkdownRenderer;
+import dev.specwriter.domain.specification.SourceRef;
 import dev.specwriter.domain.specification.SpecificationContent;
 import dev.specwriter.domain.specification.SpecificationVersion;
 import dev.specwriter.domain.specification.Specs;
@@ -95,6 +101,35 @@ class SessionPersistenceIT {
         // numéro unique par session
         assertThatThrownBy(() -> versions.save(new SpecificationVersion(UUID.randomUUID(), s.id(), 2, content, "x",
                 VersionOrigin.GENERATED, "x", T0))).isInstanceOf(RuntimeException.class);
+    }
+
+    /** T110 : la sélection de connaissance et les écarts aux ADR sont relus à l'identique (research.md R24). */
+    @Test
+    void connaissanceEtEcartsAuxAdrRelus() {
+        Session s = session();
+        sessions.save(s, Questionnaire.empty());
+        SpecificationContent base = Specs.valid();
+        SpecificationContent content = new SpecificationContent(base.title(), base.summary(), base.details(),
+                List.of(Specs.useCase("UC-01", SourceRef.knowledge(SourceRef.Kind.JIRA_ISSUE, "FACT-7", ""))),
+                base.scenarios(), base.assumptions(), base.requirements(), List.of(new SpecificationContent.AdrDeviation(
+                        "facturation/adr/adr-005.html", "Asynchrone", "Appel synchrone")));
+        ProjectKnowledge used = new ProjectKnowledge("Fiche", T0.truncatedTo(ChronoUnit.MILLIS), List.of(
+                new ProjectKnowledge.Entry(KnowledgeKind.TICKET, null, "FACT-7", 0, "Annuler", "Terminé", true, "Texte",
+                        "h1")),
+                List.of(new KnowledgeSelection.ImpactedModule("Comptabilité", ArchScope.COMMON)),
+                List.of(new ArchitectureModel.Exchange("A", "B", ArchitectureModel.Exchange.Kind.MISSING, null)),
+                List.of(new ArchitectureModel.DeploymentFact(ArchitectureModel.DeploymentFact.Kind.NOT_DEPLOYED, "A",
+                        null)));
+        SpecificationVersion v = new SpecificationVersion(UUID.randomUUID(), s.id(), 1, content, "fp-k",
+                VersionOrigin.GENERATED, MarkdownRenderer.render(content, s.language(), used.selection()),
+                T0.truncatedTo(ChronoUnit.MILLIS)).withKnowledge(used);
+        versions.save(v);
+        SpecificationVersion read = versions.find(s.id(), 1).orElseThrow();
+        assertThat(read).isEqualTo(v);
+        assertThat(read.knowledge().items()).singleElement().extracting(KnowledgeSelection.Selected::contentHash)
+                .isEqualTo("h1");
+        assertThat(read.contextHash()).isEqualTo(used.sheetHash());
+        assertThat(read.markdown()).contains("## Écarts aux ADR").contains("**flux manquant, à créer**");
     }
 
     @Test

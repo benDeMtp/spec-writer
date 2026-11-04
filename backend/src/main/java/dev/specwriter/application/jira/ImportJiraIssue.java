@@ -1,7 +1,7 @@
 package dev.specwriter.application.jira;
 
-import dev.specwriter.domain.llm.ProjectContextInput;
-import dev.specwriter.domain.project.ContextSheets;
+import dev.specwriter.application.knowledge.SessionKnowledge;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.application.project.CurrentProject;
 import dev.specwriter.application.specification.DraftValidation;
@@ -53,10 +53,19 @@ public class ImportJiraIssue {
     private final LinkedTicketRepository tickets;
     private final ClockPort clock;
     private final IdGenerator ids;
+    private final SessionKnowledge knowledge;
 
     public ImportJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
             LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids) {
+        this(tracker, jira, markup, llm, consent, sessions, projects, versions, tickets, clock, ids,
+                SessionKnowledge.sheetOnly(projects));
+    }
+
+    public ImportJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
+            SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+        this.knowledge = knowledge;
         this.tracker = tracker;
         this.jira = jira;
         this.markup = markup;
@@ -83,13 +92,12 @@ public class ImportJiraIssue {
         Need need = need(truncated ? text.substring(0, Need.MAX_LENGTH) : text, issue.summary());
         Project project = CurrentProject.resolve(projects);
         Session session = Session.imported(ids.next(), project.id(), need, issue.summary(), clock.now());
-        ContextSheets context = project.contexts();
-        SpecificationContent content = structure(llm, need.text(), session.language(), ProjectContextInput.of(context));
+        ProjectKnowledge used = knowledge.forSpecification(session, List.of());
+        SpecificationContent content = structure(llm, need.text(), session.language(), used);
 
         SpecificationVersion version = new SpecificationVersion(ids.next(), session.id(), 1, content,
                 "jira-import:" + issue.key() + ":" + issue.updated(), VersionOrigin.JIRA_IMPORT,
-                MarkdownRenderer.render(content, session.language()), clock.now())
-                .withContext(context.combinedHash(), context.updatedAt());
+                MarkdownRenderer.render(content, session.language(), used.selection()), clock.now()).withKnowledge(used);
         LinkedJiraTicket ticket = new LinkedJiraTicket(session.id(), issue.key(), target.issueUrl(issue.key()), null, 1,
                 issue.updated(), ConflictDetector.hash(issue.description()), clock.now(), null,
                 LinkedJiraTicket.SyncState.IN_SYNC);
@@ -114,9 +122,9 @@ public class ImportJiraIssue {
 
     /** Structuration d'un texte importé ; un texte non structurable donne {@code IMPORT_UNSTRUCTURABLE}. */
     static SpecificationContent structure(LlmClient llm, String text, Language language,
-            ProjectContextInput projectContext) {
-        StructureImportRequest request = new StructureImportRequest(text, language, null, projectContext);
+            ProjectKnowledge knowledge) {
+        StructureImportRequest request = new StructureImportRequest(text, language, null, knowledge);
         return DraftValidation.produce(c -> llm.structureImportedText(request.withCorrection(c)), List.of(), language,
-                ErrorCode.IMPORT_UNSTRUCTURABLE, projectContext);
+                ErrorCode.IMPORT_UNSTRUCTURABLE, knowledge);
     }
 }

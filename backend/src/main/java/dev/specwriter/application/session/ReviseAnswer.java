@@ -1,6 +1,6 @@
 package dev.specwriter.application.session;
 
-import dev.specwriter.domain.llm.ProjectContextInput;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.ReassessRequest;
 import dev.specwriter.domain.llm.ReassessResult;
 import dev.specwriter.domain.port.IdGenerator;
@@ -32,9 +32,9 @@ public final class ReviseAnswer {
         this.ids = ids;
     }
 
-    public Result reassess(Session session, Questionnaire questionnaire, UUID changed, ProjectContextInput projectContext) {
+    public Result reassess(Session session, Questionnaire questionnaire, UUID changed, ProjectKnowledge knowledge) {
         ReassessResult result = llm.reassessAfterChange(new ReassessRequest(session.need().text(), session.language(),
-                NextBatch.known(questionnaire), changed.toString(), projectContext));
+                NextBatch.known(questionnaire), changed.toString(), knowledge));
         Set<String> cited = new HashSet<>(result.obsoleteQuestionIds());
         Set<UUID> obsolete = questionnaire.active().stream()
                 .map(Question::id)

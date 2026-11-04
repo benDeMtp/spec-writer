@@ -205,6 +205,16 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
     @Override
     @Transactional
     @SuppressWarnings("unchecked")
+    public List<KnowledgeItem> all(UUID projectId, KnowledgeKind kind) {
+        List<Object[]> rows = em.createNativeQuery("select " + COLUMNS
+                + " from knowledge_item where project_id = ?1 and kind = ?2 order by ref, chunk")
+                .setParameter(1, projectId.toString()).setParameter(2, kind.name()).getResultList();
+        return rows.stream().map(SqliteKnowledgeIndex::item).toList();
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
     public List<KnowledgeItem> withRole(UUID projectId) {
         List<Object[]> rows = em.createNativeQuery("select " + COLUMNS
                 + " from knowledge_item where project_id = ?1 and role is not null order by role, ref, chunk")

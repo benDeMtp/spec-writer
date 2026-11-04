@@ -1,1 +1,1 @@
-{"operation": "propose-questions", "userContains": ["<contexte-technique>", "100 commandes par page"], "response": {"questions": [], "contradictions": [], "coveredThemes": []}}
+{"operation": "propose-questions", "userContains": ["<connaissance-projet>", "<fiche-generale>", "100 commandes par page"], "response": {"questions": [], "contradictions": [], "coveredThemes": []}}

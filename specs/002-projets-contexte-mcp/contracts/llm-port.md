@@ -14,6 +14,8 @@ d'appel par opération (180 s pour les opérations interactives).
 |---|---|
 | `proposeQuestions`, `reassessAfterChange`, `generateSpecification`, `editSpecification`, `mergeConflict`, `structureImportedText` | `knowledge` : la sélection de connaissance de la session (fiche générale, vocabulaire et vue d'architecture, ADR, tickets proches retenus, faits d'architecture calculés), 35 000 caractères au plus en tout |
 
+- `<architecture>` n'est transmise qu'aux opérations qui produisent une spécification (research.md
+  R24, T110) : `identifyImpact` n'est pas appelée pour les questions.
 - Balise `<connaissance-projet>` après `<langue>`, contenu échappé, omise si vide :
   - `<fiche-generale>` : la fiche, qui l'emporte sur toutes les autres sources ;
   - `<vocabulaire ref="…">` et `<vue-architecture ref="…">` ;
@@ -27,10 +29,10 @@ d'appel par opération (180 s pour les opérations interactives).
   (FR-037).
 - **Spécification** :
   - une source peut être `PROJECT_CONTEXT` (`excerpt` exact de la fiche), `JIRA_ISSUE` (`ref` :
-    clé), `DOC_PAGE` (`ref` : URL) ou `ARCH_ELEMENT` (`ref` : nom canonique). Une référence hors
-    de la sélection est ramenée ou retirée par le code ; un extrait de la fiche introuvable
-    provoque une `correction` ;
-  - `adrDeviations: [{adrRef, decision, deviation}]` ;
+    clé), `DOC_PAGE` (`ref` : URL) ou `ARCH_ELEMENT` (`ref` : nom canonique d'un `<module>`). Une
+    référence hors de la sélection est ramenée par le code ; restée inconnue, elle provoque une
+    `correction`, comme un extrait de la fiche introuvable ;
+  - `adrDeviations: [{adrRef, decision, deviation}]` ; un écart à un ADR non transmis est retiré ;
   - les rubriques « Architecture » et « Efforts supplémentaires (déploiement) » ne sont **pas**
     rédigées par le LLM : le code les ajoute à partir des faits calculés.
 

@@ -1,5 +1,6 @@
 package dev.specwriter.domain.llm;
 
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.session.Language;
 import java.util.List;
 
@@ -9,19 +10,19 @@ import java.util.List;
  * consigne système.
  */
 public record EditRequest(String need, Language language, List<QuestionAndAnswer> answers, String currentMarkdown,
-        String instruction, String correction, ProjectContextInput projectContext) {
+        String instruction, String correction, ProjectKnowledge knowledge) {
 
     public EditRequest {
         answers = List.copyOf(answers);
-        projectContext = projectContext == null ? ProjectContextInput.EMPTY : projectContext;
+        knowledge = knowledge == null ? ProjectKnowledge.EMPTY : knowledge;
     }
 
     public EditRequest(String need, Language language, List<QuestionAndAnswer> answers, String currentMarkdown,
             String instruction, String correction) {
-        this(need, language, answers, currentMarkdown, instruction, correction, ProjectContextInput.EMPTY);
+        this(need, language, answers, currentMarkdown, instruction, correction, ProjectKnowledge.EMPTY);
     }
 
     public EditRequest withCorrection(String newCorrection) {
-        return new EditRequest(need, language, answers, currentMarkdown, instruction, newCorrection, projectContext);
+        return new EditRequest(need, language, answers, currentMarkdown, instruction, newCorrection, knowledge);
     }
 }

@@ -1,4 +1,4 @@
-{"operation": "generate-specification", "userContains": ["<contexte-technique>", "100 commandes par page"], "response": {
+{"operation": "generate-specification", "userContains": ["<connaissance-projet>", "<fiche-generale>", "100 commandes par page"], "response": {
   "title": "API de suivi des commandes",
   "summary": "Les partenaires consultent le statut de leurs commandes par une API publique.",
   "useCases": [

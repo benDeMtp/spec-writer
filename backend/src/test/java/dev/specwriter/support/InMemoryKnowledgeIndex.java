@@ -105,6 +105,11 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
     }
 
     @Override
+    public List<KnowledgeItem> all(UUID projectId, KnowledgeKind kind) {
+        return of(projectId).values().stream().map(Entry::item).filter(i -> i.kind() == kind).toList();
+    }
+
+    @Override
     public List<KnowledgeItem> withRole(UUID projectId) {
         return of(projectId).values().stream().map(Entry::item).filter(i -> i.role() != null).toList();
     }

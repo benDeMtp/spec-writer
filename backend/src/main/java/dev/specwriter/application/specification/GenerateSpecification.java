@@ -1,8 +1,8 @@
 package dev.specwriter.application.specification;
 
-import dev.specwriter.domain.llm.ProjectContextInput;
-import dev.specwriter.domain.project.ContextSheets;
-import dev.specwriter.application.project.ProjectContexts;
+import dev.specwriter.application.knowledge.SessionKnowledge;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
+import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
@@ -37,18 +37,23 @@ public class GenerateSpecification {
     }
 
     private final SessionRepository sessions;
-    private final ProjectRepository projects;
     private final SpecificationRepository versions;
     private final LlmClient llm;
     private final ConsentPolicy consent;
     private final ClockPort clock;
     private final IdGenerator ids;
     private final String toolVersion;
+    private final SessionKnowledge knowledge;
 
     public GenerateSpecification(SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
             LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids, String toolVersion) {
+        this(sessions, versions, llm, consent, clock, ids, toolVersion, SessionKnowledge.sheetOnly(projects));
+    }
+
+    public GenerateSpecification(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
+            ConsentPolicy consent, ClockPort clock, IdGenerator ids, String toolVersion, SessionKnowledge knowledge) {
         this.sessions = sessions;
-        this.projects = projects;
+        this.knowledge = knowledge;
         this.versions = versions;
         this.llm = llm;
         this.consent = consent;
@@ -64,23 +69,23 @@ public class GenerateSpecification {
             throw new DomainException(ErrorCode.CONTRADICTION_UNRESOLVED);
         }
         List<Question> treated = questionnaire.treated();
-        ContextSheets context = ProjectContexts.of(projects, session);
+        List<QuestionAndAnswer> answers = DraftValidation.answers(treated);
+        ProjectKnowledge used = knowledge.forSpecification(session, answers);
         String fingerprint = InputFingerprint.of(session.need().text(), treated, toolVersion, session.language(),
-                context.combinedHash());
+                used.fingerprint());
         var existing = versions.findByFingerprint(sessionId, fingerprint);
         if (existing.isPresent()) {
             return new Generated(existing.get(), true);
         }
         consent.requireGranted(ConsentService.COPILOT);
 
-        GenerationRequest request = new GenerationRequest(session.need().text(), session.language(),
-                DraftValidation.answers(treated), null, ProjectContextInput.of(context));
+        GenerationRequest request = new GenerationRequest(session.need().text(), session.language(), answers, null, used);
         SpecificationContent content = DraftValidation.produce(
                 correction -> llm.generateSpecification(correction == null ? request : request.withCorrection(correction)),
-                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, ProjectContextInput.of(context));
+                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, used);
         SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.lastNumber(sessionId) + 1,
-                content, fingerprint, VersionOrigin.GENERATED, MarkdownRenderer.render(content, session.language()),
-                clock.now()).withContext(context.combinedHash(), context.updatedAt());
+                content, fingerprint, VersionOrigin.GENERATED,
+                MarkdownRenderer.render(content, session.language(), used.selection()), clock.now()).withKnowledge(used);
         versions.save(version);
         sessions.save(session.generated(clock.now()), questionnaire);
         return new Generated(version, false);

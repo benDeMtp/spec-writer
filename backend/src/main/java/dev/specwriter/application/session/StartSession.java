@@ -1,6 +1,6 @@
 package dev.specwriter.application.session;
 
-import dev.specwriter.domain.llm.ProjectContextInput;
+import dev.specwriter.application.knowledge.SessionKnowledge;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.application.knowledge.FindRelatedIssues;
 import dev.specwriter.application.knowledge.RelatedIssues;
@@ -35,15 +35,26 @@ public class StartSession {
     private final IdGenerator ids;
     private final FindRelatedIssues findRelated;
     private final RelatedIssuesStore related;
+    private final SessionKnowledge knowledge;
 
     public StartSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
             ClockPort clock, IdGenerator ids) {
         this(sessions, projects, llm, consent, clock, ids, null, null);
     }
 
-    /** Avec les tickets proches (FR-034) : s'il y en a, les questions attendent le choix de l'utilisateur. */
     public StartSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
             ClockPort clock, IdGenerator ids, FindRelatedIssues findRelated, RelatedIssuesStore related) {
+        this(sessions, projects, llm, consent, clock, ids, findRelated, related, SessionKnowledge.sheetOnly(projects));
+    }
+
+    /**
+     * Avec les tickets proches (FR-034) : s'il y en a, les questions attendent le choix de
+     * l'utilisateur ; et avec la connaissance du projet (research.md R24).
+     */
+    public StartSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
+            ClockPort clock, IdGenerator ids, FindRelatedIssues findRelated, RelatedIssuesStore related,
+            SessionKnowledge knowledge) {
+        this.knowledge = knowledge;
         this.sessions = sessions;
         this.projects = projects;
         this.llm = llm;
@@ -67,8 +78,7 @@ public class StartSession {
                 return new SessionSnapshot(session, Questionnaire.empty(), List.of());
             }
         }
-        Questionnaire questionnaire = NextBatch.ask(llm, ids, session, Questionnaire.empty(),
-                ProjectContextInput.of(project.contexts()));
+        Questionnaire questionnaire = NextBatch.ask(llm, ids, session, Questionnaire.empty(), knowledge);
         if (questionnaire.pending().isEmpty()) {
             session = session.readyToGenerate(clock.now());
         }

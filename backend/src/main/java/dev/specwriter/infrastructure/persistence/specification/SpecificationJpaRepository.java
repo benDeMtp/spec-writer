@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.persistence.specification;
 
+import dev.specwriter.domain.knowledge.KnowledgeSelection;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.specification.SpecificationContent;
 import dev.specwriter.domain.specification.SpecificationVersion;
@@ -36,6 +37,7 @@ public class SpecificationJpaRepository implements SpecificationRepository {
         e.createdAt = v.createdAt();
         e.contextHash = v.contextHash() == null ? "" : v.contextHash();
         e.contextUpdatedAt = v.contextUpdatedAt();
+        e.knowledge = v.knowledge().equals(KnowledgeSelection.EMPTY) ? null : JSON.writeValueAsString(v.knowledge());
         // persist et non merge : une version existante n'est jamais réécrite
         em.persist(e);
     }
@@ -85,6 +87,7 @@ public class SpecificationJpaRepository implements SpecificationRepository {
     private static SpecificationVersion toDomain(SpecificationVersionEntity e) {
         return new SpecificationVersion(UUID.fromString(e.id), UUID.fromString(e.sessionId), e.number,
                 JSON.readValue(e.content, SpecificationContent.class), e.inputFingerprint, VersionOrigin.valueOf(e.origin),
-                e.markdown, e.createdAt, e.contextHash, e.contextUpdatedAt);
+                e.markdown, e.createdAt, e.contextHash, e.contextUpdatedAt,
+                e.knowledge == null ? KnowledgeSelection.EMPTY : JSON.readValue(e.knowledge, KnowledgeSelection.class));
     }
 }

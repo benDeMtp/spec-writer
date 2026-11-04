@@ -1,0 +1,33 @@
+{"operation": "generate-specification", "userContains": ["<connaissance-projet>", "<architecture>", "<module nom=\"Editique\" portee=\"COMMON\"/>", "existe=\"non\"", "<constat type=\"NOT_DEPLOYED\" element=\"Facturation/Service Avoirs\"/>"], "response": {
+  "title": "Émission d'un avoir total",
+  "summary": "Le gestionnaire de facturation annule une facture émise par un avoir total, transmis à la comptabilité et envoyé au client.",
+  "useCases": [
+    {"title": "Émettre un avoir total", "actor": "gestionnaire de facturation", "goal": "Annuler une facture émise",
+     "preconditions": ["La facture est émise"], "nominalFlow": ["Ouvrir la facture", "Émettre l'avoir total", "Transmettre l'avoir à la comptabilité"],
+     "alternatives": [],
+     "source": {"kind": "JIRA_ISSUE", "questionId": "", "excerpt": "", "ref": "fact-7"}},
+    {"title": "Transmettre l'avoir à la comptabilité", "actor": "gestionnaire de facturation", "goal": "Tenir la comptabilité à jour",
+     "preconditions": ["L'avoir est émis"], "nominalFlow": ["Envoyer l'avoir à la comptabilité par un appel synchrone"],
+     "alternatives": [],
+     "source": {"kind": "DOC_PAGE", "questionId": "", "excerpt": "", "ref": "adr-005.html"}},
+    {"title": "Envoyer l'avoir au client", "actor": "gestionnaire de facturation", "goal": "Informer le client",
+     "preconditions": ["L'avoir est émis"], "nominalFlow": ["L'éditique envoie l'avoir au client par courriel"],
+     "alternatives": [],
+     "source": {"kind": "ARCH_ELEMENT", "questionId": "", "excerpt": "", "ref": "Editique"}}
+  ],
+  "scenarios": [
+    {"useCaseIndex": 0, "title": "Avoir total", "kind": "NOMINAL", "asA": "gestionnaire de facturation",
+     "given": ["la facture F-001 de 120 € TTC est émise"], "when": ["j'émets un avoir total"], "then": ["un avoir de 120 € TTC est créé"], "assumption": false},
+    {"useCaseIndex": 1, "title": "Transmission à la comptabilité", "kind": "NOMINAL", "asA": "gestionnaire de facturation",
+     "given": ["un avoir de 120 € TTC est émis"], "when": ["l'avoir est transmis"], "then": ["la comptabilité enregistre l'avoir"], "assumption": false},
+    {"useCaseIndex": 2, "title": "Courriel au client", "kind": "NOMINAL", "asA": "gestionnaire de facturation",
+     "given": ["un avoir de 120 € TTC est émis"], "when": ["l'éditique traite l'avoir"], "then": ["le client reçoit un courriel avec l'avoir en PDF"], "assumption": false}
+  ],
+  "assumptions": [],
+  "requirements": [
+    {"category": "FUNCTIONAL", "statement": "Les montants sont affichés en euros TTC."}
+  ],
+  "adrDeviations": [
+    {"adrRef": "adr-005.html", "decision": "La comptabilité est notifiée de façon asynchrone, par le topic des avoirs.", "deviation": "Le besoin demande un appel synchrone à la comptabilité."},
+    {"adrRef": "adr-099.html", "decision": "Inconnue", "deviation": "Retirée : l'ADR n'a pas été transmis."}
+  ]}}

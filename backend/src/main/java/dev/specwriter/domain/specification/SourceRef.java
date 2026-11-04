@@ -1,28 +1,57 @@
 package dev.specwriter.domain.specification;
 
+import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.project.ContextSheet;
+import java.util.Set;
 import java.util.UUID;
 
-/** Origine d'un use case : extrait du besoin, réponse, hypothèse ou extrait du contexte du projet (FR-011, FR-010 de 002). */
 /**
- * Source d'un use case. {@code sheet} : pour une source PROJECT_CONTEXT, la fiche où figure
- * l'extrait (FR-008a) ; {@code null} sinon, ou pour une version antérieure aux deux fiches.
+ * Source d'un use case : extrait du besoin, réponse, hypothèse, extrait de la fiche générale, ou
+ * élément de la connaissance du projet cité par sa référence (FR-010 de 002, research.md R24).
+ * {@code sheet} : fiche d'une source PROJECT_CONTEXT pour une version antérieure à la fiche générale,
+ * {@code null} sinon. {@code ref} : clé du ticket, URL de la page ou de l'ADR, nom canonique de
+ * l'élément d'architecture ; {@code null} pour les autres sortes.
  */
-public record SourceRef(Kind kind, UUID questionId, String excerpt, ContextSheet sheet) {
+public record SourceRef(Kind kind, UUID questionId, String excerpt, ContextSheet sheet, String ref) {
 
     public SourceRef(Kind kind, UUID questionId, String excerpt) {
-        this(kind, questionId, excerpt, null);
+        this(kind, questionId, excerpt, null, null);
+    }
+
+    public SourceRef(Kind kind, UUID questionId, String excerpt, ContextSheet sheet) {
+        this(kind, questionId, excerpt, sheet, null);
+    }
+
+    /** Élément de la connaissance du projet, cité par sa référence. */
+    public static SourceRef knowledge(Kind kind, String ref, String excerpt) {
+        return new SourceRef(kind, null, excerpt, null, ref);
     }
 
     public SourceRef inSheet(ContextSheet newSheet) {
-        return new SourceRef(kind, questionId, excerpt, newSheet);
+        return new SourceRef(kind, questionId, excerpt, newSheet, ref);
     }
 
+    public SourceRef withRef(String newRef) {
+        return new SourceRef(kind, questionId, excerpt, sheet, newRef);
+    }
 
     public enum Kind {
         NEED_EXCERPT,
         ANSWER,
         ASSUMPTION,
-        PROJECT_CONTEXT
+        PROJECT_CONTEXT,
+        JIRA_ISSUE,
+        DOC_PAGE,
+        ARCH_ELEMENT;
+
+        /** Sortes d'éléments de la connaissance qu'une source de cette sorte peut citer ; vide sinon. */
+        public Set<KnowledgeKind> knowledgeKinds() {
+            return switch (this) {
+                case JIRA_ISSUE -> Set.of(KnowledgeKind.TICKET);
+                case DOC_PAGE -> Set.of(KnowledgeKind.DOC_SECTION, KnowledgeKind.ADR);
+                case ARCH_ELEMENT -> Set.of(KnowledgeKind.ARCH_ELEMENT);
+                default -> Set.of();
+            };
+        }
     }
 }

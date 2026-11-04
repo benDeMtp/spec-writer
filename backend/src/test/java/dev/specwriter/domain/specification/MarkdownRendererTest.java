@@ -2,6 +2,10 @@ package dev.specwriter.domain.specification;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.specwriter.domain.knowledge.ArchScope;
+import dev.specwriter.domain.knowledge.ArchitectureModel.DeploymentFact;
+import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
+import dev.specwriter.domain.knowledge.KnowledgeSelection;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.scenario.AcceptanceScenario.Kind;
 import dev.specwriter.domain.session.Language;
@@ -130,5 +134,73 @@ class MarkdownRendererTest {
                 Specs.useCase("UC-02", new SourceRef(SourceRef.Kind.ASSUMPTION, null, ""))), List.of(), List.of(), List.of());
         String md = MarkdownRenderer.render(c, Language.FR);
         assertThat(md).contains("- **Source** : réponse « carte bancaire »").contains("- **Source** : hypothèse\n");
+    }
+
+    @Test
+    void sourcesDeLaConnaissance() {
+        SpecificationContent c = new SpecificationContent("T", "R", List.of(
+                Specs.useCase("UC-01", SourceRef.knowledge(SourceRef.Kind.JIRA_ISSUE, "FACT-7", "")),
+                Specs.useCase("UC-02", SourceRef.knowledge(SourceRef.Kind.DOC_PAGE, "facturation/adr/adr-005.html", "")),
+                Specs.useCase("UC-03", SourceRef.knowledge(SourceRef.Kind.ARCH_ELEMENT, "Facturation/Service Avoirs", ""))),
+                List.of(), List.of(), List.of());
+        assertThat(MarkdownRenderer.render(c, Language.FR)).contains("- **Source** : ticket FACT-7\n")
+                .contains("- **Source** : page facturation/adr/adr-005.html\n")
+                .contains("- **Source** : élément d'architecture Facturation/Service Avoirs\n");
+    }
+
+    static final KnowledgeSelection FACTS = new KnowledgeSelection("h", List.of(),
+            List.of(new KnowledgeSelection.ImpactedModule("Facturation/Service Avoirs", ArchScope.PROJECT),
+                    new KnowledgeSelection.ImpactedModule("Comptabilité", ArchScope.COMMON)),
+            List.of(new Exchange("Facturation/Service Avoirs", "Comptabilité", Exchange.Kind.INDIRECT, "Bus/Topic Avoirs"),
+                    new Exchange("Facturation/Service Avoirs", "Editique", Exchange.Kind.MISSING, null)),
+            List.of(new DeploymentFact(DeploymentFact.Kind.NOT_DEPLOYED, "Facturation/Service Avoirs", null),
+                    new DeploymentFact(DeploymentFact.Kind.CROSS_INFRASTRUCTURE, "Facturation/Service Avoirs", "Comptabilité"),
+                    new DeploymentFact(DeploymentFact.Kind.MULTIPLE_INSTANCES, "Comptabilité", null),
+                    new DeploymentFact(DeploymentFact.Kind.SHARED_INFRASTRUCTURE, "Facturation/Service Avoirs", null)));
+
+    @Test
+    void rubriquesArchitectureEcartsEtEfforts() {
+        SpecificationContent base = spec(refused(false), List.of(), List.of());
+        SpecificationContent c = new SpecificationContent(base.title(), base.summary(), base.details(), base.useCases(),
+                base.scenarios(), base.assumptions(), base.requirements(), List.of(new SpecificationContent.AdrDeviation(
+                        "facturation/adr/adr-005.html", "Notification asynchrone", "Appel synchrone demandé")));
+        String md = MarkdownRenderer.render(c, Language.FR, FACTS);
+        assertThat(md).contains("""
+                ## Architecture
+
+                ### Modules impactés
+
+                - Facturation/Service Avoirs *(propre au projet)*
+                - Comptabilité *(commun)*
+
+                ### Flux
+
+                - Facturation/Service Avoirs → Comptabilité : flux existant, via Bus/Topic Avoirs
+                - Facturation/Service Avoirs → Editique : **flux manquant, à créer**
+
+                ## Écarts aux ADR
+
+                - **facturation/adr/adr-005.html**
+                  - Décision : Notification asynchrone
+                  - Écart : Appel synchrone demandé
+
+                ## Efforts supplémentaires (déploiement)
+
+                - Facturation/Service Avoirs : aucune instance en production, à déployer
+                - Facturation/Service Avoirs → Comptabilité : traverse des infrastructures (ouverture réseau ou exposition à prévoir)
+                - Comptabilité : plusieurs instances en production
+                - Facturation/Service Avoirs : dépend d'une infrastructure partagée
+                """);
+        assertThat(MarkdownRenderer.render(c, Language.EN, FACTS)).contains("## Additional effort (deployment)")
+                .contains("*(project-specific)*").contains("## ADR deviations");
+    }
+
+    @Test
+    void rubriquesCalculeesJamaisTireesDuContenu() {
+        // les rubriques calculées viennent des faits ; sans faits, ni « Architecture » ni « Efforts »
+        SpecificationContent c = spec(refused(false), List.of(), List.of());
+        String md = MarkdownRenderer.render(c, Language.FR, KnowledgeSelection.EMPTY);
+        assertThat(md).isEqualTo(MarkdownRenderer.render(c, Language.FR)).doesNotContain("## Architecture")
+                .doesNotContain("## Efforts supplémentaires").doesNotContain("## Écarts aux ADR");
     }
 }

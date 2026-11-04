@@ -1,4 +1,4 @@
-package dev.specwriter.application.context;
+package dev.specwriter.application.knowledge;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,27 +17,27 @@ import java.util.regex.Pattern;
  * désigne sans ambiguïté ; une affirmation dont aucune source n'est connue est retirée, car elle
  * n'est pas vérifiable.
  */
-final class Citations {
+public final class Citations {
 
-    static final Pattern CITATION = Pattern.compile("\\[source\\s*:\\s*([^\\]]+)]", Pattern.CASE_INSENSITIVE);
+    public static final Pattern CITATION = Pattern.compile("\\[source\\s*:\\s*([^\\]]+)]", Pattern.CASE_INSENSITIVE);
 
     /** Fiche réparée : références renommées, inconnues, lignes retirées et citations valides restantes. */
-    record Repaired(String markdown, Map<String, String> renamed, Set<String> unknown, int removedLines, int valid) {
+    public record Repaired(String markdown, Map<String, String> renamed, Set<String> unknown, int removedLines, int valid) {
 
-        boolean changed() {
+        public boolean changed() {
             return !renamed.isEmpty() || !unknown.isEmpty();
         }
     }
 
     /** Résolution d'une référence citée vers une source connue, ou {@code null}. */
-    static final class Resolver {
+    public static final class Resolver {
         private final Set<String> known;
 
         private Resolver(Set<String> known) {
             this.known = known;
         }
 
-        String resolve(String raw) {
+        public String resolve(String raw) {
             String c = trimmed(raw);
             if (c.isEmpty()) {
                 return null;
@@ -73,7 +73,7 @@ final class Citations {
     private Citations() {
     }
 
-    static Resolver resolver(Set<String> known) {
+    public static Resolver resolver(Set<String> known) {
         return new Resolver(known);
     }
 
@@ -124,7 +124,7 @@ final class Citations {
      * Réécrit chaque citation avec les références résolues. Un groupe sans référence connue disparaît ;
      * une ligne qui citait des sources et n'en garde aucune est retirée.
      */
-    static Repaired repair(String markdown, Resolver resolver) {
+    public static Repaired repair(String markdown, Resolver resolver) {
         Map<String, String> renamed = new LinkedHashMap<>();
         Set<String> unknown = new LinkedHashSet<>();
         List<String> kept = new ArrayList<>();

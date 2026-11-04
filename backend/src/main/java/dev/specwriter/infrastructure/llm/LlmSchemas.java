@@ -59,9 +59,11 @@ final class LlmSchemas {
                     .addProperty("nominalFlow", array(string()))
                     .addProperty("alternatives", array(string()))
                     .addProperty("source", JsonObjectSchema.builder()
-                            .addEnumProperty("kind", List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION", "PROJECT_CONTEXT"))
+                            .addEnumProperty("kind", List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION", "PROJECT_CONTEXT",
+                                    "JIRA_ISSUE", "DOC_PAGE", "ARCH_ELEMENT"))
                             .addStringProperty("questionId")
                             .addStringProperty("excerpt")
+                            .addStringProperty("ref")
                             .build())
                     .build()))
             .addProperty("scenarios", array(JsonObjectSchema.builder()
@@ -82,6 +84,11 @@ final class LlmSchemas {
             .addProperty("requirements", array(JsonObjectSchema.builder()
                     .addEnumProperty("category", List.of("FUNCTIONAL", "TECHNICAL"))
                     .addStringProperty("statement")
+                    .build()))
+            .addProperty("adrDeviations", array(JsonObjectSchema.builder()
+                    .addStringProperty("adrRef")
+                    .addStringProperty("decision")
+                    .addStringProperty("deviation")
                     .build()))
             .build());
 

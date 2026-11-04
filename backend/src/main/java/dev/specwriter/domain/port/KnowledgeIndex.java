@@ -59,6 +59,9 @@ public interface KnowledgeIndex {
     List<Hit> search(UUID projectId, String terms, float[] queryVector, String embeddingModel,
             Collection<KnowledgeKind> kinds, int limit);
 
+    /** Tous les éléments d'une sorte (les ADR, pour retrouver le successeur d'un ADR remplacé). */
+    List<KnowledgeItem> all(UUID projectId, KnowledgeKind kind);
+
     /** Éléments d'un rôle donné (vocabulaire, vue d'ensemble), toujours transmis (FR-042). */
     List<KnowledgeItem> withRole(UUID projectId);
 

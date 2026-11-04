@@ -1,9 +1,14 @@
 package dev.specwriter.domain.specification;
 
-import dev.specwriter.domain.llm.ProjectContextInput;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.specwriter.domain.knowledge.ArchScope;
+import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.KnowledgeRole;
+import dev.specwriter.domain.knowledge.KnowledgeSelection;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.scenario.AcceptanceScenario.Kind;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -49,28 +54,74 @@ class TraceabilityValidatorTest {
         assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "Le  COMPTABLE lettre"), context)
                 .isEmpty()).isTrue();
         assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "le directeur signe"), context)
-                .messages()).anyMatch(m -> m.contains("contexte du projet"));
+                .messages()).anyMatch(m -> m.contains("fiche générale"));
         assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, " "), context).messages())
                 .anyMatch(m -> m.contains("contexte du projet"));
         // sans contexte, aucune source ne peut le citer
-        assertThat(check(cited, List.of()).messages()).anyMatch(m -> m.contains("contexte du projet"));
+        assertThat(check(cited, List.of()).messages()).anyMatch(m -> m.contains("fiche générale"));
+    }
+
+    static final ProjectKnowledge KNOWLEDGE = new ProjectKnowledge("## Acteurs\n- Le comptable lettre les paiements.",
+            Instant.EPOCH, List.of(
+                    new ProjectKnowledge.Entry(KnowledgeKind.TICKET, null, "FACT-7", 0, "Annuler une facture", "Terminé",
+                            true, "Annuler par un avoir total.", "h1"),
+                    new ProjectKnowledge.Entry(KnowledgeKind.ADR, null, "facturation/adr/adr-005.html", 0, "ADR-005",
+                            "ACCEPTED", false, "Notification asynchrone.", "h2"),
+                    new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, KnowledgeRole.VOCABULARY,
+                            "facturation/glossaire.html", 0, "Glossaire", "Avoir.", false, "Avoir.", "h3")),
+            List.of(new KnowledgeSelection.ImpactedModule("Facturation/Service Avoirs", ArchScope.PROJECT)), List.of(),
+            List.of());
+
+    static StructureViolations checkWithKnowledge(SourceRef source, List<SpecificationContent.AdrDeviation> deviations) {
+        SpecificationContent base = Specs.with(List.of(Specs.useCase("UC-01", source)),
+                List.of(Specs.scenario("SC-01-01", "UC-01", Kind.NOMINAL)), List.of());
+        SpecificationContent content = new SpecificationContent(base.title(), base.summary(), base.details(),
+                base.useCases(), base.scenarios(), base.assumptions(), base.requirements(), deviations);
+        return TraceabilityValidator.validate(content, Set.of(Specs.Q1), KNOWLEDGE);
     }
 
     @Test
-    void sourceContexteDuProjetCiteLUneOuLAutreFiche() {
-        ProjectContextInput sheets = new ProjectContextInput("## Acteurs\n- Le comptable lettre les paiements.",
-                "## Architecture\n- Les services communiquent par une file JMS.");
-        assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "le comptable lettre"),
-                sheets.combined()).isEmpty()).isTrue();
-        assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "communiquent par une file JMS"),
-                sheets.combined()).isEmpty()).isTrue();
-        assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "une base PostgreSQL"),
-                sheets.combined()).messages()).anyMatch(m -> m.contains("contexte du projet"));
+    void sourceContexteDuProjetCiteLaFicheGenerale() {
+        assertThat(checkWithKnowledge(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "le comptable lettre"), List.of())
+                .isEmpty()).isTrue();
+        assertThat(checkWithKnowledge(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "Annuler par un avoir total"),
+                List.of()).messages()).anyMatch(m -> m.contains("fiche générale"));
+    }
+
+    @Test
+    void sourcesDeLaConnaissanceLimiteesALaSelection() {
+        assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.JIRA_ISSUE, "FACT-7", ""), List.of()).isEmpty())
+                .isTrue();
+        assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.DOC_PAGE, "facturation/adr/adr-005.html", ""),
+                List.of()).isEmpty()).isTrue();
+        assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.DOC_PAGE, "facturation/glossaire.html", ""),
+                List.of()).isEmpty()).isTrue();
+        assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.ARCH_ELEMENT, "Facturation/Service Avoirs", ""),
+                List.of()).isEmpty()).isTrue();
+        // hors de la sélection, ou d'une autre sorte
+        assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.JIRA_ISSUE, "FACT-99", ""), List.of()).messages())
+                .anyMatch(m -> m.contains("JIRA_ISSUE"));
+        assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.JIRA_ISSUE, "facturation/glossaire.html", ""),
+                List.of()).isEmpty()).isFalse();
+        assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.ARCH_ELEMENT, "Comptabilité", ""), List.of())
+                .messages()).anyMatch(m -> m.contains("ARCH_ELEMENT"));
+        // sans connaissance, aucune source ne peut la citer
+        assertThat(check(SourceRef.knowledge(SourceRef.Kind.JIRA_ISSUE, "FACT-7", ""), List.of()).isEmpty()).isFalse();
+    }
+
+    @Test
+    void ecartsAuxAdrDeLaSelection() {
+        SourceRef need = new SourceRef(SourceRef.Kind.NEED_EXCERPT, null, "payer");
+        assertThat(checkWithKnowledge(need, List.of(new SpecificationContent.AdrDeviation("facturation/adr/adr-005.html",
+                "Notifier en asynchrone", "Appel synchrone"))).isEmpty()).isTrue();
+        assertThat(checkWithKnowledge(need, List.of(new SpecificationContent.AdrDeviation("adr-009.html", "x", "y")))
+                .messages()).anyMatch(m -> m.contains("adr-009"));
     }
 
     static StructureViolations checkWithContext(SourceRef source, String context) {
         return TraceabilityValidator.validate(Specs.with(List.of(Specs.useCase("UC-01", source)),
-                List.of(Specs.scenario("SC-01-01", "UC-01", Kind.NOMINAL)), List.of()), Set.of(Specs.Q1), context);
+                List.of(Specs.scenario("SC-01-01", "UC-01", Kind.NOMINAL)), List.of()), Set.of(Specs.Q1),
+                ProjectKnowledge.sheet(context, Instant.EPOCH));
     }
 
     @Test

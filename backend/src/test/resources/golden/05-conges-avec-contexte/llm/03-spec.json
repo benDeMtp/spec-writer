@@ -1,4 +1,4 @@
-{"operation": "generate-specification", "userContains": ["<contexte-fonctionnel>", "remplaçant"], "response": {
+{"operation": "generate-specification", "userContains": ["<connaissance-projet>", "<fiche-generale>", "remplaçant"], "response": {
   "title": "Demande de congés payés",
   "summary": "Le salarié demande des congés ; son responsable accepte ou refuse.",
   "useCases": [

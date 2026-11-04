@@ -8,6 +8,9 @@ import dev.specwriter.application.context.PreviewContextSources;
 import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ContextGenerations;
+import dev.specwriter.application.knowledge.AnalyzeArchitecture;
+import dev.specwriter.application.knowledge.SelectKnowledge;
+import dev.specwriter.application.knowledge.SessionKnowledge;
 import dev.specwriter.application.knowledge.Indexations;
 import dev.specwriter.application.knowledge.CompareWithIssue;
 import dev.specwriter.application.knowledge.FindRelatedIssues;
@@ -145,8 +148,22 @@ public class UseCaseProducer {
     @ApplicationScoped
     StartSession startSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm,
             ConsentPolicy consent, ClockPort clock, IdGenerator ids, FindRelatedIssues findRelated,
-            RelatedIssuesStore related) {
-        return new StartSession(sessions, projects, llm, consent, clock, ids, findRelated, related);
+            RelatedIssuesStore related, SessionKnowledge knowledge) {
+        return new StartSession(sessions, projects, llm, consent, clock, ids, findRelated, related, knowledge);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AnalyzeArchitecture analyzeArchitecture(KnowledgeIndex index, LlmClient llm, ConsentPolicy consent) {
+        return new AnalyzeArchitecture(index, llm, consent);
+    }
+
+    /** Connaissance transmise aux opérations de l'IA (research.md R24). */
+    @Produces
+    @ApplicationScoped
+    SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze) {
+        return new SelectKnowledge(projects, index, embedding, analyze);
     }
 
     @Produces
@@ -173,9 +190,10 @@ public class UseCaseProducer {
     @ApplicationScoped
     ResolveRelatedIssue resolveRelatedIssue(SessionRepository sessions, ProjectRepository projects,
             RelatedIssuesStore related, SessionRelationRepository relations, ImportJiraIssue importIssue,
-            ProposeAiEdit proposeEdit, ManageSessions manageSessions, LlmClient llm, ClockPort clock, IdGenerator ids) {
+            ProposeAiEdit proposeEdit, ManageSessions manageSessions, LlmClient llm, ClockPort clock, IdGenerator ids,
+            SessionKnowledge knowledge) {
         return new ResolveRelatedIssue(sessions, projects, related, relations, importIssue, proposeEdit, manageSessions,
-                llm, clock, ids);
+                llm, clock, ids, knowledge);
     }
 
     @Produces
@@ -187,9 +205,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    AnswerQuestion answerQuestion(SessionRepository sessions, ProjectRepository projects, LlmClient llm,
-            ConsentPolicy consent, ClockPort clock, IdGenerator ids) {
-        return new AnswerQuestion(sessions, projects, llm, consent, clock, ids);
+    AnswerQuestion answerQuestion(SessionRepository sessions, LlmClient llm, ConsentPolicy consent, ClockPort clock,
+            IdGenerator ids, SessionKnowledge knowledge) {
+        return new AnswerQuestion(sessions, llm, consent, clock, ids, knowledge);
     }
 
     @Produces
@@ -200,9 +218,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    GenerateSpecification generateSpecification(SessionRepository sessions, ProjectRepository projects,
-            SpecificationRepository versions, LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids) {
-        return new GenerateSpecification(sessions, projects, versions, llm, consent, clock, ids, toolVersion);
+    GenerateSpecification generateSpecification(SessionRepository sessions, SpecificationRepository versions,
+            LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+        return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge);
     }
 
     @Produces
@@ -282,9 +300,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    ProposeAiEdit proposeAiEdit(SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
-            LlmClient llm, ConsentPolicy consent, ProposalStore proposals) {
-        return new ProposeAiEdit(sessions, projects, versions, llm, consent, proposals);
+    ProposeAiEdit proposeAiEdit(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
+            ConsentPolicy consent, ProposalStore proposals, SessionKnowledge knowledge) {
+        return new ProposeAiEdit(sessions, versions, llm, consent, proposals, knowledge);
     }
 
     @Produces
@@ -304,18 +322,18 @@ public class UseCaseProducer {
     @ApplicationScoped
     ImportJiraIssue importJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm,
             ConsentPolicy consent, SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
-            LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids) {
+            LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
         return new ImportJiraIssue(tracker, jira, markup, llm, consent, sessions, projects, versions, tickets, clock,
-                ids);
+                ids, knowledge);
     }
 
     @Produces
     @ApplicationScoped
     PushToJira pushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
-            SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
-            LinkedTicketRepository tickets, ProposalStore proposals, ClockPort clock, IdGenerator ids) {
-        return new PushToJira(tracker, jira, markup, llm, consent, sessions, projects, versions, tickets, proposals, clock,
-                ids);
+            SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+        return new PushToJira(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids,
+                knowledge);
     }
 
     @Produces

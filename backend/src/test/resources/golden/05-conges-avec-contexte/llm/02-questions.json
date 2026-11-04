@@ -1,1 +1,1 @@
-{"operation": "propose-questions", "userContains": ["<contexte-fonctionnel>", "remplaçant"], "response": {"questions": [], "contradictions": [], "coveredThemes": []}}
+{"operation": "propose-questions", "userContains": ["<connaissance-projet>", "<fiche-generale>", "remplaçant"], "response": {"questions": [], "contradictions": [], "coveredThemes": []}}

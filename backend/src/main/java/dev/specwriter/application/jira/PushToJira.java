@@ -1,8 +1,8 @@
 package dev.specwriter.application.jira;
 
-import dev.specwriter.domain.llm.ProjectContextInput;
-import dev.specwriter.domain.project.ContextSheets;
-import dev.specwriter.application.project.ProjectContexts;
+import dev.specwriter.application.knowledge.SessionKnowledge;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
+import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.application.specification.DraftValidation;
 import dev.specwriter.application.specification.ProposalStore;
@@ -68,23 +68,30 @@ public class PushToJira {
     private final LlmClient llm;
     private final ConsentPolicy consent;
     private final SessionRepository sessions;
-    private final ProjectRepository projects;
     private final SpecificationRepository versions;
     private final LinkedTicketRepository tickets;
     private final ProposalStore proposals;
     private final ClockPort clock;
     private final IdGenerator ids;
+    private final SessionKnowledge knowledge;
 
     public PushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
             LinkedTicketRepository tickets, ProposalStore proposals, ClockPort clock, IdGenerator ids) {
+        this(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids,
+                SessionKnowledge.sheetOnly(projects));
+    }
+
+    public PushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
+            SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+        this.knowledge = knowledge;
         this.tracker = tracker;
         this.jira = jira;
         this.markup = markup;
         this.llm = llm;
         this.consent = consent;
         this.sessions = sessions;
-        this.projects = projects;
         this.versions = versions;
         this.tickets = tickets;
         this.proposals = proposals;
@@ -135,14 +142,13 @@ public class PushToJira {
 
     private TakenFromJira takeJira(Session session, LinkedJiraTicket ticket, JiraIssue current) {
         consent.requireGranted(ConsentService.COPILOT);
-        ContextSheets context = ProjectContexts.of(projects, session);
+        ProjectKnowledge used = knowledge.forSpecification(session, List.of());
         SpecificationContent content = ImportJiraIssue.structure(llm, markup.toMarkdown(current.description(), ticket.issueUrl()),
-                session.language(), ProjectContextInput.of(context));
+                session.language(), used);
         int number = versions.lastNumber(session.id()) + 1;
         SpecificationVersion taken = new SpecificationVersion(ids.next(), session.id(), number, content,
                 "jira-import:" + current.key() + ":" + current.updated(), VersionOrigin.JIRA_IMPORT,
-                MarkdownRenderer.render(content, session.language()), clock.now())
-                .withContext(context.combinedHash(), context.updatedAt());
+                MarkdownRenderer.render(content, session.language(), used.selection()), clock.now()).withKnowledge(used);
         versions.save(taken);
         sessions.save(session.generated(clock.now()), sessions.questionnaire(session.id()).orElseGet(Questionnaire::empty));
         LinkedJiraTicket reimported = ticket.reimported(number, current.updated(), ConflictDetector.hash(current.description()));
@@ -153,12 +159,13 @@ public class PushToJira {
     private MergeProposed merge(Session session, SpecificationVersion local, JiraIssue current, String issueUrl) {
         consent.requireGranted(ConsentService.COPILOT);
         List<Question> treated = sessions.questionnaire(session.id()).map(Questionnaire::treated).orElse(List.of());
-        ContextSheets context = ProjectContexts.of(projects, session);
-        MergeRequest request = new MergeRequest(session.need().text(), session.language(), DraftValidation.answers(treated),
-                local.markdown(), markup.toMarkdown(current.description(), issueUrl), null, ProjectContextInput.of(context));
+        List<QuestionAndAnswer> answers = DraftValidation.answers(treated);
+        ProjectKnowledge used = knowledge.forSpecification(session, answers);
+        MergeRequest request = new MergeRequest(session.need().text(), session.language(), answers, local.markdown(),
+                markup.toMarkdown(current.description(), issueUrl), null, used);
         SpecificationContent content = DraftValidation.produce(c -> llm.mergeConflict(request.withCorrection(c)), treated,
-                session.language(), ErrorCode.LLM_INVALID_OUTPUT, ProjectContextInput.of(context));
+                session.language(), ErrorCode.LLM_INVALID_OUTPUT, used);
         return new MergeProposed(proposals.propose(session, local, content, VersionOrigin.CONFLICT_MERGE, current.updated(),
-                ConflictDetector.hash(current.description()), context));
+                ConflictDetector.hash(current.description()), used));
     }
 }

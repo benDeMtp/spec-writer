@@ -1,6 +1,7 @@
 package dev.specwriter.domain.specification;
 
-import dev.specwriter.domain.project.ContextSheet;
+import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,8 +12,9 @@ import java.util.UUID;
 /**
  * Traçabilité (FR-011, FR-013) : chaque use case a une source vérifiable, une source hypothèse est
  * listée dans les hypothèses, chaque scénario référence un use case et chaque use case a un
- * scénario nominal (US2-3). Une source « contexte du projet » cite un extrait du contexte utilisé
- * (FR-010 de 002).
+ * scénario nominal (US2-3). Une source « contexte du projet » cite un extrait de la fiche générale,
+ * une source de la connaissance un élément transmis, et un écart un ADR transmis (FR-010, FR-037 de
+ * 002).
  */
 public final class TraceabilityValidator {
 
@@ -20,12 +22,16 @@ public final class TraceabilityValidator {
     }
 
     public static StructureViolations validate(SpecificationContent content, Set<UUID> answeredQuestions) {
-        return validate(content, answeredQuestions, "");
+        return validate(content, answeredQuestions, ProjectKnowledge.EMPTY);
     }
 
+    /**
+     * @param knowledge connaissance transmise : une source PROJECT_CONTEXT cite un extrait exact de
+     *     la fiche générale, une source JIRA_ISSUE, DOC_PAGE ou ARCH_ELEMENT un élément retenu
+     */
     public static StructureViolations validate(SpecificationContent content, Set<UUID> answeredQuestions,
-            String projectContext) {
-        String context = normalized(projectContext);
+            ProjectKnowledge knowledge) {
+        String context = normalized(knowledge.generalSheet());
         List<String> out = new ArrayList<>();
         if (content.useCases().isEmpty()) {
             out.add("la spécification doit contenir au moins un use case");
@@ -56,7 +62,13 @@ public final class TraceabilityValidator {
                     String excerpt = normalized(s.excerpt());
                     if (excerpt.isEmpty() || !context.contains(excerpt)) {
                         out.add(uc.code()
-                                + " : une source « contexte du projet » doit citer un extrait exact du contexte du projet");
+                                + " : une source « contexte du projet » doit citer un extrait exact de la fiche générale");
+                    }
+                }
+                case JIRA_ISSUE, DOC_PAGE, ARCH_ELEMENT -> {
+                    if (!citable(knowledge, s.kind()).contains(s.ref())) {
+                        out.add(uc.code() + " : une source " + s.kind() + " doit citer la référence d'un élément de"
+                                + " <connaissance-projet>, recopiée exactement");
                     }
                 }
             }
@@ -72,33 +84,22 @@ public final class TraceabilityValidator {
                 out.add(sc.code() + " : le scénario doit référencer un use case de la version");
             }
         }
+        Set<String> adrs = knowledge.citable(KnowledgeKind.ADR);
+        for (SpecificationContent.AdrDeviation d : content.adrDeviations()) {
+            if (!adrs.contains(d.adrRef())) {
+                out.add("écart à l'ADR « " + d.adrRef() + " » : l'ADR doit figurer dans <connaissance-projet>");
+            }
+        }
         return new StructureViolations(out);
     }
 
-    /** Casse, espacements et marques Markdown d'emphase ignorés. */
-    /**
-     * Rattache chaque source PROJECT_CONTEXT à la fiche où figure son extrait, la fiche fonctionnelle
-     * d'abord (FR-008a). À appeler sur un contenu déjà validé.
-     */
-    public static SpecificationContent locateContextSources(SpecificationContent content, String functional,
-            String technical) {
-        String f = normalized(functional);
-        String t = normalized(technical);
-        List<UseCase> located = content.useCases().stream().map(uc -> {
-            SourceRef s = uc.source();
-            if (s == null || s.kind() != SourceRef.Kind.PROJECT_CONTEXT) {
-                return uc;
-            }
-            String excerpt = normalized(s.excerpt());
-            ContextSheet sheet = f.contains(excerpt) ? ContextSheet.FUNCTIONAL
-                    : t.contains(excerpt) ? ContextSheet.TECHNICAL : null;
-            return new UseCase(uc.code(), uc.title(), uc.actor(), uc.goal(), uc.preconditions(), uc.nominalFlow(),
-                    uc.alternatives(), s.inSheet(sheet));
-        }).toList();
-        return new SpecificationContent(content.title(), content.summary(), content.details(), located, content.scenarios(),
-                content.assumptions(), content.requirements());
+    private static Set<String> citable(ProjectKnowledge knowledge, SourceRef.Kind kind) {
+        Set<String> refs = new java.util.HashSet<>();
+        kind.knowledgeKinds().forEach(k -> refs.addAll(knowledge.citable(k)));
+        return refs;
     }
 
+    /** Casse, espacements et marques Markdown d'emphase ignorés. */
     private static String normalized(String text) {
         return text == null ? "" : text.replace("*", "").strip().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }

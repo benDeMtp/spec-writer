@@ -45,4 +45,8 @@ public class SpecificationVersionEntity {
     @Convert(converter = InstantTextConverter.class)
     @Column(name = "context_updated_at")
     public Instant contextUpdatedAt;
+
+    /** Sélection de connaissance (JSON, références et empreintes, sans contenu), {@code null} sans connaissance. */
+    @Column(name = "knowledge")
+    public String knowledge;
 }

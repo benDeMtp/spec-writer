@@ -324,13 +324,14 @@ flux manquants et les efforts de déploiement ; une fiche générale à la main.
 
 #### Rédaction avec la connaissance
 
-- [ ] T109 [P] [US2] Tests :
+- [X] T109 [P] [US2] Tests :
   - `BT/application/knowledge/SelectKnowledgeTest.java` : fiche générale toujours ; vocabulaire et vue d'architecture ≤ 3 000 caractères ; 4 ADR au plus (≤ 6 000), un ADR remplacé remplacé par son successeur ; 3 tickets retenus (≤ 3 000) ; faits d'architecture (≤ 3 000) ; 35 000 caractères au plus en tout ; recalcul quand le besoin ou les réponses changent ;
   - `BT/application/knowledge/AnalyzeArchitectureTest.java` : 15 candidats au plus ; `identifyImpact` limité aux candidats (nom inconnu ramené ou retiré par `Citations`) ; existence des échanges et constats de déploiement calculés par `ArchitectureModel` ;
   - `TraceabilityValidatorTest` et `InputFingerprintTest` : sources `JIRA_ISSUE`, `DOC_PAGE` et `ARCH_ELEMENT` limitées à la sélection ; la sélection (référence et `contentHash`) dans l'empreinte ;
   - `MarkdownRendererTest` : rubriques « Architecture » (modules et portée, flux manquants), « Écarts aux ADR » et « Efforts supplémentaires (déploiement) », les deux rubriques calculées n'étant jamais rédigées par l'IA.
-- [ ] T110 [US2] Implémentation : `SelectKnowledge`, `AnalyzeArchitecture` ; `<connaissance-projet>` dans `UserMessages` à la place de `<contexte-fonctionnel>` et `<contexte-technique>`, et dans les 6 prompts (règle de sécurité, information à ne pas redemander, sources citables, écart à un ADR remonté dans `contradictions`) ; `SourceRef.Kind` `JIRA_ISSUE`, `DOC_PAGE`, `ARCH_ELEMENT` ; `DraftSpecification.adrDeviations` ; `MarkdownRenderer` ; `specification_version.knowledge` enregistré. Faire passer T109.
-- [ ] T111 [P] [US2] Golden set : adapter `BTR/golden/04-*`, `05-*` et `06-*` (fiche générale à la place des deux fiches) et ajouter `BTR/golden/07-avoir-adr-architecture/` (ADR cité, écart, modules, flux manquant, efforts) avec `knowledge.json` ; `GoldenSetIT` le lit et vérifie `<connaissance-projet>`.
+- [X] T110 [US2] Implémentation : `SelectKnowledge`, `AnalyzeArchitecture` ; `<connaissance-projet>` dans `UserMessages` à la place de `<contexte-fonctionnel>` et `<contexte-technique>`, et dans les 6 prompts (règle de sécurité, information à ne pas redemander, sources citables, écart à un ADR remonté dans `contradictions`) ; `SourceRef.Kind` `JIRA_ISSUE`, `DOC_PAGE`, `ARCH_ELEMENT` ; `DraftSpecification.adrDeviations` ; `MarkdownRenderer` ; `specification_version.knowledge` enregistré. Faire passer T109.
+- [X] T111 [P] [US2] Golden set : adapter `BTR/golden/04-*`, `05-*` et `06-*` (fiche générale à la place des deux fiches) et ajouter `BTR/golden/07-avoir-adr-architecture/` (ADR cité, écart, modules, flux manquant, efforts) avec `knowledge.json` ; `GoldenSetIT` le lit et vérifie `<connaissance-projet>`.
+  - *Note (T109 à T111)* : `SessionKnowledge` (interface) et `SelectKnowledge` ; `AnalyzeArchitecture` garde le choix de l'IA par session ; `Citations` déplacé dans `application/knowledge` ; `KnowledgeIndex.all` pour retrouver le successeur d'un ADR. Les cas d'usage gardent leur ancien constructeur (fiche seule, `SessionKnowledge.sheetOnly`) pour les tests de 001. Golden set : `general.md` remplace `context.md` et `technical.md` ; `07-avoir-adr-architecture` couvre l'ADR cité et remplacé, l'écart (ADR inconnu retiré), le flux indirect et le flux manquant, et le constat « à déployer » ; lu par `golden/KnowledgeFixture`.
 
 #### Fiche générale et retrait des fiches générées
 

@@ -116,42 +116,42 @@ public class LangChainLlmClient implements LlmClient {
     @Override
     public ProposeQuestionsResult proposeQuestions(ProposeQuestionsRequest request) {
         String user = UserMessages.questions(request.need(), request.language(), request.known(),
-                request.remainingThemes(), request.projectContext());
+                request.remainingThemes(), request.knowledge());
         return call("propose-questions", user, LlmSchemas.QUESTIONS, LangChainLlmClient::toQuestions);
     }
 
     @Override
     public DraftSpecification generateSpecification(GenerationRequest request) {
         String user = UserMessages.generation(request.need(), request.language(), request.answers(),
-                request.correction(), request.projectContext());
+                request.correction(), request.knowledge());
         return call("generate-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public ReassessResult reassessAfterChange(ReassessRequest request) {
         String user = UserMessages.reassess(request.need(), request.language(), request.known(),
-                request.changedQuestionId(), request.projectContext());
+                request.changedQuestionId(), request.knowledge());
         return call("reassess-after-change", user, LlmSchemas.REASSESS, LangChainLlmClient::toReassess);
     }
 
     @Override
     public DraftSpecification editSpecification(EditRequest request) {
         String user = UserMessages.edit(request.need(), request.language(), request.answers(), request.currentMarkdown(),
-                request.instruction(), request.correction(), request.projectContext());
+                request.instruction(), request.correction(), request.knowledge());
         return call("edit-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public DraftSpecification mergeConflict(MergeRequest request) {
         String user = UserMessages.merge(request.need(), request.language(), request.answers(), request.localMarkdown(),
-                request.jiraMarkdown(), request.correction(), request.projectContext());
+                request.jiraMarkdown(), request.correction(), request.knowledge());
         return call("merge-conflict", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public DraftSpecification structureImportedText(StructureImportRequest request) {
         String user = UserMessages.structure(request.text(), request.language(), request.correction(),
-                request.projectContext());
+                request.knowledge());
         return call("structure-imported-text", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
@@ -227,7 +227,7 @@ public class LangChainLlmClient implements LlmClient {
         }
         return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
                 TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
-                draft.requirements());
+                draft.requirements(), draft.adrDeviations());
     }
 
     private static RelatedIssuesJudgement toRelated(String json) {

@@ -8,7 +8,7 @@ import dev.specwriter.application.specification.ProposalStore;
 import dev.specwriter.application.specification.ProposeAiEdit;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
-import dev.specwriter.domain.llm.ProjectContextInput;
+import dev.specwriter.application.knowledge.SessionKnowledge;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.LlmClient;
@@ -41,6 +41,7 @@ public class ResolveRelatedIssue {
 
     private final SessionRepository sessions;
     private final ProjectRepository projects;
+    private final SessionKnowledge knowledge;
     private final RelatedIssuesStore related;
     private final SessionRelationRepository relations;
     private final ImportJiraIssue importIssue;
@@ -53,6 +54,14 @@ public class ResolveRelatedIssue {
     public ResolveRelatedIssue(SessionRepository sessions, ProjectRepository projects, RelatedIssuesStore related,
             SessionRelationRepository relations, ImportJiraIssue importIssue, ProposeAiEdit proposeEdit,
             ManageSessions manageSessions, LlmClient llm, ClockPort clock, IdGenerator ids) {
+        this(sessions, projects, related, relations, importIssue, proposeEdit, manageSessions, llm, clock, ids,
+                SessionKnowledge.sheetOnly(projects));
+    }
+
+    public ResolveRelatedIssue(SessionRepository sessions, ProjectRepository projects, RelatedIssuesStore related,
+            SessionRelationRepository relations, ImportJiraIssue importIssue, ProposeAiEdit proposeEdit,
+            ManageSessions manageSessions, LlmClient llm, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+        this.knowledge = knowledge;
         this.sessions = sessions;
         this.projects = projects;
         this.related = related;
@@ -101,9 +110,10 @@ public class ResolveRelatedIssue {
         related.save(session.id(), decided);
         Questionnaire questionnaire = sessions.questionnaire(session.id()).orElse(Questionnaire.empty());
         if (questionnaire.questions().isEmpty()) {
-            Project project = projects.find(session.projectId())
-                    .orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
-            questionnaire = NextBatch.ask(llm, ids, session, questionnaire, ProjectContextInput.of(project.contexts()));
+            if (projects.find(session.projectId()).isEmpty()) {
+                throw new DomainException(ErrorCode.PROJECT_NOT_FOUND);
+            }
+            questionnaire = NextBatch.ask(llm, ids, session, questionnaire, knowledge);
             Session updated = questionnaire.pending().isEmpty() ? session.readyToGenerate(clock.now()) : session;
             sessions.save(updated, questionnaire);
         }

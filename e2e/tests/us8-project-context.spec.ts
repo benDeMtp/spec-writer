@@ -238,7 +238,7 @@ test.describe.serial('US8 contexte de projet', () => {
     expect((await page.request.post(`/api/sessions/${specId}/versions`, { headers })).status()).toBe(201);
 
     await page.goto(`/sessions/${specId}/versions/1`);
-    await expect(page.getByText('Contexte du projet, fiche fonctionnelle : « Le gestionnaire de facturation émet les avoirs. »'))
+    await expect(page.getByText('Contexte du projet : « Le gestionnaire de facturation émet les avoirs. »'))
       .toBeVisible();
     await expect(page.locator('.meta').filter({ hasText: 'Version 1' })).toContainText('contexte du');
     await expectNoA11yViolations(page);

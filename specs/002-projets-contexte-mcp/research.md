@@ -661,6 +661,25 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   - `InputFingerprint` couvre la fiche générale et, pour chaque élément de la sélection, sa
     référence et son `content_hash` (FR-011). La version enregistre la sélection (références et
     hash), ce qui sert aussi à MCP (R26).
+  - **Implémentation (T110)** :
+    - `SelectKnowledge` calcule la sélection à chaque opération, à partir du besoin et des réponses
+      (recherche locale, sans appel externe). L'analyse d'architecture (`identifyImpact`) n'est
+      faite que pour les opérations qui produisent une spécification (génération, modification,
+      fusion, import) : les questions reçoivent la sélection sans `<architecture>`, ce qui évite un
+      appel à l'IA par lot. Le choix de l'IA est gardé par session tant que le besoin, les réponses
+      et les candidats (référence et `content_hash`) ne changent pas : à entrées identiques, la
+      version existante est réutilisée sans appel. L'existence des échanges et les constats de
+      production sont toujours recalculés sur le modèle courant. Un échec de l'analyse laisse la
+      rédaction se faire sans faits d'architecture, sans rien garder.
+    - Budget : fiche générale 20 000, vocabulaire et vue d'ensemble 3 000, 4 ADR de 1 500
+      (titre compris), 3 tickets de 1 000, faits d'architecture 3 000 : 35 000 au plus.
+    - Successeur d'un ADR remplacé : l'ADR dont le nom de fichier ou le titre porte le numéro cité
+      (« Remplacé par ADR-005 »), sur 5 remplacements au plus ; un ADR obsolète est écarté.
+    - Une source de la connaissance hors de la sélection est d'abord ramenée par `Citations` ; si
+      elle reste inconnue, la traçabilité la signale et la spécification est redemandée (même
+      boucle que FR-012). Un écart à un ADR inconnu est retiré.
+    - En attendant la fusion des fiches (T113), la fiche générale est la fiche fonctionnelle suivie
+      de la fiche technique.
 - **Rationale** : le volume envoyé reste borné quel que soit le projet (anti-objectif
   « devoir s'y reprendre ») ; la sélection enregistrée rend la version reproductible.
 - **Alternatives considered** : laisser le LLM appeler un outil de recherche pendant la rédaction

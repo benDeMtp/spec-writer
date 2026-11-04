@@ -28,7 +28,7 @@ Les partenaires consultent le statut de leurs commandes par une API publique.
   2. Recevoir un jeton
 - **Alternatives** :
   - Identifiants refusés : aucun jeton n'est délivré
-- **Source** : contexte du projet, fiche technique « Les API publiques passent par la passerelle Kong, qui authentifie en OAuth2 client credentials. »
+- **Source** : contexte du projet « Les API publiques passent par la passerelle Kong, qui authentifie en OAuth2 client credentials. »
 
 ## Scénarios d'acceptation
 

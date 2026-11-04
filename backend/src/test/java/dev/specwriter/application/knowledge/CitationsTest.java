@@ -1,4 +1,4 @@
-package dev.specwriter.application.context;
+package dev.specwriter.application.knowledge;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -1,10 +1,12 @@
 package dev.specwriter.infrastructure.llm;
 
+import dev.specwriter.domain.knowledge.ArchitectureModel;
+import dev.specwriter.domain.knowledge.KnowledgeRole;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.BuildContextRequest;
 import dev.specwriter.domain.llm.CompareIssueRequest;
 import dev.specwriter.domain.llm.ImpactRequest;
 import dev.specwriter.domain.llm.RelatedIssuesRequest;
-import dev.specwriter.domain.llm.ProjectContextInput;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.llm.SourceFacts;
 import dev.specwriter.domain.llm.SummarizeSourcesRequest;
@@ -16,9 +18,8 @@ import java.util.stream.Collectors;
 
 /**
  * Message utilisateur : uniquement des données, chacune entre balises (FR-026, LLM01). Les chevrons
- * du contenu sont neutralisés pour qu'un texte saisi ne puisse pas fermer une balise. Le contexte du
- * projet suit la langue : {@code <contexte-fonctionnel>} puis {@code <contexte-technique>} (research.md R5
- * et R16 de 002).
+ * du contenu sont neutralisés pour qu'un texte saisi ne puisse pas fermer une balise. La connaissance
+ * du projet suit la langue, dans {@code <connaissance-projet>} (research.md R24 de 002).
  */
 final class UserMessages {
 
@@ -26,39 +27,39 @@ final class UserMessages {
     }
 
     static String questions(String need, Language language, List<QuestionAndAnswer> known,
-            Collection<QuestionTheme> remaining, ProjectContextInput projectContext) {
-        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(known) + "\n<themes-restants>"
+            Collection<QuestionTheme> remaining, ProjectKnowledge knowledge) {
+        return language(language) + "\n" + knowledge(knowledge) + need(need) + "\n" + answers(known) + "\n<themes-restants>"
                 + remaining.stream().map(Enum::name).sorted().collect(Collectors.joining(" ")) + "</themes-restants>";
     }
 
     static String reassess(String need, Language language, List<QuestionAndAnswer> known, String changedQuestionId,
-            ProjectContextInput projectContext) {
-        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(known) + "\n<question-modifiee>"
+            ProjectKnowledge knowledge) {
+        return language(language) + "\n" + knowledge(knowledge) + need(need) + "\n" + answers(known) + "\n<question-modifiee>"
                 + data(changedQuestionId) + "</question-modifiee>";
     }
 
     static String generation(String need, Language language, List<QuestionAndAnswer> answers, String correction,
-            ProjectContextInput projectContext) {
-        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(answers) + "\n<correction>" + data(correction)
+            ProjectKnowledge knowledge) {
+        return language(language) + "\n" + knowledge(knowledge) + need(need) + "\n" + answers(answers) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
     static String edit(String need, Language language, List<QuestionAndAnswer> answers, String currentMarkdown,
-            String instruction, String correction, ProjectContextInput projectContext) {
-        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(answers) + "\n" + block("specification-actuelle",
+            String instruction, String correction, ProjectKnowledge knowledge) {
+        return language(language) + "\n" + knowledge(knowledge) + need(need) + "\n" + answers(answers) + "\n" + block("specification-actuelle",
                 currentMarkdown) + "\n" + block("instruction", instruction) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
     static String merge(String need, Language language, List<QuestionAndAnswer> answers, String localMarkdown,
-            String jiraMarkdown, String correction, ProjectContextInput projectContext) {
-        return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(answers) + "\n" + block("version-locale",
+            String jiraMarkdown, String correction, ProjectKnowledge knowledge) {
+        return language(language) + "\n" + knowledge(knowledge) + need(need) + "\n" + answers(answers) + "\n" + block("version-locale",
                 localMarkdown) + "\n" + block("version-jira", jiraMarkdown) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
-    static String structure(String text, Language language, String correction, ProjectContextInput projectContext) {
-        return language(language) + "\n" + context(projectContext) + block("texte-importe", text) + "\n<correction>" + data(correction)
+    static String structure(String text, Language language, String correction, ProjectKnowledge knowledge) {
+        return language(language) + "\n" + knowledge(knowledge) + block("texte-importe", text) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
@@ -126,19 +127,61 @@ final class UserMessages {
         return out.append("</elements>").toString();
     }
 
-    /** Fiches fonctionnelle et technique ; une fiche vide est omise, et sans fiche le message est celui de 001. */
-    private static String context(ProjectContextInput projectContext) {
-        if (projectContext == null || projectContext.isEmpty()) {
+    /**
+     * Connaissance du projet (research.md R24 de 002) : fiche générale, vocabulaire, vue d'ensemble,
+     * ADR, tickets et faits d'architecture calculés. Omise si vide : le message est alors celui de 001.
+     */
+    private static String knowledge(ProjectKnowledge knowledge) {
+        if (knowledge == null || knowledge.isEmpty()) {
             return "";
         }
-        StringBuilder out = new StringBuilder();
-        if (!projectContext.functional().isBlank()) {
-            out.append(block("contexte-fonctionnel", projectContext.functional())).append('\n');
+        StringBuilder out = new StringBuilder("<connaissance-projet>\n");
+        if (!knowledge.generalSheet().isBlank()) {
+            out.append(block("fiche-generale", knowledge.generalSheet())).append('\n');
         }
-        if (!projectContext.technical().isBlank()) {
-            out.append(block("contexte-technique", projectContext.technical())).append('\n');
+        for (ProjectKnowledge.Entry e : knowledge.entries()) {
+            switch (e.kind()) {
+                case ADR -> out.append("<adr ref=\"").append(attribute(e.ref())).append("\" statut=\"")
+                        .append(attribute(e.status())).append("\">\n");
+                case TICKET -> out.append("<ticket ref=\"").append(attribute(e.ref())).append("\" statut=\"")
+                        .append(attribute(e.status())).append("\" ferme=\"").append(e.closed() ? "oui" : "non")
+                        .append("\">\n");
+                default -> out.append('<').append(tag(e)).append(" ref=\"").append(attribute(e.ref())).append("\">\n");
+            }
+            out.append(data(e.title())).append('\n').append(data(e.text())).append("\n</").append(tag(e)).append(">\n");
         }
-        return out.toString();
+        if (knowledge.hasArchitecture()) {
+            out.append("<architecture>\n");
+            knowledge.modules().forEach(m -> out.append("<module nom=\"").append(attribute(m.name()))
+                    .append("\" portee=\"").append(m.scope().name()).append("\"/>\n"));
+            knowledge.exchanges().forEach(x -> {
+                out.append("<echange de=\"").append(attribute(x.source())).append("\" vers=\"")
+                        .append(attribute(x.destination())).append("\" existe=\"")
+                        .append(x.kind() == ArchitectureModel.Exchange.Kind.MISSING ? "non" : "oui").append('"');
+                if (x.via() != null) {
+                    out.append(" via=\"").append(attribute(x.via())).append('"');
+                }
+                out.append("/>\n");
+            });
+            knowledge.deploymentFacts().forEach(f -> {
+                out.append("<constat type=\"").append(f.kind().name()).append("\" element=\"")
+                        .append(attribute(f.element())).append('"');
+                if (f.other() != null) {
+                    out.append(" autre=\"").append(attribute(f.other())).append('"');
+                }
+                out.append("/>\n");
+            });
+            out.append("</architecture>\n");
+        }
+        return out.append("</connaissance-projet>\n").toString();
+    }
+
+    private static String tag(ProjectKnowledge.Entry e) {
+        return switch (e.kind()) {
+            case ADR -> "adr";
+            case TICKET -> "ticket";
+            default -> e.role() == KnowledgeRole.ARCHITECTURE_OVERVIEW ? "vue-architecture" : "vocabulaire";
+        };
     }
 
     /** Valeur d'attribut : chevrons et guillemets neutralisés. */

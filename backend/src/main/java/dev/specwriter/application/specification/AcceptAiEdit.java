@@ -42,7 +42,7 @@ public class AcceptAiEdit {
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Cette proposition n'existe plus."));
         SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.lastNumber(sessionId) + 1,
                 p.content(), "proposal:" + p.id(), p.origin(), p.markdown(), clock.now())
-                .withContext(p.contextHash(), p.contextUpdatedAt());
+                .withKnowledge(p.knowledge());
         versions.save(version);
         Questionnaire questionnaire = sessions.questionnaire(sessionId).orElseGet(Questionnaire::empty);
         sessions.save(session.generated(clock.now()), questionnaire);

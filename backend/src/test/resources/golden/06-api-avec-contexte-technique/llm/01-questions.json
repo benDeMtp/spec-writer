@@ -1,4 +1,4 @@
-{"operation": "propose-questions", "userContains": ["<contexte-fonctionnel>", "<contexte-technique>", "OAuth2 client credentials"], "response": {
+{"operation": "propose-questions", "userContains": ["<connaissance-projet>", "<fiche-generale>", "OAuth2 client credentials"], "response": {
   "questions": [
     {"theme": "EDGE_CASES", "label": "La liste des commandes est-elle paginée ?", "rationale": "Un partenaire peut avoir des milliers de commandes",
      "suggestions": ["Oui, avec une limite de 100 commandes par page", "Non"], "defaultValue": "Oui, avec une limite de 100 commandes par page", "dependsOnQuestionIds": []}

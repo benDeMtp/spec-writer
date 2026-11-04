@@ -121,8 +121,13 @@ public final class IdentifierAssigner {
         if (title.length() > SpecificationContent.MAX_TITLE) {
             title = title.substring(0, SpecificationContent.MAX_TITLE);
         }
+        List<SpecificationContent.AdrDeviation> deviations = draft.adrDeviations().stream()
+                .filter(d -> d != null && !blank(d.adrRef()) && !blank(d.deviation()))
+                .map(d -> new SpecificationContent.AdrDeviation(strip(d.adrRef()), strip(d.decision()),
+                        strip(d.deviation())))
+                .toList();
         SpecificationContent content = new SpecificationContent(title, summary, details, useCases, scenarios,
-                assumptions, requirements);
+                assumptions, requirements, deviations);
         return new Assigned(content, new StructureViolations(violations));
     }
 
@@ -133,8 +138,16 @@ public final class IdentifierAssigner {
         }
         Optional<SourceRef.Kind> kind = parse(SourceRef.Kind.class, d.source().kind());
         if (kind.isEmpty()) {
-            violations.add(code + " : type de source inconnu (NEED_EXCERPT, ANSWER ou ASSUMPTION)");
+            violations.add(code + " : type de source inconnu (NEED_EXCERPT, ANSWER, ASSUMPTION, PROJECT_CONTEXT, JIRA_ISSUE,"
+                    + " DOC_PAGE ou ARCH_ELEMENT)");
             return null;
+        }
+        if (!kind.get().knowledgeKinds().isEmpty()) {
+            if (blank(d.source().ref())) {
+                violations.add(code + " : une source " + kind.get() + " doit citer la référence de l'élément");
+                return null;
+            }
+            return SourceRef.knowledge(kind.get(), strip(d.source().ref()), strip(d.source().excerpt()));
         }
         return new SourceRef(kind.get(), known.get(strip(d.source().questionId())), strip(d.source().excerpt()));
     }
