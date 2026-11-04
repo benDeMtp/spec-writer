@@ -33,6 +33,7 @@ import { CreateTicketDialogComponent, CreateTicketDialogData } from '../jira/cre
 import { PushDialogComponent, PushDialogData } from '../jira/push-dialog.component';
 import { MoveSessionData, MoveSessionDialogComponent } from '../projects/move-session-dialog.component';
 import { ExportService } from './export.service';
+import { SubtasksPanelComponent } from './subtasks-panel.component';
 import { VersionsPanelComponent } from './versions-panel.component';
 
 const EFFORTS: Record<DeploymentFact['kind'], string> = {
@@ -70,6 +71,7 @@ const SYNC: Record<SyncState, string> = {
     MatSelectModule,
     RouterLink,
     ScenarioComponent,
+    SubtasksPanelComponent,
     VersionsPanelComponent,
   ],
   template: `
@@ -328,6 +330,7 @@ const SYNC: Record<SyncState, string> = {
             </ul>
           </section>
         }
+        <sw-subtasks-panel [sessionId]="id()" [versionNumber]="v.number" />
       </div>
       @if (versions().length > 1) {
         <aside class="side">

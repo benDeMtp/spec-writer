@@ -199,6 +199,7 @@ describe('QuestionnairePage', () => {
           updatedAt: '2026-10-02T08:00:00Z',
           reason: null,
           url: 'http://jira/browse/FACT-9',
+          parentKey: 'FACT-3',
         },
       ],
     };
@@ -221,6 +222,8 @@ describe('QuestionnairePage', () => {
       expect(button(items[0] as HTMLElement, 'Lier une nouvelle story')).toBeTruthy();
       expect(button(items[0] as HTMLElement, 'Comparer')).toBeUndefined();
       expect(items[1].textContent).toMatch(/statut indexé\s+le 2 \S+ 2026/);
+      expect(items[1].textContent).toContain('Sous-tâche de FACT-3');
+      expect(items[0].textContent).not.toContain('Sous-tâche de');
       expect(button(items[1] as HTMLElement, 'Comparer')).toBeTruthy();
       expect(button(items[1] as HTMLElement, 'Lier une nouvelle story')).toBeUndefined();
     });

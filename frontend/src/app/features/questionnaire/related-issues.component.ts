@@ -42,6 +42,9 @@ export interface RelatedChoice {
               }
               {{ issue.title }}
             </p>
+            @if (issue.parentKey) {
+              <p class="parent">Sous-tâche de {{ issue.parentKey }}</p>
+            }
             <p class="status">
               <span class="badge" [class.closed]="issue.closed">{{ issue.status }}</span>
               @if (!issue.statusFresh) {

@@ -183,6 +183,36 @@ export interface RelatedIssue {
   updatedAt: string | null;
   reason: string | null;
   url: string | null;
+  /** Ticket parent quand le ticket proche est une sous-tâche (research.md R29 de 002). */
+  parentKey?: string | null;
+}
+
+export type SubtaskState = 'TO_REVIEW' | 'DELIVERED_TO_REWORK' | 'CONSISTENT' | 'UNMATCHED';
+
+/** Sous-tâche de la story liée, face à une version (FR-046, FR-047 de 002). */
+export interface Subtask {
+  key: string;
+  title: string;
+  url: string | null;
+  status: string | null;
+  statusCategory: string | null;
+  /** Faux si Jira n'a pas pu être relu : statut indexé, daté de statusDate. */
+  statusFresh: boolean;
+  statusDate: string | null;
+  useCase: { code: string; title: string } | null;
+  alternative: { code: string; title: string } | null;
+  closeness: 'VERY_CLOSE' | 'CLOSE' | null;
+  change: 'CHANGED' | 'REMOVED' | null;
+  state: SubtaskState;
+}
+
+/** Rubrique « Sous-tâches de <clé> » d'une version, calculée à la demande. */
+export interface SubtaskReport {
+  storyKey: string;
+  parentKey: string | null;
+  matching: 'SEMANTIC' | 'UNAVAILABLE';
+  matchingProblem: string | null;
+  subtasks: Subtask[];
 }
 
 export interface IssueComparison {

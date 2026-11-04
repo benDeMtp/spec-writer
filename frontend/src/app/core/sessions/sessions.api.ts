@@ -11,6 +11,7 @@ import {
   SessionDetail,
   SessionSummary,
   Specification,
+  SubtaskReport,
   VersionSummary,
 } from './sessions.model';
 
@@ -85,6 +86,15 @@ export class SessionsApi {
 
   version(id: string, n: number): Promise<Specification> {
     return firstValueFrom(this.http.get<Specification>(`/api/sessions/${encodeURIComponent(id)}/versions/${n}`));
+  }
+
+  /** Rubrique des sous-tâches de la version ; null sans ticket lié ni sous-tâche (204). */
+  async subtasks(id: string, n: number): Promise<SubtaskReport | null> {
+    return (
+      (await firstValueFrom(
+        this.http.get<SubtaskReport | null>(`/api/sessions/${encodeURIComponent(id)}/versions/${n}/subtasks`),
+      )) ?? null
+    );
   }
 
   relatedIssues(id: string): Promise<RelatedIssues> {
