@@ -11,10 +11,15 @@ import static dev.specwriter.support.LocalApi.api;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
+import dev.specwriter.application.jira.JiraAccess;
 import dev.specwriter.application.knowledge.AnalyzeArchitecture;
 import dev.specwriter.application.knowledge.FindRelatedIssues;
+import dev.specwriter.application.knowledge.RelatedIssues;
+import dev.specwriter.application.knowledge.ReportSubtasks;
 import dev.specwriter.application.knowledge.SelectKnowledge;
+import dev.specwriter.application.knowledge.StoryFamily;
 import dev.specwriter.domain.consent.ConsentService;
+import dev.specwriter.domain.jira.LinkedJiraTicket;
 import dev.specwriter.domain.knowledge.AdrStatus;
 import dev.specwriter.domain.knowledge.ArchitectureModel.DeploymentFact;
 import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
@@ -23,10 +28,19 @@ import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.ImpactResult;
 import dev.specwriter.domain.port.EmbeddingPort;
+import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.KnowledgeIndex;
+import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.port.SessionRepository;
+import dev.specwriter.domain.port.SpecificationRepository;
+import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.specification.SpecificationContent;
+import dev.specwriter.domain.specification.SpecificationVersion;
+import dev.specwriter.domain.specification.UseCase;
+import dev.specwriter.domain.specification.VersionOrigin;
 import dev.specwriter.support.JiraWorld;
 import io.restassured.path.json.JsonPath;
 import java.io.IOException;
@@ -75,8 +89,48 @@ final class ReferenceSet implements AutoCloseable {
     record Model(String name, String folder, String pooling, String queryPrefix, String passagePrefix) {
     }
 
+    /** Cas d'usage d'une version, pour les sous-tâches. */
+    record UseCaseSpec(String code, String title, String goal, List<String> steps) {
+
+        UseCase toUseCase() {
+            return new UseCase(code, title, "client", goal, List.of(), orEmpty(steps), List.of(), null);
+        }
+    }
+
+    /**
+     * Sous-tâches d'une story (research.md R29) : la spécification liée à la story passe de
+     * {@code previousUseCases} à {@code useCases} ; {@code expected} donne l'état attendu de chaque
+     * sous-tâche ({@code TO_REVIEW}, {@code DELIVERED_TO_REWORK}, {@code CONSISTENT}, {@code UNMATCHED}).
+     */
+    record SubtaskCase(String story, String need, List<UseCaseSpec> previousUseCases, List<UseCaseSpec> useCases,
+            Map<String, String> expected) {
+
+        SubtaskCase {
+            previousUseCases = orEmpty(previousUseCases);
+            useCases = orEmpty(useCases);
+            expected = expected == null ? Map.of() : Map.copyOf(expected);
+        }
+    }
+
+    /** Ce que l'outil fait des sous-tâches : famille dans la sélection ou les tickets proches, et états. */
+    record SubtaskMeasure(SubtaskCase expected, List<String> familyInSelection, List<String> familyInRelated,
+            Map<String, String> states) {
+
+        /** Part des sous-tâches attendues « à revoir » ou « livrée, à reprendre » qui le sont (SC-004c). */
+        double flagged() {
+            List<String> touched = expected.expected().entrySet().stream()
+                    .filter(e -> e.getValue().equals("TO_REVIEW") || e.getValue().equals("DELIVERED_TO_REWORK"))
+                    .map(Map.Entry::getKey).toList();
+            if (touched.isEmpty()) {
+                return 1;
+            }
+            return touched.stream().filter(k -> expected.expected().get(k).equals(states.get(k))).count()
+                    / (double) touched.size();
+        }
+    }
+
     record Settings(String jiraProjectKey, String jira, String antora, String workspace, String ownership,
-            List<Model> models) {
+            List<Model> models, Double subtaskMinZ) {
 
         Settings {
             jiraProjectKey = jiraProjectKey == null ? "FACT" : jiraProjectKey;
@@ -118,6 +172,7 @@ final class ReferenceSet implements AutoCloseable {
     final Path dir;
     final Settings settings;
     final List<Case> cases;
+    final List<SubtaskCase> subtaskCases;
     private final WireMockServer jira;
     String projectId;
 
@@ -125,9 +180,13 @@ final class ReferenceSet implements AutoCloseable {
         this.dir = dir;
         Path set = dir.resolve("set.json");
         this.settings = Files.exists(set) ? JSON.readValue(set.toFile(), Settings.class)
-                : new Settings(null, null, null, null, null, null);
+                : new Settings(null, null, null, null, null, null, null);
         this.cases = JSON.readValue(dir.resolve("cases.json").toFile(), new TypeReference<List<Case>>() {
         });
+        Path subtasks = dir.resolve("subtasks.json");
+        this.subtaskCases = Files.exists(subtasks) ? JSON.readValue(subtasks.toFile(),
+                new TypeReference<List<SubtaskCase>>() {
+                }) : List.of();
         this.jira = new WireMockServer(options().bindAddress("127.0.0.1").dynamicPort());
         jira.start();
     }
@@ -150,6 +209,7 @@ final class ReferenceSet implements AutoCloseable {
                 .willReturn(okJson(issues(false))));
         jira.stubFor(get(urlPathEqualTo("/rest/api/2/search")).withQueryParam("fields", equalTo("key"))
                 .willReturn(okJson(issues(true))));
+        stubStatuses();
         api().body(Map.of("serverUrl", "http://127.0.0.1:" + jira.port(), "defaultProjectKey", key, "acceptInsecureHttp",
                 true, "token", "TEST-JIRA-PAT")).put("/api/settings/jira").then().statusCode(200);
         api().body(Map.of("granted", true)).put("/api/consents/JIRA").then().statusCode(204);
@@ -264,6 +324,63 @@ final class ReferenceSet implements AutoCloseable {
         return selected.toLowerCase(Locale.ROOT).contains(expected.toLowerCase(Locale.ROOT));
     }
 
+    /** Statut relu de chaque ticket du jeu ({@code fields=status,updated}). */
+    @SuppressWarnings("unchecked")
+    private void stubStatuses() throws IOException {
+        List<Map<String, Object>> fixture = JSON.readValue(dir.resolve(settings.jira()).toFile(), List.class);
+        for (Map<String, Object> i : fixture) {
+            jira.stubFor(get(urlPathEqualTo("/rest/api/2/issue/" + i.get("key"))).willReturn(okJson(JSON.writeValueAsString(
+                    Map.of("key", i.get("key"), "fields", Map.of("status", Map.of("name", i.get("status"),
+                            "statusCategory", Map.of("key", i.get("statusCategory"))), "updated", i.get("updated")))))));
+        }
+    }
+
+    /**
+     * Mesure les sous-tâches d'une story : une spécification liée à la story, avec une version par
+     * liste de cas d'usage ; la famille ne doit entrer ni dans la sélection ni dans les tickets proches.
+     */
+    SubtaskMeasure measureSubtasks(SubtaskCase c, SubtaskWorld w) {
+        UUID project = UUID.fromString(projectId);
+        Instant now = Instant.now();
+        Session session = Session.start(UUID.randomUUID(), project, Need.of(c.need()), null, now).generated(now);
+        w.sessions().save(session, Questionnaire.empty());
+        int number = 1;
+        for (List<UseCaseSpec> useCases : List.of(c.previousUseCases(), c.useCases())) {
+            if (useCases.isEmpty()) {
+                continue;
+            }
+            SpecificationContent content = new SpecificationContent("Sous-tâches", c.need(),
+                    useCases.stream().map(UseCaseSpec::toUseCase).toList(), List.of(), List.of(), List.of());
+            w.versions().save(new SpecificationVersion(UUID.randomUUID(), session.id(), number, content, "fp" + number,
+                    VersionOrigin.AI_EDIT, "# " + number, now));
+            number++;
+        }
+        w.tickets().save(new LinkedJiraTicket(session.id(), c.story(), "http://jira/browse/" + c.story(), "Story", 1, now,
+                "h", now, now, LinkedJiraTicket.SyncState.IN_SYNC));
+        StoryFamily.Family family = w.families().of(session);
+
+        JiraWorld oracle = new JiraWorld();
+        ProjectKnowledge k = new SelectKnowledge(w.projects(), w.index(), w.embedding(),
+                new AnalyzeArchitecture(w.index(), oracle.llm, oracle.policy), w.families()).forQuestions(session, List.of());
+        List<String> inSelection = k.entries().stream().filter(e -> e.kind() == KnowledgeKind.TICKET)
+                .map(ProjectKnowledge.Entry::ref).filter(family::contains).toList();
+        List<String> inRelated = w.related().find(session, w.projects().find(project).orElseThrow()).issues().stream()
+                .map(RelatedIssues.Issue::key).filter(family::contains).toList();
+
+        double minZ = settings.subtaskMinZ() == null ? w.minZ() : settings.subtaskMinZ();
+        ReportSubtasks report = new ReportSubtasks(w.sessions(), w.versions(), w.families(), w.index(), w.embedding(),
+                w.jira(), w.tracker(), minZ);
+        Map<String, String> states = new LinkedHashMap<>();
+        report.run(session.id(), number - 1).ifPresent(r -> r.subtasks().forEach(t -> states.put(t.key(), t.state().name())));
+        return new SubtaskMeasure(c, inSelection, inRelated, states);
+    }
+
+    /** Beans de l'application qu'utilise la mesure des sous-tâches. */
+    record SubtaskWorld(ProjectRepository projects, SessionRepository sessions, SpecificationRepository versions,
+            LinkedTicketRepository tickets, StoryFamily families, KnowledgeIndex index, EmbeddingPort embedding,
+            FindRelatedIssues related, JiraAccess jira, IssueTracker tracker, double minZ) {
+    }
+
     /** Réponse de recherche Jira construite à partir des tickets figés du jeu. */
     @SuppressWarnings("unchecked")
     private String issues(boolean keysOnly) throws IOException {
@@ -279,11 +396,31 @@ final class ReferenceSet implements AutoCloseable {
                 fields.put("status", Map.of("name", i.get("status"), "statusCategory", Map.of("key", i.get("statusCategory"))));
                 fields.put("issuetype", Map.of("name", i.getOrDefault("issueType", "Story")));
                 fields.put("updated", i.get("updated"));
+                links(i, fields);
                 issue.put("fields", fields);
             }
             issues.add(issue);
         }
         return JSON.writeValueAsString(Map.of("startAt", 0, "maxResults", 50, "total", issues.size(), "issues", issues));
+    }
+
+    /** Parent, sous-tâches et liens du ticket figé, au format de Jira (research.md R29). */
+    @SuppressWarnings("unchecked")
+    private static void links(Map<String, Object> fixture, Map<String, Object> fields) {
+        if (fixture.get("parent") != null) {
+            fields.put("parent", Map.of("key", fixture.get("parent")));
+        }
+        List<String> subtasks = (List<String>) fixture.getOrDefault("subtasks", List.of());
+        fields.put("subtasks", subtasks.stream().map(k -> Map.of("key", k)).toList());
+        List<Map<String, Object>> links = new ArrayList<>();
+        for (Map<String, String> l : (List<Map<String, String>>) fixture.getOrDefault("links", List.of())) {
+            boolean outward = "OUTWARD".equals(l.get("direction"));
+            Map<String, Object> link = new LinkedHashMap<>();
+            link.put("type", Map.of("name", l.get("type"), outward ? "outward" : "inward", l.get("label")));
+            link.put(outward ? "outwardIssue" : "inwardIssue", Map.of("key", l.get("key")));
+            links.add(link);
+        }
+        fields.put("issuelinks", links);
     }
 
     private static <T> List<T> orEmpty(List<T> values) {

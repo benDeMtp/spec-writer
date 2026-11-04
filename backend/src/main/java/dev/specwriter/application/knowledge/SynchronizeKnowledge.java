@@ -22,6 +22,7 @@ import dev.specwriter.domain.port.KnowledgeIndex;
 import dev.specwriter.domain.port.KnowledgeIndex.Key;
 import dev.specwriter.domain.port.KnowledgeSourceRepository;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.port.TicketLinkRepository;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.Project;
 import java.time.Instant;
@@ -32,6 +33,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
 /**
@@ -58,13 +60,15 @@ public class SynchronizeKnowledge {
     private final ArchitectureReader architecture;
     private final JiraAccess jira;
     private final IssueTracker tracker;
+    private final TicketLinkRepository links;
     private final KnowledgeIndex index;
     private final EmbeddingPort embedding;
     private final ClockPort clock;
 
     public SynchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
             DocSourceRepository docSources, DocumentationReader reader, ArchitectureReader architecture, JiraAccess jira,
-            IssueTracker tracker, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
+            IssueTracker tracker, TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding,
+            ClockPort clock) {
         this.projects = projects;
         this.sources = sources;
         this.docSources = docSources;
@@ -72,6 +76,7 @@ public class SynchronizeKnowledge {
         this.architecture = architecture;
         this.jira = jira;
         this.tracker = tracker;
+        this.links = links;
         this.index = index;
         this.embedding = embedding;
         this.clock = clock;
@@ -146,6 +151,8 @@ public class SynchronizeKnowledge {
                         JIRA_PAGE);
                 for (TrackedIssue issue : page.issues()) {
                     index.save(ticket(project.id(), issue), null, null);
+                    // réécrits à chaque relecture : un lien ne change pas le texte indexé (research.md R29)
+                    links.replace(project.id(), issue.key(), issue.links());
                     if (issue.updated() != null && (newMark == null || issue.updated().isAfter(newMark))) {
                         newMark = issue.updated();
                     }
@@ -162,6 +169,7 @@ public class SynchronizeKnowledge {
                 tracker.listKeys(target.get().endpoint(), projectKey)
                         .forEach(k -> keep.add(new Key(KnowledgeKind.TICKET, k, 0)));
                 int removed = index.retain(project.id(), KnowledgeKind.TICKET, keep);
+                links.retain(project.id(), keep.stream().map(Key::ref).collect(Collectors.toSet()));
                 if (removed > 0) {
                     LOG.infof("Connaissance : %d ticket(s) supprimé(s) de Jira retiré(s) de l'index", removed);
                 }

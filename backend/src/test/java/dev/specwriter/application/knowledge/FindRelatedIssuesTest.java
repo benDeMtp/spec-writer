@@ -4,11 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.jira.IssueTrackerException;
+import dev.specwriter.domain.jira.TicketLink;
 import dev.specwriter.domain.jira.TrackedIssue;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.KnowledgeSource;
 import dev.specwriter.domain.llm.RelatedIssuesJudgement;
+import dev.specwriter.domain.llm.RelatedIssuesRequest;
 import dev.specwriter.domain.port.EmbeddingPort;
 import dev.specwriter.domain.port.KnowledgeIndex.Key;
 import dev.specwriter.domain.project.Project;
@@ -59,7 +61,7 @@ class FindRelatedIssuesTest {
         w.tracker.tracked.put("PROJ-9", new TrackedIssue("PROJ-9", "Facture 9", "", "En cours", "indeterminate", "Story",
                 Instant.parse("2026-11-03T10:00:00Z")));
         SynchronizeKnowledge sync = new SynchronizeKnowledge(w.projects, sources, w.docSources,
-                w.docs, (ws, o) -> null, w.jira, w.tracker, index, embedding, w.clock);
+                w.docs, (ws, o) -> null, w.jira, w.tracker, w.ticketLinks, index, embedding, w.clock);
         indexations = new Indexations(sync, w.projects, task -> { }, w.clock, false);
         find = new FindRelatedIssues(index, embedding, w.llm, w.policy, w.jira, w.tracker, indexations, sources);
         session = Session.start(UUID.randomUUID(), P, Need.of(NEED), null, w.clock.now());
@@ -203,5 +205,27 @@ class FindRelatedIssuesTest {
         var asked = start.run(NEED, null);
         assertThat(asked.questionnaire().pending()).hasSize(1);
         assertThat(store.find(asked.session().id())).get().extracting(RelatedIssues::awaitingDecision).isEqualTo(false);
+    }
+
+    /** T124 : la story liée et sa famille ne sont pas des tickets proches ; une sous-tâche montre son parent. */
+    @Test
+    void familleExclueEtParentDUneSousTache() {
+        w.link(session, "PROJ-7", "d");
+        w.ticketLinks.replace(P, "PROJ-7", List.of(TicketLink.subtask("PROJ-9")));
+        w.ticketLinks.replace(P, "PROJ-3", List.of(TicketLink.parent("PROJ-20")));
+        w.llm.judgements.add(new RelatedIssuesJudgement(List.of(
+                new RelatedIssuesJudgement.Related("PROJ-7", "La story elle-même"),
+                new RelatedIssuesJudgement.Related("PROJ-9", "Sa sous-tâche"),
+                new RelatedIssuesJudgement.Related("PROJ-3", "Facture proche"))));
+        FindRelatedIssues withFamily = new FindRelatedIssues(index, embedding, w.llm, w.policy, w.jira, w.tracker,
+                indexations, sources, new StoryFamily(w.tickets, w.ticketLinks));
+
+        RelatedIssues found = withFamily.find(session, project());
+        assertThat(w.llm.relatedRequests).singleElement().satisfies(r -> assertThat(r.candidates())
+                .extracting(RelatedIssuesRequest.Candidate::key).doesNotContain("PROJ-7", "PROJ-9"));
+        assertThat(found.issues()).singleElement().satisfies(i -> {
+            assertThat(i.key()).isEqualTo("PROJ-3");
+            assertThat(i.parentKey()).isEqualTo("PROJ-20");
+        });
     }
 }

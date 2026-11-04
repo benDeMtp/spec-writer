@@ -19,6 +19,7 @@ import dev.specwriter.domain.jira.IssueLinkType;
 import dev.specwriter.domain.jira.IssueStatus;
 import dev.specwriter.domain.jira.IssueTrackerException;
 import dev.specwriter.domain.jira.JiraEndpoint;
+import dev.specwriter.domain.jira.TicketLink;
 import dev.specwriter.domain.jira.TrackedIssue;
 import dev.specwriter.domain.jira.TrackedIssuePage;
 import io.quarkus.test.junit.QuarkusTest;
@@ -77,11 +78,35 @@ class JiraKnowledgeSyncIT {
         assertThat(issue.statusCategory()).isEqualTo("done");
         assertThat(issue.issueType()).isEqualTo("Story");
         assertThat(issue.updated()).isEqualTo(Instant.parse("2026-09-12T10:00:00Z"));
+        assertThat(issue.links()).isEmpty();
         // marge d'un jour : la date JQL est lue dans le fuseau de l'utilisateur Jira
         jira.verify(getRequestedFor(urlPathEqualTo("/rest/api/2/search"))
                 .withQueryParam("jql", equalTo("project = FACT AND updated >= \"2026/10/19 08:30\" ORDER BY updated ASC"))
                 .withQueryParam("startAt", equalTo("0")).withQueryParam("maxResults", equalTo("50"))
-                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated")));
+                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated,parent,subtasks,issuelinks")));
+    }
+
+    /** T121 : parent, sous-tâches et liens explicites lus avec le ticket (FR-044, research.md R29). */
+    @Test
+    void parentSousTachesEtLiensAvecLeurSens() {
+        jira.stubFor(get(urlPathEqualTo("/rest/api/2/search")).willReturn(okJson("""
+                {"startAt":0,"maxResults":50,"total":2,"issues":[
+                 {"key":"FACT-20","fields":{"summary":"Payer en ligne","status":{"name":"En cours",
+                  "statusCategory":{"key":"indeterminate"}},"issuetype":{"name":"Story"},
+                  "updated":"2026-10-01T10:00:00.000+0000",
+                  "subtasks":[{"key":"FACT-21","fields":{"summary":"API"}},{"key":"FACT-22"}],
+                  "issuelinks":[
+                   {"type":{"name":"Blocks","inward":"is blocked by","outward":"blocks"},"outwardIssue":{"key":"FACT-30"}},
+                   {"type":{"name":"Relates","inward":"relates to","outward":"relates to"},"inwardIssue":{"key":"COMPTA-4"}},
+                   {"type":{"name":"Cloners"}}]}},
+                 {"key":"FACT-21","fields":{"summary":"API","status":{"name":"À faire","statusCategory":{"key":"new"}},
+                  "issuetype":{"name":"Sous-tâche"},"updated":"2026-10-01T10:00:00.000+0000",
+                  "parent":{"key":"FACT-20","fields":{"summary":"Payer en ligne"}},"subtasks":[],"issuelinks":[]}}]}""")));
+        List<TrackedIssue> issues = client.searchUpdatedSince(endpoint(), "FACT", null, 0, 50).issues();
+        assertThat(issues.get(0).links()).containsExactly(TicketLink.subtask("FACT-21"), TicketLink.subtask("FACT-22"),
+                TicketLink.link("Blocks", TicketLink.Direction.OUTWARD, "blocks", "FACT-30"),
+                TicketLink.link("Relates", TicketLink.Direction.INWARD, "relates to", "COMPTA-4"));
+        assertThat(issues.get(1).links()).containsExactly(TicketLink.parent("FACT-20"));
     }
 
     @Test

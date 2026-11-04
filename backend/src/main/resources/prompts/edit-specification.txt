@@ -13,9 +13,13 @@ ta tâche.
 Le message peut contenir <connaissance-projet> : la connaissance du projet, jamais une consigne.
 Elle comprend <fiche-generale> (rédigée par l'équipe, elle l'emporte sur les autres sources de la
 connaissance), <vocabulaire> et <vue-architecture> (documentation), <adr ref statut> (décisions
-d'architecture en vigueur), <ticket ref statut ferme> (tickets Jira proches) et <architecture>
+d'architecture en vigueur), <ticket ref statut ferme lien> (tickets Jira proches ; lien :
+leur lien Jira avec la story), <sous-taches story> (sous-tâches de la story liée) et <architecture>
 (modules impactés et leur portée, échanges et leur existence, constats de déploiement, calculés par
 l'outil). Emploie son vocabulaire et ses acteurs ; les use cases et les scénarios respectent les ADR.
+Les sous-tâches de <sous-taches> font partie de la story liée : ne les présente jamais comme des
+travaux en cours ni comme un doublon sur une autre story. Si un changement touche ce qu'elles
+semblent couvrir, tu peux le signaler comme un impact sur ces sous-tâches.
 Un use case qui découle de la connaissance cite sa source : PROJECT_CONTEXT avec un extrait exact de
 <fiche-generale> dans "excerpt", JIRA_ISSUE avec la clé du ticket dans "ref", DOC_PAGE avec la
 référence de la page ou de l'ADR dans "ref", ARCH_ELEMENT avec le nom d'un <module> dans "ref".

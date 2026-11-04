@@ -52,5 +52,74 @@
     "statusCategory": "new",
     "issueType": "Story",
     "updated": "2026-10-30T16:00:00.000+0000"
+  },
+  {
+    "key": "FACT-20",
+    "summary": "Payer une facture en ligne",
+    "description": "En tant qu'acheteur, je veux régler une facture émise par carte bancaire et recevoir un reçu.",
+    "status": "En cours",
+    "statusCategory": "indeterminate",
+    "issueType": "Story",
+    "updated": "2026-10-20T09:00:00.000+0000",
+    "subtasks": [
+      "FACT-21",
+      "FACT-22",
+      "FACT-23"
+    ],
+    "links": [
+      {
+        "type": "Blocks",
+        "direction": "OUTWARD",
+        "label": "blocks",
+        "key": "FACT-30"
+      }
+    ]
+  },
+  {
+    "key": "FACT-21",
+    "summary": "Débit de la carte bancaire",
+    "description": "Appeler le prestataire de paiement pour débiter la carte bancaire du montant dû.",
+    "status": "En cours",
+    "statusCategory": "indeterminate",
+    "issueType": "Sous-tâche",
+    "updated": "2026-10-21T09:00:00.000+0000",
+    "parent": "FACT-20"
+  },
+  {
+    "key": "FACT-22",
+    "summary": "Reçu de paiement par courriel",
+    "description": "Envoyer un reçu par courriel une fois le paiement accepté.",
+    "status": "Terminé",
+    "statusCategory": "done",
+    "issueType": "Sous-tâche",
+    "updated": "2026-10-22T09:00:00.000+0000",
+    "parent": "FACT-20"
+  },
+  {
+    "key": "FACT-23",
+    "summary": "Mise à jour des dépendances du build",
+    "description": "Monter les versions des bibliothèques Maven et npm du projet.",
+    "status": "À faire",
+    "statusCategory": "new",
+    "issueType": "Sous-tâche",
+    "updated": "2026-10-23T09:00:00.000+0000",
+    "parent": "FACT-20"
+  },
+  {
+    "key": "FACT-30",
+    "summary": "Rapprochement bancaire des paiements",
+    "description": "La comptabilité rapproche chaque jour les paiements reçus avec les relevés bancaires.",
+    "status": "À faire",
+    "statusCategory": "new",
+    "issueType": "Story",
+    "updated": "2026-10-24T09:00:00.000+0000",
+    "links": [
+      {
+        "type": "Blocks",
+        "direction": "INWARD",
+        "label": "is blocked by",
+        "key": "FACT-20"
+      }
+    ]
   }
 ]

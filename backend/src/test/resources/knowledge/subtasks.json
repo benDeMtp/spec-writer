@@ -1,0 +1,44 @@
+[
+  {
+    "story": "FACT-20",
+    "need": "L'acheteur veut régler en ligne une facture émise, par carte bancaire, et recevoir un reçu de paiement par courriel.",
+    "previousUseCases": [
+      {
+        "code": "UC-01",
+        "title": "Payer la facture par carte bancaire",
+        "goal": "Régler la facture en ligne",
+        "steps": [
+          "Le client choisit la facture à payer",
+          "Il saisit sa carte bancaire",
+          "Le prestataire de paiement débite la carte"
+        ]
+      },
+      {
+        "code": "UC-02",
+        "title": "Recevoir le reçu de paiement",
+        "goal": "Garder une preuve du paiement",
+        "steps": [
+          "Le paiement est accepté",
+          "Le client reçoit un reçu par courriel"
+        ]
+      }
+    ],
+    "useCases": [
+      {
+        "code": "UC-01",
+        "title": "Payer la facture par carte bancaire en trois fois",
+        "goal": "Régler la facture en ligne en plusieurs échéances",
+        "steps": [
+          "Le client choisit la facture à payer",
+          "Il choisit le paiement en trois fois",
+          "Le prestataire de paiement débite la carte à chaque échéance"
+        ]
+      }
+    ],
+    "expected": {
+      "FACT-21": "TO_REVIEW",
+      "FACT-22": "DELIVERED_TO_REWORK",
+      "FACT-23": "UNMATCHED"
+    }
+  }
+]

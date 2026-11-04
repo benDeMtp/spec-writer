@@ -91,7 +91,7 @@ final class UserMessages {
 
     /**
      * Connaissance du projet (research.md R24 de 002) : fiche générale, vocabulaire, vue d'ensemble,
-     * ADR, tickets et faits d'architecture calculés. Omise si vide : le message est alors celui de 001.
+     * ADR, tickets, sous-tâches de la story (R29) et faits d'architecture calculés. Omise si vide : le message est alors celui de 001.
      */
     private static String knowledge(ProjectKnowledge knowledge) {
         if (knowledge == null || knowledge.isEmpty()) {
@@ -105,12 +105,26 @@ final class UserMessages {
             switch (e.kind()) {
                 case ADR -> out.append("<adr ref=\"").append(attribute(e.ref())).append("\" statut=\"")
                         .append(attribute(e.status())).append("\">\n");
-                case TICKET -> out.append("<ticket ref=\"").append(attribute(e.ref())).append("\" statut=\"")
-                        .append(attribute(e.status())).append("\" ferme=\"").append(e.closed() ? "oui" : "non")
-                        .append("\">\n");
+                case TICKET -> {
+                    out.append("<ticket ref=\"").append(attribute(e.ref())).append("\" statut=\"")
+                            .append(attribute(e.status())).append("\" ferme=\"").append(e.closed() ? "oui" : "non")
+                            .append('"');
+                    if (e.link() != null) {
+                        out.append(" lien=\"").append(attribute(e.link())).append('"');
+                    }
+                    out.append(">\n");
+                }
                 default -> out.append('<').append(tag(e)).append(" ref=\"").append(attribute(e.ref())).append("\">\n");
             }
             out.append(data(e.title())).append('\n').append(data(e.text())).append("\n</").append(tag(e)).append(">\n");
+        }
+        if (!knowledge.subtasks().isEmpty()) {
+            // les sous-tâches font partie de la story : jamais des travaux concurrents (research.md R29 de 002)
+            out.append("<sous-taches story=\"").append(attribute(knowledge.subtasks().storyKey())).append("\">\n");
+            knowledge.subtasks().items().forEach(t -> out.append("<sous-tache ref=\"").append(attribute(t.ref()))
+                    .append("\" statut=\"").append(attribute(t.status())).append("\" ferme=\"")
+                    .append(t.closed() ? "oui" : "non").append("\">").append(data(t.title())).append("</sous-tache>\n"));
+            out.append("</sous-taches>\n");
         }
         if (knowledge.hasArchitecture()) {
             out.append("<architecture>\n");

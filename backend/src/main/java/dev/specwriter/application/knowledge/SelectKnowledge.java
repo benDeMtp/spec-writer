@@ -37,6 +37,8 @@ public class SelectKnowledge implements SessionKnowledge {
     static final int MAX_TICKETS = 3;
     static final int MAX_TICKET_TEXT = 3_000;
     static final int MAX_ARCHITECTURE = 3_000;
+    static final int MAX_SUBTASKS = 15;
+    static final int MAX_SUBTASK_TEXT = 1_500;
     static final int MAX_QUERY = KnowledgeQueries.MAX_QUERY;
     /** Taille comptée pour un module, un échange ou un constat, en plus de ses noms. */
     private static final int ARCHITECTURE_MARKUP = 40;
@@ -50,13 +52,20 @@ public class SelectKnowledge implements SessionKnowledge {
     private final KnowledgeIndex index;
     private final EmbeddingPort embedding;
     private final AnalyzeArchitecture analyze;
+    private final StoryFamily families;
 
     public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
-            AnalyzeArchitecture analyze) {
+            AnalyzeArchitecture analyze, StoryFamily families) {
         this.projects = projects;
         this.index = index;
         this.embedding = embedding;
         this.analyze = analyze;
+        this.families = families;
+    }
+
+    public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze) {
+        this(projects, index, embedding, analyze, StoryFamily.none());
     }
 
     @Override
@@ -82,12 +91,13 @@ public class SelectKnowledge implements SessionKnowledge {
             }
         }
         String model = vector == null ? null : embedding.modelId();
+        StoryFamily.Family family = families.of(session);
         List<ProjectKnowledge.Entry> entries = new ArrayList<>();
         entries.addAll(roles(session));
         entries.addAll(adrs(session, query, vector, model));
-        entries.addAll(tickets(session, query, vector, model));
+        entries.addAll(tickets(session, family, query, vector, model));
         ProjectKnowledge selected = new ProjectKnowledge(sheet.generalSheet(), sheet.sheetUpdatedAt(), entries,
-                List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), subtasks(session, family));
         if (!architecture) {
             return selected;
         }
@@ -172,10 +182,45 @@ public class SelectKnowledge implements SessionKnowledge {
         return ref.substring(ref.lastIndexOf('/') + 1);
     }
 
-    private List<ProjectKnowledge.Entry> tickets(Session session, String query, float[] vector, String model) {
+    /**
+     * Tickets les plus proches, hors famille de la story liée : ses sous-tâches et son parent ne sont
+     * pas des travaux concurrents (FR-045). Un ticket lié explicitement à la story porte ce lien.
+     */
+    private List<ProjectKnowledge.Entry> tickets(Session session, StoryFamily.Family family, String query,
+            float[] vector, String model) {
+        int excluded = family.isEmpty() ? 0 : 2 + family.subtasks().size();
         List<KnowledgeItem> items = index.search(session.projectId(), query, vector, model, List.of(KnowledgeKind.TICKET),
-                MAX_TICKETS).stream().map(KnowledgeIndex.Hit::item).toList();
-        return bounded(items, MAX_TICKET_TEXT / MAX_TICKETS);
+                MAX_TICKETS + excluded).stream().map(KnowledgeIndex.Hit::item).filter(i -> !family.contains(i.ref()))
+                .limit(MAX_TICKETS).toList();
+        return bounded(items, MAX_TICKET_TEXT / MAX_TICKETS).stream().map(e -> e.withLink(family.link(e.ref())))
+                .toList();
+    }
+
+    /** Sous-tâches de la story liée, titres seuls : 15 au plus, 1 500 caractères en tout (research.md R29). */
+    private ProjectKnowledge.Subtasks subtasks(Session session, StoryFamily.Family family) {
+        if (family.isEmpty() || family.subtasks().isEmpty()) {
+            return ProjectKnowledge.Subtasks.NONE;
+        }
+        List<ProjectKnowledge.Subtask> out = new ArrayList<>();
+        int left = MAX_SUBTASK_TEXT;
+        for (String key : family.subtasks()) {
+            if (out.size() == MAX_SUBTASKS) {
+                break;
+            }
+            Optional<KnowledgeItem> item = index.find(session.projectId(), new KnowledgeIndex.Key(KnowledgeKind.TICKET,
+                    key, 0));
+            String title = item.map(KnowledgeItem::title).orElse(key);
+            if (title.length() > left) {
+                title = left > 1 ? title.substring(0, left - 1) + "…" : "";
+            }
+            if (title.isEmpty()) {
+                break;
+            }
+            left -= title.length();
+            out.add(new ProjectKnowledge.Subtask(key, item.map(KnowledgeItem::status).orElse(null),
+                    item.map(KnowledgeItem::closed).orElse(false), title));
+        }
+        return new ProjectKnowledge.Subtasks(family.storyKey(), out);
     }
 
     private static List<ProjectKnowledge.Entry> bounded(List<KnowledgeItem> items, int each) {

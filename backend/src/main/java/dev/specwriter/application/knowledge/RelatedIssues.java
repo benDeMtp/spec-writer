@@ -15,10 +15,15 @@ public record RelatedIssues(Status status, List<Issue> issues, Decision decision
 
     /**
      * Ticket proche : statut relu dans Jira ({@code statusFresh}), sinon statut indexé et sa date ;
-     * {@code reason} absente sans Copilot.
+     * {@code reason} absente sans Copilot ; {@code parentKey} quand le ticket est une sous-tâche (R29).
      */
     public record Issue(String key, String title, String status, String statusCategory, boolean closed,
-            boolean statusFresh, Instant updatedAt, String reason, String url) {
+            boolean statusFresh, Instant updatedAt, String reason, String url, String parentKey) {
+
+        public Issue(String key, String title, String status, String statusCategory, boolean closed,
+                boolean statusFresh, Instant updatedAt, String reason, String url) {
+            this(key, title, status, statusCategory, closed, statusFresh, updatedAt, reason, url, null);
+        }
     }
 
     public static final RelatedIssues UNAVAILABLE = new RelatedIssues(Status.UNAVAILABLE, List.of(), null);

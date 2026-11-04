@@ -15,6 +15,7 @@ import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.WikiMarkup;
 import dev.specwriter.domain.jira.IssueLinkType;
 import dev.specwriter.domain.jira.IssueStatus;
+import dev.specwriter.domain.jira.TicketLink;
 import dev.specwriter.domain.jira.TrackedIssue;
 import dev.specwriter.domain.jira.TrackedIssuePage;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
@@ -56,7 +57,7 @@ public class JiraRestClient implements IssueTracker {
     private static final DateTimeFormatter JIRA_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     static final String SEARCH_FIELDS = "summary,status,issuetype,updated";
     static final String ISSUE_FIELDS = "summary,description,updated";
-    static final String TRACKED_FIELDS = "summary,description,status,issuetype,updated";
+    static final String TRACKED_FIELDS = "summary,description,status,issuetype,updated,parent,subtasks,issuelinks";
     static final String STATUS_FIELDS = "status,updated";
     private static final int KEYS_PAGE = 100;
     private static final int MAX_KEYS = 50_000;
@@ -145,11 +146,44 @@ public class JiraRestClient implements IssueTracker {
                     issues.add(new TrackedIssue(key, text(fields.get("summary")),
                             wiki == null ? "" : markup.toMarkdown(wiki, browse(endpoint, key)), text(status.get("name")),
                             text(map(status.get("statusCategory")).get("key")), name(fields.get("issuetype")),
-                            date(fields.get("updated"))));
+                            date(fields.get("updated")), links(fields)));
                 }
             }
         }
         return new TrackedIssuePage(issues, number(body.get("startAt"), startAt), number(body.get("total"), issues.size()));
+    }
+
+    /** Parent, sous-tâches et liens explicites d'un ticket (research.md R29) ; un lien incomplet est ignoré. */
+    private static List<TicketLink> links(Map<?, ?> fields) {
+        List<TicketLink> links = new ArrayList<>();
+        String parent = text(map(fields.get("parent")).get("key"));
+        if (parent != null) {
+            links.add(TicketLink.parent(parent));
+        }
+        if (fields.get("subtasks") instanceof List<?> subtasks) {
+            for (Object o : subtasks) {
+                String key = text(map(o).get("key"));
+                if (key != null) {
+                    links.add(TicketLink.subtask(key));
+                }
+            }
+        }
+        if (fields.get("issuelinks") instanceof List<?> issueLinks) {
+            for (Object o : issueLinks) {
+                Map<?, ?> link = map(o);
+                Map<?, ?> type = map(link.get("type"));
+                String outward = text(map(link.get("outwardIssue")).get("key"));
+                String inward = text(map(link.get("inwardIssue")).get("key"));
+                if (outward != null) {
+                    links.add(TicketLink.link(text(type.get("name")), TicketLink.Direction.OUTWARD,
+                            text(type.get("outward")), outward));
+                } else if (inward != null) {
+                    links.add(TicketLink.link(text(type.get("name")), TicketLink.Direction.INWARD,
+                            text(type.get("inward")), inward));
+                }
+            }
+        }
+        return links;
     }
 
     @Override

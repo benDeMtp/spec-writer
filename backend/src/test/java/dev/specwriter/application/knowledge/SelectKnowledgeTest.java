@@ -3,6 +3,7 @@ package dev.specwriter.application.knowledge;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.specwriter.domain.consent.ConsentService;
+import dev.specwriter.domain.jira.TicketLink;
 import dev.specwriter.domain.knowledge.AdrStatus;
 import dev.specwriter.domain.knowledge.ArchElement;
 import dev.specwriter.domain.knowledge.ArchScope;
@@ -209,5 +210,63 @@ class SelectKnowledgeTest {
         assertThat(k.hasArchitecture()).isFalse();
         w.llm.impacts.add(new ImpactResult(List.of("Comptabilité"), List.of()));
         assertThat(select.forSpecification(session, List.of()).modules()).hasSize(1);
+    }
+
+    /** T124 : la famille de la story liée n'est jamais un ticket concurrent ; ses sous-tâches sont à part (R29). */
+    @Test
+    void famillesDeLaStoryExclueEtSousTachesTransmisesAPart() {
+        w.link(session, "FACT-1", "d");
+        w.ticketLinks.replace(P, "FACT-1", List.of(TicketLink.parent("FACT-9"), TicketLink.subtask("FACT-2"),
+                TicketLink.subtask("FACT-3")));
+        w.ticketLinks.replace(P, "FACT-4", List.of(TicketLink.link("Blocks", TicketLink.Direction.OUTWARD, "blocks",
+                "FACT-1")));
+        SelectKnowledge withFamily = new SelectKnowledge(w.projects, index, embedding,
+                new AnalyzeArchitecture(index, w.llm, w.policy), new StoryFamily(w.tickets, w.ticketLinks));
+
+        ProjectKnowledge k = withFamily.forQuestions(session, List.of());
+        List<ProjectKnowledge.Entry> tickets = k.entries().stream().filter(e -> e.kind() == KnowledgeKind.TICKET).toList();
+        assertThat(tickets).extracting(ProjectKnowledge.Entry::ref).doesNotContain("FACT-1", "FACT-2", "FACT-3", "FACT-9")
+                .containsExactlyInAnyOrder("FACT-4", "FACT-5");
+        assertThat(tickets).filteredOn(e -> e.ref().equals("FACT-4")).singleElement()
+                .extracting(ProjectKnowledge.Entry::link).isEqualTo("FACT-4 blocks FACT-1");
+        assertThat(k.subtasks().storyKey()).isEqualTo("FACT-1");
+        assertThat(k.subtasks().items()).extracting(ProjectKnowledge.Subtask::ref, ProjectKnowledge.Subtask::title)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("FACT-2", "Avoir sur facture 2"),
+                        org.assertj.core.groups.Tuple.tuple("FACT-3", "Avoir sur facture 3"));
+
+        // le statut d'une sous-tâche entre dans l'empreinte (FR-011)
+        String before = k.fingerprint();
+        index.save(KnowledgeItem.ticket(P, "FACT-2", "Avoir sur facture 2",
+                text("Description de l'avoir 2 sur une facture.", 1_800), "Terminé", "done", "Story", T, T), null, null);
+        assertThat(withFamily.forQuestions(session, List.of()).fingerprint()).isNotEqualTo(before);
+    }
+
+    @Test
+    void quinzeSousTachesAuPlusEtMilleCinqCentsCaracteres() {
+        w.link(session, "FACT-1", "d");
+        List<TicketLink> many = new java.util.ArrayList<>();
+        for (int i = 100; i < 130; i++) {
+            index.save(KnowledgeItem.ticket(P, "FACT-" + i, text("Sous-tâche " + i, 150), "", "À faire", "new",
+                    "Sous-tâche", T, T), null, null);
+            many.add(TicketLink.subtask("FACT-" + i));
+        }
+        w.ticketLinks.replace(P, "FACT-1", many);
+        ProjectKnowledge k = new SelectKnowledge(w.projects, index, embedding,
+                new AnalyzeArchitecture(index, w.llm, w.policy), new StoryFamily(w.tickets, w.ticketLinks))
+                .forQuestions(session, List.of());
+        assertThat(k.subtasks().items()).hasSizeLessThanOrEqualTo(15);
+        assertThat(k.subtasks().items().stream().mapToInt(t -> t.title().length()).sum()).isLessThanOrEqualTo(1_500);
+    }
+
+    /** Une story qui est elle-même une sous-tâche : son parent est de la famille, pas ses sœurs. */
+    @Test
+    void storySousTacheSonParentEstDeLaFamille() {
+        w.ticketLinks.replace(P, "FACT-1", List.of(TicketLink.subtask("FACT-2"), TicketLink.subtask("FACT-3")));
+        w.ticketLinks.replace(P, "FACT-2", List.of(TicketLink.parent("FACT-1")));
+        StoryFamily.Family family = new StoryFamily(w.tickets, w.ticketLinks).of(P, "FACT-2");
+        assertThat(family.parentKey()).isEqualTo("FACT-1");
+        assertThat(family.contains("FACT-1")).isTrue();
+        assertThat(family.contains("FACT-3")).isFalse();
+        assertThat(new StoryFamily(w.tickets, w.ticketLinks).parentOf(P, "FACT-3")).contains("FACT-1");
     }
 }

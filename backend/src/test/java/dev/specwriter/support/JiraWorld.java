@@ -40,6 +40,7 @@ public class JiraWorld {
     public final FakeDocumentationReader docs = new FakeDocumentationReader();
     public final InMemorySpecifications versions = new InMemorySpecifications();
     public final InMemoryLinkedTickets tickets = new InMemoryLinkedTickets();
+    public final InMemoryTicketLinks ticketLinks = new InMemoryTicketLinks();
     public final InMemoryConsents consents = new InMemoryConsents();
     public final InMemorySettings settings = new InMemorySettings();
     public final InMemorySecrets secrets = new InMemorySecrets();

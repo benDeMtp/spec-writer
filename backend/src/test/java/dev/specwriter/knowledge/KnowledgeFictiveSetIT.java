@@ -2,14 +2,21 @@ package dev.specwriter.knowledge;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.specwriter.application.jira.JiraAccess;
 import dev.specwriter.application.knowledge.FindRelatedIssues;
+import dev.specwriter.application.knowledge.StoryFamily;
 import dev.specwriter.domain.port.EmbeddingPort;
+import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.KnowledgeIndex;
+import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.port.SessionRepository;
+import dev.specwriter.domain.port.SpecificationRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.path.json.JsonPath;
 import jakarta.inject.Inject;
 import java.nio.file.Path;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -29,6 +36,20 @@ class KnowledgeFictiveSetIT {
     EmbeddingPort embedding;
     @Inject
     FindRelatedIssues related;
+    @Inject
+    SessionRepository sessions;
+    @Inject
+    SpecificationRepository versions;
+    @Inject
+    LinkedTicketRepository tickets;
+    @Inject
+    StoryFamily families;
+    @Inject
+    JiraAccess jira;
+    @Inject
+    IssueTracker tracker;
+    @ConfigProperty(name = "specwriter.knowledge.subtask-min-z")
+    double minZ;
 
     @Test
     void chaqueBesoinRetrouveCeQuiEstAttendu() throws Exception {
@@ -49,6 +70,30 @@ class KnowledgeFictiveSetIT {
                         .containsExactlyInAnyOrderElementsOf(c.expectedMissingFlows());
                 assertThat(m.efforts()).as("efforts de déploiement pour « %s »", c.need())
                         .containsExactlyInAnyOrderElementsOf(c.expectedEfforts());
+            }
+        }
+    }
+
+    /**
+     * T135 : SC-004c sur le jeu fictif. La famille de la story liée n'entre ni dans la sélection ni
+     * dans les tickets proches, et au moins 80 % des sous-tâches touchées par la nouvelle version
+     * sont signalées.
+     */
+    @Test
+    void sousTachesDeLaStorySignaleesSansJamaisEtreConcurrentes() throws Exception {
+        try (ReferenceSet set = new ReferenceSet(Path.of(getClass().getResource("/knowledge").toURI()))) {
+            assertThat(set.index().getString("status")).isEqualTo("SUCCEEDED");
+            assertThat(set.subtaskCases).isNotEmpty();
+            ReferenceSet.SubtaskWorld world = new ReferenceSet.SubtaskWorld(projects, sessions, versions, tickets, families,
+                    index, embedding, related, jira, tracker, minZ);
+            for (ReferenceSet.SubtaskCase c : set.subtaskCases) {
+                ReferenceSet.SubtaskMeasure m = set.measureSubtasks(c, world);
+                assertThat(m.familyInSelection()).as("famille de %s dans la sélection", c.story()).isEmpty();
+                assertThat(m.familyInRelated()).as("famille de %s dans les tickets proches", c.story()).isEmpty();
+                assertThat(m.flagged()).as("sous-tâches signalées pour %s : %s", c.story(), m.states())
+                        .isGreaterThanOrEqualTo(0.8);
+                assertThat(m.states()).as("états des sous-tâches de %s", c.story())
+                        .containsExactlyInAnyOrderEntriesOf(c.expected());
             }
         }
     }

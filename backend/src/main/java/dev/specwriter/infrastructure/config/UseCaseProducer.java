@@ -16,7 +16,9 @@ import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.knowledge.AnalyzeArchitecture;
 import dev.specwriter.application.knowledge.ManageEmbeddingSettings;
+import dev.specwriter.application.knowledge.ReportSubtasks;
 import dev.specwriter.application.knowledge.SelectKnowledge;
+import dev.specwriter.application.knowledge.StoryFamily;
 import dev.specwriter.application.knowledge.SessionKnowledge;
 import dev.specwriter.application.knowledge.Indexations;
 import dev.specwriter.application.knowledge.CompareWithIssue;
@@ -81,6 +83,7 @@ import dev.specwriter.domain.port.SecretStore;
 import dev.specwriter.domain.port.SettingsRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.port.TextDiff;
+import dev.specwriter.domain.port.TicketLinkRepository;
 import dev.specwriter.domain.port.WikiMarkup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
@@ -169,8 +172,24 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
-            AnalyzeArchitecture analyze) {
-        return new SelectKnowledge(projects, index, embedding, analyze);
+            AnalyzeArchitecture analyze, StoryFamily families) {
+        return new SelectKnowledge(projects, index, embedding, analyze, families);
+    }
+
+    /** Sous-tâches de la story liée, rattachées aux cas d'usage d'une version (research.md R29). */
+    @Produces
+    @ApplicationScoped
+    ReportSubtasks reportSubtasks(SessionRepository sessions, SpecificationRepository versions, StoryFamily families,
+            KnowledgeIndex index, EmbeddingPort embedding, JiraAccess jira, IssueTracker tracker,
+            @ConfigProperty(name = "specwriter.knowledge.subtask-min-z", defaultValue = "1.5") double minZ) {
+        return new ReportSubtasks(sessions, versions, families, index, embedding, jira, tracker, minZ);
+    }
+
+    /** Famille de la story liée à une session : parent, sous-tâches et liens (research.md R29). */
+    @Produces
+    @ApplicationScoped
+    StoryFamily storyFamily(LinkedTicketRepository tickets, TicketLinkRepository links) {
+        return new StoryFamily(tickets, links);
     }
 
     @Produces
@@ -183,8 +202,8 @@ public class UseCaseProducer {
     @ApplicationScoped
     FindRelatedIssues findRelatedIssues(KnowledgeIndex index, EmbeddingPort embedding, LlmClient llm,
             ConsentPolicy consent, JiraAccess jira, IssueTracker tracker, Indexations indexations,
-            KnowledgeSourceRepository sources) {
-        return new FindRelatedIssues(index, embedding, llm, consent, jira, tracker, indexations, sources);
+            KnowledgeSourceRepository sources, StoryFamily families) {
+        return new FindRelatedIssues(index, embedding, llm, consent, jira, tracker, indexations, sources, families);
     }
 
     @Produces
@@ -443,8 +462,9 @@ public class UseCaseProducer {
     @ApplicationScoped
     SynchronizeKnowledge synchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
             DocSourceRepository docSources, DocumentationReader reader, ArchitectureReader architecture, JiraAccess jira,
-            IssueTracker tracker, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
-        return new SynchronizeKnowledge(projects, sources, docSources, reader, architecture, jira, tracker, index,
+            IssueTracker tracker, TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding,
+            ClockPort clock) {
+        return new SynchronizeKnowledge(projects, sources, docSources, reader, architecture, jira, tracker, links, index,
                 embedding, clock);
     }
 

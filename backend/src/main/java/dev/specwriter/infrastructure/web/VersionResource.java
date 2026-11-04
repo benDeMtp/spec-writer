@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.web;
 
+import dev.specwriter.application.knowledge.ReportSubtasks;
 import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.specification.DeleteVersion;
 import dev.specwriter.application.specification.GenerateSpecification;
@@ -44,6 +45,8 @@ public class VersionResource {
     ManageSessions manageSessions;
     @Inject
     DeleteVersion deleteVersion;
+    @Inject
+    ReportSubtasks reportSubtasks;
 
     @GET
     public List<SessionViews.VersionSummary> list(@PathParam("id") String id) {
@@ -66,6 +69,17 @@ public class VersionResource {
         UUID sessionId = existing(id);
         return versions.find(sessionId, number).map(SessionViews::specification).map(sourceLinks::complete)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * Rubrique « Sous-tâches de <clé> » (FR-046, FR-047, research.md R29), calculée à la demande ;
+     * 204 sans ticket lié ni sous-tâche ni parent. N'écrit jamais dans Jira.
+     */
+    @GET
+    @Path("/{n}/subtasks")
+    public Response subtasks(@PathParam("id") String id, @PathParam("n") int number) {
+        return reportSubtasks.run(Ids.parse(id), number).map(r -> Response.ok(r).build())
+                .orElseGet(() -> Response.noContent().build());
     }
 
     /** Markdown de la version, en pièce jointe (FR-019). La confirmation d'écrasement revient au navigateur. */

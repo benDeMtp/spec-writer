@@ -8,6 +8,7 @@ import dev.specwriter.application.knowledge.SynchronizeKnowledge.Mode;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.jira.IssueTrackerException;
+import dev.specwriter.domain.jira.TicketLink;
 import dev.specwriter.domain.jira.TrackedIssue;
 import dev.specwriter.domain.knowledge.AdrStatus;
 import dev.specwriter.domain.knowledge.ArchDeployment;
@@ -125,7 +126,7 @@ class SynchronizeKnowledgeTest {
         sources.save(sources.find(P).withArchitecture(workspace.toString(), "facturation"));
         architecture.set(model("h1"));
         sync = new SynchronizeKnowledge(world.projects, sources, world.docSources, world.docs, architectureReader,
-                world.jira, world.tracker, index, embedding, world.clock);
+                world.jira, world.tracker, world.ticketLinks, index, embedding, world.clock);
         progress = new Recorder();
     }
 
@@ -400,6 +401,31 @@ class SynchronizeKnowledgeTest {
                 .isEqualTo(Indexations.Status.CANCELLED);
     }
 
+    /** T123 : liens réécrits à chaque relecture, même sans changement du texte, et retirés avec le ticket. */
+    @Test
+    void liensDesTicketsReecritsEtRetiresAvecLeTicket() {
+        world.tracker.tracked.put("PROJ-7", new TrackedIssue("PROJ-7", "Annuler une facture",
+                "Description de Annuler une facture", "Statut", "done", "Story", Instant.parse("2026-09-12T10:00:00Z"),
+                List.of(TicketLink.subtask("PROJ-8"))));
+        sync.run(P, Mode.FULL, progress);
+        assertThat(world.ticketLinks.of(P, "PROJ-7")).containsExactly(TicketLink.subtask("PROJ-8"));
+
+        // même texte, nouveau lien : le lien est réécrit sans que le ticket change dans l'index
+        String hash = index.hashes(P, KnowledgeKind.TICKET).get(new Key(KnowledgeKind.TICKET, "PROJ-7", 0));
+        TicketLink blocks = TicketLink.link("Blocks", TicketLink.Direction.OUTWARD, "blocks", "PROJ-9");
+        world.tracker.tracked.put("PROJ-7", new TrackedIssue("PROJ-7", "Annuler une facture",
+                "Description de Annuler une facture", "Statut", "done", "Story", Instant.parse("2026-11-05T10:00:00Z"),
+                List.of(TicketLink.subtask("PROJ-8"), blocks)));
+        sync.run(P, Mode.INCREMENTAL, new Recorder());
+        assertThat(world.ticketLinks.of(P, "PROJ-7")).containsExactly(TicketLink.subtask("PROJ-8"), blocks);
+        assertThat(index.hashes(P, KnowledgeKind.TICKET).get(new Key(KnowledgeKind.TICKET, "PROJ-7", 0))).isEqualTo(hash);
+
+        // ticket supprimé de Jira : ses liens partent avec lui à la synchronisation complète
+        world.tracker.tracked.remove("PROJ-7");
+        sync.run(P, Mode.FULL, new Recorder());
+        assertThat(world.ticketLinks.of(P, "PROJ-7")).isEmpty();
+    }
+
     /** Une bibliothèque absente du jar ne laisse pas l'indexation « en cours » pour toujours (T117). */
     @Test
     void bibliothequeAbsenteTermineEnEchec() {
@@ -408,7 +434,7 @@ class SynchronizeKnowledgeTest {
             throw new NoClassDefFoundError("org/slf4j/LoggerFactory");
         };
         Indexations indexations = new Indexations(new SynchronizeKnowledge(world.projects, sources, world.docSources,
-                world.docs, missingLibrary, world.jira, world.tracker, index, embedding, world.clock), world.projects,
+                world.docs, missingLibrary, world.jira, world.tracker, world.ticketLinks, index, embedding, world.clock), world.projects,
                 executor, world.clock);
         indexations.start(P, Mode.FULL);
         executor.runAll();

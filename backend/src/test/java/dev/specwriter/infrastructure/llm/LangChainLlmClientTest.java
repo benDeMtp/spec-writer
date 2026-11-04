@@ -10,6 +10,8 @@ import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.DraftSpecification;
 import dev.specwriter.domain.llm.GenerationRequest;
 import dev.specwriter.domain.session.Language;
@@ -40,6 +42,29 @@ class LangChainLlmClientTest {
         assertThat(draft.summary()).isEqualTo("Le client paie.\n\n| Moyen | Frais |\n| --- | --- |\n| Carte | 0 € |");
         assertThat(draft.details()).contains("Barème :\n\n| Montant | Frais |\n| --- | --- |\n| < 10 € | 0,10 € |\n\nFin.")
                 .doesNotContain("||");
+    }
+
+    /** T127 : sous-tâches de la story et lien d'un ticket dans la connaissance transmise (R29 de 002). */
+    @Test
+    void sousTachesEtLienDansLaConnaissance() {
+        ScriptedChatModel model = new ScriptedChatModel().then("generate-specification", List.of(), SPEC);
+        ProjectKnowledge knowledge = new ProjectKnowledge("", null, List.of(new ProjectKnowledge.Entry(KnowledgeKind.TICKET,
+                null, "FACT-30", 0, "Export comptable", "À faire", false, "Texte", "h", "FACT-20 blocks FACT-30")),
+                List.of(), List.of(), List.of(), new ProjectKnowledge.Subtasks("FACT-20", List.of(
+                        new ProjectKnowledge.Subtask("FACT-21", "En cours", false, "API de paiement"),
+                        new ProjectKnowledge.Subtask("FACT-22", "Terminé", true, "Écran <carte>"))));
+
+        new LangChainLlmClient(model).generateSpecification(new GenerationRequest("Payer en ligne", Language.FR, List.of(),
+                "", knowledge));
+
+        ScriptedChatModel.Received call = model.received().getFirst();
+        assertThat(call.user())
+                .contains("<ticket ref=\"FACT-30\" statut=\"À faire\" ferme=\"non\" lien=\"FACT-20 blocks FACT-30\">")
+                .contains("<sous-taches story=\"FACT-20\">\n"
+                        + "<sous-tache ref=\"FACT-21\" statut=\"En cours\" ferme=\"non\">API de paiement</sous-tache>\n"
+                        + "<sous-tache ref=\"FACT-22\" statut=\"Terminé\" ferme=\"oui\">Écran &lt;carte&gt;</sous-tache>\n"
+                        + "</sous-taches>");
+        assertThat(call.system()).contains("<sous-taches story>").contains("jamais comme des\ntravaux en cours");
     }
 
     @Test

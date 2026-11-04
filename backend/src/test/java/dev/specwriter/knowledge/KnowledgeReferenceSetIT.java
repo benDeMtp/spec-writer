@@ -5,10 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import dev.specwriter.application.jira.JiraAccess;
 import dev.specwriter.application.knowledge.FindRelatedIssues;
+import dev.specwriter.application.knowledge.StoryFamily;
 import dev.specwriter.domain.port.EmbeddingPort;
+import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.KnowledgeIndex;
+import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.port.SessionRepository;
+import dev.specwriter.domain.port.SpecificationRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.path.json.JsonPath;
 import jakarta.inject.Inject;
@@ -20,6 +26,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
@@ -48,6 +55,20 @@ class KnowledgeReferenceSetIT {
     EmbeddingPort embedding;
     @Inject
     FindRelatedIssues related;
+    @Inject
+    SessionRepository sessions;
+    @Inject
+    SpecificationRepository versions;
+    @Inject
+    LinkedTicketRepository tickets;
+    @Inject
+    StoryFamily families;
+    @Inject
+    JiraAccess jira;
+    @Inject
+    IssueTracker tracker;
+    @ConfigProperty(name = "specwriter.knowledge.subtask-min-z")
+    double minZ;
 
     /** Dossier du jeu, ou arrêt propre du test s'il n'est pas donné. */
     static Path referenceSet() {
@@ -91,6 +112,8 @@ class KnowledgeReferenceSetIT {
         assertThat((double) first.get("flowsExact")).as("SC-002 flux manquants").isEqualTo(1.0);
         assertThat((double) first.get("effortsExact")).as("SC-002 efforts").isEqualTo(1.0);
         assertThat((long) first.get("slowestRelatedMs")).as("SC-004a tickets proches").isLessThan(5_000);
+        assertThat((int) first.get("subtaskFamilyLeaks")).as("SC-004c famille de la story").isZero();
+        assertThat((double) first.get("subtaskFlagged")).as("SC-004c sous-tâches signalées").isGreaterThanOrEqualTo(0.8);
     }
 
     private Map<String, Object> measure(ReferenceSet set, ReferenceSet.Model model, JsonPath state) {
@@ -125,6 +148,24 @@ class KnowledgeReferenceSetIT {
             one.put("efforts", m.efforts());
             cases.add(one);
         }
+        // sous-tâches de story (SC-004c), si le jeu en décrit
+        ReferenceSet.SubtaskWorld world = new ReferenceSet.SubtaskWorld(projects, sessions, versions, tickets, families,
+                index, embedding, related, jira, tracker, minZ);
+        int leaks = 0;
+        double flagged = 0;
+        List<Map<String, Object>> subtaskCases = new ArrayList<>();
+        for (ReferenceSet.SubtaskCase c : set.subtaskCases) {
+            ReferenceSet.SubtaskMeasure m = set.measureSubtasks(c, world);
+            leaks += m.familyInSelection().size() + m.familyInRelated().size();
+            flagged += m.flagged();
+            Map<String, Object> one = new LinkedHashMap<>();
+            one.put("story", c.story());
+            one.put("familyInSelection", m.familyInSelection());
+            one.put("familyInRelated", m.familyInRelated());
+            one.put("states", m.states());
+            one.put("expected", c.expected());
+            subtaskCases.add(one);
+        }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("model", model.name());
         out.put("indexationStatus", state == null ? null : state.getString("status"));
@@ -138,6 +179,9 @@ class KnowledgeReferenceSetIT {
         out.put("effortsExact", ratio(effortsExact, set.cases.size()));
         out.put("slowestRelatedMs", slowest);
         out.put("cases", cases);
+        out.put("subtaskFamilyLeaks", leaks);
+        out.put("subtaskFlagged", set.subtaskCases.isEmpty() ? 1.0 : flagged / set.subtaskCases.size());
+        out.put("subtaskCases", subtaskCases);
         LOG.infof("Jeu de référence, modèle %s : tickets %.2f, ADR %.2f, flux %.2f, efforts %.2f, indexation %s s",
                 model.name(), out.get("ticketRecall"), out.get("adrRecall"), out.get("flowsExact"), out.get("effortsExact"),
                 out.get("indexationSeconds"));

@@ -131,7 +131,7 @@ class KnowledgeResourceIT {
         assertThat(state.getString("finishedAt")).isNotNull();
 
         api().get(base() + "/knowledge").then().statusCode(200)
-                .body("tickets", equalTo(6)).body("adrs", equalTo(3)).body("architectureElements", equalTo(10))
+                .body("tickets", equalTo(11)).body("adrs", equalTo(3)).body("architectureElements", equalTo(10))
                 .body("model", equalTo("READY")).body("partial", equalTo(false)).body("syncedAt", notNullValue());
         JsonPath status = api().get(base() + "/knowledge").then().extract().jsonPath();
         assertThat(status.getInt("docSections")).isEqualTo(7);
@@ -153,12 +153,12 @@ class KnowledgeResourceIT {
         assertThat(modules.getList("scope")).contains("PROJECT");
 
         String project = "find { it.id == '" + projectId + "' }";
-        api().get("/api/projects").then().statusCode(200).body(project + ".knowledge.tickets", equalTo(6))
+        api().get("/api/projects").then().statusCode(200).body(project + ".knowledge.tickets", equalTo(11))
                 .body(project + ".architectureWorkspace", equalTo(workspace));
 
         // une synchronisation incrémentale ne change rien
         assertThat(index("INCREMENTAL").getString("status")).isEqualTo("SUCCEEDED");
-        api().get(base() + "/knowledge").then().body("tickets", equalTo(6)).body("architectureElements", equalTo(10));
+        api().get(base() + "/knowledge").then().body("tickets", equalTo(11)).body("architectureElements", equalTo(10));
 
         api().delete(base() + "/architecture-source").then().statusCode(204);
         api().get(base() + "/knowledge").then().body("architectureElements", equalTo(0));

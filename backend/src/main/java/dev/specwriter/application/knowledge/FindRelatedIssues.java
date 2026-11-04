@@ -47,9 +47,17 @@ public class FindRelatedIssues {
     private final IssueTracker tracker;
     private final Indexations indexations;
     private final KnowledgeSourceRepository sources;
+    private final StoryFamily families;
 
     public FindRelatedIssues(KnowledgeIndex index, EmbeddingPort embedding, LlmClient llm, ConsentPolicy consent,
             JiraAccess jira, IssueTracker tracker, Indexations indexations, KnowledgeSourceRepository sources) {
+        this(index, embedding, llm, consent, jira, tracker, indexations, sources, StoryFamily.none());
+    }
+
+    public FindRelatedIssues(KnowledgeIndex index, EmbeddingPort embedding, LlmClient llm, ConsentPolicy consent,
+            JiraAccess jira, IssueTracker tracker, Indexations indexations, KnowledgeSourceRepository sources,
+            StoryFamily families) {
+        this.families = families;
         this.index = index;
         this.embedding = embedding;
         this.llm = llm;
@@ -67,7 +75,10 @@ public class FindRelatedIssues {
             return RelatedIssues.UNAVAILABLE;
         }
         boolean meaning = embedding.state() == EmbeddingPort.State.READY;
-        List<KnowledgeItem> candidates = candidates(project.id(), session.need().text());
+        // la story liée, son parent et ses sous-tâches ne sont pas des tickets proches (FR-045)
+        StoryFamily.Family family = families.of(session);
+        List<KnowledgeItem> candidates = candidates(project.id(), session.need().text()).stream()
+                .filter(c -> !family.contains(c.ref())).toList();
         boolean partial = !meaning || building(project.id());
         RelatedIssues.Status status = partial ? RelatedIssues.Status.PARTIAL : RelatedIssues.Status.READY;
         if (candidates.isEmpty()) {
@@ -142,7 +153,8 @@ public class FindRelatedIssues {
                 IssueStatus status = tracker.issueStatus(target.get().endpoint(), item.ref());
                 return Optional.of(new RelatedIssues.Issue(item.ref(), item.title(), status.status(),
                         status.statusCategory(), status.closed(), true,
-                        status.updated() == null ? item.sourceUpdatedAt() : status.updated(), reason, url));
+                        status.updated() == null ? item.sourceUpdatedAt() : status.updated(), reason, url,
+                        families.parentOf(project.id(), item.ref()).orElse(null)));
             } catch (IssueTrackerException e) {
                 if (e.kind() == IssueTrackerException.Kind.NOT_FOUND) {
                     index.delete(project.id(), KnowledgeIndex.Key.of(item));
@@ -152,6 +164,7 @@ public class FindRelatedIssues {
             }
         }
         return Optional.of(new RelatedIssues.Issue(item.ref(), item.title(), item.status(), item.statusCategory(),
-                item.closed(), false, item.sourceUpdatedAt(), reason, url));
+                item.closed(), false, item.sourceUpdatedAt(), reason, url,
+                families.parentOf(project.id(), item.ref()).orElse(null)));
     }
 }
