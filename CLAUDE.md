@@ -22,6 +22,9 @@ Pendant le développement, travailler en **dev mode Quarkus piloté par le serve
    Exception : les IT qui appellent WireMock (`Jira*IT`, `JiraLinkResourceIT`…) échouent en dev
    mode (« Internal Privoxy Error ») car la JVM de dev reçoit le proxy Maven de `settings.xml`.
    Les lancer sous Maven : `./mvnw -B test -DskipDependencyCheck -Dtest=… -Dsurefire.failIfNoSpecifiedTests=false`.
+   Pour joindre un Jira simulé sur la boucle locale depuis le dev mode, le démarrer avec
+   `"-Djvm.args=-Dhttp.nonProxyHosts=127.0.0.1|localhost"` ; le jeton Jira (trousseau simulé) est
+   perdu à chaque redémarrage du dev mode.
    Même chose pour les règles ArchUnit (`HexagonalArchitectureTest`) : le runner du dev mode ne les
    voit pas (0 test lancé). Préférer `devui-testing_runTest` à `runTests` : la suite complète dépasse
    le délai d'un appel MCP. Les tags `spike` et `eval` sont exclus en dev mode
