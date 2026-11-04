@@ -9,7 +9,12 @@ import dev.specwriter.domain.port.DocumentationReader.UnreadReason;
  */
 public record GenerationError(Kind kind, String location, String reason, Integer httpStatus, String message) {
 
-    public enum Kind { PAGE, SOURCE, JIRA, CORRECTION, FAILURE }
+    public enum Kind {
+        PAGE, SOURCE, JIRA, CORRECTION,
+        /** Sortie du LLM corrigée par l'outil, sans nouvel appel : citations ramenées, éléments écartés. */
+        REPAIRED,
+        FAILURE
+    }
 
     /** Page non lue, ou source entière quand l'emplacement est celui de la source. */
     static GenerationError of(Unread u, String sourceLocation) {

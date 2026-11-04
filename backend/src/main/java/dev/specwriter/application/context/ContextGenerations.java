@@ -253,9 +253,13 @@ public class ContextGenerations {
         @Override
         public synchronized void error(GenerationError error) {
             errors.add(error);
-            if (error.kind() == GenerationError.Kind.JIRA || error.kind() == GenerationError.Kind.CORRECTION) {
-                LOG.warnf("Génération du contexte : %s %s (%s)", error.kind(), error.location() == null ? "" : error.location(),
-                        error.reason());
+            switch (error.kind()) {
+                case JIRA -> LOG.warnf("Génération du contexte : JIRA %s (%s)",
+                        error.location() == null ? "" : error.location(), error.reason());
+                // motifs sans contenu : références, numéros de question, longueurs (FR-013g)
+                case CORRECTION, REPAIRED -> LOG.warnf("Génération du contexte : %s (%s) %s", error.kind(), error.reason(),
+                        error.message());
+                default -> { }
             }
         }
 

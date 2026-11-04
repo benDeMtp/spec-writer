@@ -37,6 +37,7 @@ const KINDS: Record<GenerationError['kind'], string> = {
   SOURCE: 'Source non lue',
   JIRA: 'Jira',
   CORRECTION: "Correction demandée à l'IA",
+  REPAIRED: "Corrigé par l'outil, sans nouvel appel à l'IA",
   FAILURE: 'Échec',
 };
 
@@ -564,6 +565,7 @@ export class ProjectContextPage {
       case 'JIRA':
         return `${kind}${where} : ${JIRA_REASONS[e.reason] ?? e.reason}${e.message ? '. ' + e.message : ''}`;
       case 'CORRECTION':
+      case 'REPAIRED':
         return `${kind} (${e.reason}) : ${e.message ?? ''}`;
       default:
         return `${kind} : ${e.message ?? e.reason}`;

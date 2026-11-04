@@ -107,8 +107,16 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   2. **`build-project-context`** : à partir de tous les faits, le LLM rédige la fiche Markdown de
      20 000 caractères au plus, organisée en sections fixes : Vocabulaire, Acteurs, Règles
      métier, Contraintes, Conventions. Chaque affirmation porte ses références `[source : …]`.
-  - Le code vérifie que chaque référence citée existe dans les sources lues. Une référence
-    inconnue déclenche une `correction`, comme pour la traçabilité de 001.
+  - Le code vérifie que chaque référence citée existe dans les sources lues, et **répare plutôt
+    que de redemander** (`Citations`) : une rédaction coûte une à deux minutes.
+    - Une référence écrite autrement (chemin relatif ou URL complète, ancre, casse, ponctuation)
+      est ramenée à la source qu'elle désigne sans ambiguïté.
+    - Une affirmation dont aucune source n'est connue est retirée : ce qui n'est pas vérifiable
+      n'entre pas dans la fiche. Un fait sans source du lot est écarté de même.
+    - Une question déjà posée est écartée.
+    - Chaque réparation est signalée (`REPAIRED`), sans contenu : références, numéros `Q-n`.
+    - Le LLM n'est rappelé avec une `correction`, 3 essais au plus, que si une fiche dépasse
+      20 000 caractères, si les deux sont vides ou si aucune affirmation ne cite une source lue.
   - Pour 300 pages et 200 tickets, il faut une quinzaine d'appels au LLM, ce qui tient dans les
     10 minutes de SC-004a.
   - **Délai d'un appel** : 600 s pour `summarize-project-sources` et `build-project-context`
@@ -320,9 +328,10 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   - Minuteur : l'état porte `stepStartedAt` ; l'écran affiche le temps écoulé depuis le début de
     la génération et de l'étape en cours (`role="timer"`, sans annonce), puis la durée finale.
   - Erreurs (FR-013g) : `{kind, location, reason, httpStatus, message}`, avec `kind` parmi
-    `PAGE`, `SOURCE`, `JIRA`, `CORRECTION` et `FAILURE`. Les messages ne citent que des
+    `PAGE`, `SOURCE`, `JIRA`, `CORRECTION`, `REPAIRED` et `FAILURE`. Les messages ne citent que des
     adresses, des clés de ticket et des motifs, jamais un contenu.
-  - Chaque erreur est aussi écrite au niveau WARN dans le journal (R15), sans contenu ;
+  - Chaque erreur est aussi écrite au niveau WARN dans le journal (R15), sans contenu, avec le
+    motif des corrections et des réparations ;
     l'avancement, lui, n'est jamais journalisé.
 - **Rationale** : une génération dure jusqu'à 10 minutes (SC-004a), au-delà des délais d'une
   requête HTTP ; une opération suivie survit à un rechargement de la page. L'interrogation passe

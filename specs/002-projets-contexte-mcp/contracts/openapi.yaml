@@ -297,7 +297,7 @@ components:
       type: object
       description: Sans aucun contenu de page ni de ticket (FR-013g)
       properties:
-        kind: { enum: [PAGE, SOURCE, JIRA, CORRECTION, FAILURE] }
+        kind: { enum: [PAGE, SOURCE, JIRA, CORRECTION, REPAIRED, FAILURE] }
         location: { type: string }
         reason: { type: string }
         httpStatus: { type: integer }

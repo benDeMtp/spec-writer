@@ -199,11 +199,23 @@ describe('ProjectContextPage', () => {
   it('propose deux fiches : accepter l’une, garder l’autre, avec le détail des erreurs', async () => {
     await generate({
       proposal: PROPOSAL,
-      errors: [{ kind: 'PAGE', location: 'https://docs.example.com/billing/tarifs.html', reason: 'HTTP_ERROR', httpStatus: 500, message: null }],
+      errors: [
+        { kind: 'PAGE', location: 'https://docs.example.com/billing/tarifs.html', reason: 'HTTP_ERROR', httpStatus: 500, message: null },
+        {
+          kind: 'REPAIRED',
+          location: null,
+          reason: 'rédaction des fiches',
+          httpStatus: null,
+          message: 'fiche technique : 1 affirmation retirée, sa source est inconnue, références inconnues : FACT-404',
+        },
+      ],
     });
     expect(el.textContent).toContain('Fiche fonctionnelle proposée');
     expect(el.textContent).toContain('Fiche technique proposée');
     expect(el.textContent).toContain('Page non lue https://docs.example.com/billing/tarifs.html : erreur du serveur (HTTP 500)');
+    expect(el.textContent).toContain(
+      "Corrigé par l'outil, sans nouvel appel à l'IA (rédaction des fiches) : fiche technique : 1 affirmation retirée",
+    );
     // une proposition en attente n'empêche pas d'en demander une nouvelle
     expect(button(el, 'Proposer une fiche')).toBeTruthy();
 

@@ -117,7 +117,7 @@ export type GenerationStep = 'READING_DOCS' | 'READING_TICKETS' | 'SUMMARIZING' 
 
 /** Erreur d'une génération, sans contenu de page ni de ticket (FR-013g). */
 export interface GenerationError {
-  kind: 'PAGE' | 'SOURCE' | 'JIRA' | 'CORRECTION' | 'FAILURE';
+  kind: 'PAGE' | 'SOURCE' | 'JIRA' | 'CORRECTION' | 'REPAIRED' | 'FAILURE';
   location: string | null;
   reason: string;
   httpStatus: number | null;

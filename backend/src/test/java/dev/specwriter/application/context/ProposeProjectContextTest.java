@@ -1,6 +1,7 @@
 package dev.specwriter.application.context;
 
 import java.util.Set;
+import dev.specwriter.application.context.GenerationProgress.Step;
 import dev.specwriter.domain.project.ContextSheets;
 import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.project.ContextQuestion;
@@ -27,6 +28,7 @@ import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.project.ProjectName;
 import dev.specwriter.support.JiraWorld;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -149,15 +151,17 @@ class ProposeProjectContextTest {
         assertThat(refs).hasSize(200).contains("FACT-230", "FACT-31").doesNotContain("FACT-30");
     }
 
+    /** Aucune affirmation vérifiable : seul cas, avec une fiche trop longue, où le LLM est rappelé. */
     @Test
-    void referenceInconnueCorrigeeTroisEssaisAuPlus() {
+    void touteAffirmationInvérifiableCorrigeeTroisEssaisAuPlus() {
         w.llm.facts.add(facts(PAGE));
         w.llm.contexts.add(context("https://inventee.example/page.html"));
         w.llm.contexts.add(context(PAGE));
         propose.run(project.id());
         assertThat(w.llm.contextRequests).hasSize(2);
         assertThat(w.llm.contextRequests.get(0).correction()).isEmpty();
-        assertThat(w.llm.contextRequests.get(1).correction()).contains("https://inventee.example/page.html");
+        assertThat(w.llm.contextRequests.get(1).correction()).contains("aucune affirmation ne cite une source lue")
+                .contains("https://inventee.example/page.html");
 
         w.llm.facts.add(facts(PAGE));
         for (int i = 0; i < 3; i++) {
@@ -167,14 +171,56 @@ class ProposeProjectContextTest {
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.LLM_INVALID_OUTPUT));
     }
 
+    /** Fait hors du lot écarté, référence ramenée : aucun nouvel appel (FR-013g). */
     @Test
-    void faitCitantUneSourceHorsDuLotCorrige() {
-        w.llm.facts.add(facts("https://ailleurs.example/"));
-        w.llm.facts.add(facts(PAGE));
+    void faitsReparesSansNouvelAppel() {
+        List<GenerationError> errors = new ArrayList<>();
+        w.llm.facts.add(new SourceFacts(List.of(
+                new SourceFacts.Fact(Category.ACTOR, "Le comptable lettre les paiements.", List.of("billing/acteurs.html")),
+                new SourceFacts.Fact(Category.ACTOR, "Inventé.", List.of("https://ailleurs.example/")),
+                new SourceFacts.Fact(Category.ACTOR, "Sans source.", List.of()))));
         w.llm.contexts.add(context(PAGE));
-        propose.run(project.id());
-        assertThat(w.llm.summarizeRequests).hasSize(2);
-        assertThat(w.llm.summarizeRequests.get(1).correction()).contains("https://ailleurs.example/");
+        propose.run(project.id(), recording(errors));
+        assertThat(w.llm.summarizeRequests).hasSize(1);
+        assertThat(w.llm.contextRequests.getFirst().facts()).singleElement()
+                .satisfies(f -> assertThat(f.refs()).containsExactly(PAGE));
+        assertThat(errors).filteredOn(e -> e.kind() == GenerationError.Kind.REPAIRED).singleElement().satisfies(e -> {
+            assertThat(e.reason()).isEqualTo("extraction des faits");
+            assertThat(e.message()).contains("1 référence ramenée à une source du lot", "2 faits écartés",
+                    "https://ailleurs.example/").doesNotContain("Inventé", "Sans source");
+        });
+    }
+
+    /** Affirmation à la source inconnue retirée, citation ramenée : la fiche est proposée au premier essai. */
+    @Test
+    void ficheRepareeSansNouvelAppel() {
+        List<GenerationError> errors = new ArrayList<>();
+        w.llm.facts.add(facts(PAGE));
+        w.llm.contexts.add(draft("- ok [source : acteurs.html]\n- inventé [source : FACT-404]", "- tech [source : " + PAGE + "]"));
+        ContextProposalStore.ContextProposal p = propose.run(project.id(), recording(errors));
+        assertThat(w.llm.contextRequests).hasSize(1);
+        assertThat(p.functional().markdown()).isEqualTo("- ok [source : " + PAGE + "]");
+        assertThat(p.sources()).containsExactly(PAGE);
+        assertThat(errors).filteredOn(e -> e.kind() == GenerationError.Kind.REPAIRED).singleElement()
+                .satisfies(e -> assertThat(e.message()).contains("fiche fonctionnelle", "1 référence ramenée à une source lue",
+                        "1 affirmation retirée", "FACT-404"));
+    }
+
+    static GenerationProgress recording(List<GenerationError> errors) {
+        return new GenerationProgress() {
+            @Override
+            public void step(Step step, int total) {
+            }
+
+            @Override
+            public void advance(String current, int done, int total) {
+            }
+
+            @Override
+            public void error(GenerationError error) {
+                errors.add(error);
+            }
+        };
     }
 
     @Test
@@ -267,12 +313,12 @@ class ProposeProjectContextTest {
     }
 
     @Test
-    void referenceInconnueDansLaFicheTechniqueCorrigee() {
+    void referenceInconnueDansLaFicheTechniqueRetiree() {
         w.llm.facts.add(facts(PAGE));
-        w.llm.contexts.add(draft("- ok [source : " + PAGE + "]", "- inventé [source : FACT-404]"));
-        w.llm.contexts.add(context(PAGE));
-        propose.run(project.id());
-        assertThat(w.llm.contextRequests.get(1).correction()).contains("FACT-404 de la fiche technique");
+        w.llm.contexts.add(draft("- ok [source : " + PAGE + "]", "## Architecture\n- inventé [source : FACT-404]"));
+        ContextProposalStore.ContextProposal p = propose.run(project.id());
+        assertThat(w.llm.contextRequests).hasSize(1);
+        assertThat(p.technical().markdown()).isEqualTo("## Architecture");
     }
 
     @Test
@@ -300,13 +346,18 @@ class ProposeProjectContextTest {
         w.llm.facts.add(facts(PAGE));
         w.llm.contexts.add(draft("- ok [source : " + PAGE + "]", "## Contraintes techniques\n- PostgreSQL 17. [source : Q-1]",
                 question(ContextSheet.FUNCTIONAL, "  question 0 ?  ")));
-        w.llm.contexts.add(draft("- ok [source : " + PAGE + "]", "## Contraintes techniques\n- PostgreSQL 17. [source : Q-1]"));
-        ContextProposalStore.ContextProposal again = propose.run(project.id());
-        BuildContextRequest first = w.llm.contextRequests.get(w.llm.contextRequests.size() - 2);
+        List<GenerationError> errors = new ArrayList<>();
+        int calls = w.llm.contextRequests.size();
+        ContextProposalStore.ContextProposal again = propose.run(project.id(), recording(errors));
+        // la question déjà posée est écartée sans nouvel appel ; le motif ne cite que son numéro
+        assertThat(w.llm.contextRequests).hasSize(calls + 1);
+        assertThat(errors).filteredOn(e -> e.kind() == GenerationError.Kind.REPAIRED).singleElement()
+                .satisfies(e -> assertThat(e.message()).contains("1 question déjà posée écartée (Q-2)")
+                        .doesNotContain("question 0"));
+        BuildContextRequest first = w.llm.contextRequests.getLast();
         assertThat(first.answers()).containsExactly(
                 new BuildContextRequest.Answer("Q-1", ContextSheet.TECHNICAL, "Question 1 ?", "PostgreSQL 17"));
         assertThat(first.skipped()).containsExactly(new BuildContextRequest.Skipped(ContextSheet.FUNCTIONAL, "Question 0 ?"));
-        assertThat(w.llm.contextRequests.getLast().correction()).contains("a déjà été posée (Q-2)");
         assertThat(again.sources()).contains("Q-1");
         assertThat(again.questions()).isEmpty();
 

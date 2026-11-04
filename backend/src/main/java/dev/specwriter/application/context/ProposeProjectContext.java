@@ -34,16 +34,16 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
  * Propose une fiche de contexte à partir de la documentation et des tickets du projet (FR-013a,
  * research.md R4 de 002). Deux temps : des faits sourcés par lots d'environ 40 000 caractères, puis
- * la fiche. Chaque référence citée doit exister parmi les sources lues ; sinon une correction est
- * demandée, 3 essais au plus. Rien n'est enregistré : la fiche est une proposition. Les pages et les
+ * les fiches. Chaque référence citée doit exister parmi les sources lues : l'outil ramène une référence
+ * écrite autrement et retire ce qui reste invérifiable ({@link Citations}) ; le LLM n'est rappelé, 3
+ * essais au plus, que si rien de vérifiable ne reste ou qu'une fiche est trop longue. Rien n'est
+ * enregistré : la fiche est une proposition. Les pages et les
  * tickets ne sont jamais journalisés (FR-012).
  */
 public class ProposeProjectContext {
@@ -51,7 +51,6 @@ public class ProposeProjectContext {
     public static final int BATCH_CHARS = 40_000;
     static final int MAX_ATTEMPTS = 3;
     static final int MAX_QUESTIONS = 10;
-    private static final Pattern CITATION = Pattern.compile("\\[source\\s*:\\s*([^\\]]+)]", Pattern.CASE_INSENSITIVE);
 
     private final ProjectRepository projects;
     private final DocSourceRepository docSources;
@@ -222,73 +221,144 @@ public class ProposeProjectContext {
         return out;
     }
 
+    /**
+     * Faits d'un lot. Une référence écrite autrement est ramenée à la source du lot qu'elle désigne ;
+     * un fait sans source du lot est écarté. Rien de cela ne rappelle le LLM (FR-013g).
+     */
     private List<SourceFacts.Fact> summarize(Language language, List<Source> batch, GenerationProgress progress) {
-        Set<String> refs = batch.stream().map(Source::ref).collect(Collectors.toSet());
-        SummarizeSourcesRequest request = new SummarizeSourcesRequest(language, batch, "");
-        return retry(progress, "extraction des faits",
-                correction -> llm.summarizeProjectSources(request.withCorrection(correction)).facts(), facts -> {
-            List<String> problems = new ArrayList<>();
-            for (SourceFacts.Fact f : facts) {
-                if (f.refs().isEmpty()) {
-                    // le fait lui-même n'est pas cité : le motif d'une correction est affiché (FR-013g)
-                    problems.add("un fait de la catégorie " + f.category() + " ne cite aucune source du lot");
+        Set<String> refs = batch.stream().map(Source::ref).collect(Collectors.toCollection(LinkedHashSet::new));
+        requireNotCancelled(progress);
+        List<SourceFacts.Fact> facts = llm.summarizeProjectSources(new SummarizeSourcesRequest(language, batch, "")).facts();
+        Citations.Resolver resolver = Citations.resolver(refs);
+        List<SourceFacts.Fact> kept = new ArrayList<>();
+        int renamed = 0;
+        int dropped = 0;
+        Set<String> unknown = new LinkedHashSet<>();
+        for (SourceFacts.Fact f : facts) {
+            Set<String> resolved = new LinkedHashSet<>();
+            for (String r : f.refs()) {
+                String ref = resolver.resolve(r);
+                if (ref == null) {
+                    unknown.add(r);
+                } else {
+                    renamed += ref.equals(r) ? 0 : 1;
+                    resolved.add(ref);
                 }
-                f.refs().stream().filter(r -> !refs.contains(r))
-                        .forEach(r -> problems.add("la source " + r + " ne fait pas partie du lot"));
             }
-            return problems;
-        });
+            if (resolved.isEmpty()) {
+                dropped++;
+            } else {
+                kept.add(new SourceFacts.Fact(f.category(), f.statement(), List.copyOf(resolved)));
+            }
+        }
+        List<String> done = new ArrayList<>();
+        if (renamed > 0) {
+            done.add(plural(renamed, "référence ramenée", "références ramenées") + " à une source du lot");
+        }
+        if (dropped > 0) {
+            // le fait lui-même n'est jamais cité : seulement les références inconnues
+            done.add(plural(dropped, "fait écarté", "faits écartés") + ", sans source du lot"
+                    + (unknown.isEmpty() ? "" : " (" + String.join(", ", unknown) + ")"));
+        } else if (!unknown.isEmpty()) {
+            done.add("références hors du lot retirées (" + String.join(", ", unknown) + ")");
+        }
+        if (!done.isEmpty()) {
+            progress.error(new GenerationError(GenerationError.Kind.REPAIRED, null, "extraction des faits", null,
+                    String.join(" ; ", done)));
+        }
+        return kept;
     }
 
+    /**
+     * Les deux fiches. Les citations sont réparées et les questions déjà posées écartées sans rappeler
+     * le LLM ; il n'est rappelé que si une fiche dépasse 20 000 caractères ou si aucune affirmation ne
+     * cite une source lue.
+     */
     private ProjectContextDraft build(BuildContextRequest request, Set<String> known, List<ContextQuestion> asked,
             GenerationProgress progress) {
         Map<String, ContextQuestion> askedByLabel = new HashMap<>();
         asked.forEach(q -> askedByLabel.put(normalized(q.label()), q));
-        return retry(progress, "rédaction des fiches", correction -> llm.buildProjectContext(request.withCorrection(correction)),
-                (ProjectContextDraft d) -> {
-                    List<String> problems = new ArrayList<>();
-                    if (d.functional().isEmpty() && d.technical().isEmpty()) {
-                        problems.add("les deux fiches sont vides");
+        Citations.Resolver resolver = Citations.resolver(known);
+        String correction = "";
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            requireNotCancelled(progress);
+            ProjectContextDraft d = llm.buildProjectContext(request.withCorrection(correction));
+            List<String> done = new ArrayList<>();
+            Map<ContextSheet, String> sheets = new java.util.EnumMap<>(ContextSheet.class);
+            Set<String> unknown = new LinkedHashSet<>();
+            int valid = 0;
+            for (ContextSheet sheet : ContextSheet.values()) {
+                Citations.Repaired r = Citations.repair(d.get(sheet), resolver);
+                sheets.put(sheet, r.markdown());
+                valid += r.valid();
+                unknown.addAll(r.unknown());
+                if (r.changed()) {
+                    List<String> parts = new ArrayList<>();
+                    if (!r.renamed().isEmpty()) {
+                        parts.add(plural(r.renamed().size(), "référence ramenée", "références ramenées") + " à une source lue");
                     }
-                    for (ContextSheet sheet : ContextSheet.values()) {
-                        String label = sheet == ContextSheet.FUNCTIONAL ? "fonctionnelle" : "technique";
-                        if (d.get(sheet).length() > ProjectContext.MAX_LENGTH) {
-                            problems.add("la fiche " + label + " dépasse 20 000 caractères : raccourcis-la");
-                        }
-                        cited(d.get(sheet)).stream().filter(r -> !known.contains(r)).forEach(r -> problems.add(
-                                "la référence " + r + " de la fiche " + label + " ne correspond à aucune source lue"));
+                    if (r.removedLines() > 0) {
+                        parts.add(plural(r.removedLines(), "affirmation retirée", "affirmations retirées")
+                                + ", sa source est inconnue");
                     }
-                    for (ProjectContextDraft.Question q : d.questions()) {
-                        ContextQuestion already = askedByLabel.get(normalized(q.label()));
-                        if (already != null) {
-                            problems.add("la question « " + q.label() + " » a déjà été posée (" + already.ref()
-                                    + ") : ne la repose pas");
-                        }
+                    if (!r.unknown().isEmpty()) {
+                        parts.add("références inconnues : " + String.join(", ", r.unknown()));
                     }
-                    return problems;
-                });
+                    done.add("fiche " + label(sheet) + " : " + String.join(", ", parts));
+                }
+            }
+            List<ProjectContextDraft.Question> questions = new ArrayList<>();
+            List<String> repeated = new ArrayList<>();
+            for (ProjectContextDraft.Question q : d.questions()) {
+                ContextQuestion already = askedByLabel.get(normalized(q.label()));
+                if (already == null) {
+                    questions.add(q);
+                } else {
+                    repeated.add(already.ref());
+                }
+            }
+            if (!repeated.isEmpty()) {
+                // le numéro seulement : le libellé vient des sources
+                done.add(plural(repeated.size(), "question déjà posée écartée", "questions déjà posées écartées")
+                        + " (" + String.join(", ", repeated) + ")");
+            }
+            List<String> problems = new ArrayList<>();
+            for (ContextSheet sheet : ContextSheet.values()) {
+                if (sheets.get(sheet).length() > ProjectContext.MAX_LENGTH) {
+                    problems.add("la fiche " + label(sheet) + " dépasse 20 000 caractères : raccourcis-la");
+                }
+            }
+            if (sheets.values().stream().allMatch(String::isBlank)) {
+                problems.add("les deux fiches sont vides");
+            } else if (valid == 0 && !unknown.isEmpty()) {
+                problems.add("aucune affirmation ne cite une source lue ; références inconnues : " + String.join(", ", unknown)
+                        + ". Cite uniquement les références des faits fournis");
+            }
+            if (problems.isEmpty()) {
+                if (!done.isEmpty()) {
+                    progress.error(new GenerationError(GenerationError.Kind.REPAIRED, null, "rédaction des fiches", null,
+                            String.join(" ; ", done)));
+                }
+                return new ProjectContextDraft(sheets.get(ContextSheet.FUNCTIONAL), sheets.get(ContextSheet.TECHNICAL),
+                        List.copyOf(questions));
+            }
+            correction = String.join("\n", problems);
+            progress.error(new GenerationError(GenerationError.Kind.CORRECTION, null, "rédaction des fiches", null,
+                    "Essai " + attempt + " sur " + MAX_ATTEMPTS + " : " + String.join(" ; ", problems)));
+        }
+        throw new DomainException(ErrorCode.LLM_INVALID_OUTPUT);
+    }
+
+    private static String label(ContextSheet sheet) {
+        return sheet == ContextSheet.FUNCTIONAL ? "fonctionnelle" : "technique";
+    }
+
+    private static String plural(int n, String one, String many) {
+        return n + " " + (n > 1 ? many : one);
     }
 
     private static String normalized(String text) {
         return text == null ? "" : text.strip().toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", " ");
-    }
-
-    /** Appel au LLM, puis jusqu'à 2 nouvelles demandes avec les écarts constatés, signalés (FR-013g). */
-    private static <T> T retry(GenerationProgress progress, String operation, Function<String, T> call,
-            Function<T, List<String>> check) {
-        String correction = "";
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            requireNotCancelled(progress);
-            T result = call.apply(correction);
-            List<String> problems = check.apply(result);
-            if (problems.isEmpty()) {
-                return result;
-            }
-            correction = String.join("\n", problems);
-            progress.error(new GenerationError(GenerationError.Kind.CORRECTION, null, operation, null,
-                    "Essai " + attempt + " sur " + MAX_ATTEMPTS + " : " + String.join(" ; ", problems)));
-        }
-        throw new DomainException(ErrorCode.LLM_INVALID_OUTPUT);
     }
 
     private static void requireNotCancelled(GenerationProgress progress) {
@@ -300,7 +370,7 @@ public class ProposeProjectContext {
     /** Références citées par la fiche, dans leur ordre d'apparition. */
     static List<String> cited(String markdown) {
         Set<String> refs = new LinkedHashSet<>();
-        Matcher m = CITATION.matcher(markdown);
+        Matcher m = Citations.CITATION.matcher(markdown);
         while (m.find()) {
             for (String ref : m.group(1).split(",")) {
                 if (!ref.isBlank()) {

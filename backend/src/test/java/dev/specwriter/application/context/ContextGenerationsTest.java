@@ -241,7 +241,7 @@ class ContextGenerationsTest {
 
         Snapshot s = generations.current(project.id()).orElseThrow();
         assertThat(s.status()).isEqualTo(Status.FAILED);
-        assertThat(s.errors()).extracting(GenerationError::kind).containsSubsequence(Kind.JIRA, Kind.CORRECTION,
+        assertThat(s.errors()).extracting(GenerationError::kind).containsSubsequence(Kind.JIRA, Kind.REPAIRED,
                 Kind.CORRECTION, Kind.CORRECTION, Kind.CORRECTION, Kind.FAILURE);
         assertThat(s.errors()).filteredOn(e -> e.kind() == Kind.JIRA).singleElement()
                 .satisfies(e -> assertThat(e.reason()).isEqualTo("UNAUTHORIZED"));
