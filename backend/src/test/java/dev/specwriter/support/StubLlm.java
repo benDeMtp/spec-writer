@@ -42,6 +42,8 @@ public class StubLlm implements LlmClient {
     public final List<BuildContextRequest> contextRequests = new ArrayList<>();
     /** Erreur levée par {@code structureImportedText} à la place d'une réponse. */
     public ErrorCode structureFailure;
+    /** Appelé avant chaque rédaction du contexte : simule un appel long, par exemple. */
+    public volatile Runnable onBuildContext;
 
     public static ProposeQuestionsResult none() {
         return new ProposeQuestionsResult(List.of(), List.of(), Set.of());
@@ -104,6 +106,10 @@ public class StubLlm implements LlmClient {
     @Override
     public ProjectContextDraft buildProjectContext(BuildContextRequest request) {
         contextRequests.add(request);
+        Runnable hook = onBuildContext;
+        if (hook != null) {
+            hook.run();
+        }
         return next(contexts);
     }
 

@@ -33,6 +33,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -167,6 +172,59 @@ class ContextGenerationsTest {
         assertThat(w.llm.calls()).isZero();
         assertThat(w.tracker.calls).isEmpty();
         assertThat(w.projects.find(project.id()).orElseThrow().contexts()).isEqualTo(ContextSheets.NONE);
+    }
+
+    /** Un appel au LLM bloqué ne retient pas l'interruption : elle rend la main tout de suite. */
+    @Test
+    void interruptionPendantUnAppelAuLlmRendLaMainEtCoupeLAppel() throws InterruptedException {
+        scriptLlm();
+        CountDownLatch inCall = new CountDownLatch(1);
+        AtomicBoolean interrupted = new AtomicBoolean();
+        w.llm.onBuildContext = () -> {
+            inCall.countDown();
+            try {
+                Thread.sleep(60_000);
+            } catch (InterruptedException e) {
+                interrupted.set(true);
+                Thread.currentThread().interrupt();
+                throw new DomainException(ErrorCode.LLM_UNAVAILABLE);
+            }
+        };
+        ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
+        ContextGenerations async = new ContextGenerations(new ProposeProjectContext(w.projects, w.docSources, w.docs,
+                w.jira, w.tracker, w.markup, w.llm, w.policy, proposals, w.contextQuestions, w.clock), w.projects,
+                w.policy, proposals, pool, w.clock);
+        async.start(project.id());
+        assertThat(inCall.await(5, TimeUnit.SECONDS)).isTrue();
+
+        async.cancel(project.id());
+        Snapshot s = async.current(project.id()).orElseThrow();
+        assertThat(s.status()).isEqualTo(Status.CANCELLED);
+        assertThat(s.finishedAt()).isNotNull();
+        assertThat(s.current()).isNull();
+
+        pool.shutdown();
+        assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(interrupted).isTrue();
+        // l'échec de l'appel coupé ne change ni l'état ni le détail des erreurs
+        Snapshot after = async.current(project.id()).orElseThrow();
+        assertThat(after.status()).isEqualTo(Status.CANCELLED);
+        assertThat(after.errors()).noneSatisfy(e -> assertThat(e.kind()).isEqualTo(Kind.FAILURE));
+        assertThat(after.proposal()).isNull();
+    }
+
+    @Test
+    void uneNouvelleGenerationPeutSuivreUneInterruptionImmediatement() {
+        scriptLlm();
+        w.docs.onPage = () -> generations.cancel(project.id());
+        generations.start(project.id());
+        // l'interruption est demandée avant que la tâche ne tourne : la main est rendue quand même
+        generations.cancel(project.id());
+        assertThat(generations.current(project.id()).orElseThrow().status()).isEqualTo(Status.CANCELLED);
+        w.docs.onPage = () -> { };
+        generations.start(project.id());
+        runQueued();
+        assertThat(generations.current(project.id()).orElseThrow().status()).isEqualTo(Status.SUCCEEDED);
     }
 
     @Test

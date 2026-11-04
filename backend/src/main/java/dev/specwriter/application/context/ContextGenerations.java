@@ -97,7 +97,10 @@ public class ContextGenerations {
         return Optional.ofNullable(generations.get(projectId)).map(Generation::snapshot);
     }
 
-    /** Demande l'interruption ; elle est constatée avant la page, le ticket ou l'appel suivant. */
+    /**
+     * Interrompt la génération : elle passe aussitôt à l'état interrompu, ce qui permet d'en relancer
+     * une, et la tâche est interrompue pour couper l'appel en cours (Copilot, Jira, page).
+     */
     public void cancel(UUID projectId) {
         Generation g = generations.get(projectId);
         if (g != null) {
@@ -115,6 +118,8 @@ public class ContextGenerations {
         private final Instant startedAt;
         private final List<GenerationError> errors = new ArrayList<>();
         private volatile boolean cancelRequested;
+        /** Thread de la tâche, interrompu par {@link #cancel()} ; nul avant son démarrage. */
+        private Thread worker;
         private Status status = Status.RUNNING;
         private Step step;
         private String current;
@@ -136,6 +141,12 @@ public class ContextGenerations {
         }
 
         void run() {
+            synchronized (this) {
+                if (cancelRequested) {
+                    return;
+                }
+                worker = Thread.currentThread();
+            }
             try {
                 ProposeProjectContext.Basis base;
                 synchronized (this) {
@@ -156,19 +167,42 @@ public class ContextGenerations {
                 }
             } catch (GenerationProgress.Cancelled e) {
                 finish(Status.CANCELLED, null);
-            } catch (DomainException e) {
-                LOG.warnf("Génération du contexte en échec : %s", e.code());
+            } catch (RuntimeException e) {
+                if (cancelRequested) {
+                    LOG.debugf("Génération du contexte interrompue pendant un appel (%s)", e.getClass().getSimpleName());
+                } else {
+                    failed(e);
+                }
+            } finally {
+                synchronized (this) {
+                    worker = null;
+                }
+                // l'interruption visait l'appel coupé, pas la suite du thread
+                Thread.interrupted();
+            }
+        }
+
+        private void failed(RuntimeException failure) {
+            if (failure instanceof DomainException e) {
+                LOG.warnf("Génération du contexte en échec à l'étape %s : %s", stepName(), e.code());
                 error(new GenerationError(GenerationError.Kind.FAILURE, null, e.code().name(), null, e.getMessage()));
                 finish(Status.FAILED, null);
-            } catch (RuntimeException e) {
-                LOG.error("Génération du contexte en échec : erreur inattendue", e);
+            } else {
+                LOG.error("Génération du contexte en échec : erreur inattendue", failure);
                 error(new GenerationError(GenerationError.Kind.FAILURE, null, ErrorCode.INTERNAL_ERROR.name(), null,
                         ErrorCode.INTERNAL_ERROR.defaultMessage()));
                 finish(Status.FAILED, null);
             }
         }
 
+        private synchronized String stepName() {
+            return step == null ? "PREPARING" : step.name();
+        }
+
         private synchronized void finish(Status outcome, ContextProposal result) {
+            if (status != Status.RUNNING) {
+                return;
+            }
             status = outcome;
             proposal = result;
             current = null;
@@ -183,8 +217,12 @@ public class ContextGenerations {
             return finishedAt != null && finishedAt.isBefore(limit);
         }
 
-        void cancel() {
+        synchronized void cancel() {
             cancelRequested = true;
+            if (worker != null) {
+                worker.interrupt();
+            }
+            finish(Status.CANCELLED, null);
         }
 
         @Override
