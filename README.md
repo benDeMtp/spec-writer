@@ -97,8 +97,9 @@ La page **Contexte** d'un projet déclare ce que l'outil doit connaître :
 - **Documentation Antora** : l'adresse du site généré, ou un dossier local de pages HTML. Les ADR
   sont reconnus, avec leur statut.
 - **Architecture** : le `workspace.dsl` Structurizr d'un dossier local (`workspace extends`,
-  `!include` et `!element` sont suivis), et l'ownership qui distingue les modules propres au
-  projet des modules communs.
+  `!include`, `!element`, `!docs` et `!adrs` sont suivis ; un `!script` n'est jamais exécuté, il est
+  ignoré avec un avertissement), et l'ownership, facultatif, qui distingue les modules propres au
+  projet des modules communs. Sans ownership, ce qui vient du modèle étendu est commun.
 - **Fiche générale** : un texte écrit à la main, qui l'emporte sur les sources.
 
 La recherche dans cet index se fait sur le poste, par mots et par sens. Le modèle de recherche
@@ -110,6 +111,15 @@ Avant de poser ses questions, l'outil montre les tickets proches du besoin. Un t
 recevoir une nouvelle story liée (« relates to ») ; un ticket ouvert peut être comparé au besoin,
 repris tel quel, ou laissé de côté. La spécification cite ensuite les ADR et leurs écarts, les
 modules impactés, les flux manquants et les efforts de déploiement en production.
+
+Les liens entre tickets sont lus avec eux : parent, sous-tâches et liens (« blocks »,
+« relates to »…). Les sous-tâches de la story liée à une spécification ne sont jamais présentées
+comme des travaux concurrents. La page d'une version les montre dans la rubrique « Sous-tâches de
+<clé> » : chacune est rattachée au cas d'usage qu'elle semble implémenter (rattachement probable,
+par le sens), et celles dont le cas d'usage a changé ou disparu sont signalées « à revoir », ou
+« livrée, à reprendre » si elles sont fermées. Jira n'est jamais modifié. Après la mise à jour qui
+apporte cette rubrique, la première synchronisation relit tous les tickets une fois, pour lire
+leurs liens.
 
 ## Statut d'implémentation
 

@@ -855,14 +855,23 @@ les annonçait comme des « travaux en cours » concurrents.
     - texte d'un cas d'usage : code, titre, objectif et scénario nominal, 1 500 caractères au
       plus, vectorisé avec le préfixe `passage: ` au moment du calcul (20 cas d'usage au plus :
       quelques dizaines de millisecondes) ;
-    - texte d'une sous-tâche : son vecteur déjà dans l'index (titre et description, `passage: `) ;
-      une sous-tâche absente de l'index (autre projet Jira) est « non rattachée (hors index) » ;
-    - similarité cosinus ; rattachée au meilleur cas d'usage si le score atteint le seuil
-      `specwriter.knowledge.subtask-threshold` (0,82 par défaut pour e5, dont les scores sont
-      resserrés entre 0,7 et 0,95 ; calibré sur le jeu fictif puis sur le jeu réel) ; un second
-      cas d'usage à moins de 0,02 est cité dans la raison ;
-    - la raison dit le cas d'usage, son titre et le degré de proximité (« très proche » au-delà
-      de 0,88, « proche » sinon), jamais un score brut ;
+    - texte d'une sous-tâche : titre et description, vectorisés au calcul (`passage: `, 15 au plus),
+      l'index n'exposant pas ses vecteurs ; une sous-tâche absente de l'index (autre projet Jira) est
+      « non rattachée » ;
+    - **score relatif au bruit de fond** (révisé à l'implémentation, T135) : les similarités de
+      multilingual-e5-small sont trop resserrées pour un seuil absolu. Mesuré sur le jeu fictif et
+      quatre paires réalistes, une sous-tâche sans rapport (« Mise à jour des dépendances du build »)
+      obtient 0,87 face à un cas d'usage de paiement, autant qu'une vraie correspondance (0,89 à
+      0,94). La similarité à chaque cas d'usage est donc rapportée à celle de la sous-tâche avec les
+      autres tickets du projet (20 plus récents hors famille, 5 au moins) : score z = (similarité −
+      moyenne du fond) / écart-type du fond, plancher d'écart-type 0,005 ;
+    - rattachée au meilleur cas d'usage si son score z atteint `specwriter.knowledge.subtask-min-z`
+      (1,5) ; « très proche » à partir de 3 ; un second cas d'usage au-dessus du minimum et à moins
+      de 0,5 du premier est cité dans la raison. Mesures : avec e5, les vraies sous-tâches ont z de
+      1,87 à 3,69 et celles sans rapport 0,25 et 0,89 ; avec le modèle de test (all-MiniLM-L6-v2),
+      5,15 et 5,99 contre −0,47 au plus. Le jeu réel (T061) confirmera ou ajustera la valeur ;
+    - la raison dit le cas d'usage, son titre et le degré de proximité, jamais un score ;
+    - moins de 5 autres tickets indexés : pas de rattachement, la rubrique le dit ;
     - sans modèle de recherche par le sens, aucune sous-tâche n'est rattachée et la rubrique dit
       pourquoi.
   - **Changement d'un cas d'usage** (déterministe, `UseCaseChanges`) : comparaison avec la version

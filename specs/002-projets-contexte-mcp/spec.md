@@ -220,7 +220,7 @@ manquant et l'effort de déploiement attendus, et la story est proposée liée a
    rapproche, **When** la rubrique est affichée, **Then** elles sont regroupées, repliées, comme
    « cohérentes » ou « non rattachées », sans alerte.
 18. **Given** un ticket PAY-20 lié à PAY-10 par « blocks », **When** la story est éditée, **Then**
-   PAY-20 reste dans les alertes, avec le type de lien « bloque PAY-10 ».
+   PAY-20 reste dans les alertes, avec son lien tel que Jira le libelle (« PAY-10 blocks PAY-20 »).
 
 ---
 

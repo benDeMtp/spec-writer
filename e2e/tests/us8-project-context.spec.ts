@@ -1,4 +1,5 @@
 import { expect, request, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
@@ -304,5 +305,107 @@ test.describe.serial('US8 connaissance du projet', () => {
     await expect(deviations).toContainText('La comptabilité est notifiée de façon asynchrone');
     await expect(deviations).toContainText('Le besoin appelle la comptabilité en synchrone.');
     await expectNoA11yViolations(page);
+  });
+
+  test('P8a : les sous-tâches de la story ne sont pas des travaux concurrents ; celles que la version touche sont signalées', async () => {
+    // FACT-40 et ses sous-tâches s'ajoutent aux tickets du jeu, le temps de ce scénario
+    const base = JSON.parse(readFileSync(join(process.cwd(), 'fixtures', 'jira', 'mappings', 'knowledge.json'), 'utf8'));
+    const issue = (key: string, summary: string, description: string, status: string, category: string, extra = {}) => ({
+      key,
+      fields: {
+        summary,
+        description,
+        status: { name: status, statusCategory: { key: category } },
+        issuetype: { name: key === 'FACT-40' || key === 'FACT-50' ? 'Story' : 'Sous-tâche' },
+        updated: '2026-10-20T09:00:00.000+0000',
+        subtasks: [],
+        issuelinks: [],
+        ...extra,
+      },
+    });
+    const added = [
+      issue('FACT-40', 'Payer une facture en ligne',
+        "En tant qu'acheteur, je veux régler une facture émise par carte bancaire et recevoir un reçu (E2E-SUB).",
+        'En cours', 'indeterminate', {
+          subtasks: [{ key: 'FACT-41' }, { key: 'FACT-42' }, { key: 'FACT-43' }],
+          issuelinks: [{ type: { name: 'Blocks', outward: 'blocks' }, outwardIssue: { key: 'FACT-50' } }],
+        }),
+      issue('FACT-41', 'Débit de la carte bancaire',
+        'Appeler le prestataire de paiement pour débiter la carte bancaire du montant dû.', 'En cours', 'indeterminate',
+        { parent: { key: 'FACT-40' } }),
+      issue('FACT-42', 'Reçu de paiement par courriel', 'Envoyer un reçu par courriel une fois le paiement accepté.',
+        'Terminé', 'done', { parent: { key: 'FACT-40' } }),
+      issue('FACT-43', 'Mise à jour des dépendances du build', 'Monter les versions des bibliothèques Maven et npm du projet.',
+        'À faire', 'new', { parent: { key: 'FACT-40' } }),
+      issue('FACT-50', 'Rapprochement bancaire des paiements',
+        'La comptabilité rapproche chaque jour les paiements reçus avec les relevés bancaires.', 'À faire', 'new', {
+          issuelinks: [{ type: { name: 'Blocks', inward: 'is blocked by' }, inwardIssue: { key: 'FACT-40' } }],
+        }),
+    ];
+    const issues = [...base.mappings[1].response.jsonBody.issues, ...added];
+    await stub({
+      request: { method: 'GET', urlPath: '/rest/api/2/search', queryParameters: { jql: { matches: 'project = FACT( AND updated >= .*)? ORDER BY updated ASC' } } },
+      response: { status: 200, headers: { 'Content-Type': 'application/json' }, jsonBody: { startAt: 0, maxResults: 50, total: issues.length, issues } },
+    });
+    // la liste des clés du fichier de correspondances est en priorité 0 : celle-ci la remplace
+    await stub({
+      priority: 0,
+      request: { method: 'GET', urlPath: '/rest/api/2/search', queryParameters: { fields: { equalTo: 'key' } } },
+      response: {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+        jsonBody: { startAt: 0, maxResults: 1000, total: issues.length, issues: issues.map((i) => ({ key: i.key })) },
+      },
+    });
+    for (const i of added) {
+      await stub({
+        request: { method: 'GET', urlPath: `/rest/api/2/issue/${i.key}`, queryParameters: { fields: { equalTo: 'status,updated' } } },
+        response: { status: 200, headers: { 'Content-Type': 'application/json' }, jsonBody: { key: i.key, fields: { status: i.fields.status, updated: i.fields.updated } } },
+      });
+    }
+    await stub({
+      request: { method: 'GET', urlPath: '/rest/api/2/issue/FACT-40' },
+      response: { status: 200, headers: { 'Content-Type': 'application/json' }, jsonBody: added[0] },
+    });
+    const indexation = async () =>
+      (await page.request.get(`/api/projects/${projectId}/indexations/current`)).json().catch(() => ({ status: 'NONE' }));
+    await expect.poll(async () => (await indexation()).status, { timeout: 60_000 }).not.toBe('RUNNING');
+    expect((await page.request.post(`/api/projects/${projectId}/indexations`, { headers, data: { mode: 'FULL' } })).status()).toBe(202);
+    // l'état courant reste celui de l'indexation précédente tant que la nouvelle n'a pas démarré
+    await expect.poll(async () => (await knowledge()).tickets, { timeout: 60_000 }).toBe(issues.length);
+    await expect.poll(async () => (await indexation()).status, { timeout: 60_000 }).toBe('SUCCEEDED');
+
+    // la story importée, puis modifiée : UC-01 change, UC-02 disparaît
+    const imported = await page.request.post('/api/jira/issues/FACT-40/import', { headers, data: {} });
+    expect(imported.status(), await imported.text()).toBe(201);
+    const id = (await imported.json()).id;
+    const proposed = await page.request.post(`/api/sessions/${id}/ai-edits`, {
+      headers,
+      data: { instruction: 'Paiement en trois fois, sans reçu E2E-SUB-TROIS-FOIS' },
+    });
+    expect(proposed.ok(), await proposed.text()).toBe(true);
+    const proposal = await proposed.json();
+    const accepted = await page.request.post(`/api/sessions/${id}/ai-edits/${proposal.proposalId}/accept`, { headers });
+    expect(accepted.ok(), await accepted.text()).toBe(true);
+    expect((await accepted.json()).number).toBe(2);
+    await jira.delete('/__admin/requests');
+
+    await page.goto(`/sessions/${id}/versions/2`);
+    const panel = page.locator('section[aria-labelledby="subtasks-title"]');
+    await expect(panel.getByRole('heading', { name: 'Sous-tâches de FACT-40' })).toBeVisible();
+    await expect(panel).toContainText('À revoir');
+    await expect(panel.locator('li').filter({ hasText: 'FACT-41' })).toContainText('UC-01 a changé.');
+    await expect(panel.locator('li').filter({ hasText: 'FACT-41' })).toContainText('Probable');
+    await expect(panel).toContainText('Livrées, à reprendre');
+    await expect(panel.locator('li').filter({ hasText: 'FACT-42' })).toContainText('UC-02 a été supprimé.');
+    await expect(panel.getByText('Non rattachées (1)')).toBeVisible();
+    await expect(panel.locator('details li').filter({ hasText: 'FACT-43' })).toBeHidden();
+    await expect(page.locator('body')).not.toContainText('travaux en cours');
+    await expectNoA11yViolations(page);
+
+    // la rubrique relit les statuts, sans jamais écrire dans Jira (FR-047)
+    const calls = (await (await jira.get('/__admin/requests')).json()).requests as { request: { method: string; url: string } }[];
+    expect(calls.map((c) => c.request.method).filter((m) => m !== 'GET')).toEqual([]);
+    expect(calls.map((c) => c.request.url).join('\n')).toContain('/rest/api/2/issue/FACT-41');
   });
 });
