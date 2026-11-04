@@ -1,4 +1,4 @@
-# Feature Specification: Projets, contexte de projet et accès des agents de code
+# Feature Specification: Projets, connaissance du projet et accès des agents de code
 
 **Feature Branch**: `005-projets-mcp`
 
@@ -16,8 +16,8 @@ Une **feature à implémenter** est une spécification qu'un agent de code peut 
 
 ### Session 2026-11-03
 
-- Q: D'où vient le contexte d'un projet ? → A: une fiche de contexte proposée par l'IA, relue et
-  modifiable par l'utilisateur, sans RAG dans cette feature. Elle est générée à partir d'une ou
+- Q: D'où vient le contexte d'un projet ? → A: *(remplacé le 2026-11-04, voir plus bas)* une fiche
+  de contexte proposée par l'IA, relue et modifiable par l'utilisateur, sans RAG dans cette feature. Elle est générée à partir d'une ou
   plusieurs documentations du projet (sites produits par Antora, accessibles par un lien, y compris
   local) et des tickets déjà présents dans le projet Jira. Elle peut être régénérée à la demande.
 - Q: Que peut faire un agent de code connecté ? → A: lire, et faire passer une feature de « prête
@@ -46,16 +46,51 @@ Une **feature à implémenter** est une spécification qu'un agent de code peut 
 
 ### Session 2026-11-04
 
-- Q: Comment rendre le contexte plus précis ? → A: deux fiches distinctes : une fiche
-  fonctionnelle (vision et objectifs, acteurs, vocabulaire, règles métier, contraintes
-  fonctionnelles) et une fiche technique (architecture, contraintes techniques, conventions de
+- Q: Comment rendre le contexte plus précis ? → A: *(remplacé, voir ci-dessous)* deux fiches
+  distinctes : une fiche fonctionnelle (vision et objectifs, acteurs, vocabulaire, règles métier,
+  contraintes fonctionnelles) et une fiche technique (architecture, contraintes techniques, conventions de
   code, intégrations). Chacune est modifiable, proposée et acceptée séparément.
-- Q: Que fait l'assistant quand les sources ne sont pas claires ? → A: avec sa proposition, il
+- Q: Que fait l'assistant quand les sources ne sont pas claires ? → A: *(remplacé, voir
+  ci-dessous)* avec sa proposition, il
   pose des questions de clarification (contradictions, informations absentes, termes ambigus).
   L'utilisateur répond ou passe, puis l'IA révise la proposition. Les réponses sont gardées avec
   le projet, citées comme sources et réutilisées aux régénérations.
-- Q: Qui reçoit quelle fiche ? → A: la rédaction des spécifications reçoit les deux fiches ; les
-  agents de code reçoivent la fiche technique avec chaque feature.
+- Q: Qui reçoit quelle fiche ? → A: *(remplacé, voir ci-dessous)* la rédaction des spécifications
+  reçoit les deux fiches ; les agents de code reçoivent la fiche technique avec chaque feature.
+
+### Session 2026-11-04 (suite) : connaissance du projet
+
+Les fiches générées ont buté plusieurs fois sur le volume des sources (délais, fiches trop
+longues, générations perdues). Conception validée :
+`docs/superpowers/specs/2026-11-04-connaissance-du-projet-design.md`.
+
+- Q: Comment spec-writer connaît-il le projet ? → A: il indexe localement les sources du projet
+  (tickets Jira, pages Antora, modèle d'architecture Structurizr) et va chercher, pour chaque
+  besoin, les seuls éléments qui le concernent. Rien n'est résumé d'avance.
+- Q: Que devient le contexte ? → A: une seule fiche générale, rédigée à la main, qui surcharge les
+  sources en cas de conflit. Les fiches générées, leur proposition et les questions Q-n sont
+  retirées ; les fiches déjà enregistrées sont fusionnées dans la fiche générale.
+- Q: Que fait l'outil d'un ticket Jira proche du besoin ? → A: il le montre avant les questions,
+  avec son statut. Fermé : nouvelle story liée à l'ancienne (« relates to »). Ouvert : comparaison
+  côte à côte ; l'utilisateur tranche entre enrichir ce ticket et créer une nouvelle story.
+- Q: Que faire des ADR ? → A: ils sont cités ; leurs contraintes façonnent les use cases ; un
+  écart à un ADR est dit explicitement. Un ADR remplacé n'est pas appliqué.
+- Q: Que faire du modèle d'architecture ? → A: il est lu depuis un dossier local (workspace
+  Structurizr, avec ce qu'il étend et inclut). La story cite les modules impactés, signale les
+  flux manquants et les efforts de déploiement supplémentaires en production. Elle distingue ce qui
+  est propre au projet de ce qui est commun.
+- Q: Quand un flux existe-t-il ? → A: relation directe, ou indirecte par un seul intermédiaire de
+  transport (topic, file, bus).
+- Q: Comment distinguer propre et commun ? → A: la propriété `ownership` d'un élément quand elle
+  est renseignée ; sinon ce qui vient du modèle commun ou de l'infrastructure partagée est commun,
+  le reste est propre au projet.
+- Q: Où se fait la recherche par le sens ? → A: en local seulement, avec un modèle remplaçable
+  exécuté sur le poste ; aucun AI Credit. Une option passant par Copilot est écartée pour
+  l'instant (Copilot ne fournit pas de vecteurs).
+- Q: Comment vérifier la pertinence ? → A: un jeu de référence réel, tiré des données du projet,
+  gardé hors du dépôt, et un jeu fictif de même forme dans le dépôt.
+- Q: Quel accès à Jira ? → A: l'index sert de cache ; seuls les tickets modifiés sont relus, et le
+  statut des tickets proches est relu en direct avant d'être montré.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -95,65 +130,66 @@ et chaque liste ne montre que les spécifications de son projet.
 
 ---
 
-### User Story 2 - Un contexte de projet qui améliore la rédaction (Priority: P1)
+### User Story 2 - spec-writer connaît le projet (Priority: P1)
 
-Chaque projet a un contexte : vocabulaire métier, acteurs habituels, règles et contraintes
-transverses, conventions de rédaction. L'utilisateur indique le lien de la documentation du projet
-(un site produit par Antora, éventuellement servi sur son poste) ; l'IA rédige une fiche de
-contexte à partir de cette documentation et des tickets déjà présents dans le projet Jira.
-L'utilisateur relit la fiche, la corrige, et peut la régénérer quand la documentation évolue.
-L'outil s'en sert pour poser moins de questions (il ne demande pas ce que le contexte dit déjà) et
-pour rédiger des spécifications cohérentes avec le reste du projet. Ce qui vient du contexte est
-tracé comme tel dans la spécification.
+Quand il rédige une story à la main, l'utilisateur vérifie dans Jira si une story évoque déjà le
+sujet, lit dans Antora les ADR, l'architecture et le vocabulaire, et consulte le modèle
+d'architecture Structurizr pour savoir quels modules sont touchés, quels flux manquent et quel
+travail de déploiement s'ajoute. spec-writer fait ce travail à sa place : il indexe les sources du
+projet sur le poste, retrouve pour chaque besoin les tickets, ADR et modules qui le concernent, et
+s'en sert pour rédiger une story juste du premier coup. Une fiche générale, écrite à la main, lui
+dit ce que les sources ne disent pas ou disent mal.
 
 **Why this priority**: c'est la raison d'être des projets selon le besoin exprimé : optimiser la
 rédaction des features.
 
-**Independent Test**: sur un même besoin, générer une spécification dans un projet sans contexte,
-puis dans un projet dont le contexte donne les acteurs et une règle métier : la seconde session ne
-pose pas de question sur ces acteurs ni sur cette règle, et la spécification les reprend avec la
-source « contexte du projet ».
+**Independent Test**: sur un projet dont l'index contient un ticket fermé sur le sujet, un ADR
+applicable et un workspace d'architecture, saisir un besoin proche : le ticket est montré avant les
+questions avec son statut, la story rédigée cite l'ADR et les modules impactés, signale le flux
+manquant et l'effort de déploiement attendus, et la story est proposée liée au ticket fermé.
 
 **Acceptance Scenarios**:
 
-1. **Given** un projet dont le contexte indique « Les acteurs sont le client et le conseiller »,
-   **When** l'utilisateur saisit un besoin qui ne nomme pas les acteurs, **Then** aucune question
-   ne porte sur les acteurs et les use cases utilisent ces deux acteurs.
-2. **Given** un use case issu d'une règle du contexte, **When** l'utilisateur consulte la
-   spécification, **Then** la source du use case est « contexte du projet », avec l'extrait
-   concerné.
-3. **Given** un contexte qui contredit le besoin saisi, **When** le questionnaire démarre, **Then**
-   la contradiction est signalée et l'utilisateur la tranche, comme une contradiction entre deux
-   réponses.
-4. **Given** une spécification générée avec un contexte, **When** l'utilisateur modifie le
-   contexte puis relance la génération, **Then** une nouvelle version est créée ; à contexte
-   inchangé, la version existante est réutilisée.
-5. **Given** un projet avec le lien de sa documentation Antora et un projet Jira contenant des
-   tickets, **When** l'utilisateur demande de générer le contexte et accepte l'envoi à GitHub
-   Copilot, **Then** l'outil lit la documentation et les tickets, puis propose une fiche de contexte
-   qui cite ses sources (pages et tickets) ; rien n'est enregistré avant que l'utilisateur
-   l'accepte.
-6. **Given** une fiche de contexte acceptée puis corrigée à la main, **When** l'utilisateur la
-   régénère après une mise à jour de la documentation, **Then** l'outil propose une nouvelle fiche
-   et montre les différences avec la fiche actuelle ; l'utilisateur accepte ou garde la sienne.
-7. **Given** une documentation injoignable ou qui n'est pas un site Antora, **When** l'utilisateur
-   demande la génération, **Then** l'outil indique ce qui n'a pas pu être lu et propose de générer
-   à partir des seuls tickets, ou de saisir le contexte à la main.
-8. **Given** une génération de contexte en cours, **When** l'utilisateur suit la page du contexte,
-   **Then** il voit l'étape en cours, la page ou le ticket en cours de lecture et l'avancement
-   (« page 12 sur 32 », « ticket 50 sur 120 ») ; s'il l'interrompt, rien n'est proposé ni
-   enregistré.
-9. **Given** une génération terminée avec des pages en erreur, **When** l'utilisateur consulte le
-   détail des erreurs ou l'écran « Journal », **Then** il voit pour chaque page son adresse, le
-   motif et le code HTTP, sans aucun contenu de page ni de ticket.
-10. **Given** une documentation qui décrit le métier et l'architecture, **When** l'utilisateur
-   génère le contexte, **Then** l'outil propose une fiche fonctionnelle et une fiche technique,
-   chacune avec ses sources et son diff ; l'utilisateur peut accepter l'une et garder l'autre.
-11. **Given** des sources qui se contredisent sur un délai, ou qui ne disent rien de la vision du
-   produit, **When** la proposition est prête, **Then** l'assistant pose une question pour chaque
-   point flou ; l'utilisateur répond à l'une, passe l'autre, demande la révision, et la nouvelle
-   proposition cite sa réponse comme source. À la régénération suivante, la question passée
-   n'est pas reposée.
+1. **Given** un projet avec sa clé Jira, le lien de sa documentation Antora et son workspace
+   Structurizr, **When** l'utilisateur enregistre ces sources, **Then** l'indexation démarre en
+   tâche de fond, sa progression est visible, et l'utilisateur peut saisir un besoin sans attendre.
+2. **Given** un ticket fermé « Annuler une facture » dans l'index, **When** l'utilisateur saisit le
+   besoin « saisir un avoir sur une facture émise », **Then** le ticket est montré avant les
+   questions avec sa clé, son titre, son statut relu dans Jira et la raison du rapprochement ; la
+   story rédigée est proposée liée à ce ticket (« relates to »), et le lien est annoncé avant
+   l'envoi vers Jira.
+3. **Given** un ticket « à faire » proche du besoin, **When** l'utilisateur l'examine, **Then**
+   l'outil compare le besoin et le ticket côte à côte (commun, différent) ; si l'utilisateur juge
+   que c'est la même story, la session bascule sur ce ticket pour l'enrichir ; sinon une nouvelle
+   story est rédigée.
+4. **Given** un ADR qui impose un traitement asynchrone, **When** la story est rédigée, **Then** ses
+   use cases n'annoncent pas de réponse immédiate et les éléments concernés citent l'ADR avec son
+   lien.
+5. **Given** un besoin qui va à l'encontre d'un ADR, **When** la story est rédigée, **Then** une
+   rubrique visible nomme l'ADR, sa décision et l'écart, et l'outil l'a signalé pendant les
+   questions pour que l'utilisateur adapte le besoin ou assume l'écart.
+6. **Given** un ADR remplacé par un autre, **When** le besoin le concerne, **Then** seul l'ADR en
+   vigueur est appliqué et cité.
+7. **Given** un besoin qui suppose un échange entre deux modules sans relation dans le modèle, ni
+   directe ni par un topic, **When** la story est rédigée, **Then** elle cite les modules impactés
+   et signale le flux manquant ; un échange qui passe déjà par un topic n'est pas signalé.
+8. **Given** un besoin qui touche un module sans instance en production, ou un flux entre deux
+   modules déployés sur des infrastructures différentes en production, **When** la story est
+   rédigée, **Then** une rubrique « Efforts supplémentaires (déploiement) » le signale, avec
+   l'élément du modèle qui le justifie, sans estimation de charge.
+9. **Given** un module impacté qui appartient au modèle commun, **When** la story le cite, **Then**
+   elle indique qu'il n'est pas propre au projet.
+10. **Given** une fiche générale qui dit « l'ADR-007 n'est plus appliqué », **When** le besoin
+   concerne l'ADR-007, **Then** la story suit la fiche et ne l'applique pas.
+11. **Given** une indexation en cours ou Jira injoignable, **When** l'utilisateur saisit un besoin,
+   **Then** l'outil dit que les résultats sont partiels, rédige avec ce qui est indexé, et propose
+   de relancer la recherche quand l'index est prêt.
+12. **Given** une indexation terminée avec des pages ou des fichiers en erreur, **When**
+   l'utilisateur consulte le détail ou l'écran « Journal », **Then** il voit pour chacun son
+   adresse ou son chemin et le motif précis (page en erreur HTTP, dossier introuvable, erreur
+   d'analyse du workspace avec fichier et ligne…), sans aucun contenu.
+13. **Given** un projet indexé, **When** un ticket est modifié dans Jira ou une page Antora change,
+   **Then** la synchronisation suivante ne relit que ce qui a changé.
 
 ---
 
@@ -239,8 +275,9 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
    compte de l'utilisateur, **Then** il peut lister les projets et les features à implémenter d'un
    projet, sans que l'utilisateur ait copié de clé.
 3. **Given** une feature à implémenter, **When** l'agent en demande le contenu, **Then** il reçoit
-   la dernière version de la spécification et la fiche technique du projet, identiques à ce que montre
-   l'outil.
+   la dernière version de la spécification, identique à ce que montre l'outil, avec la fiche
+   générale du projet, les ADR cités et les modules impactés avec leurs relations ; il peut aussi
+   chercher dans l'index du projet un ADR ou un module par sujet.
 4. **Given** l'utilisateur a régénéré le secret d'accès des agents, **When** un programme
    réutilise l'ancien secret, **Then** la connexion est refusée ; la commande MCP, elle, lit le
    nouveau secret et continue de fonctionner.
@@ -268,20 +305,28 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   le signale à l'enregistrement, et toute action Jira du projet affiche l'erreur de FR-028 (001).
 - Le projet Jira par défaut est modifié dans la configuration : les projets sans clé propre
   suivent ce changement, les autres non.
-- Le contexte dépasse la taille maximale : l'enregistrement est refusé avec la limite indiquée.
-- La fiche générée dépasse la taille maximale du contexte : l'IA est relancée avec une consigne de
-  concision ; à défaut, la proposition est refusée avec la limite indiquée.
-- La documentation contient des consignes adressées à l'IA, ou un ticket contient un texte
-  malveillant : comme le besoin, c'est une donnée, jamais une consigne (FR-026 de 001).
-- La documentation change pendant la lecture, ou une page renvoie une erreur : la génération
-  continue avec les pages lues et liste celles qui ne l'ont pas été.
+- La fiche générale dépasse la taille maximale : l'enregistrement est refusé avec la limite
+  indiquée.
+- La documentation, un ticket ou une description du modèle d'architecture contient des consignes
+  adressées à l'IA : comme le besoin, c'est une donnée, jamais une consigne (FR-026 de 001).
+- La documentation change pendant l'indexation, ou une page renvoie une erreur : l'indexation
+  continue avec le reste et liste ce qui n'a pas été indexé.
 - Le lien de documentation redirige vers un autre site : la redirection n'est pas suivie.
-- Le projet n'a ni documentation ni ticket : la génération n'est pas proposée ; la saisie
-  manuelle reste possible.
-- Le contexte contient des consignes du type « ignore tes instructions » : il reste une donnée,
-  comme le besoin (FR-026 de 001).
-- Le contexte est modifié pendant un questionnaire en cours : les questions suivantes utilisent le
-  nouveau contexte ; les réponses déjà données restent.
+- Le projet n'a aucune source : aucune recherche n'est faite ; la rédaction se fait avec la fiche
+  générale seule, comme en 001.
+- La fiche générale contient « ignore tes instructions » : elle reste une donnée (FR-026 de 001).
+- La fiche générale ou l'index change pendant un questionnaire en cours : les questions suivantes
+  utilisent la nouvelle connaissance ; les réponses déjà données restent.
+- Le workspace d'architecture ne s'analyse pas (fichier inclus introuvable, erreur de syntaxe) :
+  l'index garde le dernier modèle lu, et l'erreur est signalée avec le fichier et la ligne.
+- Deux ADR se contredisent, ou un ADR et la fiche générale : la fiche l'emporte ; entre deux ADR,
+  celui qui remplace l'autre s'applique, et à défaut la contradiction est signalée comme les
+  autres.
+- Un ticket proche a été supprimé dans Jira depuis la dernière synchronisation : il n'est pas
+  montré, et il est retiré de l'index.
+- Le modèle de recherche par le sens est absent ou illisible : la recherche se fait par les termes
+  seuls, et l'outil le signale avec la cause.
+- Un même module est cité sous deux noms (modèle et documentation) : l'élément du modèle fait foi.
 - Une suppression est demandée pendant une génération ou une proposition de l'IA en cours sur la
   même spécification : elle est refusée tant que l'opération n'est pas terminée.
 - Une version supprimée était ouverte dans un autre onglet : l'onglet affiche « version supprimée »
@@ -326,76 +371,118 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **FR-007**: La clé Jira d'un projet DOIT être vérifiée auprès de Jira à l'enregistrement quand
   Jira est configuré ; une clé introuvable est signalée sans bloquer l'enregistrement.
 
-**Contexte de projet**
+**Connaissance du projet**
 
-- **FR-008**: Chaque projet DOIT avoir un contexte : un texte en Markdown (vocabulaire, acteurs,
-  règles et contraintes transverses, conventions), de 20 000 caractères au maximum, modifiable à
-  tout moment.
-- **FR-008a**: Le contexte d'un projet DOIT se composer de deux fiches distinctes, chacune de
-  20 000 caractères au plus, avec son origine (générée, modifiée à la main) et sa date :
-  - la **fiche fonctionnelle** : vision et objectifs, acteurs, vocabulaire, règles métier,
-    contraintes fonctionnelles ;
-  - la **fiche technique** : architecture, contraintes techniques, conventions de code,
-    intégrations.
-  Chaque fiche est modifiable, proposée avec son diff, puis acceptée ou refusée indépendamment de
-  l'autre.
-- **FR-009**: Les deux fiches DOIVENT être prises en compte par toutes les opérations de l'IA d'une
-  spécification du projet : questions, réévaluation, génération, modification assistée, import et
-  fusion. La fiche technique sert aux exigences techniques. Une question dont la réponse figure dans le contexte NE DOIT PAS être posée (principe I
+- **FR-008**: Chaque projet DOIT avoir une **fiche générale** : un texte en Markdown de 20 000
+  caractères au maximum, rédigé et modifié à la main à tout moment, avec sa date de dernière
+  modification. Elle dit ce que les sources ne disent pas ou disent mal (vocabulaire, décision qui
+  n'est plus appliquée, contrainte écrite nulle part ailleurs). En cas de conflit, elle l'emporte
+  sur les tickets, la documentation et le modèle d'architecture.
+- **FR-008a**: *(retirée le 2026-11-04 : deux fiches générées)* À la mise à jour, les fiches
+  fonctionnelle et technique déjà enregistrées DOIVENT être fusionnées dans la fiche générale
+  (fonctionnelle puis technique, chacune sous son titre), sans perte.
+- **FR-009**: La fiche générale et les éléments retrouvés pour le besoin (FR-032 à FR-041)
+  DOIVENT être pris en compte par toutes les opérations de l'IA d'une spécification du projet :
+  questions, réévaluation, génération, modification assistée, import et fusion. Une question dont
+  la réponse figure dans la fiche ou dans les éléments retrouvés NE DOIT PAS être posée (principe I
   de la constitution).
-- **FR-010**: Tout élément de la spécification qui découle du contexte DOIT avoir pour source
-  « contexte du projet », avec l'extrait concerné (traçabilité, FR-011 de 001). Une contradiction
-  entre le contexte et le besoin ou une réponse DOIT être signalée et tranchée comme les autres
-  contradictions.
-- **FR-011**: Les deux fiches DOIVENT entrer dans les entrées de la génération : à fiche modifiée, une
-  nouvelle version est créée ; à contexte inchangé, la version existante est réutilisée (FR-014 et
-  FR-018 de 001). Chaque version DOIT indiquer si un contexte a été utilisé et de quand il date.
-- **FR-012**: Le contexte DOIT être traité comme une donnée et jamais comme une consigne (FR-026 de
-  001), ne DOIT jamais figurer dans les journaux (FR-025 de 001), et n'est envoyé à GitHub Copilot
-  que dans le cadre du consentement existant (FR-024 de 001).
-- **FR-013**: L'utilisateur DOIT pouvoir déclarer pour un projet une ou plusieurs sources de
-  documentation : le lien d'un site produit par Antora (adresse `http` ou `https`, y compris sur
-  son poste) ou le dossier local de ce site. Seules les pages de ce site sont lues, sans suivre les
-  liens vers d'autres sites.
-- **FR-013a**: À la demande de l'utilisateur, l'IA DOIT proposer les deux fiches, rédigées à
-  partir des sources de documentation, des tickets déjà présents dans le projet Jira associé et
-  des réponses déjà données (FR-013i). Chaque affirmation cite ses sources (page de documentation,
-  clé de ticket, réponse). Rien n'est enregistré avant que l'utilisateur accepte une fiche.
-- **FR-013b**: Avant de générer, l'outil DOIT indiquer ce qui sera envoyé à GitHub Copilot (nombre
-  de pages, nombre de tickets) et obtenir l'accord de FR-024 (001). Les pages lues ne sont
-  conservées que le temps de la génération.
-- **FR-013c**: L'utilisateur DOIT pouvoir modifier la fiche à la main à tout moment, et la
-  régénérer à la demande ; une régénération est présentée comme une proposition, avec ses
-  différences avec la fiche actuelle, que l'utilisateur accepte ou refuse.
-- **FR-013d**: La génération DOIT rester possible si une partie des sources est inaccessible :
-  l'outil liste ce qui n'a pas été lu (page en erreur, site introuvable, site qui n'est pas
-  produit par Antora) et propose de continuer avec le reste, ou de saisir le contexte à la main.
-- **FR-013e**: La lecture d'une documentation DOIT être bornée : 1 000 pages au maximum par
-  source et 10 minutes au maximum ; l'outil indique quand une borne est atteinte. Les tickets pris
-  en compte sont les 200 plus récemment modifiés du projet Jira.
-- **FR-013f**: Pendant une génération de contexte, l'outil DOIT afficher l'étape en cours (lecture
-  de la documentation, lecture des tickets Jira, extraction des faits, rédaction de la fiche), la
-  page ou le ticket en cours de lecture et l'avancement de l'étape (pages, tickets ou lots traités
-  sur le total), mis à jour au moins toutes les 2 secondes. L'utilisateur DOIT pouvoir quitter la
-  page puis la retrouver en cours, et interrompre la génération : rien n'est alors proposé ni
-  enregistré. Une seule génération à la fois par projet.
-- **FR-013g**: À la fin d'une génération, réussie, interrompue ou en échec, l'outil DOIT afficher
-  le détail de ses erreurs : pour chaque source ou page non lue, son adresse, le motif et le code
-  HTTP s'il y en a un ; les erreurs Jira ; les corrections demandées à l'IA et leur motif ; la
-  cause d'un échec. Ce détail ne contient aucun contenu de page ni de ticket.
-
-- **FR-013h**: Avec sa proposition, l'IA DOIT poser des questions de clarification sur ce qui
-  n'est pas clair : sources qui se contredisent, information attendue mais absente (vision,
-  objectifs, architecture…), terme ambigu, règle incomplète. 10 questions au plus, chacune
-  rattachée à une fiche, avec sa raison et des suggestions. Une information présente dans les
-  sources ou les réponses NE DOIT PAS faire l'objet d'une question. L'utilisateur répond ou
-  passe, puis demande la révision : l'IA révise la proposition à partir des mêmes faits et des
-  réponses, sans relire les sources. Les réponses non encore utilisées restent proposables.
-- **FR-013i**: Les réponses et les questions passées DOIVENT être conservées avec le projet,
-  numérotées (Q-1, Q-2…). Une réponse est une source citable des fiches (« [source : Q-3] ») et
-  est transmise aux générations suivantes ; une question passée n'est pas reposée. L'utilisateur
-  DOIT pouvoir consulter ses réponses et en modifier une ; la modification ne change aucune fiche
-  avant la génération suivante.
+- **FR-010**: Tout élément de la spécification qui découle de la connaissance du projet DOIT citer
+  sa source : « contexte du projet » (fiche générale) avec l'extrait, ticket Jira avec sa clé,
+  page de documentation ou ADR avec son lien, élément du modèle d'architecture avec son nom
+  (traçabilité, FR-011 de 001). Une contradiction entre ces sources et le besoin ou une réponse
+  DOIT être signalée et tranchée comme les autres contradictions.
+- **FR-011**: La fiche générale et les éléments retrouvés (identifiant et date de mise à jour de
+  chacun) DOIVENT entrer dans les entrées de la génération : si l'un change, une nouvelle version
+  est créée ; sinon la version existante est réutilisée (FR-014 et FR-018 de 001). Chaque version
+  DOIT indiquer la connaissance utilisée et de quand elle date.
+- **FR-012**: La fiche générale et le contenu indexé DOIVENT être traités comme des données et
+  jamais comme des consignes (FR-026 de 001), et NE DOIVENT jamais figurer dans les journaux
+  (FR-025 de 001). Seuls les éléments retrouvés pour un besoin, jamais l'index entier, sont
+  envoyés à GitHub Copilot, dans le cadre du consentement existant (FR-024 de 001).
+- **FR-013**: L'utilisateur DOIT pouvoir déclarer pour un projet ses sources : la clé Jira
+  (FR-001), une ou plusieurs documentations Antora (lien `http` ou `https`, y compris sur son poste,
+  ou dossier local du site produit ; seules les pages de ce site sont lues, sans suivre les liens
+  vers d'autres sites) et le fichier de workspace Structurizr du projet, dans un dossier local.
+- **FR-013a**: *(retirée le 2026-11-04 : proposition des fiches par l'IA ; remplacée par FR-032)*
+- **FR-013b**: *(retirée le 2026-11-04 : aperçu de l'envoi d'une génération de fiches ; voir
+  FR-012)*
+- **FR-013c**: *(retirée le 2026-11-04 : régénération des fiches ; voir FR-008)*
+- **FR-013d**: L'indexation DOIT rester possible si une partie des sources est inaccessible :
+  l'outil indexe le reste et liste ce qui n'a pas été indexé, avec le motif précis (page en
+  erreur, site introuvable, site qui n'est pas produit par Antora, dossier absent ou illisible,
+  sources AsciiDoc au lieu du site produit, workspace qui ne s'analyse pas). La rédaction reste
+  possible avec ce qui est indexé.
+- **FR-013e**: La lecture d'une documentation DOIT être bornée à 1 000 pages par source ; l'outil
+  indique quand la borne est atteinte. Tous les tickets du projet Jira sont indexés, dans la limite
+  de débit de FR-022a.
+- **FR-013f**: Pendant une indexation, l'outil DOIT afficher l'étape en cours (tickets Jira,
+  documentation, modèle d'architecture), l'élément en cours et l'avancement (éléments traités sur
+  le total), mis à jour au moins toutes les 2 secondes, et le temps écoulé. L'utilisateur DOIT
+  pouvoir quitter la page puis la retrouver en cours, et l'interrompre : ce qui a déjà été indexé
+  est gardé. Une seule indexation à la fois par projet.
+- **FR-013g**: À la fin d'une indexation, réussie, interrompue ou en échec, l'outil DOIT afficher
+  le détail de ses erreurs : pour chaque source, page, ticket ou fichier non indexé, son adresse,
+  sa clé ou son chemin, le motif et le code HTTP s'il y en a un, et la cause d'un échec. Ce détail
+  ne contient aucun contenu de page, de ticket ni de modèle.
+- **FR-013h**: *(retirée le 2026-11-04 : questions de clarification sur les fiches ; les
+  questions sur le besoin de 001 demeurent, FR-009)*
+- **FR-013i**: *(retirée le 2026-11-04 : réponses Q-n citables)*
+- **FR-032**: L'outil DOIT tenir, sur le poste et par projet, un **index** des sources déclarées :
+  les tickets du projet Jira (clé, titre, description, type, statut, date de mise à jour), les
+  sections des pages de documentation (un ADR, une entrée de vocabulaire, une section
+  d'architecture…) avec leur lien, et le modèle d'architecture (éléments, relations,
+  déploiements). Il DOIT pouvoir y chercher les éléments proches d'un besoin **par le sens** (un
+  besoin et un ticket sans mot commun doivent pouvoir se rapprocher) et **par les termes exacts**
+  (codes, noms de composants). La recherche par le sens se fait sur le poste, sans réseau ni AI
+  Credit ; le modèle qui la permet est remplaçable par l'utilisateur.
+- **FR-033**: L'index DOIT se construire seul, en tâche de fond, dès qu'une source est déclarée,
+  puis se tenir à jour **par synchronisation incrémentale** : à l'ouverture d'un besoin et à la
+  demande (« Resynchroniser »). Seuls les tickets modifiés depuis la dernière synchronisation, les
+  pages dont la date a changé et les fichiers du workspace modifiés sont relus. Une
+  synchronisation ne bloque jamais la saisie d'un besoin ; un index incomplet est annoncé
+  (« résultats partiels ») et la recherche peut être relancée quand il est prêt.
+- **FR-034**: Dès la saisie d'un besoin et **avant les questions de clarification**, l'outil DOIT
+  montrer les tickets Jira du projet qui traitent du même problème, 5 au plus, avec leur clé,
+  titre, statut et la raison du rapprochement. Le statut de ces tickets DOIT être relu dans Jira
+  avant d'être montré ; s'il ne peut pas l'être, le statut indexé est montré avec sa date.
+- **FR-035**: Selon le ticket retenu par l'utilisateur :
+  - **ticket fermé** : l'outil DOIT rédiger une nouvelle story, qui s'appuie sur le contexte de
+    l'ancienne sans le recopier, et la créer dans Jira liée à l'ancienne par un lien « relates
+    to » ; le lien est annoncé dans l'aperçu avant l'envoi, sous le consentement Jira existant ;
+  - **ticket non fermé** : l'outil DOIT comparer le besoin et le ticket (ce qui est commun, ce qui
+    diffère). Si l'utilisateur juge que c'est la même story, la session bascule sur ce ticket par
+    l'import de 001 pour l'enrichir ; sinon une nouvelle story est rédigée ;
+  - **aucun ticket retenu** : la rédaction continue normalement.
+- **FR-036**: L'outil DOIT retrouver les **ADR** qui concernent le besoin. Leurs contraintes
+  DOIVENT façonner les use cases et les scénarios, et chaque élément qui en découle DOIT citer
+  l'ADR (FR-010). Un ADR remplacé ou obsolète NE DOIT PAS être appliqué ; celui qui le remplace
+  l'est.
+- **FR-037**: Si le besoin va à l'encontre d'un ADR, l'outil DOIT le signaler pendant les questions,
+  pour que l'utilisateur adapte le besoin ou assume l'écart, et la story DOIT le dire dans une
+  rubrique visible : l'ADR, sa décision, l'écart.
+- **FR-038**: L'outil DOIT lire le **modèle d'architecture** du projet depuis le fichier de
+  workspace déclaré, avec le modèle qu'il étend et les fichiers qu'il inclut, comme le fait
+  Structurizr. Il DOIT distinguer, pour chaque élément, s'il est **propre au projet** ou
+  **commun** : la propriété `ownership` de l'élément quand elle est renseignée ; sinon un élément
+  défini dans le modèle étendu ou dans un fichier d'infrastructure partagée est commun, et le reste
+  (y compris ce que le workspace ajoute à l'intérieur d'un système commun) est propre au projet.
+- **FR-039**: La story DOIT citer les **modules impactés** par le besoin, en indiquant pour chacun
+  s'il est propre au projet ou commun.
+- **FR-040**: Si le besoin suppose un échange entre deux modules sans **flux** dans le modèle, la
+  story DOIT le signaler comme flux manquant. Un flux existe s'il y a une relation directe, ou une
+  relation indirecte par **un seul** intermédiaire de transport (topic, file, bus). Cette
+  vérification DOIT être faite par l'outil sur le modèle, jamais laissée à l'IA.
+- **FR-041**: La story DOIT signaler, dans une rubrique « Efforts supplémentaires (déploiement) »,
+  ce que le modèle de déploiement de **production** révèle, chacun avec l'élément qui le justifie
+  et sans estimation de charge : module sans instance en production ; flux entre modules dont les
+  instances de production sont sous des infrastructures racines différentes ; module déployé en
+  plusieurs instances en production ; dépendance à une infrastructure partagée. Ces constats
+  DOIVENT être établis par l'outil sur le modèle.
+- **FR-042**: Le vocabulaire et la vue d'ensemble de l'architecture de la documentation DOIVENT
+  accompagner chaque rédaction, en priorité sur les autres éléments retrouvés.
+- **FR-043**: Une erreur de la connaissance du projet (index incomplet, source injoignable, modèle
+  de recherche absent) NE DOIT jamais faire échouer une rédaction : la story est rédigée avec ce
+  qui est disponible, et le manque est signalé.
 
 **Suppression locale**
 
@@ -432,7 +519,7 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   place, avec un message qui propose de réessayer (FR-028 et FR-045 de 001).
 - **FR-022a**: L'outil NE DOIT jamais envoyer plus de 8 requêtes à Jira sur une même seconde,
   toutes opérations confondues (recherche, pagination, import, envoi, création, vérification de
-  la configuration, lecture des tickets pour la fiche de contexte), nouvelles tentatives après un
+  la configuration, synchronisation de l'index), nouvelles tentatives après un
   refus de débit (429) comprises. Une requête en excès attend son tour ; si l'attente dépasse
   10 secondes, l'opération échoue avec l'erreur de débit de FR-028 (001).
 
@@ -453,7 +540,9 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **FR-025**: Un agent connecté DOIT pouvoir lister les projets, lister les features à implémenter
   d'un projet, et lire le contenu complet d'une feature : la dernière version de la spécification
   (use cases, scénarios, hypothèses, exigences, détails), identique à l'export Markdown et à
-  l'écran, et la fiche technique du projet (FR-008a).
+  l'écran, avec la connaissance du projet qui l'accompagne : la fiche générale, les ADR cités et
+  les modules impactés avec leurs relations. Il DOIT aussi pouvoir chercher dans l'index du projet
+  par sujet (FR-032), sans déclencher de synchronisation ni d'appel à Jira ou à Copilot.
 - **FR-026**: Chaque spécification DOIT avoir un statut d'implémentation, modifiable par
   l'utilisateur : « brouillon », « prête à implémenter », « en cours », « implémentée ». Les
   features à implémenter sont les spécifications « prêtes à implémenter » ou « en cours ». Une
@@ -482,8 +571,8 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 
 **Interface**
 
-- **FR-030**: Les nouveaux écrans et dialogues (projets, contexte, suppressions, pagination,
-  accès des agents) DOIVENT respecter les exigences d'interface de 001 (FR-027 à FR-029 : WCAG 2.1
+- **FR-030**: Les nouveaux écrans et dialogues (projets, fiche générale, sources, indexation,
+  tickets proches, suppressions, pagination, accès des agents) DOIVENT respecter les exigences d'interface de 001 (FR-027 à FR-029 : WCAG 2.1
   AA, messages d'erreur utiles).
 - **FR-031**: L'outil DOIT proposer un écran « Journal » qui affiche les 500 dernières entrées
   d'avertissement et d'erreur du backend (date, niveau, origine, message, cause), les plus récentes
@@ -497,22 +586,33 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 ### Key Entities
 
 - **Projet** : nom unique, description, clé de projet Jira facultative (surcharge du projet par
-  défaut), contexte, date de création et de modification. Contient des spécifications.
-- **Contexte de projet** : deux fiches Markdown, fonctionnelle et technique, chacune avec sa date
-  de dernière modification et son origine (générée, modifiée à la main) ; elles servent d'entrée
-  aux opérations de l'IA et sont citées comme source dans les spécifications.
-- **Question de contexte** : question de clarification posée par l'IA sur une fiche, numérotée
-  dans le projet (Q-n), avec sa raison et sa réponse ou son état « passée ». Une réponse est une
-  source citable des fiches.
+  défaut), fiche générale, sources, date de création et de modification. Contient des
+  spécifications.
+- **Fiche générale** : texte Markdown rédigé à la main, avec sa date de dernière modification ;
+  surcharge les sources, entre dans les opérations de l'IA et est citée comme « contexte du
+  projet ».
 - **Source de documentation** : lien ou dossier local d'un site Antora rattaché à un projet, avec
   la date et le résultat de sa dernière lecture (pages lues, pages en erreur).
+- **Source d'architecture** : fichier de workspace Structurizr d'un projet, avec la date et le
+  résultat de sa dernière lecture.
+- **Élément indexé** : ticket Jira (clé, titre, description, type, statut, date de mise à jour),
+  section de documentation (lien, titre, type : ADR et son statut, vocabulaire, architecture,
+  autre) ou élément d'architecture (nom, type, description, technologie, propre ou commun), avec ce
+  qui permet de le retrouver par le sens et par les termes.
+- **Relation et déploiement** : relation entre deux éléments d'architecture (description,
+  technologie) ; instance d'un élément dans un environnement de déploiement, sous une
+  infrastructure racine.
+- **Ticket proche** : ticket retrouvé pour un besoin, avec son statut relu et la raison du
+  rapprochement ; mène à une story liée, à l'enrichissement du ticket ou à une nouvelle story.
+- **Indexation** : opération en cours ou terminée d'un projet (étape, élément en cours, compteurs,
+  erreurs, temps écoulé), gardée en mémoire et jamais journalisée.
 - **Spécification** (session de 001) : rattachée à un projet ; reçoit un statut d'implémentation,
   la date de passage à « implémentée » et, pour une évolution, la spécification d'origine.
-- **Version de spécification** (001) : indique si un contexte a été utilisé et sa date.
-- **Source « contexte du projet »** : nouveau type de source d'un use case ou d'une hypothèse,
-  avec l'extrait du contexte.
-- **Génération de contexte** : opération en cours ou terminée d'un projet (étape, élément en cours
-  de lecture, compteurs, erreurs, proposition obtenue), gardée en mémoire et jamais journalisée.
+- **Version de spécification** (001) : indique la connaissance utilisée (fiche générale, éléments
+  retrouvés) et sa date.
+- **Sources de la connaissance du projet** : nouveaux types de source d'un use case ou d'une
+  hypothèse : « contexte du projet » (extrait de la fiche), ticket Jira, page ou ADR, élément
+  d'architecture.
 - **Entrée de journal** : date, niveau (avertissement, erreur), origine, message et cause expurgés.
 - **Secret d'accès des agents** : secret généré par l'outil dans le dossier de données, lu par la
   commande MCP, régénérable par l'utilisateur, jamais affiché.
@@ -525,17 +625,23 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 
 - **SC-001**: Après la mise à jour, 100 % des spécifications existantes sont retrouvées, avec
   toutes leurs versions, dans le projet par défaut.
-- **SC-002**: Sur le jeu de besoins de référence complété d'un contexte de projet, au plus 5 % des
-  questions posées portent sur une information présente dans le contexte, et le nombre moyen de
-  questions baisse d'au moins 20 % par rapport à la même session sans contexte.
-- **SC-003**: Sur le même jeu, 100 % des éléments issus du contexte ont pour source « contexte du
-  projet », et la part de questions pertinentes reste au moins au niveau de la base actuelle
-  (SC-004 de 001).
-- **SC-004**: Un utilisateur crée un projet avec sa clé Jira et son contexte, puis y démarre une
-  spécification, en moins de 3 minutes.
-- **SC-004a**: Pour une documentation Antora de 300 pages et 200 tickets, une proposition de fiche
-  de contexte est prête en moins de 10 minutes, et 100 % de ses affirmations citent une page ou un
-  ticket existant.
+- **SC-002**: Sur le jeu de référence (besoins types, avec pour chacun les tickets, ADR, modules,
+  flux manquants et efforts de déploiement attendus), au moins 90 % des tickets attendus figurent
+  parmi les tickets proches montrés, 100 % des ADR attendus sont cités, et 100 % des flux manquants
+  et efforts de déploiement attendus sont signalés, sans aucun flux existant signalé à tort.
+- **SC-003**: Sur le même jeu, 100 % des éléments issus de la connaissance du projet citent une
+  source existante, au plus 5 % des questions posées portent sur une information présente dans la
+  fiche ou les éléments retrouvés, et la part de questions pertinentes reste au moins au niveau de
+  la base actuelle (SC-004 de 001).
+- **SC-004**: Un utilisateur crée un projet avec sa clé Jira, sa documentation et son workspace,
+  puis y démarre une spécification, en moins de 3 minutes, sans attendre la fin de l'indexation.
+- **SC-004a**: Pour 300 pages, 200 tickets et un workspace de 2 000 lignes, la première indexation
+  se termine en moins de 10 minutes sur un poste de développement courant ; une synchronisation
+  incrémentale sans changement en moins de 30 secondes ; les tickets proches s'affichent moins de
+  5 secondes après la saisie du besoin.
+- **SC-004b**: Sur le jeu de référence, 100 % des rédactions aboutissent du premier essai, sans
+  réglage ni relance de la part de l'utilisateur, et aucune n'échoue à cause du volume des sources
+  du projet.
 - **SC-005**: Après confirmation, un élément supprimé n'apparaît plus dans aucune vue, recherche,
   export ni réponse à un agent, dans 100 % des cas, et aucun appel n'est fait vers Jira.
 - **SC-006**: Une page de tickets Jira s'affiche en moins de 3 secondes dans 95 % des cas, quel que
@@ -562,12 +668,27 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - Une suppression est définitive : pas de corbeille. La confirmation nommée suffit à éviter les
   erreurs.
 - La pagination par 25 suit les usages de Jira ; ce nombre n'est pas réglable dans cette feature.
-- Pas de RAG dans cette feature : le contexte est une fiche unique, relue par l'utilisateur. Une
-  recherche des extraits les plus proches à chaque génération pourra s'y ajouter plus tard.
+- La connaissance du projet repose sur un index local et une recherche des éléments proches de
+  chaque besoin ; rien n'est résumé d'avance. Le modèle de recherche par le sens est fourni avec
+  l'outil ou téléchargé une fois, sans manipulation de l'utilisateur.
+- Les ADR sont des pages de la documentation Antora ; leur statut (en vigueur, remplacé) se lit
+  dans la page.
+- Le modèle d'architecture est un workspace Structurizr en DSL, dans un dossier local, qui peut
+  étendre un modèle commun et inclure d'autres fichiers ; seuls les déploiements de production
+  servent aux efforts supplémentaires.
+- SharePoint, wiki et documents Office (Word, Excel) sont hors périmètre ; l'index est conçu pour
+  accueillir d'autres sources plus tard.
+- Le jeu de référence réel est tiré de données de l'entreprise : il reste hors du dépôt de
+  spec-writer, dans un dossier local lu par les tests s'il existe ; ses réponses attendues sont
+  écrites par l'utilisateur. Un jeu fictif de même forme est versionné et sert de garde-fou au
+  build.
+- La recherche par le sens se fait seulement en local ; une option passant par GitHub Copilot est
+  hors périmètre.
 - La documentation est accessible sans authentification depuis le poste (site interne, serveur
   local ou dossier). Un site protégé par un identifiant est hors périmètre.
-- Un site Antora publie la liste de ses pages ; l'outil s'en sert pour savoir quoi lire. Les
-  autres générateurs de documentation sont hors périmètre.
+- Un site Antora publie la liste de ses pages, avec leur date de modification ; l'outil s'en sert
+  pour savoir quoi lire et quoi relire. Les autres générateurs de documentation sont hors
+  périmètre.
 - La lecture de la documentation passe par le proxy d'entreprise, comme Jira (T139 de 001).
-- Les skills de rédaction envisagés plus tôt (fichiers SKILL.md) restent hors périmètre : le
-  contexte de projet couvre une partie de ce besoin.
+- Les skills de rédaction envisagés plus tôt (fichiers SKILL.md) restent hors périmètre : la
+  connaissance du projet couvre une partie de ce besoin.
