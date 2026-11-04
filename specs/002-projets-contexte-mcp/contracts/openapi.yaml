@@ -209,6 +209,26 @@ paths:
       responses:
         '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SearchPage' } } } }
 
+  /api/settings/embedding:
+    get:
+      summary: État du modèle de recherche et ses réglages (research.md R19)
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/EmbeddingSettings' } } } }
+    put:
+      summary: Remplace le modèle par un dossier local (chargé aussitôt), ou revient au modèle par défaut (dossier vide)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder: { type: string, maxLength: 2000, description: 'Chemin absolu ; model.onnx et tokenizer.json, ou un seul fichier de chaque suffixe' }
+                pooling: { enum: [MEAN, CLS] }
+                queryPrefix: { type: string, maxLength: 50 }
+                passagePrefix: { type: string, maxLength: 50 }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/EmbeddingSettings' } } } }
+        '422': { description: 'Chemin relatif, dossier absent, fichier du modèle manquant, pooling inconnu' }
   /api/settings/agent-access:
     get:
       summary: État de l'accès des agents et ligne de configuration à déclarer dans un agent
@@ -354,6 +374,17 @@ components:
         syncedAt: { type: string, format: date-time }
         partial: { type: boolean, description: "Indexation en cours, source en erreur ou modèle absent" }
         model: { enum: [MISSING, DOWNLOADING, READY, ERROR, TERMS_ONLY] }
+    EmbeddingSettings:
+      type: object
+      properties:
+        state: { enum: [MISSING, DOWNLOADING, READY, ERROR, TERMS_ONLY] }
+        modelId: { type: string }
+        problem: { type: string, description: 'Motif du dernier échec, sans contenu' }
+        defaultModel: { type: boolean }
+        folder: { type: string }
+        pooling: { enum: [MEAN, CLS] }
+        queryPrefix: { type: string }
+        passagePrefix: { type: string }
     KnowledgeHit:
       type: object
       properties:

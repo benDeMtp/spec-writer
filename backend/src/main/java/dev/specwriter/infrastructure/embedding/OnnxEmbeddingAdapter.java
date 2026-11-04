@@ -84,6 +84,7 @@ public class OnnxEmbeddingAdapter implements EmbeddingPort {
     }
 
     /** Motif du dernier échec, sans contenu, pour l'indexation et le journal. */
+    @Override
     public String problem() {
         return problem;
     }

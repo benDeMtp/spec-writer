@@ -7,6 +7,8 @@ import { provideMarkdown } from 'ngx-markdown';
 import { Project } from '../../core/projects/projects.model';
 import { ProjectContextPage } from './project-context.page';
 
+const STATUS = { tickets: 6, docSections: 7, adrs: 3, architectureElements: 10, syncedAt: '2026-11-04T08:00:00Z', partial: false, model: 'READY' };
+
 const FACT: Project = {
   id: 'p1',
   name: 'Facturation',
@@ -61,6 +63,14 @@ describe('ProjectContextPage', () => {
     fixture.detectChanges();
     ctrl.expectOne('/api/projects').flush([project]);
     await settle(fixture);
+    knowledge();
+    await settle(fixture);
+  }
+
+  /** Le panneau de la connaissance relit l'état et l'indexation. */
+  function knowledge(): void {
+    ctrl.expectOne('/api/projects/p1/knowledge').flush(STATUS);
+    ctrl.expectOne('/api/projects/p1/indexations/current').flush(null, { status: 404, statusText: 'Not Found' });
   }
 
   afterEach(() => ctrl.verify());
@@ -102,11 +112,42 @@ describe('ProjectContextPage', () => {
     await settle(fixture);
     ctrl.expectOne('/api/projects').flush([FACT]);
     await settle(fixture);
+    knowledge();
+    await settle(fixture);
     el.querySelector<HTMLButtonElement>('[aria-label="Retirer la source https://docs.example.com/billing/"]')!.click();
     ctrl.expectOne((r) => r.method === 'DELETE' && r.url === '/api/projects/p1/doc-sources/s1').flush(null);
     await settle(fixture);
     ctrl.expectOne('/api/projects').flush([{ ...FACT, docSources: [] }]);
     await settle(fixture);
+    knowledge();
+    await settle(fixture);
     expect(el.textContent).toContain('Aucune source.');
+  });
+
+  it('enregistre puis retire le workspace Structurizr', async () => {
+    await open(FACT);
+    expect(el.textContent).toContain('Jira : projet FACT.');
+    type(el.querySelector<HTMLInputElement>('input[name="workspace"]')!, '/Users/moi/C4/facturation/workspace.dsl');
+    type(el.querySelector<HTMLInputElement>('input[name="ownership"]')!, 'facturation');
+    await settle(fixture);
+    Array.from(el.querySelectorAll<HTMLButtonElement>('form[aria-label="Modèle d\'architecture"] button'))
+      .find((b) => b.textContent?.trim() === 'Enregistrer')!
+      .click();
+    const put = ctrl.expectOne('/api/projects/p1/architecture-source');
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.body).toEqual({ workspace: '/Users/moi/C4/facturation/workspace.dsl', ownership: 'facturation' });
+    put.flush({ ...FACT, architectureWorkspace: '/Users/moi/C4/facturation/workspace.dsl', architectureOwnership: 'facturation' });
+    await settle(fixture);
+    knowledge();
+    await settle(fixture);
+    expect(el.textContent).toContain("Modèle d'architecture enregistré.");
+    el.querySelector<HTMLButtonElement>('[aria-label="Retirer le modèle d\'architecture"]')!.click();
+    ctrl.expectOne((r) => r.method === 'DELETE' && r.url === '/api/projects/p1/architecture-source').flush(null);
+    await settle(fixture);
+    ctrl.expectOne('/api/projects').flush([FACT]);
+    await settle(fixture);
+    knowledge();
+    await settle(fixture);
+    expect(el.querySelector<HTMLInputElement>('input[name="workspace"]')!.value).toBe('');
   });
 });

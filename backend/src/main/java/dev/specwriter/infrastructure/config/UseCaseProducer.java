@@ -5,6 +5,7 @@ import dev.specwriter.domain.port.DocSourceRepository;
 import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.knowledge.AnalyzeArchitecture;
+import dev.specwriter.application.knowledge.ManageEmbeddingSettings;
 import dev.specwriter.application.knowledge.SelectKnowledge;
 import dev.specwriter.application.knowledge.SessionKnowledge;
 import dev.specwriter.application.knowledge.Indexations;
@@ -366,6 +367,12 @@ public class UseCaseProducer {
             @ConfigProperty(name = "specwriter.knowledge.auto-index", defaultValue = "true") boolean automatic) {
         return new Indexations(synchronize, projects, task -> Thread.ofVirtual().name("indexation").start(task), clock,
                 automatic);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageEmbeddingSettings manageEmbeddingSettings(SettingsRepository settings, EmbeddingPort embedding) {
+        return new ManageEmbeddingSettings(settings, embedding);
     }
 
     @Produces

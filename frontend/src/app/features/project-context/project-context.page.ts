@@ -8,6 +8,8 @@ import { RouterLink } from '@angular/router';
 import { ContextApi } from '../../core/projects/context.api';
 import { DocSource, DocSourceKind, Project } from '../../core/projects/projects.model';
 import { ProjectsApi } from '../../core/projects/projects.api';
+import { KnowledgeApi } from '../../core/projects/knowledge.api';
+import { KnowledgePanelComponent } from './knowledge-panel.component';
 import { SheetEditorComponent } from './sheet-editor.component';
 
 /**
@@ -17,7 +19,7 @@ import { SheetEditorComponent } from './sheet-editor.component';
 @Component({
   selector: 'sw-project-context-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, RouterLink, SheetEditorComponent],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, RouterLink, SheetEditorComponent, KnowledgePanelComponent],
   template: `
     <p class="back"><a routerLink="/projets">Projets</a></p>
     @if (project(); as p) {
@@ -64,6 +66,42 @@ import { SheetEditorComponent } from './sheet-editor.component';
         } @else {
           <p class="hint">Un projet a au plus 10 sources.</p>
         }
+      </section>
+
+      <section class="sheet" aria-labelledby="architecture-title">
+        <h2 id="architecture-title">Modèle d'architecture</h2>
+        <p class="hint">
+          Le fichier workspace.dsl Structurizr du projet, lu avec le modèle qu'il étend et les fichiers qu'il inclut. Les
+          éléments dont la propriété ownership vaut la valeur indiquée sont propres au projet.
+        </p>
+        <form class="add" (ngSubmit)="saveWorkspace()" aria-label="Modèle d'architecture">
+          <mat-form-field appearance="outline" class="grow">
+            <mat-label>Chemin du fichier workspace.dsl</mat-label>
+            <input matInput name="workspace" maxlength="2000" [ngModel]="workspace()" (ngModelChange)="workspace.set($event)" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Ownership du projet</mat-label>
+            <input matInput name="ownership" maxlength="80" [ngModel]="ownership()" (ngModelChange)="ownership.set($event)" />
+          </mat-form-field>
+          <button mat-stroked-button type="submit" [disabled]="!workspace().trim() || busy()">Enregistrer</button>
+          @if (p.architectureWorkspace) {
+            <button
+              mat-button
+              type="button"
+              (click)="clearWorkspace()"
+              [disabled]="busy()"
+              aria-label="Retirer le modèle d'architecture"
+            >
+              Retirer
+            </button>
+          }
+        </form>
+        <p class="hint">Jira : {{ p.effectiveJiraProjectKey ? 'projet ' + p.effectiveJiraProjectKey : 'aucun projet Jira' }}.</p>
+      </section>
+
+      <section class="sheet" aria-labelledby="knowledge-title">
+        <h2 id="knowledge-title">Connaissance du projet</h2>
+        <sw-knowledge-panel [projectId]="p.id" [revision]="revision()" />
       </section>
     }
   `,
@@ -136,12 +174,17 @@ export class ProjectContextPage {
 
   private readonly projects = inject(ProjectsApi);
   private readonly api = inject(ContextApi);
+  private readonly knowledge = inject(KnowledgeApi);
 
   protected readonly project = signal<Project | null>(null);
   protected readonly kind = signal<DocSourceKind>('URL');
   protected readonly location = signal('');
   protected readonly busy = signal(false);
   protected readonly announce = signal('');
+  protected readonly workspace = signal('');
+  protected readonly ownership = signal('');
+  /** Une source ou le workspace changent : la connaissance est relue (indexation lancée par le serveur). */
+  protected readonly revision = signal(0);
 
   constructor() {
     effect(() => {
@@ -152,7 +195,13 @@ export class ProjectContextPage {
 
   private async load(id: string): Promise<void> {
     const all = await this.projects.list();
-    this.project.set(all.find((p) => p.id === id) ?? null);
+    this.show(all.find((p) => p.id === id) ?? null);
+  }
+
+  private show(p: Project | null): void {
+    this.project.set(p);
+    this.workspace.set(p?.architectureWorkspace ?? '');
+    this.ownership.set(p?.architectureOwnership ?? '');
   }
 
   protected lastRead(s: DocSource): string {
@@ -170,7 +219,7 @@ export class ProjectContextPage {
       return;
     }
     await this.run(async () => {
-      this.project.set(await this.api.save(p.id, markdown));
+      this.show(await this.api.save(p.id, markdown));
       this.announce.set('Fiche générale enregistrée.');
     });
   }
@@ -184,8 +233,9 @@ export class ProjectContextPage {
     await this.run(async () => {
       await this.api.addSource(p.id, this.kind(), location);
       this.location.set('');
-      this.announce.set('Source ajoutée.');
+      this.announce.set('Source ajoutée. Elle est lue en arrière-plan.');
       await this.load(p.id);
+      this.revision.update((n) => n + 1);
     });
   }
 
@@ -198,6 +248,33 @@ export class ProjectContextPage {
       await this.api.deleteSource(p.id, s.id);
       this.announce.set(`Source ${s.location} retirée.`);
       await this.load(p.id);
+      this.revision.update((n) => n + 1);
+    });
+  }
+
+  protected async saveWorkspace(): Promise<void> {
+    const p = this.project();
+    const workspace = this.workspace().trim();
+    if (!p || !workspace) {
+      return;
+    }
+    await this.run(async () => {
+      this.show(await this.knowledge.setArchitecture(p.id, workspace, this.ownership().trim() || null));
+      this.announce.set("Modèle d'architecture enregistré. Il est lu en arrière-plan.");
+      this.revision.update((n) => n + 1);
+    });
+  }
+
+  protected async clearWorkspace(): Promise<void> {
+    const p = this.project();
+    if (!p) {
+      return;
+    }
+    await this.run(async () => {
+      await this.knowledge.clearArchitecture(p.id);
+      this.announce.set("Modèle d'architecture retiré.");
+      await this.load(p.id);
+      this.revision.update((n) => n + 1);
     });
   }
 

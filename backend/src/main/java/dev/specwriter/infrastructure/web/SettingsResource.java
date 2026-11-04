@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.web;
 
+import dev.specwriter.application.knowledge.ManageEmbeddingSettings;
 import dev.specwriter.application.settings.DeleteJiraSettings;
 import dev.specwriter.application.settings.DisconnectCopilot;
 import dev.specwriter.application.settings.PollCopilotConnection;
@@ -89,6 +90,12 @@ public class SettingsResource {
     DeleteJiraSettings deleteJira;
     @Inject
     TestJiraConnection testJira;
+    @Inject
+    ManageEmbeddingSettings embedding;
+
+    /** Dossier de remplacement du modèle de recherche, pooling et préfixes (research.md R19 de 002). */
+    public record EmbeddingInput(String folder, String pooling, String queryPrefix, String passagePrefix) {
+    }
 
     @GET
     public SettingsView get() {
@@ -139,6 +146,20 @@ public class SettingsResource {
     @Path("/jira")
     public void deleteJira() {
         deleteJira.run();
+    }
+
+    @GET
+    @Path("/embedding")
+    public ManageEmbeddingSettings.View embedding() {
+        return embedding.get();
+    }
+
+    @PUT
+    @Path("/embedding")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public ManageEmbeddingSettings.View saveEmbedding(EmbeddingInput input) {
+        EmbeddingInput in = input == null ? new EmbeddingInput(null, null, null, null) : input;
+        return embedding.save(in.folder(), in.pooling(), in.queryPrefix(), in.passagePrefix());
     }
 
     @POST

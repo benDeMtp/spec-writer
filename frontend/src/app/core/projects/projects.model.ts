@@ -19,6 +19,10 @@ export interface Project {
   context: string;
   contextUpdatedAt: string | null;
   docSources: DocSource[];
+  /** Workspace Structurizr du projet (chemin absolu) et propriété ownership des éléments propres (R21). */
+  architectureWorkspace?: string | null;
+  architectureOwnership?: string | null;
+  knowledge?: KnowledgeStatus;
 }
 
 export type DeletionMode = 'MOVE' | 'DELETE';
@@ -52,4 +56,58 @@ export interface UnreadSource {
   location: string;
   reason: UnreadReason;
   httpStatus?: number | null;
+}
+
+export type ModelState = 'MISSING' | 'DOWNLOADING' | 'READY' | 'ERROR' | 'TERMS_ONLY';
+
+/** État de la connaissance indexée d'un projet (FR-032, FR-043). */
+export interface KnowledgeStatus {
+  tickets: number;
+  docSections: number;
+  adrs: number;
+  architectureElements: number;
+  syncedAt: string | null;
+  /** Indexation en cours, source en erreur ou modèle de recherche absent. */
+  partial: boolean;
+  model: ModelState;
+}
+
+export type IndexationMode = 'FULL' | 'INCREMENTAL';
+export type IndexationStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
+export type IndexationStep = 'MODEL' | 'JIRA' | 'DOCUMENTATION' | 'ARCHITECTURE' | 'EMBEDDING';
+
+/** Erreur d'une indexation, sans contenu de page ni de ticket (FR-013g). */
+export interface IndexationError {
+  kind: 'PAGE' | 'SOURCE' | 'JIRA' | 'ARCHITECTURE' | 'MODEL' | 'FAILURE';
+  location: string | null;
+  reason: string;
+  httpStatus: number | null;
+  message: string | null;
+}
+
+/** Indexation en arrière-plan, suivie par interrogation (research.md R14, R20). */
+export interface Indexation {
+  status: IndexationStatus;
+  mode: IndexationMode;
+  step: IndexationStep | null;
+  current: string | null;
+  done: number;
+  total: number;
+  startedAt: string;
+  stepStartedAt: string | null;
+  finishedAt: string | null;
+  errors: IndexationError[];
+}
+
+export type KnowledgeKind = 'TICKET' | 'DOC_SECTION' | 'ADR' | 'ARCH_ELEMENT';
+
+/** Élément retrouvé par la recherche d'essai, en extrait (FR-032). */
+export interface KnowledgeHit {
+  kind: KnowledgeKind;
+  ref: string;
+  title: string;
+  status: string | null;
+  scope: 'PROJECT' | 'COMMON' | null;
+  excerpt: string;
+  url: string | null;
 }

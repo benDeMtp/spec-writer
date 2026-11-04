@@ -161,6 +161,25 @@ class SettingsResourceIT {
                 .body("copilot.model", nullValue());
     }
 
+    /** T115 : carte « Modèle de recherche » : état, dossier de remplacement chargé aussitôt, motif d'un refus. */
+    @Test
+    void modeleDeRechercheRemplaceParUnDossier() {
+        String folder = java.nio.file.Path.of("target/test-model").toAbsolutePath().toString();
+        try {
+            api().body(java.util.Map.of("folder", folder, "pooling", "MEAN", "queryPrefix", "query: ", "passagePrefix",
+                    "passage: ")).put("/api/settings/embedding").then().statusCode(200)
+                    .body("state", org.hamcrest.Matchers.equalTo("READY")).body("defaultModel", org.hamcrest.Matchers.equalTo(false))
+                    .body("folder", org.hamcrest.Matchers.equalTo(folder)).body("modelId", org.hamcrest.Matchers.notNullValue());
+            api().get("/api/settings/embedding").then().statusCode(200).body("pooling", org.hamcrest.Matchers.equalTo("MEAN"))
+                    .body("queryPrefix", org.hamcrest.Matchers.equalTo("query: "));
+            api().body(java.util.Map.of("folder", "relatif/modele")).put("/api/settings/embedding").then().statusCode(422)
+                    .body("userMessage", org.hamcrest.Matchers.containsString("chemin absolu"));
+        } finally {
+            api().body(java.util.Map.of("folder", "")).put("/api/settings/embedding").then().statusCode(200)
+                    .body("defaultModel", org.hamcrest.Matchers.equalTo(true));
+        }
+    }
+
     @Test
     void consentementCopilotEnregistre() {
         consent("COPILOT", true);

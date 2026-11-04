@@ -63,6 +63,11 @@ describe('SettingsPage', () => {
     fixture.detectChanges();
     ctrl.expectOne('/api/settings').flush(settings);
     await settle(fixture);
+    // la carte du modèle de recherche lit son état
+    ctrl.match('/api/settings/embedding').forEach((r) =>
+      r.flush({ state: 'READY', modelId: 'multilingual-e5-small', problem: null, defaultModel: true, folder: null, pooling: 'MEAN', queryPrefix: null, passagePrefix: null }),
+    );
+    await settle(fixture);
   }
 
   beforeEach(() => {

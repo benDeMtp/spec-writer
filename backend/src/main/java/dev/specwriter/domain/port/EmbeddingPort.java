@@ -25,6 +25,11 @@ public interface EmbeddingPort {
 
     State state();
 
+    /** Motif du dernier échec du modèle, sans contenu ; {@code null} s'il n'y en a pas. */
+    default String problem() {
+        return null;
+    }
+
     /** Nom et révision du modèle ; un autre identifiant impose la revectorisation. */
     String modelId();
 
