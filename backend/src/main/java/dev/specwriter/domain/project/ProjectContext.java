@@ -23,7 +23,7 @@ public record ProjectContext(String markdown, String hash, Origin origin, Instan
     public ProjectContext {
         markdown = markdown == null ? "" : markdown;
         if (markdown.length() > MAX_LENGTH) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Le contexte du projet dépasse 20 000 caractères.");
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Une fiche de contexte dépasse 20 000 caractères.");
         }
         hash = hash == null ? "" : hash;
     }
@@ -45,7 +45,7 @@ public record ProjectContext(String markdown, String hash, Origin origin, Instan
     private static ProjectContext of(String markdown, Origin origin, Instant now) {
         String value = markdown == null ? "" : markdown.strip();
         if (value.length() > MAX_LENGTH) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Le contexte du projet dépasse 20 000 caractères.");
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Une fiche de contexte dépasse 20 000 caractères.");
         }
         if (value.isEmpty()) {
             return new ProjectContext("", "", Origin.NONE, now);

@@ -4,6 +4,11 @@
     "IT-CONTEXTE"
   ],
   "response": {
-    "markdown": "## Vocabulaire\n\n## Acteurs\n- Le gestionnaire valide les avoirs. [source : FACT-1]\n\n## Règles métier\n- Chaque ligne de facturation porte son taux de TVA. [source : billing/regle-tva.html]\n\n## Contraintes\n\n## Conventions\n"
+    "functional": "## Vision et objectifs\n\n## Acteurs\n- Le gestionnaire valide les avoirs. [source : FACT-1]\n\n## Vocabulaire\n\n## Règles métier\n- Chaque ligne de facturation porte son taux de TVA. [source : billing/regle-tva.html]\n\n## Contraintes fonctionnelles\n",
+    "technical": "## Architecture\n\n## Contraintes techniques\n\n## Conventions de code\n\n## Intégrations\n",
+    "questions": [
+      {"sheet": "TECHNICAL", "label": "Quel système calcule la TVA ?", "rationale": "Aucune source ne décrit l'architecture.", "suggestions": ["L'ERP", "Le service de facturation"]},
+      {"sheet": "FUNCTIONAL", "label": "Quelle est la vision du produit ?", "rationale": "La section Vision est vide.", "suggestions": []}
+    ]
   }
 }

@@ -38,6 +38,19 @@ public class ProjectEntity {
     @Column(name = "context_updated_at")
     public Instant contextUpdatedAt;
 
+    @Column(name = "technical_context", nullable = false)
+    public String technicalContext;
+
+    @Column(name = "technical_context_hash", nullable = false)
+    public String technicalContextHash;
+
+    @Column(name = "technical_context_origin", nullable = false)
+    public String technicalContextOrigin;
+
+    @Convert(converter = InstantTextConverter.class)
+    @Column(name = "technical_context_updated_at")
+    public Instant technicalContextUpdatedAt;
+
     @Convert(converter = InstantTextConverter.class)
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;

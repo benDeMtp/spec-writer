@@ -61,8 +61,28 @@ public class ContextGenerations {
         }
         consent.requireGranted(ConsentService.COPILOT);
         purge();
-        Generation generation = new Generation(projectId, clock.now());
-        Generation previous = generations.compute(projectId,
+        return launch(new Generation(projectId, clock.now(), null));
+    }
+
+    /**
+     * Révise une proposition avec les réponses données, à partir des faits gardés par sa génération,
+     * sans relire les sources (FR-013h, research.md R16). La proposition révisée remplace l'ancienne.
+     */
+    public Snapshot revise(UUID projectId, UUID proposalId) {
+        consent.requireGranted(ConsentService.COPILOT);
+        purge();
+        Generation done = generations.get(projectId);
+        ProposeProjectContext.Basis basis = done == null ? null : done.basisFor(proposalId);
+        if (basis == null || proposals.find(projectId, proposalId).isEmpty()) {
+            throw new DomainException(ErrorCode.NOT_FOUND, "Cette proposition a expiré. Régénérez le contexte.");
+        }
+        Snapshot started = launch(new Generation(projectId, clock.now(), basis));
+        proposals.discard(projectId, proposalId);
+        return started;
+    }
+
+    private Snapshot launch(Generation generation) {
+        Generation previous = generations.compute(generation.projectId,
                 (id, existing) -> existing != null && existing.running() ? existing : generation);
         if (previous != generation) {
             throw new DomainException(ErrorCode.OPERATION_IN_PROGRESS,
@@ -102,15 +122,32 @@ public class ContextGenerations {
         private int total;
         private Instant finishedAt;
         private ContextProposal proposal;
+        /** Faits extraits, gardés pour réviser la proposition ; jamais renvoyés par l'API. */
+        private ProposeProjectContext.Basis basis;
 
-        Generation(UUID projectId, Instant startedAt) {
+        Generation(UUID projectId, Instant startedAt, ProposeProjectContext.Basis basis) {
             this.projectId = projectId;
             this.startedAt = startedAt;
+            this.basis = basis;
+        }
+
+        synchronized ProposeProjectContext.Basis basisFor(UUID proposalId) {
+            return status == Status.SUCCEEDED && proposal != null && proposal.id().equals(proposalId) ? basis : null;
         }
 
         void run() {
             try {
-                ContextProposal result = propose.run(projectId, this);
+                ProposeProjectContext.Basis base;
+                synchronized (this) {
+                    base = basis;
+                }
+                if (base == null) {
+                    base = propose.prepare(projectId, this);
+                    synchronized (this) {
+                        basis = base;
+                    }
+                }
+                ContextProposal result = propose.draft(projectId, base, this);
                 if (cancelRequested) {
                     proposals.discard(projectId, result.id());
                     finish(Status.CANCELLED, null);

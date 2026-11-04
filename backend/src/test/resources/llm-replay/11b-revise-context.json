@@ -1,0 +1,12 @@
+{
+  "operation": "build-project-context",
+  "userContains": [
+    "IT-CONTEXTE",
+    "<reponse ref=\"Q-"
+  ],
+  "response": {
+    "functional": "## Vision et objectifs\n\n## Acteurs\n- Le gestionnaire valide les avoirs. [source : FACT-1]\n\n## Vocabulaire\n\n## Règles métier\n- Chaque ligne de facturation porte son taux de TVA. [source : billing/regle-tva.html]\n\n## Contraintes fonctionnelles\n",
+    "technical": "## Architecture\n- La TVA est calculée par l'ERP. [source : Q-1]\n\n## Contraintes techniques\n\n## Conventions de code\n\n## Intégrations\n",
+    "questions": []
+  }
+}

@@ -1,5 +1,12 @@
 package dev.specwriter.infrastructure.web;
 
+import java.util.Set;
+import java.util.EnumSet;
+import dev.specwriter.domain.project.ContextSheet;
+import dev.specwriter.domain.project.ContextQuestion;
+import dev.specwriter.application.context.ManageContextQuestions;
+import dev.specwriter.application.context.ContextProposalStore;
+import dev.specwriter.application.context.AnswerContextQuestion;
 import dev.specwriter.application.context.AcceptContextProposal;
 import dev.specwriter.application.context.ContextProposalStore.ContextProposal;
 import dev.specwriter.application.context.EditContext;
@@ -46,11 +53,49 @@ public class ContextResource {
     public record PreviewView(int pages, int tickets, List<Unread> unreadable) {
     }
 
-    public record ContextProposalView(UUID proposalId, String markdown, String unifiedDiff, List<String> sources,
-            List<Unread> unread) {
+    public record QuestionAnswerInput(String answer, Boolean skip) {
+
+        boolean skipped() {
+            return Boolean.TRUE.equals(skip);
+        }
+    }
+
+    public record AcceptInput(List<String> sheets) {
+    }
+
+    /** Fiche proposée, sans son hash de base (FR-008a). */
+    public record ProposedSheetView(String markdown, String unifiedDiff, boolean changed, boolean accepted) {
+
+        static ProposedSheetView of(ContextProposalStore.ProposedSheet s) {
+            return new ProposedSheetView(s.markdown(), s.unifiedDiff(), s.changed(), s.accepted());
+        }
+    }
+
+    public record ProposalQuestionView(UUID id, String sheet, String label, String rationale, List<String> suggestions,
+            String state, Integer number, String answer) {
+
+        static ProposalQuestionView of(ContextProposalStore.ProposalQuestion q) {
+            return new ProposalQuestionView(q.id(), q.sheet().name(), q.label(), q.rationale(), q.suggestions(),
+                    q.state().name(), q.number(), q.answer());
+        }
+    }
+
+    public record ContextProposalView(UUID proposalId, ProposedSheetView functional, ProposedSheetView technical,
+            List<String> sources, List<Unread> unread, List<ProposalQuestionView> questions) {
 
         static ContextProposalView of(ContextProposal p) {
-            return new ContextProposalView(p.id(), p.markdown(), p.unifiedDiff(), p.sources(), p.unread());
+            return new ContextProposalView(p.id(), ProposedSheetView.of(p.functional()), ProposedSheetView.of(p.technical()),
+                    p.sources(), p.unread(), p.questions().stream().map(ProposalQuestionView::of).toList());
+        }
+    }
+
+    /** Question répondue ou passée, citable sous {@code Q-number} (FR-013i). */
+    public record ContextQuestionView(int number, String sheet, String label, String rationale, String answer, String state,
+            Instant askedAt, Instant answeredAt) {
+
+        static ContextQuestionView of(ContextQuestion q) {
+            return new ContextQuestionView(q.number(), q.sheet().name(), q.label(), q.rationale(), q.answer(),
+                    q.state().name(), q.askedAt(), q.answeredAt());
         }
     }
 
@@ -58,10 +103,11 @@ public class ContextResource {
     public record GenerationView(String status, String step, String current, int done, int total, Instant startedAt,
             Instant finishedAt, List<GenerationError> errors, ContextProposalView proposal) {
 
-        static GenerationView of(Snapshot s) {
+        /** {@code proposal} : son état courant (questions répondues, fiches acceptées), absente si elle a expiré. */
+        static GenerationView of(Snapshot s, ContextProposal proposal) {
             return new GenerationView(s.status().name(), s.step() == null ? null : s.step().name(), s.current(), s.done(),
                     s.total(), s.startedAt(), s.finishedAt(), s.errors(),
-                    s.proposal() == null ? null : ContextProposalView.of(s.proposal()));
+                    proposal == null ? null : ContextProposalView.of(proposal));
         }
     }
 
@@ -77,12 +123,51 @@ public class ContextResource {
     ContextGenerations generations;
     @Inject
     AcceptContextProposal acceptProposal;
+    @Inject
+    AnswerContextQuestion answerQuestion;
+    @Inject
+    ManageContextQuestions manageQuestions;
+    @Inject
+    ContextProposalStore proposals;
 
     @PUT
-    @Path("/context")
+    @Path("/context/{sheet}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public ProjectView editContext(@PathParam("id") String id, ContextInput input) {
-        return projectViews.view(editContext.run(ProjectResource.projectId(id), input == null ? null : input.markdown()));
+    public ProjectView editContext(@PathParam("id") String id, @PathParam("sheet") String sheet, ContextInput input) {
+        return projectViews.view(editContext.run(ProjectResource.projectId(id), pathSheet(sheet),
+                input == null ? null : input.markdown()));
+    }
+
+    @GET
+    @Path("/context-questions")
+    public List<ContextQuestionView> questions(@PathParam("id") String id) {
+        return manageQuestions.list(ProjectResource.projectId(id)).stream().map(ContextQuestionView::of).toList();
+    }
+
+    @PUT
+    @Path("/context-questions/{number}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public ContextQuestionView updateQuestion(@PathParam("id") String id, @PathParam("number") int number,
+            QuestionAnswerInput input) {
+        QuestionAnswerInput in = input == null ? new QuestionAnswerInput(null, null) : input;
+        return ContextQuestionView.of(manageQuestions.update(ProjectResource.projectId(id), number, in.answer(), in.skipped()));
+    }
+
+    @PUT
+    @Path("/context-proposals/{proposalId}/questions/{questionId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public ContextQuestionView answer(@PathParam("id") String id, @PathParam("proposalId") String proposalId,
+            @PathParam("questionId") String questionId, QuestionAnswerInput input) {
+        QuestionAnswerInput in = input == null ? new QuestionAnswerInput(null, null) : input;
+        return ContextQuestionView.of(answerQuestion.run(ProjectResource.projectId(id), Ids.parse(proposalId),
+                Ids.parse(questionId), in.answer(), in.skipped()));
+    }
+
+    @POST
+    @Path("/context-proposals/{proposalId}/revise")
+    public Response revise(@PathParam("id") String id, @PathParam("proposalId") String proposalId) {
+        Snapshot s = generations.revise(ProjectResource.projectId(id), Ids.parse(proposalId));
+        return Response.status(Response.Status.ACCEPTED).entity(view(s)).build();
     }
 
     @POST
@@ -112,13 +197,13 @@ public class ContextResource {
     @Path("/context-generations")
     public Response startGeneration(@PathParam("id") String id) {
         Snapshot s = generations.start(ProjectResource.projectId(id));
-        return Response.status(Response.Status.ACCEPTED).entity(GenerationView.of(s)).build();
+        return Response.status(Response.Status.ACCEPTED).entity(view(s)).build();
     }
 
     @GET
     @Path("/context-generations/current")
     public GenerationView currentGeneration(@PathParam("id") String id) {
-        return generations.current(ProjectResource.projectId(id)).map(GenerationView::of)
+        return generations.current(ProjectResource.projectId(id)).map(this::view)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Aucune génération du contexte pour ce projet."));
     }
 
@@ -130,8 +215,35 @@ public class ContextResource {
 
     @POST
     @Path("/context-proposals/{proposalId}/accept")
-    public ProjectView accept(@PathParam("id") String id, @PathParam("proposalId") String proposalId) {
-        return projectViews.view(acceptProposal.run(ProjectResource.projectId(id), Ids.parse(proposalId)));
+    @Consumes(MediaType.APPLICATION_JSON)
+    public ProjectView accept(@PathParam("id") String id, @PathParam("proposalId") String proposalId, AcceptInput input) {
+        Set<ContextSheet> sheets = EnumSet.noneOf(ContextSheet.class);
+        for (String sheet : input == null || input.sheets() == null ? List.<String>of() : input.sheets()) {
+            sheets.add(sheet(sheet));
+        }
+        return projectViews.view(acceptProposal.run(ProjectResource.projectId(id), Ids.parse(proposalId), sheets));
+    }
+
+    private GenerationView view(Snapshot s) {
+        ContextProposal current = s.proposal() == null ? null
+                : proposals.find(s.projectId(), s.proposal().id()).orElse(null);
+        return GenerationView.of(s, current);
+    }
+
+    private static ContextSheet pathSheet(String raw) {
+        return switch (raw == null ? "" : raw) {
+            case "functional" -> ContextSheet.FUNCTIONAL;
+            case "technical" -> ContextSheet.TECHNICAL;
+            default -> throw new DomainException(ErrorCode.NOT_FOUND, "Fiche inconnue : functional ou technical.");
+        };
+    }
+
+    private static ContextSheet sheet(String raw) {
+        try {
+            return ContextSheet.valueOf(raw == null ? "" : raw);
+        } catch (IllegalArgumentException e) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Fiche inconnue : FUNCTIONAL ou TECHNICAL.");
+        }
     }
 
     private static DocSource.Kind kind(String raw) {

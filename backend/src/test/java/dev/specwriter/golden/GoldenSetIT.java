@@ -10,6 +10,8 @@ import dev.specwriter.application.specification.GenerateSpecification;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentRecord;
 import dev.specwriter.domain.consent.ConsentService;
+import dev.specwriter.domain.llm.ProjectContextInput;
+import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.question.Question;
@@ -68,17 +70,21 @@ class GoldenSetIT {
         FixedClock clock = new FixedClock();
         SequentialIdGenerator ids = new SequentialIdGenerator();
         LangChainLlmClient llm = new LangChainLlmClient(model);
-        // context.md, s'il existe : la fiche de contexte du projet par défaut (feature 002, FR-011)
+        // context.md et technical.md, s'ils existent : les fiches fonctionnelle et technique du projet
+        // par défaut (feature 002, FR-008a, FR-011)
         InMemoryProjects projects = new InMemoryProjects();
-        Path contextFile = dir.resolve("context.md");
-        String context = Files.exists(contextFile) ? Files.readString(contextFile) : "";
-        if (!context.isEmpty()) {
-            Project project = projects.find(Project.DEFAULT_ID).orElseThrow();
-            projects.save(project.withContext(ProjectContext.edited(context, Instant.EPOCH)));
+        String context = read(dir.resolve("context.md"));
+        String technical = read(dir.resolve("technical.md"));
+        if (!context.isEmpty() || !technical.isEmpty()) {
+            Project project = projects.find(Project.DEFAULT_ID).orElseThrow()
+                    .withContext(ContextSheet.FUNCTIONAL, ProjectContext.edited(context, Instant.EPOCH))
+                    .withContext(ContextSheet.TECHNICAL, ProjectContext.edited(technical, Instant.EPOCH));
+            projects.save(project);
             try (Stream<Path> files = Files.list(dir.resolve("llm"))) {
                 for (Path f : files.toList()) {
                     assertThat(JSON.readTree(Files.readString(f)).path("userContains").toString())
-                            .as("%s reçoit le contexte", f.getFileName()).contains("<contexte-projet>");
+                            .as("%s reçoit le contexte", f.getFileName())
+                            .containsAnyOf("<contexte-fonctionnel>", "<contexte-technique>");
                 }
             }
         }
@@ -105,8 +111,9 @@ class GoldenSetIT {
         Set<java.util.UUID> treated = sessions.questionnaire(s.session().id()).orElseThrow().treated().stream()
                 .map(Question::id).collect(Collectors.toSet());
         assertThat(ScenarioStructureValidator.validate(c).messages()).isEmpty();
-        assertThat(TraceabilityValidator.validate(c, treated, projects.find(Project.DEFAULT_ID)
-                .orElseThrow().context().markdown()).messages()).isEmpty();
+        assertThat(TraceabilityValidator.validate(c, treated,
+                ProjectContextInput.of(projects.find(Project.DEFAULT_ID).orElseThrow().contexts()).combined()).messages())
+                .isEmpty();
         for (int i = 0; i < c.useCases().size(); i++) {
             assertThat(c.useCases().get(i).code()).isEqualTo("UC-%02d".formatted(i + 1));
         }
@@ -120,5 +127,9 @@ class GoldenSetIT {
             Files.writeString(expected, version.markdown());
         }
         assertThat(version.markdown()).isEqualTo(Files.readString(expected));
+    }
+
+    static String read(Path file) throws IOException {
+        return Files.exists(file) ? Files.readString(file) : "";
     }
 }

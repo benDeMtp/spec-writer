@@ -19,6 +19,9 @@ import dev.specwriter.domain.port.DocumentationReader.Page;
 import dev.specwriter.domain.port.DocumentationReader.Result;
 import dev.specwriter.domain.port.DocumentationReader.Unread;
 import dev.specwriter.domain.port.DocumentationReader.UnreadReason;
+import dev.specwriter.domain.project.ContextQuestion;
+import dev.specwriter.domain.project.ContextSheet;
+import dev.specwriter.domain.project.ContextSheets;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.JiraProjectKey;
 import dev.specwriter.domain.project.Project;
@@ -59,13 +62,15 @@ class ContextGenerationsTest {
         IntStream.rangeClosed(1, 120).forEach(n -> w.tracker.issues.put("FACT-" + n,
                 new JiraIssue("FACT-" + n, "Facture " + n, "Description " + n, Instant.EPOCH.plusSeconds(n))));
         ProposeProjectContext propose = new ProposeProjectContext(w.projects, w.docSources, w.docs, w.jira, w.tracker,
-                w.markup, w.llm, w.policy, proposals, w.clock);
+                w.markup, w.llm, w.policy, proposals, w.contextQuestions, w.clock);
         generations = new ContextGenerations(propose, w.projects, w.policy, proposals, queued::add, w.clock);
     }
 
     void scriptLlm() {
         w.llm.facts.add(new SourceFacts(List.of(new SourceFacts.Fact(Category.ACTOR, SECRET_TEXT, List.of(PAGE)))));
-        w.llm.contexts.add(new ProjectContextDraft("## Acteurs\n- " + SECRET_TEXT + " [source : " + PAGE + "]"));
+        w.llm.contexts.add(new ProjectContextDraft("## Acteurs\n- " + SECRET_TEXT + " [source : " + PAGE + "]", "",
+                List.of(new ProjectContextDraft.Question(ContextSheet.TECHNICAL, "Quelle base de données ?", "Absente",
+                        List.of("SQLite")))));
     }
 
     void runQueued() {
@@ -125,7 +130,7 @@ class ContextGenerationsTest {
             }
         };
         new ProposeProjectContext(w.projects, w.docSources, w.docs, w.jira, w.tracker, w.markup, w.llm, w.policy, proposals,
-                w.clock).run(project.id(), spy);
+                w.contextQuestions, w.clock).run(project.id(), spy);
         assertThat(seen).containsSubsequence("step READING_DOCS 0", "step READING_TICKETS 0", "FACT-71 50/120",
                 "FACT-21 100/120", "FACT-1 120/120", "step SUMMARIZING 1", "step BUILDING 1");
     }
@@ -161,7 +166,7 @@ class ContextGenerationsTest {
         assertThat(s.proposal()).isNull();
         assertThat(w.llm.calls()).isZero();
         assertThat(w.tracker.calls).isEmpty();
-        assertThat(w.projects.find(project.id()).orElseThrow().context()).isEqualTo(ProjectContext.NONE);
+        assertThat(w.projects.find(project.id()).orElseThrow().contexts()).isEqualTo(ContextSheets.NONE);
     }
 
     @Test
@@ -170,9 +175,9 @@ class ContextGenerationsTest {
         w.llm.facts.add(new SourceFacts(List.of(new SourceFacts.Fact(Category.ACTOR, SECRET_TEXT,
                 List.of("https://ailleurs.example/")))));
         w.llm.facts.add(new SourceFacts(List.of(new SourceFacts.Fact(Category.ACTOR, SECRET_TEXT, List.of(PAGE)))));
-        w.llm.contexts.add(new ProjectContextDraft("- inventé [source : https://inventee.example/]"));
-        w.llm.contexts.add(new ProjectContextDraft("- inventé [source : https://inventee.example/]"));
-        w.llm.contexts.add(new ProjectContextDraft("- inventé [source : https://inventee.example/]"));
+        w.llm.contexts.add(new ProjectContextDraft("- inventé [source : https://inventee.example/]", "", List.of()));
+        w.llm.contexts.add(new ProjectContextDraft("- inventé [source : https://inventee.example/]", "", List.of()));
+        w.llm.contexts.add(new ProjectContextDraft("- inventé [source : https://inventee.example/]", "", List.of()));
         generations.start(project.id());
         runQueued();
 
@@ -196,5 +201,55 @@ class ContextGenerationsTest {
         w.clock.advance(Duration.ofMinutes(2));
         assertThat(generations.current(project.id())).isEmpty();
         generations.cancel(project.id());
+    }
+
+    @Test
+    void revisionAvecLesReponsesSansRelireLesSources() {
+        scriptLlm();
+        generations.start(project.id());
+        runQueued();
+        ContextProposalStore.ContextProposal first = generations.current(project.id()).orElseThrow().proposal();
+        ContextQuestion answered = new AnswerContextQuestion(proposals, w.contextQuestions, w.ids, w.clock)
+                .run(project.id(), first.id(), first.questions().getFirst().id(), "SQLite", false);
+        int reads = w.docs.reads.size();
+        int jiraCalls = w.tracker.calls.size();
+        int summaries = w.llm.summarizeRequests.size();
+
+        w.llm.contexts.add(new ProjectContextDraft("## Acteurs\n- " + SECRET_TEXT + " [source : " + PAGE + "]",
+                "## Contraintes techniques\n- Base SQLite. [source : " + answered.ref() + "]", List.of()));
+        Snapshot revising = generations.revise(project.id(), first.id());
+        assertThat(revising.status()).isEqualTo(Status.RUNNING);
+        // l'ancienne proposition est remplacée
+        assertThat(proposals.find(project.id(), first.id())).isEmpty();
+        runQueued();
+
+        Snapshot revised = generations.current(project.id()).orElseThrow();
+        assertThat(revised.status()).isEqualTo(Status.SUCCEEDED);
+        assertThat(revised.proposal().technical().markdown()).contains("[source : Q-1]");
+        assertThat(revised.proposal().sources()).contains("Q-1");
+        assertThat(w.docs.reads).hasSize(reads);
+        assertThat(w.tracker.calls).hasSize(jiraCalls);
+        assertThat(w.llm.summarizeRequests).hasSize(summaries);
+        assertThat(w.llm.contextRequests.getLast().answers()).singleElement()
+                .satisfies(a -> assertThat(a.answer()).isEqualTo("SQLite"));
+
+        // la proposition révisée se révise à son tour ; l'ancienne, non
+        assertThatThrownBy(() -> generations.revise(project.id(), first.id())).isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+        w.llm.contexts.add(new ProjectContextDraft("- " + SECRET_TEXT + " [source : " + PAGE + "]", "", List.of()));
+        generations.revise(project.id(), revised.proposal().id());
+        runQueued();
+        assertThat(generations.current(project.id()).orElseThrow().status()).isEqualTo(Status.SUCCEEDED);
+    }
+
+    @Test
+    void revisionImpossibleApresExpiration() {
+        scriptLlm();
+        generations.start(project.id());
+        runQueued();
+        ContextProposalStore.ContextProposal proposal = generations.current(project.id()).orElseThrow().proposal();
+        w.clock.advance(Duration.ofMinutes(31));
+        assertThatThrownBy(() -> generations.revise(project.id(), proposal.id())).isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 }

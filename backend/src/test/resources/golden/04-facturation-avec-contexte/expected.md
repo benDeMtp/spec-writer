@@ -28,7 +28,7 @@ Le gestionnaire de facturation corrige une facture émise par un avoir.
 - **Déroulement nominal** :
   1. Saisir un montant supérieur au restant dû
   2. Lire le motif du refus
-- **Source** : contexte du projet « Un avoir ne peut pas dépasser le montant restant dû de la facture. »
+- **Source** : contexte du projet, fiche fonctionnelle « Un avoir ne peut pas dépasser le montant restant dû de la facture. »
 
 ## Scénarios d'acceptation
 

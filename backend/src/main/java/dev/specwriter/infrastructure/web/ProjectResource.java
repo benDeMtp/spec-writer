@@ -14,6 +14,7 @@ import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.Project;
+import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.session.SessionListing;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -45,8 +46,16 @@ public class ProjectResource {
     }
 
     public record ProjectView(UUID id, String name, String description, String jiraProjectKey,
-            String effectiveJiraProjectKey, String jiraKeyWarning, int sessionCount, String context, String contextOrigin,
-            Instant contextUpdatedAt, List<DocSourceView> docSources) {
+            String effectiveJiraProjectKey, String jiraKeyWarning, int sessionCount, ContextSheetView functionalContext,
+            ContextSheetView technicalContext, List<DocSourceView> docSources) {
+    }
+
+    /** Une fiche du contexte (FR-008a). */
+    public record ContextSheetView(String markdown, String origin, Instant updatedAt) {
+
+        static ContextSheetView of(ProjectContext c) {
+            return new ContextSheetView(c.markdown(), c.origin().name(), c.updatedAt());
+        }
     }
 
     public record DocSourceView(UUID id, String kind, String location, Instant lastReadAt, Integer pagesRead,
@@ -140,8 +149,8 @@ public class ProjectResource {
     private ProjectView view(Project p, String warning, Map<UUID, Long> counts) {
         return new ProjectView(p.id(), p.name().value(), p.description(),
                 p.jiraProjectKey() == null ? null : p.jiraProjectKey().value(), jira.effectiveProject(p), warning,
-                counts.getOrDefault(p.id(), 0L).intValue(), p.context().markdown(), p.context().origin().name(),
-                p.context().updatedAt(), docSources.list(p.id()).stream().map(DocSourceView::of).toList());
+                counts.getOrDefault(p.id(), 0L).intValue(), ContextSheetView.of(p.contexts().functional()),
+                ContextSheetView.of(p.contexts().technical()), docSources.list(p.id()).stream().map(DocSourceView::of).toList());
     }
 
     private Map<UUID, Long> sessionCounts() {

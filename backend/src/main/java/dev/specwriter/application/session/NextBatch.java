@@ -1,5 +1,6 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.domain.llm.ProjectContextInput;
 import dev.specwriter.domain.llm.ProposeQuestionsRequest;
 import dev.specwriter.domain.llm.ProposeQuestionsResult;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
@@ -20,7 +21,7 @@ final class NextBatch {
     }
 
     static Questionnaire ask(LlmClient llm, IdGenerator ids, Session session, Questionnaire questionnaire,
-            String projectContext) {
+            ProjectContextInput projectContext) {
         int batches = questionnaire.questions().stream().mapToInt(Question::batch).max().orElse(0);
         // Même quand tous les thèmes sont couverts, le LLM est consulté : il détecte les
         // contradictions entre le besoin et les réponses (FR-008).

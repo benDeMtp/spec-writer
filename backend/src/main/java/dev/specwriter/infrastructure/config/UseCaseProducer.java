@@ -1,6 +1,7 @@
 package dev.specwriter.infrastructure.config;
 
 import dev.specwriter.domain.port.DocumentationReader;
+import dev.specwriter.domain.port.ContextQuestionRepository;
 import dev.specwriter.domain.port.DocSourceRepository;
 import dev.specwriter.application.context.ProposeProjectContext;
 import dev.specwriter.application.context.PreviewContextSources;
@@ -9,6 +10,8 @@ import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ContextGenerations;
 import dev.specwriter.application.context.ContextProposalStore;
 import dev.specwriter.application.context.AcceptContextProposal;
+import dev.specwriter.application.context.ManageContextQuestions;
+import dev.specwriter.application.context.AnswerContextQuestion;
 import dev.specwriter.application.consent.UpdateConsent;
 import dev.specwriter.application.jira.CreateJiraTicket;
 import dev.specwriter.application.jira.GetJiraIssue;
@@ -303,8 +306,23 @@ public class UseCaseProducer {
     @ApplicationScoped
     ProposeProjectContext proposeProjectContext(ProjectRepository projects, DocSourceRepository docSources,
             DocumentationReader reader, JiraAccess jira, IssueTracker tracker, WikiMarkup markup, LlmClient llm,
-            ConsentPolicy consent, ContextProposalStore proposals, ClockPort clock) {
-        return new ProposeProjectContext(projects, docSources, reader, jira, tracker, markup, llm, consent, proposals, clock);
+            ConsentPolicy consent, ContextProposalStore proposals, ContextQuestionRepository questions, ClockPort clock) {
+        return new ProposeProjectContext(projects, docSources, reader, jira, tracker, markup, llm, consent, proposals,
+                questions, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AnswerContextQuestion answerContextQuestion(ContextProposalStore proposals, ContextQuestionRepository questions,
+            IdGenerator ids, ClockPort clock) {
+        return new AnswerContextQuestion(proposals, questions, ids, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageContextQuestions manageContextQuestions(ProjectRepository projects, ContextQuestionRepository questions,
+            ClockPort clock) {
+        return new ManageContextQuestions(projects, questions, clock);
     }
 
     /** Une génération par thread virtuel : la lecture et les appels au LLM sont bloquants (research.md R14). */

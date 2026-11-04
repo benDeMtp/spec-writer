@@ -1,5 +1,6 @@
 package dev.specwriter.domain.specification;
 
+import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,6 +76,29 @@ public final class TraceabilityValidator {
     }
 
     /** Casse, espacements et marques Markdown d'emphase ignorés. */
+    /**
+     * Rattache chaque source PROJECT_CONTEXT à la fiche où figure son extrait, la fiche fonctionnelle
+     * d'abord (FR-008a). À appeler sur un contenu déjà validé.
+     */
+    public static SpecificationContent locateContextSources(SpecificationContent content, String functional,
+            String technical) {
+        String f = normalized(functional);
+        String t = normalized(technical);
+        List<UseCase> located = content.useCases().stream().map(uc -> {
+            SourceRef s = uc.source();
+            if (s == null || s.kind() != SourceRef.Kind.PROJECT_CONTEXT) {
+                return uc;
+            }
+            String excerpt = normalized(s.excerpt());
+            ContextSheet sheet = f.contains(excerpt) ? ContextSheet.FUNCTIONAL
+                    : t.contains(excerpt) ? ContextSheet.TECHNICAL : null;
+            return new UseCase(uc.code(), uc.title(), uc.actor(), uc.goal(), uc.preconditions(), uc.nominalFlow(),
+                    uc.alternatives(), s.inSheet(sheet));
+        }).toList();
+        return new SpecificationContent(content.title(), content.summary(), content.details(), located, content.scenarios(),
+                content.assumptions(), content.requirements());
+    }
+
     private static String normalized(String text) {
         return text == null ? "" : text.replace("*", "").strip().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }

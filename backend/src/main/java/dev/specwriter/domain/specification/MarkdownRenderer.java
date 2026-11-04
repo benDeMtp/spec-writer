@@ -1,5 +1,6 @@
 package dev.specwriter.domain.specification;
 
+import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.session.Language;
 import java.util.List;
@@ -27,17 +28,18 @@ public final class MarkdownRenderer {
             String technical, String actor, String goal, String preconditions, String flow, String alternatives,
             String source, String needExcerpt, String answer, String assumption, String projectContext, String asA,
             String given,
-            String when, String then, String and, String none, String colon) {
+            String when, String then, String and, String none, String colon, String functionalSheet,
+            String technicalSheet) {
     }
 
     private static final Labels FR = new Labels("Résumé", "Détails", "Use cases", "Scénarios d'acceptation", "Hypothèses",
             "Exigences fonctionnelles", "Exigences techniques", "Acteur", "Objectif", "Préconditions",
             "Déroulement nominal", "Alternatives", "Source", "extrait du besoin", "réponse", "Hypothèse", "contexte du projet",
-            "En tant que", "Étant donné", "Quand", "Alors", "Et", "Aucune.", " : ");
+            "En tant que", "Étant donné", "Quand", "Alors", "Et", "Aucune.", " : ", "fiche fonctionnelle", "fiche technique");
     private static final Labels EN = new Labels("Summary", "Details", "Use cases", "Acceptance scenarios", "Assumptions",
             "Functional requirements", "Technical requirements", "Actor", "Goal", "Preconditions", "Main flow",
             "Alternatives", "Source", "need excerpt", "answer", "Assumption", "project context", "As a", "Given", "When", "Then", "And",
-            "None.", ": ");
+            "None.", ": ", "functional sheet", "technical sheet");
 
     private MarkdownRenderer() {
     }
@@ -143,7 +145,9 @@ public final class MarkdownRenderer {
             case NEED_EXCERPT -> l.needExcerpt();
             case ANSWER -> l.answer();
             case ASSUMPTION -> l.assumption().toLowerCase(java.util.Locale.ROOT);
-            case PROJECT_CONTEXT -> l.projectContext();
+            case PROJECT_CONTEXT -> source.sheet() == null ? l.projectContext()
+                    : l.projectContext() + ", " + (source.sheet() == ContextSheet.FUNCTIONAL ? l.functionalSheet()
+                            : l.technicalSheet());
         };
     }
 

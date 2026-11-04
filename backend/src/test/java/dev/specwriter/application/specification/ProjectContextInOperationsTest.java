@@ -14,6 +14,8 @@ import dev.specwriter.domain.llm.DraftSpecification.DraftSource;
 import dev.specwriter.domain.llm.DraftSpecification.DraftUseCase;
 import dev.specwriter.domain.llm.ProposeQuestionsResult;
 import dev.specwriter.domain.llm.ProposedQuestion;
+import dev.specwriter.domain.llm.ProjectContextInput;
+import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.question.QuestionTheme;
@@ -60,9 +62,16 @@ class ProjectContextInOperationsTest {
                 List.of(), List.of());
     }
 
+    static final String TECHNICAL = "## Architecture\n- Les réservations passent par l'API REST du service salles.";
+
+    void setTechnical(String markdown, Instant at) {
+        Project p = projects.find(Project.DEFAULT_ID).orElseThrow();
+        projects.save(p.withContext(ContextSheet.TECHNICAL, ProjectContext.edited(markdown, at)));
+    }
+
     void setContext(String markdown, Instant at) {
         Project p = projects.find(Project.DEFAULT_ID).orElseThrow();
-        projects.save(p.withContext(ProjectContext.edited(markdown, at)));
+        projects.save(p.withContext(ContextSheet.FUNCTIONAL, ProjectContext.edited(markdown, at)));
     }
 
     @BeforeEach
@@ -81,12 +90,13 @@ class ProjectContextInOperationsTest {
 
     @Test
     void questionsEtGenerationRecoiventLeContexte() {
-        assertThat(llm.questionRequests).hasSize(2).allSatisfy(r -> assertThat(r.projectContext()).isEqualTo(CONTEXT));
+        assertThat(llm.questionRequests).hasSize(2)
+                .allSatisfy(r -> assertThat(r.projectContext()).isEqualTo(new ProjectContextInput(CONTEXT, "")));
         llm.drafts.add(citingContext("Le gestionnaire valide les réservations."));
         SpecificationVersion v = generate.run(sessionId).version();
-        assertThat(llm.generationRequests.getFirst().projectContext()).isEqualTo(CONTEXT);
+        assertThat(llm.generationRequests.getFirst().projectContext()).isEqualTo(new ProjectContextInput(CONTEXT, ""));
         assertThat(v.content().useCases().getFirst().source().kind()).isEqualTo(SourceRef.Kind.PROJECT_CONTEXT);
-        assertThat(v.contextHash()).isEqualTo(projects.find(Project.DEFAULT_ID).orElseThrow().context().hash());
+        assertThat(v.contextHash()).isEqualTo(projects.find(Project.DEFAULT_ID).orElseThrow().contexts().combinedHash());
         assertThat(v.contextUpdatedAt()).isEqualTo(CONTEXT_AT);
     }
 
@@ -119,6 +129,20 @@ class ProjectContextInOperationsTest {
         SpecificationVersion v = generate.run(sessionId).version();
         assertThat(v.contextHash()).isNull();
         assertThat(v.contextUpdatedAt()).isNull();
-        assertThat(llm.generationRequests.getFirst().projectContext()).isEmpty();
+        assertThat(llm.generationRequests.getFirst().projectContext().isEmpty()).isTrue();
+    }
+
+    @Test
+    void ficheTechniqueTransmiseCitableEtDansLEmpreinte() {
+        llm.drafts.add(citingContext("Le gestionnaire valide les réservations."));
+        SpecificationVersion first = generate.run(sessionId).version();
+
+        setTechnical(TECHNICAL, CONTEXT_AT.plusSeconds(120));
+        llm.drafts.add(citingContext("Les réservations passent par l'API REST du service salles."));
+        GenerateSpecification.Generated second = generate.run(sessionId);
+        assertThat(second.reused()).isFalse();
+        assertThat(llm.generationRequests.getLast().projectContext()).isEqualTo(new ProjectContextInput(CONTEXT, TECHNICAL));
+        assertThat(second.version().contextHash()).isNotEqualTo(first.contextHash());
+        assertThat(second.version().contextUpdatedAt()).isEqualTo(CONTEXT_AT.plusSeconds(120));
     }
 }

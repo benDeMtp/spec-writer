@@ -1,5 +1,10 @@
 package dev.specwriter.application.context;
 
+import java.util.Set;
+import dev.specwriter.domain.project.ContextSheets;
+import dev.specwriter.domain.project.ContextSheet;
+import dev.specwriter.domain.project.ContextQuestion;
+import dev.specwriter.domain.llm.BuildContextRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -50,7 +55,7 @@ class ProposeProjectContextTest {
                 List.of(new Unread(SITE + "tarifs.html", UnreadReason.HTTP_ERROR),
                         new Unread(SITE + "recherche.html", UnreadReason.NOT_ANTORA))));
         propose = new ProposeProjectContext(w.projects, w.docSources, w.docs, w.jira, w.tracker, w.markup, w.llm, w.policy,
-                proposals, w.clock);
+                proposals, w.contextQuestions, w.clock);
         accept = new AcceptContextProposal(w.projects, proposals, w.clock);
     }
 
@@ -59,8 +64,17 @@ class ProposeProjectContextTest {
     }
 
     static ProjectContextDraft context(String ref) {
-        return new ProjectContextDraft("## Vocabulaire\n\n## Acteurs\n- Le comptable lettre les paiements. [source : " + ref
-                + "]\n\n## Règles métier\n\n## Contraintes\n\n## Conventions\n");
+        return new ProjectContextDraft("## Vision et objectifs\n\n## Acteurs\n- Le comptable lettre les paiements. [source : "
+                + ref + "]\n\n## Vocabulaire\n\n## Règles métier\n\n## Contraintes fonctionnelles\n",
+                "## Architecture\n\n## Contraintes techniques\n\n## Conventions de code\n\n## Intégrations\n", List.of());
+    }
+
+    static ProjectContextDraft draft(String functional, String technical, ProjectContextDraft.Question... questions) {
+        return new ProjectContextDraft(functional, technical, List.of(questions));
+    }
+
+    static ProjectContextDraft.Question question(ContextSheet sheet, String label) {
+        return new ProjectContextDraft.Question(sheet, label, "Les sources se contredisent", List.of("A", "B"));
     }
 
     void ticket(int n, String description) {
@@ -76,28 +90,32 @@ class ProposeProjectContextTest {
 
         ContextProposalStore.ContextProposal p = propose.run(project.id());
 
-        assertThat(p.markdown()).contains("[source : " + PAGE + "]");
+        assertThat(p.functional().markdown()).contains("[source : " + PAGE + "]");
         assertThat(p.sources()).containsExactly(PAGE);
         assertThat(p.unread()).containsExactly(new Unread(SITE + "tarifs.html", UnreadReason.HTTP_ERROR),
                 new Unread(SITE + "recherche.html", UnreadReason.NOT_ANTORA));
-        assertThat(p.unifiedDiff()).isNotBlank();
+        assertThat(p.functional().unifiedDiff()).isNotBlank();
+        assertThat(p.technical().changed()).isTrue();
         // les tickets passent par la conversion wiki vers Markdown, avec leur clé pour référence
         SummarizeSourcesRequest batch = w.llm.summarizeRequests.getFirst();
         assertThat(batch.sources()).extracting(SummarizeSourcesRequest.Source::ref).containsExactly(PAGE, "FACT-1");
         assertThat(batch.sources().get(1).text()).isEqualTo("h2. Besoin\nLe *gestionnaire* valide.");
         // rien n'est enregistré avant acceptation
-        assertThat(w.projects.find(project.id()).orElseThrow().context()).isEqualTo(ProjectContext.NONE);
+        assertThat(w.projects.find(project.id()).orElseThrow().contexts()).isEqualTo(ContextSheets.NONE);
         // le résultat de lecture est noté sur la source, sans contenu
         DocSource source = w.docSources.list(project.id()).getFirst();
         // la page hors Antora est écartée, pas en erreur
         assertThat(source.lastResult()).isEqualTo(new DocSource.ReadSummary(1, 1, false));
         assertThat(source.lastReadAt()).isEqualTo(w.clock.now());
 
-        Project accepted = accept.run(project.id(), p.id());
-        assertThat(accepted.context().origin()).isEqualTo(ProjectContext.Origin.GENERATED);
-        assertThat(w.projects.find(project.id()).orElseThrow().context().markdown()).isEqualTo(p.markdown().strip());
-        // une proposition ne s'accepte qu'une fois
-        assertThatThrownBy(() -> accept.run(project.id(), p.id())).isInstanceOfSatisfying(DomainException.class,
+        Project accepted = accept.run(project.id(), p.id(), Set.of(ContextSheet.FUNCTIONAL));
+        assertThat(accepted.context(ContextSheet.FUNCTIONAL).origin()).isEqualTo(ProjectContext.Origin.GENERATED);
+        assertThat(accepted.context(ContextSheet.TECHNICAL)).isEqualTo(ProjectContext.NONE);
+        assertThat(w.projects.find(project.id()).orElseThrow().context(ContextSheet.FUNCTIONAL).markdown())
+                .isEqualTo(p.functional().markdown());
+        // une fiche ne s'accepte qu'une fois
+        assertThatThrownBy(() -> accept.run(project.id(), p.id(), Set.of(ContextSheet.FUNCTIONAL)))
+                .isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 
@@ -162,10 +180,10 @@ class ProposeProjectContextTest {
     @Test
     void ficheDePlusDe20000CaracteresCorrigee() {
         w.llm.facts.add(facts(PAGE));
-        w.llm.contexts.add(new ProjectContextDraft("- trop long [source : " + PAGE + "]\n" + "x".repeat(20_001)));
+        w.llm.contexts.add(draft("- court [source : " + PAGE + "]", "- trop long [source : " + PAGE + "]\n" + "x".repeat(20_001)));
         w.llm.contexts.add(context(PAGE));
         propose.run(project.id());
-        assertThat(w.llm.contextRequests.get(1).correction()).contains("20 000");
+        assertThat(w.llm.contextRequests.get(1).correction()).contains("fiche technique dépasse 20 000");
     }
 
     @Test
@@ -173,7 +191,7 @@ class ProposeProjectContextTest {
         JiraWorld bare = new JiraWorld().configureJira();
         bare.projects.save(project);
         ProposeProjectContext p = new ProposeProjectContext(bare.projects, bare.docSources, bare.docs, bare.jira,
-                bare.tracker, bare.markup, bare.llm, bare.policy, proposals, bare.clock);
+                bare.tracker, bare.markup, bare.llm, bare.policy, proposals, bare.contextQuestions, bare.clock);
         assertThatThrownBy(() -> p.run(project.id())).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.CONSENT_REQUIRED));
         assertThat(bare.llm.calls()).isZero();
@@ -185,7 +203,7 @@ class ProposeProjectContextTest {
         JiraWorld noJira = new JiraWorld().grant(ConsentService.COPILOT);
         noJira.projects.save(project);
         ProposeProjectContext p = new ProposeProjectContext(noJira.projects, noJira.docSources, noJira.docs, noJira.jira,
-                noJira.tracker, noJira.markup, noJira.llm, noJira.policy, proposals, noJira.clock);
+                noJira.tracker, noJira.markup, noJira.llm, noJira.policy, proposals, noJira.contextQuestions, noJira.clock);
         assertThatThrownBy(() -> p.run(project.id())).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
         assertThat(noJira.llm.calls()).isZero();
@@ -196,23 +214,107 @@ class ProposeProjectContextTest {
         w.llm.facts.add(facts(PAGE));
         w.llm.contexts.add(context(PAGE));
         ContextProposalStore.ContextProposal p = propose.run(project.id());
-        new EditContext(w.projects, w.clock).run(project.id(), "## Acteurs\n- modifié à la main");
-        assertThatThrownBy(() -> accept.run(project.id(), p.id())).isInstanceOfSatisfying(DomainException.class,
-                e -> assertThat(e.code()).isEqualTo(ErrorCode.CONTEXT_CHANGED));
-        assertThat(w.projects.find(project.id()).orElseThrow().context().origin()).isEqualTo(ProjectContext.Origin.EDITED);
+        new EditContext(w.projects, w.clock).run(project.id(), ContextSheet.TECHNICAL, "## Architecture\n- modifiée à la main");
+        assertThatThrownBy(() -> accept.run(project.id(), p.id(), Set.of(ContextSheet.TECHNICAL)))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.CONTEXT_CHANGED));
+        assertThat(w.projects.find(project.id()).orElseThrow().context(ContextSheet.TECHNICAL).origin())
+                .isEqualTo(ProjectContext.Origin.EDITED);
+        // l'autre fiche, inchangée, reste acceptable
+        assertThat(accept.run(project.id(), p.id(), Set.of(ContextSheet.FUNCTIONAL)).context(ContextSheet.FUNCTIONAL)
+                .origin()).isEqualTo(ProjectContext.Origin.GENERATED);
     }
 
     @Test
     void laFicheActuelleEstTransmiseALaRegeneration() {
-        new EditContext(w.projects, w.clock).run(project.id(), "## Acteurs\n- Le directeur signe.");
+        new EditContext(w.projects, w.clock).run(project.id(), ContextSheet.FUNCTIONAL, "## Acteurs\n- Le directeur signe.");
+        new EditContext(w.projects, w.clock).run(project.id(), ContextSheet.TECHNICAL, "## Architecture\n- Monolithe.");
         w.llm.facts.add(facts(PAGE));
         w.llm.contexts.add(context(PAGE));
         ContextProposalStore.ContextProposal p = propose.run(project.id());
-        assertThat(w.llm.contextRequests.getFirst().currentContext()).isEqualTo("## Acteurs\n- Le directeur signe.");
-        assertThat(p.unifiedDiff()).startsWith("--- ");
+        assertThat(w.llm.contextRequests.getFirst().currentFunctional()).isEqualTo("## Acteurs\n- Le directeur signe.");
+        assertThat(w.llm.contextRequests.getFirst().currentTechnical()).isEqualTo("## Architecture\n- Monolithe.");
+        assertThat(p.functional().unifiedDiff()).startsWith("--- ");
         // « Garder la mienne » : la proposition est oubliée, la fiche reste la même
         proposals.discard(project.id(), p.id());
-        assertThatThrownBy(() -> accept.run(project.id(), p.id())).isInstanceOf(DomainException.class);
-        assertThat(w.projects.find(project.id()).orElseThrow().context().markdown()).isEqualTo("## Acteurs\n- Le directeur signe.");
+        assertThatThrownBy(() -> accept.run(project.id(), p.id(), Set.of(ContextSheet.FUNCTIONAL)))
+                .isInstanceOf(DomainException.class);
+        assertThat(w.projects.find(project.id()).orElseThrow().context(ContextSheet.FUNCTIONAL).markdown())
+                .isEqualTo("## Acteurs\n- Le directeur signe.");
+    }
+
+    @Test
+    void deuxFichesSourceesChacuneAccepteeSeparement() {
+        ticket(1, "Les services communiquent par une file JMS.");
+        w.llm.facts.add(new SourceFacts(List.of(
+                new SourceFacts.Fact(Category.ACTOR, "Le comptable lettre les paiements.", List.of(PAGE)),
+                new SourceFacts.Fact(Category.INTEGRATION, "Les services communiquent par une file JMS.", List.of("FACT-1")))));
+        w.llm.contexts.add(draft("## Acteurs\n- Le comptable lettre les paiements. [source : " + PAGE + "]",
+                "## Intégrations\n- Une file JMS relie les services. [source : FACT-1]"));
+        ContextProposalStore.ContextProposal p = propose.run(project.id());
+        assertThat(p.sources()).containsExactly(PAGE, "FACT-1");
+        assertThat(p.technical().unifiedDiff()).contains("fiche technique actuelle");
+
+        accept.run(project.id(), p.id(), Set.of(ContextSheet.TECHNICAL));
+        Project after = w.projects.find(project.id()).orElseThrow();
+        assertThat(after.context(ContextSheet.TECHNICAL).markdown()).contains("file JMS");
+        assertThat(after.context(ContextSheet.FUNCTIONAL)).isEqualTo(ProjectContext.NONE);
+        assertThat(proposals.find(project.id(), p.id())).isPresent();
+        accept.run(project.id(), p.id(), Set.of(ContextSheet.FUNCTIONAL));
+        // les deux fiches acceptées : la proposition est oubliée
+        assertThat(proposals.find(project.id(), p.id())).isEmpty();
+        assertThatThrownBy(() -> accept.run(project.id(), p.id(), Set.of())).isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+    }
+
+    @Test
+    void referenceInconnueDansLaFicheTechniqueCorrigee() {
+        w.llm.facts.add(facts(PAGE));
+        w.llm.contexts.add(draft("- ok [source : " + PAGE + "]", "- inventé [source : FACT-404]"));
+        w.llm.contexts.add(context(PAGE));
+        propose.run(project.id());
+        assertThat(w.llm.contextRequests.get(1).correction()).contains("FACT-404 de la fiche technique");
+    }
+
+    @Test
+    void dixQuestionsAuPlusReponsesEnregistreesEtCitables() {
+        w.llm.facts.add(facts(PAGE));
+        ProjectContextDraft.Question[] many = IntStream.range(0, 12)
+                .mapToObj(i -> question(i % 2 == 0 ? ContextSheet.FUNCTIONAL : ContextSheet.TECHNICAL, "Question " + i + " ?"))
+                .toArray(ProjectContextDraft.Question[]::new);
+        w.llm.contexts.add(draft("- ok [source : " + PAGE + "]", "", many));
+        ContextProposalStore.ContextProposal p = propose.run(project.id());
+        assertThat(p.questions()).hasSize(10).allSatisfy(q -> assertThat(q.state()).isEqualTo(ContextProposalStore.QuestionState.OPEN));
+
+        AnswerContextQuestion answer = new AnswerContextQuestion(proposals, w.contextQuestions, w.ids, w.clock);
+        ContextQuestion q1 = answer.run(project.id(), p.id(), p.questions().get(1).id(), "PostgreSQL 16", false);
+        ContextQuestion q2 = answer.run(project.id(), p.id(), p.questions().get(0).id(), null, true);
+        assertThat(q1.ref()).isEqualTo("Q-1");
+        assertThat(q1.sheet()).isEqualTo(ContextSheet.TECHNICAL);
+        assertThat(q2.number()).isEqualTo(2);
+        assertThat(q2.state()).isEqualTo(ContextQuestion.State.SKIPPED);
+        // répondre de nouveau à la même question garde son numéro
+        assertThat(answer.run(project.id(), p.id(), p.questions().get(1).id(), "PostgreSQL 17", false).number()).isEqualTo(1);
+        assertThat(proposals.find(project.id(), p.id()).orElseThrow().questions().get(1).number()).isEqualTo(1);
+
+        // régénération : la réponse est transmise et citable, la question passée n'est pas reposée
+        w.llm.facts.add(facts(PAGE));
+        w.llm.contexts.add(draft("- ok [source : " + PAGE + "]", "## Contraintes techniques\n- PostgreSQL 17. [source : Q-1]",
+                question(ContextSheet.FUNCTIONAL, "  question 0 ?  ")));
+        w.llm.contexts.add(draft("- ok [source : " + PAGE + "]", "## Contraintes techniques\n- PostgreSQL 17. [source : Q-1]"));
+        ContextProposalStore.ContextProposal again = propose.run(project.id());
+        BuildContextRequest first = w.llm.contextRequests.get(w.llm.contextRequests.size() - 2);
+        assertThat(first.answers()).containsExactly(
+                new BuildContextRequest.Answer("Q-1", ContextSheet.TECHNICAL, "Question 1 ?", "PostgreSQL 17"));
+        assertThat(first.skipped()).containsExactly(new BuildContextRequest.Skipped(ContextSheet.FUNCTIONAL, "Question 0 ?"));
+        assertThat(w.llm.contextRequests.getLast().correction()).contains("a déjà été posée (Q-2)");
+        assertThat(again.sources()).contains("Q-1");
+        assertThat(again.questions()).isEmpty();
+
+        ManageContextQuestions history = new ManageContextQuestions(w.projects, w.contextQuestions, w.clock);
+        assertThat(history.list(project.id())).extracting(ContextQuestion::ref).containsExactly("Q-1", "Q-2");
+        assertThat(history.update(project.id(), 2, "Simplifier le lettrage", false).state())
+                .isEqualTo(ContextQuestion.State.ANSWERED);
+        assertThatThrownBy(() -> history.update(project.id(), 9, "x", false)).isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 }

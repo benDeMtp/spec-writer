@@ -1,0 +1,28 @@
+{"operation": "generate-specification", "userContains": ["<contexte-technique>", "100 commandes par page"], "response": {
+  "title": "API de suivi des commandes",
+  "summary": "Les partenaires consultent le statut de leurs commandes par une API publique.",
+  "useCases": [
+    {"title": "Consulter ses commandes", "actor": "partenaire", "goal": "Suivre ses commandes sans appeler le support",
+     "preconditions": ["Le partenaire est authentifié par la passerelle"], "nominalFlow": ["Demander la liste de ses commandes", "Lire le statut de chaque commande"],
+     "alternatives": ["Plus de 100 commandes : la réponse est paginée"],
+     "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "consulter le statut de leurs commandes par une API"}},
+    {"title": "S'authentifier auprès de la passerelle", "actor": "partenaire", "goal": "Obtenir un jeton d'accès",
+     "preconditions": [], "nominalFlow": ["Présenter ses identifiants client", "Recevoir un jeton"],
+     "alternatives": ["Identifiants refusés : aucun jeton n'est délivré"],
+     "source": {"kind": "PROJECT_CONTEXT", "questionId": "", "excerpt": "Les API publiques passent par la passerelle Kong, qui authentifie en OAuth2 client credentials."}}
+  ],
+  "scenarios": [
+    {"useCaseIndex": 0, "title": "Liste paginée", "kind": "NOMINAL", "asA": "partenaire",
+     "given": ["j'ai 250 commandes"], "when": ["je demande mes commandes"], "then": ["je reçois les 100 premières et le lien de la page suivante"], "assumption": false},
+    {"useCaseIndex": 0, "title": "Commande d'un autre compte", "kind": "ERROR", "asA": "partenaire",
+     "given": ["la commande C-9 appartient à un autre partenaire"], "when": ["je demande la commande C-9"], "then": ["la réponse indique que la commande est introuvable"], "assumption": false},
+    {"useCaseIndex": 1, "title": "Jeton délivré", "kind": "NOMINAL", "asA": "partenaire",
+     "given": ["mes identifiants client sont valides"], "when": ["je demande un jeton"], "then": ["je reçois un jeton d'accès"], "assumption": false}
+  ],
+  "assumptions": [],
+  "requirements": [
+    {"category": "FUNCTIONAL", "statement": "Un partenaire ne voit que les commandes de son compte."},
+    {"category": "TECHNICAL", "statement": "L'API est décrite en OpenAPI 3.1 et versionnée dans le chemin (/v1/)."},
+    {"category": "TECHNICAL", "statement": "L'API répond en moins de 300 ms au 95e centile."},
+    {"category": "TECHNICAL", "statement": "Les statuts sont lus depuis la file « commandes.statut »."}
+  ]}}

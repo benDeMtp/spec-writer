@@ -1,4 +1,4 @@
-{"operation": "propose-questions", "userContains": ["<contexte-projet>", "ne peut pas dépasser le montant restant dû"], "response": {
+{"operation": "propose-questions", "userContains": ["<contexte-fonctionnel>", "ne peut pas dépasser le montant restant dû"], "response": {
   "questions": [
     {"theme": "NOMINAL_FLOW", "label": "Comment le client est-il informé de l'avoir ?", "rationale": "Le client doit savoir que sa facture est corrigée",
      "suggestions": ["Un courriel avec l'avoir en PDF", "Aucune information"], "defaultValue": "Un courriel avec l'avoir en PDF", "dependsOnQuestionIds": []},

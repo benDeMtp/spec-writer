@@ -1,5 +1,6 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.domain.llm.ProjectContextInput;
 import dev.specwriter.domain.llm.ReassessRequest;
 import dev.specwriter.domain.llm.ReassessResult;
 import dev.specwriter.domain.port.IdGenerator;
@@ -31,7 +32,7 @@ public final class ReviseAnswer {
         this.ids = ids;
     }
 
-    public Result reassess(Session session, Questionnaire questionnaire, UUID changed, String projectContext) {
+    public Result reassess(Session session, Questionnaire questionnaire, UUID changed, ProjectContextInput projectContext) {
         ReassessResult result = llm.reassessAfterChange(new ReassessRequest(session.need().text(), session.language(),
                 NextBatch.known(questionnaire), changed.toString(), projectContext));
         Set<String> cited = new HashSet<>(result.obsoleteQuestionIds());

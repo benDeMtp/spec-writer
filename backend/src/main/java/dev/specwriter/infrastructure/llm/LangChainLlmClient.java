@@ -128,8 +128,7 @@ public class LangChainLlmClient implements LlmClient {
 
     @Override
     public ProjectContextDraft buildProjectContext(BuildContextRequest request) {
-        String user = UserMessages.buildContext(request.language(), request.facts(), request.currentContext(),
-                request.correction());
+        String user = UserMessages.buildContext(request);
         return call("build-project-context", user, LlmSchemas.PROJECT_CONTEXT, LangChainLlmClient::toContext);
     }
 
@@ -176,10 +175,11 @@ public class LangChainLlmClient implements LlmClient {
 
     private static ProjectContextDraft toContext(String json) {
         ProjectContextDraft draft = JSON.readValue(json, ProjectContextDraft.class);
-        if (draft == null || draft.markdown() == null) {
-            throw new IllegalArgumentException("fiche absente");
+        if (draft == null || draft.questions().stream().anyMatch(q -> q.sheet() == null || blank(q.label()))) {
+            throw new IllegalArgumentException("fiches absentes ou question sans fiche ni libellé");
         }
-        return new ProjectContextDraft(TABLES.wikiTablesToMarkdown(draft.markdown()));
+        return new ProjectContextDraft(TABLES.wikiTablesToMarkdown(draft.functional()),
+                TABLES.wikiTablesToMarkdown(draft.technical()), draft.questions());
     }
 
     private static ProposeQuestionsResult toQuestions(String json) {

@@ -1,5 +1,7 @@
 package dev.specwriter.infrastructure.llm;
 
+import dev.specwriter.domain.llm.BuildContextRequest;
+import dev.specwriter.domain.llm.ProjectContextInput;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.llm.SourceFacts;
 import dev.specwriter.domain.llm.SummarizeSourcesRequest;
@@ -12,7 +14,8 @@ import java.util.stream.Collectors;
 /**
  * Message utilisateur : uniquement des données, chacune entre balises (FR-026, LLM01). Les chevrons
  * du contenu sont neutralisés pour qu'un texte saisi ne puisse pas fermer une balise. Le contexte du
- * projet suit la langue, dans {@code <contexte-projet>} (research.md R5 de 002).
+ * projet suit la langue : {@code <contexte-fonctionnel>} puis {@code <contexte-technique>} (research.md R5
+ * et R16 de 002).
  */
 final class UserMessages {
 
@@ -20,38 +23,38 @@ final class UserMessages {
     }
 
     static String questions(String need, Language language, List<QuestionAndAnswer> known,
-            Collection<QuestionTheme> remaining, String projectContext) {
+            Collection<QuestionTheme> remaining, ProjectContextInput projectContext) {
         return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(known) + "\n<themes-restants>"
                 + remaining.stream().map(Enum::name).sorted().collect(Collectors.joining(" ")) + "</themes-restants>";
     }
 
     static String reassess(String need, Language language, List<QuestionAndAnswer> known, String changedQuestionId,
-            String projectContext) {
+            ProjectContextInput projectContext) {
         return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(known) + "\n<question-modifiee>"
                 + data(changedQuestionId) + "</question-modifiee>";
     }
 
     static String generation(String need, Language language, List<QuestionAndAnswer> answers, String correction,
-            String projectContext) {
+            ProjectContextInput projectContext) {
         return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(answers) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
     static String edit(String need, Language language, List<QuestionAndAnswer> answers, String currentMarkdown,
-            String instruction, String correction, String projectContext) {
+            String instruction, String correction, ProjectContextInput projectContext) {
         return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(answers) + "\n" + block("specification-actuelle",
                 currentMarkdown) + "\n" + block("instruction", instruction) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
     static String merge(String need, Language language, List<QuestionAndAnswer> answers, String localMarkdown,
-            String jiraMarkdown, String correction, String projectContext) {
+            String jiraMarkdown, String correction, ProjectContextInput projectContext) {
         return language(language) + "\n" + context(projectContext) + need(need) + "\n" + answers(answers) + "\n" + block("version-locale",
                 localMarkdown) + "\n" + block("version-jira", jiraMarkdown) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
 
-    static String structure(String text, Language language, String correction, String projectContext) {
+    static String structure(String text, Language language, String correction, ProjectContextInput projectContext) {
         return language(language) + "\n" + context(projectContext) + block("texte-importe", text) + "\n<correction>" + data(correction)
                 + "</correction>";
     }
@@ -66,21 +69,44 @@ final class UserMessages {
         return out.append("</sources>\n<correction>").append(data(correction)).append("</correction>").toString();
     }
 
-    /** Faits extraits et fiche actuelle (build-project-context). */
-    static String buildContext(Language language, List<SourceFacts.Fact> facts, String currentContext,
-            String correction) {
-        StringBuilder out = new StringBuilder(language(language)).append("\n<faits>\n");
-        for (SourceFacts.Fact f : facts) {
-            out.append("<fait categorie=\"").append(f.category() == null ? "" : f.category().name()).append("\" sources=\"")
+    /** Faits extraits, fiches actuelles, réponses et questions passées (build-project-context, R16 de 002). */
+    static String buildContext(BuildContextRequest r) {
+        StringBuilder out = new StringBuilder(language(r.language())).append("\n<faits>\n");
+        for (SourceFacts.Fact f : r.facts()) {
+            String category = f.category() == null ? "" : f.category().name();
+            String sheet = f.category() == null ? "" : f.category().sheet().name();
+            out.append("<fait fiche=\"").append(sheet).append("\" categorie=\"").append(category).append("\" sources=\"")
                     .append(attribute(String.join(" ", f.refs()))).append("\">").append(data(f.statement())).append("</fait>\n");
         }
-        return out.append("</faits>\n").append(block("fiche-actuelle", currentContext)).append("\n<correction>")
-                .append(data(correction)).append("</correction>").toString();
+        out.append("</faits>\n").append(block("fiche-fonctionnelle-actuelle", r.currentFunctional())).append('\n')
+                .append(block("fiche-technique-actuelle", r.currentTechnical())).append("\n<reponses>\n");
+        for (BuildContextRequest.Answer a : r.answers()) {
+            out.append("<reponse ref=\"").append(attribute(a.ref())).append("\" fiche=\"").append(a.sheet().name())
+                    .append("\" question=\"").append(attribute(a.question())).append("\">").append(data(a.answer()))
+                    .append("</reponse>\n");
+        }
+        out.append("</reponses>\n<questions-passees>\n");
+        for (BuildContextRequest.Skipped q : r.skipped()) {
+            out.append("<question fiche=\"").append(q.sheet().name()).append("\">").append(data(q.question()))
+                    .append("</question>\n");
+        }
+        return out.append("</questions-passees>\n<correction>").append(data(r.correction())).append("</correction>")
+                .toString();
     }
 
-    /** Vide sans contexte : le message est alors celui de 001. */
-    private static String context(String projectContext) {
-        return projectContext == null || projectContext.isBlank() ? "" : block("contexte-projet", projectContext) + "\n";
+    /** Fiches fonctionnelle et technique ; une fiche vide est omise, et sans fiche le message est celui de 001. */
+    private static String context(ProjectContextInput projectContext) {
+        if (projectContext == null || projectContext.isEmpty()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder();
+        if (!projectContext.functional().isBlank()) {
+            out.append(block("contexte-fonctionnel", projectContext.functional())).append('\n');
+        }
+        if (!projectContext.technical().isBlank()) {
+            out.append(block("contexte-technique", projectContext.technical())).append('\n');
+        }
+        return out.toString();
     }
 
     /** Valeur d'attribut : chevrons et guillemets neutralisés. */

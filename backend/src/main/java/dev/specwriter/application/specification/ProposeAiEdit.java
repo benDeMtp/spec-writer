@@ -1,8 +1,9 @@
 package dev.specwriter.application.specification;
 
+import dev.specwriter.domain.llm.ProjectContextInput;
+import dev.specwriter.domain.project.ContextSheets;
 import dev.specwriter.application.project.ProjectContexts;
 import dev.specwriter.domain.port.ProjectRepository;
-import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
@@ -54,11 +55,11 @@ public class ProposeAiEdit {
         SpecificationVersion base = latest(versions, sessionId);
         consent.requireGranted(ConsentService.COPILOT);
         List<Question> treated = sessions.questionnaire(sessionId).map(Questionnaire::treated).orElse(List.of());
-        ProjectContext context = ProjectContexts.of(projects, session);
+        ContextSheets context = ProjectContexts.of(projects, session);
         EditRequest request = new EditRequest(session.need().text(), session.language(), DraftValidation.answers(treated),
-                base.markdown(), text, null, context.markdown());
+                base.markdown(), text, null, ProjectContextInput.of(context));
         SpecificationContent content = DraftValidation.produce(c -> llm.editSpecification(request.withCorrection(c)),
-                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, context.markdown());
+                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, ProjectContextInput.of(context));
         return proposals.propose(session, base, content, VersionOrigin.AI_EDIT, null, null, context);
     }
 

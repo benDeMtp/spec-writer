@@ -37,6 +37,7 @@ public class JiraWorld {
     public final InMemorySessions sessions = new InMemorySessions();
     public final InMemoryProjects projects = new InMemoryProjects();
     public final InMemoryDocSources docSources = new InMemoryDocSources();
+    public final InMemoryContextQuestions contextQuestions = new InMemoryContextQuestions();
     public final FakeDocumentationReader docs = new FakeDocumentationReader();
     public final InMemorySpecifications versions = new InMemorySpecifications();
     public final InMemoryLinkedTickets tickets = new InMemoryLinkedTickets();

@@ -1,5 +1,6 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.domain.llm.ProjectContextInput;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.application.project.CurrentProject;
 import dev.specwriter.domain.consent.ConsentPolicy;
@@ -44,7 +45,8 @@ public class StartSession {
         Project project = CurrentProject.resolve(projects);
         Session session = Session.start(ids.next(), project.id(), need, name, clock.now());
         consent.requireGranted(ConsentService.COPILOT);
-        Questionnaire questionnaire = NextBatch.ask(llm, ids, session, Questionnaire.empty(), project.context().markdown());
+        Questionnaire questionnaire = NextBatch.ask(llm, ids, session, Questionnaire.empty(),
+                ProjectContextInput.of(project.contexts()));
         if (questionnaire.pending().isEmpty()) {
             session = session.readyToGenerate(clock.now());
         }

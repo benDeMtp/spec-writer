@@ -1,8 +1,9 @@
 package dev.specwriter.application.jira;
 
+import dev.specwriter.domain.llm.ProjectContextInput;
+import dev.specwriter.domain.project.ContextSheets;
 import dev.specwriter.application.project.ProjectContexts;
 import dev.specwriter.domain.port.ProjectRepository;
-import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.application.specification.DraftValidation;
 import dev.specwriter.application.specification.ProposalStore;
 import dev.specwriter.domain.consent.ConsentPolicy;
@@ -134,14 +135,14 @@ public class PushToJira {
 
     private TakenFromJira takeJira(Session session, LinkedJiraTicket ticket, JiraIssue current) {
         consent.requireGranted(ConsentService.COPILOT);
-        ProjectContext context = ProjectContexts.of(projects, session);
+        ContextSheets context = ProjectContexts.of(projects, session);
         SpecificationContent content = ImportJiraIssue.structure(llm, markup.toMarkdown(current.description(), ticket.issueUrl()),
-                session.language(), context.markdown());
+                session.language(), ProjectContextInput.of(context));
         int number = versions.lastNumber(session.id()) + 1;
         SpecificationVersion taken = new SpecificationVersion(ids.next(), session.id(), number, content,
                 "jira-import:" + current.key() + ":" + current.updated(), VersionOrigin.JIRA_IMPORT,
                 MarkdownRenderer.render(content, session.language()), clock.now())
-                .withContext(context.hash(), context.updatedAt());
+                .withContext(context.combinedHash(), context.updatedAt());
         versions.save(taken);
         sessions.save(session.generated(clock.now()), sessions.questionnaire(session.id()).orElseGet(Questionnaire::empty));
         LinkedJiraTicket reimported = ticket.reimported(number, current.updated(), ConflictDetector.hash(current.description()));
@@ -152,11 +153,11 @@ public class PushToJira {
     private MergeProposed merge(Session session, SpecificationVersion local, JiraIssue current, String issueUrl) {
         consent.requireGranted(ConsentService.COPILOT);
         List<Question> treated = sessions.questionnaire(session.id()).map(Questionnaire::treated).orElse(List.of());
-        ProjectContext context = ProjectContexts.of(projects, session);
+        ContextSheets context = ProjectContexts.of(projects, session);
         MergeRequest request = new MergeRequest(session.need().text(), session.language(), DraftValidation.answers(treated),
-                local.markdown(), markup.toMarkdown(current.description(), issueUrl), null, context.markdown());
+                local.markdown(), markup.toMarkdown(current.description(), issueUrl), null, ProjectContextInput.of(context));
         SpecificationContent content = DraftValidation.produce(c -> llm.mergeConflict(request.withCorrection(c)), treated,
-                session.language(), ErrorCode.LLM_INVALID_OUTPUT, context.markdown());
+                session.language(), ErrorCode.LLM_INVALID_OUTPUT, ProjectContextInput.of(context));
         return new MergeProposed(proposals.propose(session, local, content, VersionOrigin.CONFLICT_MERGE, current.updated(),
                 ConflictDetector.hash(current.description()), context));
     }

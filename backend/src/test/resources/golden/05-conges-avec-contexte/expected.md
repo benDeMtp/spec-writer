@@ -28,7 +28,7 @@ Le salarié demande des congés ; son responsable accepte ou refuse.
   2. Accepter ou refuser
 - **Alternatives** :
   - Le responsable est absent : la demande va à son remplaçant
-- **Source** : contexte du projet « Le responsable hiérarchique valide les demandes de son équipe. »
+- **Source** : contexte du projet, fiche fonctionnelle « Le responsable hiérarchique valide les demandes de son équipe. »
 
 ## Scénarios d'acceptation
 

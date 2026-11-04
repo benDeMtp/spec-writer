@@ -1,5 +1,10 @@
 package dev.specwriter.application.context;
 
+import java.util.Map;
+import java.util.HashMap;
+import dev.specwriter.domain.project.ContextSheet;
+import dev.specwriter.domain.project.ContextQuestion;
+import dev.specwriter.domain.port.ContextQuestionRepository;
 import dev.specwriter.application.jira.JiraAccess;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
@@ -45,6 +50,7 @@ public class ProposeProjectContext {
 
     public static final int BATCH_CHARS = 40_000;
     static final int MAX_ATTEMPTS = 3;
+    static final int MAX_QUESTIONS = 10;
     private static final Pattern CITATION = Pattern.compile("\\[source\\s*:\\s*([^\\]]+)]", Pattern.CASE_INSENSITIVE);
 
     private final ProjectRepository projects;
@@ -56,11 +62,12 @@ public class ProposeProjectContext {
     private final LlmClient llm;
     private final ConsentPolicy consent;
     private final ContextProposalStore proposals;
+    private final ContextQuestionRepository questions;
     private final ClockPort clock;
 
     public ProposeProjectContext(ProjectRepository projects, DocSourceRepository docSources, DocumentationReader reader,
             JiraAccess jira, IssueTracker tracker, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
-            ContextProposalStore proposals, ClockPort clock) {
+            ContextProposalStore proposals, ContextQuestionRepository questions, ClockPort clock) {
         this.projects = projects;
         this.docSources = docSources;
         this.reader = reader;
@@ -70,7 +77,21 @@ public class ProposeProjectContext {
         this.llm = llm;
         this.consent = consent;
         this.proposals = proposals;
+        this.questions = questions;
         this.clock = clock;
+    }
+
+    /**
+     * Ce qui a été lu et extrait : la base d'une proposition, gardée par la génération pour une
+     * révision après les réponses, sans relire les sources (research.md R16).
+     */
+    public record Basis(Language language, List<SourceFacts.Fact> facts, Set<String> sourceRefs, List<Unread> unread) {
+
+        public Basis {
+            facts = List.copyOf(facts);
+            sourceRefs = Set.copyOf(sourceRefs);
+            unread = List.copyOf(unread);
+        }
     }
 
     public ContextProposalStore.ContextProposal run(UUID projectId) {
@@ -82,6 +103,11 @@ public class ProposeProjectContext {
      *         de tickets ou un appel au LLM
      */
     public ContextProposalStore.ContextProposal run(UUID projectId, GenerationProgress progress) {
+        return draft(projectId, prepare(projectId, progress), progress);
+    }
+
+    /** Lit les sources et les tickets, puis en extrait les faits. */
+    public Basis prepare(UUID projectId, GenerationProgress progress) {
         Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
         consent.requireGranted(ConsentService.COPILOT);
 
@@ -138,11 +164,33 @@ public class ProposeProjectContext {
             facts.addAll(summarize(language, batches.get(i), progress));
         }
         progress.advance(null, batches.size(), batches.size());
+        return new Basis(language, facts, known, unread);
+    }
+
+    /**
+     * Rédige les deux fiches et les questions de clarification à partir de la base, des fiches
+     * actuelles et des réponses déjà données (FR-013a, FR-013h, FR-013i).
+     */
+    public ContextProposalStore.ContextProposal draft(UUID projectId, Basis basis, GenerationProgress progress) {
+        Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
+        consent.requireGranted(ConsentService.COPILOT);
+        List<ContextQuestion> asked = questions.list(projectId);
+        List<BuildContextRequest.Answer> answers = asked.stream().filter(q -> q.state() == ContextQuestion.State.ANSWERED)
+                .map(q -> new BuildContextRequest.Answer(q.ref(), q.sheet(), q.label(), q.answer())).toList();
+        List<BuildContextRequest.Skipped> skipped = asked.stream().filter(q -> q.state() == ContextQuestion.State.SKIPPED)
+                .map(q -> new BuildContextRequest.Skipped(q.sheet(), q.label())).toList();
+        Set<String> known = new LinkedHashSet<>(basis.sourceRefs());
+        answers.forEach(a -> known.add(a.ref()));
         progress.step(GenerationProgress.Step.BUILDING, 1);
-        String markdown = build(language, facts, project.context(), known, progress);
+        BuildContextRequest request = new BuildContextRequest(basis.language(), basis.facts(),
+                project.context(ContextSheet.FUNCTIONAL).markdown(), project.context(ContextSheet.TECHNICAL).markdown(),
+                answers, skipped, "");
+        ProjectContextDraft draft = build(request, known, asked, progress);
         progress.advance(null, 1, 1);
         requireNotCancelled(progress);
-        return proposals.propose(project, markdown, cited(markdown), unread);
+        ProjectContextDraft bounded = new ProjectContextDraft(draft.functional(), draft.technical(),
+                draft.questions().stream().limit(MAX_QUESTIONS).toList());
+        return proposals.propose(project, bounded, cited(draft.functional() + "\n" + draft.technical()), basis.unread());
     }
 
     /** Lecture en échec ; une page hors Antora est écartée, pas en erreur, et la limite est signalée à part. */
@@ -192,23 +240,37 @@ public class ProposeProjectContext {
         });
     }
 
-    private String build(Language language, List<SourceFacts.Fact> facts, ProjectContext current, Set<String> known,
+    private ProjectContextDraft build(BuildContextRequest request, Set<String> known, List<ContextQuestion> asked,
             GenerationProgress progress) {
-        BuildContextRequest request = new BuildContextRequest(language, facts, current.markdown(), "");
-        return retry(progress, "rédaction de la fiche", correction -> llm.buildProjectContext(request.withCorrection(correction)),
+        Map<String, ContextQuestion> askedByLabel = new HashMap<>();
+        asked.forEach(q -> askedByLabel.put(normalized(q.label()), q));
+        return retry(progress, "rédaction des fiches", correction -> llm.buildProjectContext(request.withCorrection(correction)),
                 (ProjectContextDraft d) -> {
-            List<String> problems = new ArrayList<>();
-            String markdown = d.markdown() == null ? "" : d.markdown().strip();
-            if (markdown.isEmpty()) {
-                problems.add("la fiche est vide");
-            }
-            if (markdown.length() > ProjectContext.MAX_LENGTH) {
-                problems.add("la fiche dépasse 20 000 caractères : raccourcis-la");
-            }
-            cited(markdown).stream().filter(r -> !known.contains(r))
-                    .forEach(r -> problems.add("la référence " + r + " ne correspond à aucune source lue"));
-            return problems;
-        }).markdown().strip();
+                    List<String> problems = new ArrayList<>();
+                    if (d.functional().isEmpty() && d.technical().isEmpty()) {
+                        problems.add("les deux fiches sont vides");
+                    }
+                    for (ContextSheet sheet : ContextSheet.values()) {
+                        String label = sheet == ContextSheet.FUNCTIONAL ? "fonctionnelle" : "technique";
+                        if (d.get(sheet).length() > ProjectContext.MAX_LENGTH) {
+                            problems.add("la fiche " + label + " dépasse 20 000 caractères : raccourcis-la");
+                        }
+                        cited(d.get(sheet)).stream().filter(r -> !known.contains(r)).forEach(r -> problems.add(
+                                "la référence " + r + " de la fiche " + label + " ne correspond à aucune source lue"));
+                    }
+                    for (ProjectContextDraft.Question q : d.questions()) {
+                        ContextQuestion already = askedByLabel.get(normalized(q.label()));
+                        if (already != null) {
+                            problems.add("la question « " + q.label() + " » a déjà été posée (" + already.ref()
+                                    + ") : ne la repose pas");
+                        }
+                    }
+                    return problems;
+                });
+    }
+
+    private static String normalized(String text) {
+        return text == null ? "" : text.strip().toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", " ");
     }
 
     /** Appel au LLM, puis jusqu'à 2 nouvelles demandes avec les écarts constatés, signalés (FR-013g). */

@@ -1,5 +1,6 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.domain.llm.ProjectContextInput;
 import dev.specwriter.application.project.ProjectContexts;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.consent.ConsentPolicy;
@@ -82,7 +83,7 @@ public class AnswerQuestion {
         return new SessionSnapshot(session, questionnaire, List.of(), revision);
     }
 
-    private String context(Session session) {
-        return ProjectContexts.of(projects, session).markdown();
+    private ProjectContextInput context(Session session) {
+        return ProjectContextInput.of(ProjectContexts.of(projects, session));
     }
 }

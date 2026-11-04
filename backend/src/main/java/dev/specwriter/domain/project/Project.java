@@ -17,7 +17,7 @@ public record Project(
         ProjectName name,
         String description,
         JiraProjectKey jiraProjectKey,
-        ProjectContext context,
+        ContextSheets contexts,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -30,21 +30,26 @@ public record Project(
         Objects.requireNonNull(id);
         Objects.requireNonNull(name);
         description = validDescription(description);
-        context = context == null ? ProjectContext.NONE : context;
+        contexts = contexts == null ? ContextSheets.NONE : contexts;
     }
 
     public static Project create(UUID id, ProjectName name, String description, JiraProjectKey jiraProjectKey,
             Instant now) {
-        return new Project(id, name, description, jiraProjectKey, ProjectContext.NONE, now, now);
+        return new Project(id, name, description, jiraProjectKey, ContextSheets.NONE, now, now);
     }
 
     public Project update(ProjectName newName, String newDescription, JiraProjectKey newKey, Instant now) {
-        return new Project(id, newName, newDescription, newKey, context, createdAt, now);
+        return new Project(id, newName, newDescription, newKey, contexts, createdAt, now);
     }
 
-    /** Nouvelle fiche de contexte, générée ou modifiée à la main (FR-013a, FR-013c). */
-    public Project withContext(ProjectContext newContext) {
-        return new Project(id, name, description, jiraProjectKey, newContext, createdAt, newContext.updatedAt());
+    public ProjectContext context(ContextSheet sheet) {
+        return contexts.get(sheet);
+    }
+
+    /** Nouvelle version d'une fiche, générée ou modifiée à la main (FR-008a, FR-013a, FR-013c). */
+    public Project withContext(ContextSheet sheet, ProjectContext newContext) {
+        return new Project(id, name, description, jiraProjectKey, contexts.with(sheet, newContext), createdAt,
+                newContext.updatedAt());
     }
 
     public String nameKey() {

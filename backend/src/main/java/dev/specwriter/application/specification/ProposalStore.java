@@ -1,6 +1,6 @@
 package dev.specwriter.application.specification;
 
-import dev.specwriter.domain.project.ProjectContext;
+import dev.specwriter.domain.project.ContextSheets;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.TextDiff;
@@ -46,12 +46,12 @@ public class ProposalStore {
     }
 
     public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
-            Instant jiraUpdated, String jiraDescriptionHash, ProjectContext context) {
+            Instant jiraUpdated, String jiraDescriptionHash, ContextSheets context) {
         purge();
         String markdown = MarkdownRenderer.render(content, session.language());
         String unified = diff.unified(base.markdown(), markdown, "v" + base.number(), "proposition");
         Proposal p = new Proposal(ids.next(), session.id(), base.number(), content, markdown, unified, origin, clock.now(),
-                jiraUpdated, jiraDescriptionHash, context.hash(), context.updatedAt());
+                jiraUpdated, jiraDescriptionHash, context.combinedHash(), context.updatedAt());
         proposals.put(p.id(), p);
         return p;
     }

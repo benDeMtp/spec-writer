@@ -1,8 +1,9 @@
 package dev.specwriter.application.specification;
 
+import dev.specwriter.domain.llm.ProjectContextInput;
+import dev.specwriter.domain.project.ContextSheets;
 import dev.specwriter.application.project.ProjectContexts;
 import dev.specwriter.domain.port.ProjectRepository;
-import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
@@ -63,9 +64,9 @@ public class GenerateSpecification {
             throw new DomainException(ErrorCode.CONTRADICTION_UNRESOLVED);
         }
         List<Question> treated = questionnaire.treated();
-        ProjectContext context = ProjectContexts.of(projects, session);
+        ContextSheets context = ProjectContexts.of(projects, session);
         String fingerprint = InputFingerprint.of(session.need().text(), treated, toolVersion, session.language(),
-                context.hash());
+                context.combinedHash());
         var existing = versions.findByFingerprint(sessionId, fingerprint);
         if (existing.isPresent()) {
             return new Generated(existing.get(), true);
@@ -73,13 +74,13 @@ public class GenerateSpecification {
         consent.requireGranted(ConsentService.COPILOT);
 
         GenerationRequest request = new GenerationRequest(session.need().text(), session.language(),
-                DraftValidation.answers(treated), null, context.markdown());
+                DraftValidation.answers(treated), null, ProjectContextInput.of(context));
         SpecificationContent content = DraftValidation.produce(
                 correction -> llm.generateSpecification(correction == null ? request : request.withCorrection(correction)),
-                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, context.markdown());
+                treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, ProjectContextInput.of(context));
         SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.lastNumber(sessionId) + 1,
                 content, fingerprint, VersionOrigin.GENERATED, MarkdownRenderer.render(content, session.language()),
-                clock.now()).withContext(context.hash(), context.updatedAt());
+                clock.now()).withContext(context.combinedHash(), context.updatedAt());
         versions.save(version);
         sessions.save(session.generated(clock.now()), questionnaire);
         return new Generated(version, false);

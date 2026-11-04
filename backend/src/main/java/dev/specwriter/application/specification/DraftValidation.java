@@ -1,5 +1,6 @@
 package dev.specwriter.application.specification;
 
+import dev.specwriter.domain.llm.ProjectContextInput;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.llm.DraftSpecification;
@@ -35,12 +36,12 @@ public final class DraftValidation {
      */
     public static SpecificationContent produce(Function<String, DraftSpecification> call, List<Question> treated,
             Language language, ErrorCode failure) {
-        return produce(call, treated, language, failure, "");
+        return produce(call, treated, language, failure, ProjectContextInput.EMPTY);
     }
 
-    /** @param projectContext contexte du projet, que les sources PROJECT_CONTEXT citent mot pour mot */
+    /** @param projectContext fiches du projet, que les sources PROJECT_CONTEXT citent mot pour mot */
     public static SpecificationContent produce(Function<String, DraftSpecification> call, List<Question> treated,
-            Language language, ErrorCode failure, String projectContext) {
+            Language language, ErrorCode failure, ProjectContextInput projectContext) {
         Set<UUID> treatedIds = treated.stream().map(Question::id).collect(Collectors.toSet());
         String correction = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -56,9 +57,10 @@ public final class DraftValidation {
             IdentifierAssigner.Assigned assigned = IdentifierAssigner.assign(draft, treated, language);
             StructureViolations violations = assigned.violations()
                     .and(ScenarioStructureValidator.validate(assigned.content()))
-                    .and(TraceabilityValidator.validate(assigned.content(), treatedIds, projectContext));
+                    .and(TraceabilityValidator.validate(assigned.content(), treatedIds, projectContext.combined()));
             if (violations.isEmpty()) {
-                return assigned.content();
+                return TraceabilityValidator.locateContextSources(assigned.content(), projectContext.functional(),
+                        projectContext.technical());
             }
             correction = String.join("\n", violations.messages());
         }

@@ -1,5 +1,6 @@
 package dev.specwriter.domain.specification;
 
+import dev.specwriter.domain.llm.ProjectContextInput;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.specwriter.domain.scenario.AcceptanceScenario.Kind;
@@ -53,6 +54,18 @@ class TraceabilityValidatorTest {
                 .anyMatch(m -> m.contains("contexte du projet"));
         // sans contexte, aucune source ne peut le citer
         assertThat(check(cited, List.of()).messages()).anyMatch(m -> m.contains("contexte du projet"));
+    }
+
+    @Test
+    void sourceContexteDuProjetCiteLUneOuLAutreFiche() {
+        ProjectContextInput sheets = new ProjectContextInput("## Acteurs\n- Le comptable lettre les paiements.",
+                "## Architecture\n- Les services communiquent par une file JMS.");
+        assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "le comptable lettre"),
+                sheets.combined()).isEmpty()).isTrue();
+        assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "communiquent par une file JMS"),
+                sheets.combined()).isEmpty()).isTrue();
+        assertThat(checkWithContext(new SourceRef(SourceRef.Kind.PROJECT_CONTEXT, null, "une base PostgreSQL"),
+                sheets.combined()).messages()).anyMatch(m -> m.contains("contexte du projet"));
     }
 
     static StructureViolations checkWithContext(SourceRef source, String context) {
