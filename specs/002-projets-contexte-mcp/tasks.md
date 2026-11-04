@@ -258,6 +258,10 @@ relue, modifiable, régénérable, utilisée et citée par toutes les opération
   - spécification : l'extrait « contexte du projet » nomme sa fiche.
 - [X] T081 [US2] E2E `E/us8-project-context.spec.ts` : scénarios quickstart P5c et P5d avec axe ; réponses LLM rejouées (`10-build-context.json` avec questions, `09b-revise-context.json`, rangé avant `10-` pour être retenu en premier).
 
+- [X] T082 [US2] Journal exploitable pour un échec du LLM (R15) : la cause Copilot gardée sans contenu (`SafeThrowable`, phase, modèle, durée, délai), l'échec de chaque appel journalisé avec l'opération et la tentative, la pile de chaque cause dans le journal. Tests `SafeThrowableTest`, `JournalTest`, `CopilotRuntimeClassifyTest`, `CopilotSdkChatModelTest`, `LangChainLlmClientTest`.
+- [X] T083 [US2] « Interrompre » rend la main tout de suite (R14) : état `CANCELLED` immédiat, thread interrompu, requête Copilot abandonnée et session supprimée ; front : état relu aussitôt, une seule boucle d'interrogation. Tests `ContextGenerationsTest`, `project-context.page.spec.ts`.
+- [X] T084 [US2] Motifs propres aux dossiers (R3) : `FOLDER_NOT_FOUND`, `NOT_A_FOLDER`, `ACCESS_DENIED`, `UNREADABLE`, `NO_HTML`, `ADOC_SOURCES` à l'aperçu et à la lecture, messages distincts à l'ajout. Tests `AntoraReaderTest`, `ContextSourcesTest`, `ProjectContextTest`.
+
 **Checkpoint** : US1 et US2 utilisables ; le golden set avec contexte passe.
 
 ---

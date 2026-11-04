@@ -276,7 +276,9 @@ components:
       type: object
       properties:
         location: { type: string }
-        reason: { enum: [UNREACHABLE, NOT_ANTORA, HTTP_ERROR, TOO_LARGE, REDIRECT_OTHER_HOST, LIMIT_REACHED] }
+        reason:
+          enum: [UNREACHABLE, NOT_ANTORA, HTTP_ERROR, TOO_LARGE, REDIRECT_OTHER_HOST, LIMIT_REACHED,
+            FOLDER_NOT_FOUND, NOT_A_FOLDER, ACCESS_DENIED, UNREADABLE, NO_HTML, ADOC_SOURCES]
         httpStatus: { type: integer, description: 'Code HTTP reçu, absent sans réponse' }
     ContextGeneration:
       type: object

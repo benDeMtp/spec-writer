@@ -167,10 +167,14 @@ describe('ProjectContextPage', () => {
     ctrl.expectOne('/api/projects/p1/context-proposals/preview').flush({
       pages: 32,
       tickets: 120,
-      unreadable: [{ location: 'https://down.example.com/', reason: 'UNREACHABLE' }],
+      unreadable: [
+        { location: 'https://down.example.com/', reason: 'UNREACHABLE' },
+        { location: '/Users/moi/projet/docs', reason: 'ADOC_SOURCES' },
+      ],
     });
     await settle(fixture);
     expect(el.textContent).toContain('Seront envoyés à Copilot : 32 pages de documentation et 120 tickets Jira.');
+    expect(el.textContent).toContain('/Users/moi/projet/docs : sources AsciiDoc (.adoc) et non site généré');
     button(el, 'Envoyer à Copilot')!.click();
     await settle(fixture);
     ctrl.expectOne((r) => r.method === 'POST' && r.url === '/api/projects/p1/context-generations').flush(generation({ step: null }));
@@ -295,7 +299,10 @@ describe('ProjectContextPage', () => {
     button(el, 'Interrompre')!.click();
     ctrl.expectOne((r) => r.method === 'DELETE' && r.url === CURRENT).flush(null);
     await settle(fixture);
-    ctrl.expectOne(CURRENT).flush(generation({ status: 'CANCELLED', finishedAt: '2026-11-03T10:00:30Z' }));
+    // l'état est relu aussitôt ; la réponse de l'interrogation déjà partie est ignorée
+    const [late, fresh] = ctrl.match(CURRENT);
+    late.flush(generation({ done: 4, total: 32 }));
+    fresh.flush(generation({ status: 'CANCELLED', finishedAt: '2026-11-03T10:00:30Z' }));
     await settle(fixture);
     ctrl.expectOne('/api/projects').flush([FACT]);
     await settle(fixture);

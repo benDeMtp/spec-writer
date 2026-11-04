@@ -33,7 +33,19 @@ export interface ContextSheetState {
   updatedAt: string | null;
 }
 export type DocSourceKind = 'URL' | 'FOLDER';
-export type UnreadReason = 'UNREACHABLE' | 'NOT_ANTORA' | 'HTTP_ERROR' | 'TOO_LARGE' | 'REDIRECT_OTHER_HOST' | 'LIMIT_REACHED';
+export type UnreadReason =
+  | 'UNREACHABLE'
+  | 'NOT_ANTORA'
+  | 'HTTP_ERROR'
+  | 'TOO_LARGE'
+  | 'REDIRECT_OTHER_HOST'
+  | 'LIMIT_REACHED'
+  | 'FOLDER_NOT_FOUND'
+  | 'NOT_A_FOLDER'
+  | 'ACCESS_DENIED'
+  | 'UNREADABLE'
+  | 'NO_HTML'
+  | 'ADOC_SOURCES';
 
 /** Source de documentation Antora d'un projet (FR-013) et résultat de sa dernière lecture. */
 export interface DocSource {

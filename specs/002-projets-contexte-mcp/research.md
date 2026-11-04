@@ -72,7 +72,11 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     - lire `sitemap.xml` à la racine du lien. Antora le génère quand `site.url` est défini. Avec
       plusieurs composants, c'est un index qui renvoie vers `sitemap-<composant>.xml` ;
     - à défaut, parcourir depuis la page d'accueil les liens du même hôte et sous le même chemin.
-  - **Dossier local** : parcourir les fichiers `*.html` du dossier.
+  - **Dossier local** : parcourir les fichiers `*.html` du dossier. Un sous-dossier illisible est
+    signalé (`ACCESS_DENIED`) sans arrêter le parcours. Un dossier sans page donne son motif :
+    `FOLDER_NOT_FOUND`, `NOT_A_FOLDER`, `ACCESS_DENIED`, `ADOC_SOURCES` (sources `.adoc` au lieu
+    du site généré) ou `NO_HTML`. L'ajout refuse un chemin relatif, absent, un fichier ou un
+    dossier illisible, avec un message propre à chaque cas.
   - Une page est reconnue comme Antora si elle contient `article.doc`. Seul ce contenu est gardé,
     sans navigation, en-tête ni pied de page. Il est converti en texte structuré (titres, listes,
     tableaux) avec **jsoup** (MIT, déjà dans le dépôt Maven local, version 1.23.2).
@@ -299,8 +303,13 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     d'`application`), qu'il informe à chaque page, ticket, lot et appel au LLM.
   - `DocumentationReader.read(source, listener)` signale chaque page lue ou non lue ; `Unread`
     gagne `httpStatus` (nul sans réponse HTTP).
-  - Interruption **coopérative** : un drapeau lu avant chaque page, chaque page de tickets et
-    chaque appel au LLM. Un appel au LLM déjà parti va à son terme, puis son résultat est ignoré.
+  - Interruption **immédiate** : la génération passe aussitôt à `CANCELLED`, ce qui rend la main
+    et permet d'en relancer une. Le drapeau reste lu avant chaque page, chaque page de tickets et
+    chaque appel au LLM, et le thread de la tâche est interrompu : un appel Copilot en cours est
+    abandonné (`CopilotSession.abort`), puis sa session est supprimée quand même (FR-022). Ce que
+    la tâche coupée renvoie ensuite (échec ou proposition) est ignoré.
+  - Une interrogation remplacée (par la relecture qui suit l'interruption) ignore sa réponse : une
+    seule boucle d'interrogation à la fois.
   - Erreurs (FR-013g) : `{kind, location, reason, httpStatus, message}`, avec `kind` parmi
     `PAGE`, `SOURCE`, `JIRA`, `CORRECTION` et `FAILURE`. Les messages ne citent que des
     adresses, des clés de ticket et des motifs, jamais un contenu.
@@ -323,7 +332,15 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   - Il écrit `${specwriter.data-dir.resolved}/logs/journal.jsonl`, avec la rotation par taille de
     JBoss LogManager (`SizeRotatingFileHandler`, 2 Mo, 4 sauvegardes, donc 5 fichiers).
   - Une entrée par ligne, en JSON : `at`, `level`, `logger`, `message`, `cause` (classe et message
-    de chaque cause) et `stack` (20 lignes au plus).
+    de chaque cause) et `stack` : 20 lignes par exception, puis celles de chaque cause sous un
+    en-tête « Causée par », 80 lignes au plus.
+  - Les erreurs du Copilot SDK, dont le message peut citer la requête, sont gardées comme cause
+    sous forme de `SafeThrowable` : classe et pile de chaque cause, sans message, avec seulement
+    des marqueurs techniques reconnus (code HTTP, `ECONNREFUSED`, erreur de certificat, code de
+    sortie, délai, limite de jetons). L'outil y ajoute la phase (démarrage du CLI, création de la
+    session, envoi du message), le modèle, la durée et le délai.
+  - Chaque échec d'un appel au LLM est journalisé en WARN avec l'opération, la tentative et la
+    durée, et la cause sans contenu.
   - Tout passe par `RedactingLogFilter.redact`, y compris la cause et la pile, que le filtre de la
     console ne touche pas.
   - `LogJournal` relit les fichiers du plus récent au plus ancien et renvoie les 500 dernières

@@ -59,6 +59,13 @@ const REASONS: Record<UnreadReason, string> = {
   TOO_LARGE: 'page de plus de 2 Mo',
   REDIRECT_OTHER_HOST: 'redirigée vers un autre site',
   LIMIT_REACHED: 'limite de lecture atteinte',
+  FOLDER_NOT_FOUND: "ce dossier n'existe plus",
+  NOT_A_FOLDER: 'ce chemin désigne un fichier, pas un dossier',
+  ACCESS_DENIED: 'droits de lecture insuffisants',
+  UNREADABLE: 'fichier illisible',
+  NO_HTML: 'aucune page HTML dans ce dossier',
+  ADOC_SOURCES:
+    "sources AsciiDoc (.adoc) et non site généré : indiquez le dossier produit par Antora (par exemple build/site)",
 };
 
 /**
@@ -405,6 +412,7 @@ export class ProjectContextPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly pollMs = inject(CONTEXT_POLL_MS);
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private pollToken = 0;
   private lastStep: GenerationStep | null = null;
   protected readonly announce = signal('');
 
@@ -587,18 +595,27 @@ export class ProjectContextPage {
     }
     this.cancelling.set(true);
     await this.run(() => this.api.cancel(p.id));
+    // l'interruption est immédiate côté serveur : l'état est relu sans attendre l'intervalle
+    this.poll(p.id, 0);
   }
 
   /** Interroge l'état chaque seconde jusqu'à la fin ; n'annonce que les changements d'étape. */
-  private poll(id: string): void {
+  private poll(id: string, delayMs = this.pollMs): void {
     this.stopPolling();
+    // une réponse attendue par une interrogation remplacée est ignorée : une seule boucle à la fois
+    const token = ++this.pollToken;
     this.pollTimer = setTimeout(async () => {
       this.pollTimer = null;
       let g: ContextGeneration | null;
       try {
         g = await this.api.current(id);
       } catch {
-        this.poll(id);
+        if (token === this.pollToken) {
+          this.poll(id);
+        }
+        return;
+      }
+      if (token !== this.pollToken) {
         return;
       }
       if (!g) {
@@ -615,7 +632,7 @@ export class ProjectContextPage {
         return;
       }
       await this.finished(g);
-    }, this.pollMs);
+    }, delayMs);
   }
 
   private async finished(g: ContextGeneration): Promise<void> {
