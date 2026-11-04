@@ -33,6 +33,11 @@ public interface EmbeddingPort {
     /** Nom et révision du modèle ; un autre identifiant impose la revectorisation. */
     String modelId();
 
+    /** Modèle utilisable sans réseau : dossier déclaré présent, ou modèle par défaut déjà téléchargé. */
+    default boolean availableLocally() {
+        return false;
+    }
+
     /** Télécharge ou charge le modèle si besoin ; renvoie l'état obtenu. */
     State prepare(Progress progress);
 

@@ -7,6 +7,7 @@ import dev.specwriter.domain.jira.IssueTrackerException;
 import dev.specwriter.domain.jira.TrackedIssue;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.KnowledgeSource;
 import dev.specwriter.domain.llm.RelatedIssuesJudgement;
 import dev.specwriter.domain.port.EmbeddingPort;
 import dev.specwriter.domain.port.KnowledgeIndex.Key;
@@ -42,6 +43,8 @@ class FindRelatedIssuesTest {
                 "Story", INDEXED, INDEXED);
     }
 
+    final InMemoryKnowledgeSources sources = new InMemoryKnowledgeSources();
+
     @BeforeEach
     void setUp() {
         embedding.state = EmbeddingPort.State.READY;
@@ -55,10 +58,10 @@ class FindRelatedIssuesTest {
                 Instant.parse("2026-11-02T10:00:00Z")));
         w.tracker.tracked.put("PROJ-9", new TrackedIssue("PROJ-9", "Facture 9", "", "En cours", "indeterminate", "Story",
                 Instant.parse("2026-11-03T10:00:00Z")));
-        SynchronizeKnowledge sync = new SynchronizeKnowledge(w.projects, new InMemoryKnowledgeSources(), w.docSources,
+        SynchronizeKnowledge sync = new SynchronizeKnowledge(w.projects, sources, w.docSources,
                 w.docs, (ws, o) -> null, w.jira, w.tracker, index, embedding, w.clock);
         indexations = new Indexations(sync, w.projects, task -> { }, w.clock, false);
-        find = new FindRelatedIssues(index, embedding, w.llm, w.policy, w.jira, w.tracker, indexations);
+        find = new FindRelatedIssues(index, embedding, w.llm, w.policy, w.jira, w.tracker, indexations, sources);
         session = Session.start(UUID.randomUUID(), P, Need.of(NEED), null, w.clock.now());
     }
 
@@ -104,7 +107,7 @@ class FindRelatedIssuesTest {
     void sansCopilotLesTroisMeilleursSansRaison() {
         JiraWorld noCopilot = new JiraWorld().configureJira().grant(ConsentService.JIRA);
         FindRelatedIssues withoutCopilot = new FindRelatedIssues(index, embedding, noCopilot.llm, noCopilot.policy,
-                w.jira, w.tracker, indexations);
+                w.jira, w.tracker, indexations, sources);
         RelatedIssues found = withoutCopilot.find(session, project());
         assertThat(noCopilot.llm.relatedRequests).isEmpty();
         assertThat(found.issues()).hasSize(3).allSatisfy(i -> assertThat(i.reason()).isNull());
@@ -149,10 +152,33 @@ class FindRelatedIssuesTest {
         assertThat(found.awaitingDecision()).isFalse();
     }
 
+    /**
+     * Une mise à jour incrémentale d'un index déjà synchronisé ne rend pas les résultats partiels :
+     * elle part à chaque ouverture d'un besoin. Une indexation complète, ou la toute première, oui.
+     */
+    @Test
+    void partielSeulementSiLIndexSeConstruit() {
+        sources.save(sources.find(P).synced(INDEXED, INDEXED));
+        indexations.start(P, SynchronizeKnowledge.Mode.INCREMENTAL);
+        w.llm.judgements.add(new RelatedIssuesJudgement(List.of()));
+        assertThat(find.find(session, project()).status()).isEqualTo(RelatedIssues.Status.READY);
+
+        indexations.cancel(P);
+        indexations.start(P, SynchronizeKnowledge.Mode.FULL);
+        w.llm.judgements.add(new RelatedIssuesJudgement(List.of()));
+        assertThat(find.find(session, project()).status()).isEqualTo(RelatedIssues.Status.PARTIAL);
+
+        indexations.cancel(P);
+        sources.save(KnowledgeSource.empty(P));
+        indexations.start(P, SynchronizeKnowledge.Mode.INCREMENTAL);
+        w.llm.judgements.add(new RelatedIssuesJudgement(List.of()));
+        assertThat(find.find(session, project()).status()).isEqualTo(RelatedIssues.Status.PARTIAL);
+    }
+
     @Test
     void sansTicketIndexeIndisponible() {
         InMemoryKnowledgeIndex empty = new InMemoryKnowledgeIndex();
-        FindRelatedIssues none = new FindRelatedIssues(empty, embedding, w.llm, w.policy, w.jira, w.tracker, indexations);
+        FindRelatedIssues none = new FindRelatedIssues(empty, embedding, w.llm, w.policy, w.jira, w.tracker, indexations, sources);
         assertThat(none.find(session, project())).isEqualTo(RelatedIssues.UNAVAILABLE);
         assertThat(w.llm.calls()).isZero();
     }

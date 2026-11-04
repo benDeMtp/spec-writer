@@ -90,6 +90,22 @@ public class OnnxEmbeddingAdapter implements EmbeddingPort {
     }
 
     @Override
+    public boolean availableLocally() {
+        Settings current = settings.get();
+        if (current.folder() == null || current.folder().isBlank()) {
+            return downloader.present(spec);
+        }
+        try {
+            Path folder = Path.of(current.folder());
+            find(folder, "model.onnx", ".onnx");
+            find(folder, "tokenizer.json", "tokenizer.json");
+            return true;
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    @Override
     public synchronized State prepare(Progress progress) {
         Settings current = settings.get();
         if (state == State.READY && loaded != null && current.equals(loaded.settings())) {

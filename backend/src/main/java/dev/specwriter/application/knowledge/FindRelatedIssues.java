@@ -14,6 +14,7 @@ import dev.specwriter.domain.llm.RelatedIssuesRequest;
 import dev.specwriter.domain.port.EmbeddingPort;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.KnowledgeIndex;
+import dev.specwriter.domain.port.KnowledgeSourceRepository;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.session.Session;
@@ -45,9 +46,10 @@ public class FindRelatedIssues {
     private final JiraAccess jira;
     private final IssueTracker tracker;
     private final Indexations indexations;
+    private final KnowledgeSourceRepository sources;
 
     public FindRelatedIssues(KnowledgeIndex index, EmbeddingPort embedding, LlmClient llm, ConsentPolicy consent,
-            JiraAccess jira, IssueTracker tracker, Indexations indexations) {
+            JiraAccess jira, IssueTracker tracker, Indexations indexations, KnowledgeSourceRepository sources) {
         this.index = index;
         this.embedding = embedding;
         this.llm = llm;
@@ -55,6 +57,7 @@ public class FindRelatedIssues {
         this.jira = jira;
         this.tracker = tracker;
         this.indexations = indexations;
+        this.sources = sources;
     }
 
     public RelatedIssues find(Session session, Project project) {
@@ -65,8 +68,7 @@ public class FindRelatedIssues {
         }
         boolean meaning = embedding.state() == EmbeddingPort.State.READY;
         List<KnowledgeItem> candidates = candidates(project.id(), session.need().text());
-        boolean partial = !meaning || indexations.current(project.id())
-                .map(s -> s.status() == Indexations.Status.RUNNING).orElse(false);
+        boolean partial = !meaning || building(project.id());
         RelatedIssues.Status status = partial ? RelatedIssues.Status.PARTIAL : RelatedIssues.Status.READY;
         if (candidates.isEmpty()) {
             return new RelatedIssues(status, List.of(), null);
@@ -79,6 +81,15 @@ public class FindRelatedIssues {
             fresh(project, item, kept.getValue(), target).ifPresent(issues::add);
         }
         return new RelatedIssues(status, issues, null);
+    }
+
+    /**
+     * L'index se construit : indexation complète, ou première synchronisation, en cours. La mise à
+     * jour incrémentale lancée à chaque ouverture d'un besoin ne rend pas les résultats partiels.
+     */
+    private boolean building(UUID projectId) {
+        return indexations.current(projectId).filter(s -> s.status() == Indexations.Status.RUNNING)
+                .map(s -> s.mode() == Mode.FULL || sources.find(projectId).syncedAt() == null).orElse(false);
     }
 
     /**

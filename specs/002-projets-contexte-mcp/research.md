@@ -485,8 +485,13 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   - **Remplacement** : dans Configuration, un dossier local contenant `model.onnx` et
     `tokenizer.json` (par exemple sentence-camembert exporté en ONNX), le mode de *pooling* et les
     préfixes. Changer de modèle recalcule tous les vecteurs (`embedding_model` diffère).
-  - Sans modèle (téléchargement impossible, fichier illisible) : recherche par les termes seuls,
-    signalée (FR-043).
+  - Sans modèle (téléchargement impossible, fichier illisible, bibliothèque native introuvable) :
+    recherche par les termes seuls, signalée (FR-043).
+  - **Chargement au démarrage** : un modèle déjà présent sur le poste est chargé en tâche de fond
+    au lancement (`EmbeddingWarmUp`, jamais de téléchargement) ; sinon le premier besoin après le
+    lancement serait cherché par les termes seuls. Les tickets proches ne sont « partiels » que si
+    le modèle manque ou si l'index se construit (indexation complète, ou première
+    synchronisation), pas pendant la mise à jour incrémentale lancée à chaque besoin.
 - **Rationale** :
   - SDK Copilot vérifié (1.0.28) : aucune API d'embedding, seulement des sessions de conversation.
   - e5 est entraîné pour la recherche (besoin court contre long passage) et multilingue ; sur

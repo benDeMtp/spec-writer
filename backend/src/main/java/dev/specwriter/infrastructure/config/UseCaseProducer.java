@@ -168,8 +168,9 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     FindRelatedIssues findRelatedIssues(KnowledgeIndex index, EmbeddingPort embedding, LlmClient llm,
-            ConsentPolicy consent, JiraAccess jira, IssueTracker tracker, Indexations indexations) {
-        return new FindRelatedIssues(index, embedding, llm, consent, jira, tracker, indexations);
+            ConsentPolicy consent, JiraAccess jira, IssueTracker tracker, Indexations indexations,
+            KnowledgeSourceRepository sources) {
+        return new FindRelatedIssues(index, embedding, llm, consent, jira, tracker, indexations, sources);
     }
 
     @Produces

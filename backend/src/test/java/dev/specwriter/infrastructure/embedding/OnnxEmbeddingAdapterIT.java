@@ -105,4 +105,15 @@ class OnnxEmbeddingAdapterIT {
         assertThat(adapter.prepare(NONE)).isEqualTo(EmbeddingPort.State.TERMS_ONLY);
         assertThat(adapter.modelId()).isEqualTo("Xenova/multilingual-e5-small@761b726dd34fb83930e26aab4e9ac3899aa1fa78");
     }
+
+    /** Disponible sur le poste : dossier déclaré présent, ou modèle par défaut déjà téléchargé ; jamais par le réseau. */
+    @Test
+    void disponibleSurLePosteSansTelechargement() {
+        assertThat(adapter(new Settings(TEST_MODEL.toString(), PoolingMode.MEAN, "", "")).availableLocally()).isTrue();
+        assertThat(adapter(new Settings(data.resolve("absent").toString(), PoolingMode.MEAN, "", "")).availableLocally())
+                .isFalse();
+        OnnxEmbeddingAdapter notDownloaded = adapter(Settings.DEFAULT);
+        assertThat(notDownloaded.availableLocally()).isFalse();
+        assertThat(notDownloaded.state()).isEqualTo(EmbeddingPort.State.MISSING);
+    }
 }
