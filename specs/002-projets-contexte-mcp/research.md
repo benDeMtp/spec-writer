@@ -343,3 +343,48 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   - mémoire seule : l'erreur qui a fait redémarrer l'outil serait perdue ;
   - un tableau en base : des écritures SQLite pour chaque avertissement, et un journal perdu si la
     base est en cause.
+
+## R16. Deux fiches et questions de clarification (FR-008a, FR-013h, FR-013i)
+
+- **Decision** :
+  - **Deux fiches**, `FUNCTIONAL` et `TECHNICAL`, chacune un `ProjectContext` (Markdown, hash,
+    origine, date). La migration `V9__context_sheets.sql` ajoute à `project` les colonnes
+    `technical_context`, `technical_context_hash`, `technical_context_origin` et
+    `technical_context_updated_at`. Les colonnes `context*` existantes deviennent la fiche
+    fonctionnelle : une fiche déjà acceptée y reste telle quelle, à régénérer pour adopter les
+    nouvelles sections.
+  - **Une seule génération** produit les deux fiches : l'extraction classe chaque fait dans une
+    catégorie fonctionnelle ou technique, puis `build-project-context` rédige les deux fiches et
+    les questions en un appel. La proposition porte deux diffs ; `accept` reçoit la liste des
+    fiches acceptées, et chaque fiche est comparée à son propre hash de base (`CONTEXT_CHANGED`
+    par fiche).
+  - **Questions** : 10 au plus, rattachées à une fiche. Une question à laquelle l'utilisateur
+    répond ou qu'il passe est enregistrée aussitôt dans `project_context_question` (`number`
+    unique dans le projet, `sheet`, `label`, `rationale`, `answer`, `state` `ANSWERED`|`SKIPPED`,
+    `asked_at`, `answered_at`). Les questions sans suite restent dans la proposition, en mémoire.
+  - **Révision** : `POST /context-proposals/{id}/revise` relance une génération réduite à l'étape
+    `BUILDING`, avec les faits gardés par la génération (30 minutes) et toutes les réponses. Elle
+    remplace la proposition. Une génération expirée renvoie `404` : il faut régénérer.
+  - Les réponses entrent dans `<reponses>` (`<reponse ref="Q-3" fiche="TECHNICAL"
+    question="…">…</reponse>`), les questions passées dans `<questions-passees>`. `Q-n` est une
+    référence connue pour la vérification des citations.
+  - **Opérations sur les spécifications** : `ProjectContextInput(functional, technical)` remplace
+    la chaîne `projectContext`. Les balises `<contexte-fonctionnel>` et `<contexte-technique>`
+    remplacent `<contexte-projet>`. Une source `PROJECT_CONTEXT` cite l'une des deux fiches. Le
+    hash de version combine les deux hash (`sha256(fonctionnel + ":" + technique)`, vide si les
+    deux fiches le sont) ; la date retenue est la plus récente des deux.
+  - **Agents de code** (US5) : `get_feature` renvoie `technicalContext`, la fiche technique.
+- **Rationale** :
+  - Deux fiches séparent ce qui guide la rédaction (vision, règles) de ce qui guide
+    l'implémentation (architecture, conventions), que les agents de code lisent seule.
+  - Les questions après la proposition ne bloquent pas la génération et portent sur un texte
+    concret.
+  - Enregistrer chaque réponse aussitôt évite de la perdre si la proposition expire.
+- **Alternatives considered** :
+  - une fiche en deux parties : une seule origine, donc une correction à la main de la partie
+    technique bloquerait l'acceptation de la partie fonctionnelle ;
+  - deux générations indépendantes : deux lectures des sources et deux fois plus d'appels ;
+  - les questions avant la rédaction : la génération resterait suspendue en attente de
+    l'utilisateur, au-delà des 30 minutes de conservation ;
+  - une table `project_context` à deux lignes par projet : plus générale, mais elle impose de
+    reconstruire `project` sous SQLite, ce que R6 évite.

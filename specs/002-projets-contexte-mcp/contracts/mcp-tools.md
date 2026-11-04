@@ -39,7 +39,7 @@ L'écran Configuration fournit cet extrait avec le bon chemin. Il ne contient au
 |---|---|---|---|
 | `list_projects` | aucune | `[{id, name, description, jiraProjectKey}]` | `GET /api/agent/projects` |
 | `list_features` | `{projectId}` | `[{id, title, status, latestVersion, updatedAt}]`, sessions `READY` et `IN_PROGRESS` ayant au moins une version | `GET /api/agent/projects/{id}/features` |
-| `get_feature` | `{featureId}` | `{id, title, status, version, markdown, projectContext, jiraIssueKey?}`. `markdown` est identique à l'export de la version (SC-007). | `GET /api/agent/features/{id}` |
+| `get_feature` | `{featureId}` | `{id, title, status, version, markdown, technicalContext, jiraIssueKey?}`. `technicalContext` est la fiche technique du projet (FR-008a, R16). `markdown` est identique à l'export de la version (SC-007). | `GET /api/agent/features/{id}` |
 | `set_feature_status` | `{featureId, status: "IN_PROGRESS" \| "IMPLEMENTED"}` | `{id, status}`. Seules READY → IN_PROGRESS et IN_PROGRESS → IMPLEMENTED sont permises (FR-027). | `PUT /api/agent/features/{id}/status` |
 
 ## Erreurs métier (`isError: true`)

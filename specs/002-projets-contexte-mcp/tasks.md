@@ -221,6 +221,43 @@ relue, modifiable, régénérable, utilisée et citée par toutes les opération
   - écran `F/features/journal/` (route `/journal`, lien dans la navigation) : filtre par niveau, cause et pile dépliables, « Copier », « Actualiser ».
 - [X] T071 [US2] E2E `E/us8-project-context.spec.ts` : scénarios quickstart P5a et P5b avec axe ; délai WireMock sur les pages pour observer la progression.
 
+### Deux fiches et questions de clarification (FR-008a, FR-013h, FR-013i, research.md R16)
+
+- [ ] T072 [P] [US2] Tests du domaine et de la persistance :
+  - `ProjectContextTest` : deux fiches, hash combiné, date la plus récente ;
+  - `BT/domain/project/ContextQuestionTest.java` : numérotation `Q-n`, états, longueurs ;
+  - `ProjectPersistenceIT` : fiche technique et questions (V9), cascade à la suppression du projet.
+- [ ] T073 [P] [US2] Étendre `ProposeProjectContextTest` et `ContextGenerationsTest` :
+  - deux fiches, références vérifiées dans chacune, `Q-n` connues ;
+  - 10 questions au plus, une question sur un point couvert par une réponse ou passée est refusée par une `correction` ;
+  - réponse et passage enregistrés aussitôt, avec un numéro ;
+  - révision sans relire les sources ni Jira, réponses citées ; génération expirée → `NOT_FOUND` ;
+  - acceptation par fiche, `CONTEXT_CHANGED` par fiche.
+- [ ] T074 [P] [US2] `PromptInjectionIT` et `TraceabilityValidatorTest` : `<contexte-fonctionnel>`, `<contexte-technique>`, `<reponses>` et `<questions-passees>` échappés ; source `PROJECT_CONTEXT` acceptée si l'extrait figure dans l'une des deux fiches.
+- [ ] T075 [P] [US2] Golden set `BTR/golden/06-api-avec-contexte-technique/` (`context.md`, `technical.md`, exigences techniques issues de la fiche technique) ; `GoldenSetIT` lit `technical.md`.
+- [ ] T076 [US2] Migration `BR/db/migration/V9__context_sheets.sql` (colonnes `technical_context*`, table `project_context_question`), domaine (`ContextSheet`, `Project.technicalContext`, `ContextQuestion`, port `ContextQuestionRepository`) et persistance JPA. Faire passer T072.
+- [ ] T077 [US2] Port LLM et prompts :
+  - `ProjectContextInput(functional, technical)` dans les 6 requêtes, avec les deux balises ;
+  - nouvelles catégories de faits ;
+  - `BuildContextRequest` avec les deux fiches actuelles, les réponses et les questions passées ; `ProjectContextDraft(functional, technical, questions)` ;
+  - `LlmSchemas`, `UserMessages` ;
+  - les 8 prompts. Faire passer T074.
+- [ ] T078 [US2] Application :
+  - `ProposeProjectContext` (deux fiches, questions, faits gardés pour la révision) ;
+  - `ContextGenerations.revise` ;
+  - `AnswerContextQuestion` et `ManageContextQuestions` ;
+  - `AcceptContextProposal` par fiche, `EditContext` par fiche ;
+  - les opérations sur les spécifications reçoivent les deux fiches ;
+  - `InputFingerprint` et version avec le hash combiné. Faire passer T073 et T075.
+- [ ] T079 [US2] `ContextResource` : `PUT /context/{sheet}`, réponses aux questions, `revise`, `accept` par fiche, `GET`/`PUT /context-questions`. Adapter `ContextResourceIT`.
+- [ ] T080 [P] [US2] Front, page du contexte :
+  - deux onglets « Fonctionnel » et « Technique », chacun avec son éditeur, son aperçu et son origine ;
+  - proposition fiche par fiche, avec diff, « Accepter » ou « Garder la mienne » ;
+  - questions de clarification (suggestions, réponse libre, « Passer »), puis « Réviser la proposition » ;
+  - historique des réponses `Q-n`, modifiables ;
+  - spécification : l'extrait « contexte du projet » nomme sa fiche.
+- [ ] T081 [US2] E2E `E/us8-project-context.spec.ts` : scénarios quickstart P5c et P5d avec axe ; réponses LLM rejouées (`10-build-context.json` avec questions, `13-revise-context.json`).
+
 **Checkpoint** : US1 et US2 utilisables ; le golden set avec contexte passe.
 
 ---
@@ -247,7 +284,7 @@ relue, modifiable, régénérable, utilisée et citée par toutes les opération
 
 ### Implementation for User Story 3
 
-- [ ] T038 [US3] Écrire la migration `BR/db/migration/V9__version_numbering.sql` : colonne `session.next_version_number`, valorisée à `max(number)+1`. Adapter `GenerateSpecification`, `AcceptAiEdit`, `ImportJiraIssue` et `PushToJira` pour numéroter par ce compteur.
+- [ ] T038 [US3] Écrire la migration `BR/db/migration/V10__version_numbering.sql` : colonne `session.next_version_number`, valorisée à `max(number)+1`. Adapter `GenerateSpecification`, `AcceptAiEdit`, `ImportJiraIssue` et `PushToJira` pour numéroter par ce compteur.
 - [ ] T039 [US3] Créer `B/application/specification/OperationRegistry.java` (opérations IA en cours par session, ouvertes et fermées par les cas d'usage IA) et le cas d'usage `DeleteVersion`. Ajouter à `ManageSessions.delete` le refus pendant une opération et la purge des propositions. Port `SpecificationRepository.delete(sessionId, number)`.
 - [ ] T040 [US3] `B/infrastructure/web/VersionResource.java` : `DELETE /api/sessions/{id}/versions/{n}`. Codes `OPERATION_IN_PROGRESS`, puis `SPECIFICATION_LOCKED`, ajouté en T047.
 - [ ] T041 [P] [US3] Front : action « Supprimer cette version » dans `F/features/specification/versions-panel.component.ts`, et « Supprimer la spécification » sur la page de spécification et dans la liste des sessions. Utiliser `F/shared/ui/confirm-dialog.component.ts` avec le nom, le numéro et l'avertissement Jira. Après suppression, rediriger vers la dernière version restante ou vers la liste.
@@ -321,7 +358,7 @@ stdio, avec le journal.
   - absent des journaux. Étendre `E/secrets-at-rest.spec.ts` pour qu'il ne le trouve ni dans la base ni dans les journaux.
 - [ ] T050 [P] [US5] `BT/infrastructure/web/AgentResourceIT.java` :
   - contrat `/api/agent/**` : la liste des features ne contient que `READY` et `IN_PROGRESS` avec au moins une version ;
-  - `get_feature` renvoie un Markdown identique à l'export (SC-007) ;
+  - `get_feature` renvoie un Markdown identique à l'export (SC-007) et la fiche technique du projet (`technicalContext`, FR-008a) ;
   - transitions de l'agent, `TRANSITION_NOT_ALLOWED` sinon ;
   - journal `agent_access_log`, sans contenu ;
   - **refus** : sans secret, avec l'ancien secret, avec un en-tête `Origin`, avec le cookie `sw_launch` seul, et secret présenté à `/api/**` (SC-008) ;
@@ -334,7 +371,7 @@ stdio, avec le journal.
 
 ### Implementation for User Story 5
 
-- [ ] T053 [US5] Écrire la migration `BR/db/migration/V10__implementation_status_agents.sql` :
+- [ ] T053 [US5] Écrire la migration `BR/db/migration/V11__implementation_status_agents.sql` :
   - colonnes `session.implementation_status` (`DRAFT` par défaut, `READY`, `IN_PROGRESS`, `IMPLEMENTED`), `implemented_at` et `evolved_from_session_id` (`ON DELETE SET NULL`) ;
   - `settings.agent_access_enabled` (`false` par défaut) ;
   - table `agent_access_log` (`agent_name` de 80 caractères au plus, `operation` `LIST_PROJECTS`|`LIST_FEATURES`|`GET_FEATURE`|`SET_STATUS`, `project_id` et `session_id` en `ON DELETE SET NULL`, `old_status`, `new_status`).
@@ -373,7 +410,7 @@ stdio, avec le journal.
 
 - [ ] T058 Étendre la suite d'évaluation (`BT/eval/`, research.md R10) :
   - le juge reçoit le contexte et un verdict `DEJA_DANS_LE_CONTEXTE` (`BTR/eval/prompts/judge-questions.txt`) ;
-  - chaque cas avec `context.md` est joué avec et sans contexte ;
+  - chaque cas avec `context.md` (et `technical.md`) est joué avec et sans contexte ;
   - nouvelles métriques `contextQuestionRate` (minimum : 5 % au plus) et `questionReduction` (au moins 20 %) dans `EvalRuns`, `EvalBaseline`, `baseline.json` et `ci/check-eval.sh`, avec un test d'empreinte identique.
   
   Relancer `./mvnw -pl backend verify -Peval`, avec l'accord de l'utilisateur car cela consomme des requêtes Copilot, et committer `last-run.json` (SC-002, SC-003).

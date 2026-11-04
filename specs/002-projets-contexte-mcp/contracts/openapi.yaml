@@ -57,11 +57,33 @@ paths:
       summary: Change le projet courant, conservé d'un lancement à l'autre (FR-005)
       requestBody: { content: { application/json: { schema: { type: object, required: [projectId], properties: { projectId: { type: string, format: uuid } } } } } }
       responses: { '204': { description: Enregistré } }
-  /api/projects/{id}/context:
+  /api/projects/{id}/context/{sheet}:
     put:
-      summary: Enregistre la fiche de contexte modifiée à la main (FR-013c) ; origine EDITED
+      summary: Enregistre une fiche modifiée à la main (FR-008a, FR-013c) ; origine EDITED
+      parameters:
+        - { name: sheet, in: path, required: true, schema: { enum: [functional, technical] } }
       requestBody: { content: { application/json: { schema: { type: object, required: [markdown], properties: { markdown: { type: string, maxLength: 20000 } } } } } }
       responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } } }
+  /api/projects/{id}/context-questions:
+    get:
+      summary: Questions de clarification répondues ou passées, par numéro (FR-013i)
+      responses: { '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ContextQuestion' } } } } } }
+  /api/projects/{id}/context-questions/{number}:
+    put:
+      summary: Modifie une réponse enregistrée ; aucune fiche ne change avant la génération suivante (FR-013i)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/QuestionAnswer' } } } }
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextQuestion' } } } } }
+  /api/projects/{id}/context-proposals/{proposalId}/questions/{questionId}:
+    put:
+      summary: Répond à une question de la proposition, ou la passe ; elle est enregistrée aussitôt avec son numéro (FR-013h, FR-013i)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/QuestionAnswer' } } } }
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextQuestion' } } } } }
+  /api/projects/{id}/context-proposals/{proposalId}/revise:
+    post:
+      summary: Révise la proposition avec les réponses, sans relire les sources (R16) ; génération suivie comme context-generations
+      responses:
+        '202': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextGeneration' } } } }
+        '404': { description: Proposition ou génération expirée ; il faut régénérer }
   /api/projects/{id}/doc-sources:
     post:
       summary: Ajoute une source de documentation Antora (FR-013)
@@ -110,7 +132,8 @@ paths:
         '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/JournalEntry' } } } } }
   /api/projects/{id}/context-proposals/{proposalId}/accept:
     post:
-      summary: Accepte la proposition ; refusée si le contexte a changé depuis (409 CONTEXT_CHANGED)
+      summary: Accepte les fiches choisies de la proposition ; refusée pour une fiche qui a changé depuis (409 CONTEXT_CHANGED)
+      requestBody: { content: { application/json: { schema: { type: object, required: [sheets], properties: { sheets: { type: array, minItems: 1, items: { enum: [FUNCTIONAL, TECHNICAL] } } } } } } }
       responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } } }
 
   /api/sessions/{id}/project:
@@ -230,9 +253,8 @@ components:
             id: { type: string, format: uuid }
             effectiveJiraProjectKey: { type: string, description: 'Clé du projet, sinon projet Jira par défaut' }
             jiraKeyWarning: { type: string, description: 'Clé introuvable dans Jira (FR-007), sinon absente' }
-            context: { type: string }
-            contextOrigin: { enum: [NONE, GENERATED, EDITED] }
-            contextUpdatedAt: { type: string, format: date-time }
+            functionalContext: { $ref: '#/components/schemas/ContextSheet' }
+            technicalContext: { $ref: '#/components/schemas/ContextSheet' }
             docSources: { type: array, items: { $ref: '#/components/schemas/DocSource' } }
             sessionCount: { type: integer }
     DocSourceInput:
@@ -286,14 +308,54 @@ components:
         message: { type: string }
         cause: { type: string }
         stack: { type: array, items: { type: string } }
+    ContextSheet:
+      type: object
+      properties:
+        markdown: { type: string }
+        origin: { enum: [NONE, GENERATED, EDITED] }
+        updatedAt: { type: string, format: date-time }
     ContextProposal:
       type: object
       properties:
         proposalId: { type: string, format: uuid }
+        functional: { $ref: '#/components/schemas/ProposedSheet' }
+        technical: { $ref: '#/components/schemas/ProposedSheet' }
+        sources: { type: array, items: { type: string }, description: 'URL de page, clé de ticket ou Q-n citées' }
+        unread: { type: array, items: { $ref: '#/components/schemas/UnreadSource' } }
+        questions: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/ProposalQuestion' } }
+    ProposedSheet:
+      type: object
+      properties:
         markdown: { type: string }
         unifiedDiff: { type: string }
-        sources: { type: array, items: { type: string }, description: URL de page ou clé de ticket citées }
-        unread: { type: array, items: { $ref: '#/components/schemas/UnreadSource' } }
+        changed: { type: boolean, description: 'Faux si la fiche proposée est identique à la fiche actuelle' }
+    ProposalQuestion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sheet: { enum: [FUNCTIONAL, TECHNICAL] }
+        label: { type: string }
+        rationale: { type: string }
+        suggestions: { type: array, items: { type: string } }
+        state: { enum: [OPEN, ANSWERED, SKIPPED] }
+        number: { type: integer, description: 'Numéro Q-n, une fois répondue ou passée' }
+        answer: { type: string }
+    ContextQuestion:
+      type: object
+      properties:
+        number: { type: integer }
+        sheet: { enum: [FUNCTIONAL, TECHNICAL] }
+        label: { type: string }
+        rationale: { type: string }
+        answer: { type: string }
+        state: { enum: [ANSWERED, SKIPPED] }
+        askedAt: { type: string, format: date-time }
+        answeredAt: { type: string, format: date-time }
+    QuestionAnswer:
+      type: object
+      properties:
+        answer: { type: string, maxLength: 2000 }
+        skip: { type: boolean }
     IssuePage:
       type: object
       properties:

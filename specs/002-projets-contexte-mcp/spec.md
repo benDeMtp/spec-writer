@@ -44,6 +44,19 @@ Une **feature à implémenter** est une spécification qu'un agent de code peut 
   montre les avertissements et les erreurs de l'outil, expurgés, conservés dans un fichier tournant
   du dossier de données pour rester visibles après un redémarrage.
 
+### Session 2026-11-04
+
+- Q: Comment rendre le contexte plus précis ? → A: deux fiches distinctes : une fiche
+  fonctionnelle (vision et objectifs, acteurs, vocabulaire, règles métier, contraintes
+  fonctionnelles) et une fiche technique (architecture, contraintes techniques, conventions de
+  code, intégrations). Chacune est modifiable, proposée et acceptée séparément.
+- Q: Que fait l'assistant quand les sources ne sont pas claires ? → A: avec sa proposition, il
+  pose des questions de clarification (contradictions, informations absentes, termes ambigus).
+  L'utilisateur répond ou passe, puis l'IA révise la proposition. Les réponses sont gardées avec
+  le projet, citées comme sources et réutilisées aux régénérations.
+- Q: Qui reçoit quelle fiche ? → A: la rédaction des spécifications reçoit les deux fiches ; les
+  agents de code reçoivent la fiche technique avec chaque feature.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Ranger ses spécifications par projet (Priority: P1)
@@ -133,6 +146,14 @@ source « contexte du projet ».
 9. **Given** une génération terminée avec des pages en erreur, **When** l'utilisateur consulte le
    détail des erreurs ou l'écran « Journal », **Then** il voit pour chaque page son adresse, le
    motif et le code HTTP, sans aucun contenu de page ni de ticket.
+10. **Given** une documentation qui décrit le métier et l'architecture, **When** l'utilisateur
+   génère le contexte, **Then** l'outil propose une fiche fonctionnelle et une fiche technique,
+   chacune avec ses sources et son diff ; l'utilisateur peut accepter l'une et garder l'autre.
+11. **Given** des sources qui se contredisent sur un délai, ou qui ne disent rien de la vision du
+   produit, **When** la proposition est prête, **Then** l'assistant pose une question pour chaque
+   point flou ; l'utilisateur répond à l'une, passe l'autre, demande la révision, et la nouvelle
+   proposition cite sa réponse comme source. À la régénération suivante, la question passée
+   n'est pas reposée.
 
 ---
 
@@ -218,7 +239,7 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
    compte de l'utilisateur, **Then** il peut lister les projets et les features à implémenter d'un
    projet, sans que l'utilisateur ait copié de clé.
 3. **Given** une feature à implémenter, **When** l'agent en demande le contenu, **Then** il reçoit
-   la dernière version de la spécification et le contexte du projet, identiques à ce que montre
+   la dernière version de la spécification et la fiche technique du projet, identiques à ce que montre
    l'outil.
 4. **Given** l'utilisateur a régénéré le secret d'accès des agents, **When** un programme
    réutilise l'ancien secret, **Then** la connexion est refusée ; la commande MCP, elle, lit le
@@ -310,15 +331,23 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **FR-008**: Chaque projet DOIT avoir un contexte : un texte en Markdown (vocabulaire, acteurs,
   règles et contraintes transverses, conventions), de 20 000 caractères au maximum, modifiable à
   tout moment.
-- **FR-009**: Le contexte DOIT être pris en compte par toutes les opérations de l'IA d'une
+- **FR-008a**: Le contexte d'un projet DOIT se composer de deux fiches distinctes, chacune de
+  20 000 caractères au plus, avec son origine (générée, modifiée à la main) et sa date :
+  - la **fiche fonctionnelle** : vision et objectifs, acteurs, vocabulaire, règles métier,
+    contraintes fonctionnelles ;
+  - la **fiche technique** : architecture, contraintes techniques, conventions de code,
+    intégrations.
+  Chaque fiche est modifiable, proposée avec son diff, puis acceptée ou refusée indépendamment de
+  l'autre.
+- **FR-009**: Les deux fiches DOIVENT être prises en compte par toutes les opérations de l'IA d'une
   spécification du projet : questions, réévaluation, génération, modification assistée, import et
-  fusion. Une question dont la réponse figure dans le contexte NE DOIT PAS être posée (principe I
+  fusion. La fiche technique sert aux exigences techniques. Une question dont la réponse figure dans le contexte NE DOIT PAS être posée (principe I
   de la constitution).
 - **FR-010**: Tout élément de la spécification qui découle du contexte DOIT avoir pour source
   « contexte du projet », avec l'extrait concerné (traçabilité, FR-011 de 001). Une contradiction
   entre le contexte et le besoin ou une réponse DOIT être signalée et tranchée comme les autres
   contradictions.
-- **FR-011**: Le contexte DOIT entrer dans les entrées de la génération : à contexte modifié, une
+- **FR-011**: Les deux fiches DOIVENT entrer dans les entrées de la génération : à fiche modifiée, une
   nouvelle version est créée ; à contexte inchangé, la version existante est réutilisée (FR-014 et
   FR-018 de 001). Chaque version DOIT indiquer si un contexte a été utilisé et de quand il date.
 - **FR-012**: Le contexte DOIT être traité comme une donnée et jamais comme une consigne (FR-026 de
@@ -328,10 +357,10 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   documentation : le lien d'un site produit par Antora (adresse `http` ou `https`, y compris sur
   son poste) ou le dossier local de ce site. Seules les pages de ce site sont lues, sans suivre les
   liens vers d'autres sites.
-- **FR-013a**: À la demande de l'utilisateur, l'IA DOIT proposer une fiche de contexte rédigée à
-  partir des sources de documentation et des tickets déjà présents dans le projet Jira associé.
-  La fiche cite ses sources (page de documentation, clé de ticket). Rien n'est enregistré avant
-  que l'utilisateur accepte la proposition.
+- **FR-013a**: À la demande de l'utilisateur, l'IA DOIT proposer les deux fiches, rédigées à
+  partir des sources de documentation, des tickets déjà présents dans le projet Jira associé et
+  des réponses déjà données (FR-013i). Chaque affirmation cite ses sources (page de documentation,
+  clé de ticket, réponse). Rien n'est enregistré avant que l'utilisateur accepte une fiche.
 - **FR-013b**: Avant de générer, l'outil DOIT indiquer ce qui sera envoyé à GitHub Copilot (nombre
   de pages, nombre de tickets) et obtenir l'accord de FR-024 (001). Les pages lues ne sont
   conservées que le temps de la génération.
@@ -354,6 +383,19 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   le détail de ses erreurs : pour chaque source ou page non lue, son adresse, le motif et le code
   HTTP s'il y en a un ; les erreurs Jira ; les corrections demandées à l'IA et leur motif ; la
   cause d'un échec. Ce détail ne contient aucun contenu de page ni de ticket.
+
+- **FR-013h**: Avec sa proposition, l'IA DOIT poser des questions de clarification sur ce qui
+  n'est pas clair : sources qui se contredisent, information attendue mais absente (vision,
+  objectifs, architecture…), terme ambigu, règle incomplète. 10 questions au plus, chacune
+  rattachée à une fiche, avec sa raison et des suggestions. Une information présente dans les
+  sources ou les réponses NE DOIT PAS faire l'objet d'une question. L'utilisateur répond ou
+  passe, puis demande la révision : l'IA révise la proposition à partir des mêmes faits et des
+  réponses, sans relire les sources. Les réponses non encore utilisées restent proposables.
+- **FR-013i**: Les réponses et les questions passées DOIVENT être conservées avec le projet,
+  numérotées (Q-1, Q-2…). Une réponse est une source citable des fiches (« [source : Q-3] ») et
+  est transmise aux générations suivantes ; une question passée n'est pas reposée. L'utilisateur
+  DOIT pouvoir consulter ses réponses et en modifier une ; la modification ne change aucune fiche
+  avant la génération suivante.
 
 **Suppression locale**
 
@@ -410,8 +452,8 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   donner la ligne de configuration à déclarer dans un agent de code.
 - **FR-025**: Un agent connecté DOIT pouvoir lister les projets, lister les features à implémenter
   d'un projet, et lire le contenu complet d'une feature : la dernière version de la spécification
-  (use cases, scénarios, hypothèses, exigences, détails) et le contexte du projet, identiques à
-  l'export Markdown et à l'écran.
+  (use cases, scénarios, hypothèses, exigences, détails), identique à l'export Markdown et à
+  l'écran, et la fiche technique du projet (FR-008a).
 - **FR-026**: Chaque spécification DOIT avoir un statut d'implémentation, modifiable par
   l'utilisateur : « brouillon », « prête à implémenter », « en cours », « implémentée ». Les
   features à implémenter sont les spécifications « prêtes à implémenter » ou « en cours ». Une
@@ -456,9 +498,12 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 
 - **Projet** : nom unique, description, clé de projet Jira facultative (surcharge du projet par
   défaut), contexte, date de création et de modification. Contient des spécifications.
-- **Contexte de projet** : fiche Markdown du projet, sa date de dernière modification et son
-  origine (générée, modifiée à la main) ; sert d'entrée aux opérations de l'IA et est cité comme
-  source dans les spécifications.
+- **Contexte de projet** : deux fiches Markdown, fonctionnelle et technique, chacune avec sa date
+  de dernière modification et son origine (générée, modifiée à la main) ; elles servent d'entrée
+  aux opérations de l'IA et sont citées comme source dans les spécifications.
+- **Question de contexte** : question de clarification posée par l'IA sur une fiche, numérotée
+  dans le projet (Q-n), avec sa raison et sa réponse ou son état « passée ». Une réponse est une
+  source citable des fiches.
 - **Source de documentation** : lien ou dossier local d'un site Antora rattaché à un projet, avec
   la date et le résultat de sa dernière lecture (pages lues, pages en erreur).
 - **Spécification** (session de 001) : rattachée à un projet ; reçoit un statut d'implémentation,

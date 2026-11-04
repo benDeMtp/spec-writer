@@ -1,7 +1,7 @@
 # Data Model: Projets, contexte de projet et accès des agents de code
 
 Complète le modèle de la feature 001 ([data-model.md](../001-local-spec-assistant/data-model.md)).
-Migrations Flyway `V7__projects.sql` à `V10__implementation_status_agents.sql` (tasks.md ; research.md R6, R7, R8, R11).
+Migrations Flyway `V7__projects.sql` à `V11__implementation_status_agents.sql` (tasks.md ; research.md R6, R7, R8, R11, R16).
 
 ## Project (nouveau)
 
@@ -11,10 +11,11 @@ Migrations Flyway `V7__projects.sql` à `V10__implementation_status_agents.sql` 
 | name | texte | 1 à 80 caractères, sans espace en début ni en fin. Unique sans tenir compte de la casse (`name_key` = nom en minuscules, index unique). |
 | description | texte | 1 000 caractères maximum, facultative. |
 | jiraProjectKey | texte | Facultative. Format de clé Jira `[A-Z][A-Z0-9_]{1,9}`. Surcharge le projet par défaut de la configuration Jira (FR-006). |
-| context | texte (Markdown) | 20 000 caractères maximum, vide par défaut (FR-008). |
+| context | texte (Markdown) | Fiche **fonctionnelle** (FR-008a) : 20 000 caractères maximum, vide par défaut. |
 | contextHash | texte | SHA-256 de `context`, recalculé à chaque enregistrement. Entre dans l'empreinte de génération (FR-011). |
 | contextOrigin | enum | `NONE`, `GENERATED`, `EDITED` (modifié à la main, après génération ou non). |
-| contextUpdatedAt | date | Date du dernier enregistrement du contexte. |
+| contextUpdatedAt | date | Date du dernier enregistrement de la fiche fonctionnelle. |
+| technicalContext, technicalContextHash, technicalContextOrigin, technicalContextUpdatedAt | | Fiche **technique**, mêmes règles (V9, research.md R16). |
 | createdAt, updatedAt | date | |
 
 **Règles**
@@ -37,13 +38,30 @@ Migrations Flyway `V7__projects.sql` à `V10__implementation_status_agents.sql` 
 
 **Règles** : 10 sources au plus par projet. Le contenu lu n'est jamais stocké (FR-013b).
 
+## ProjectContextQuestion (nouveau, V9)
+
+| Champ | Type | Règles |
+|---|---|---|
+| id | UUID | |
+| projectId | UUID | `REFERENCES project ON DELETE CASCADE`. |
+| number | entier | Unique dans le projet ; la référence citable est `Q-<number>` (FR-013i). |
+| sheet | enum | `FUNCTIONAL` ou `TECHNICAL`. |
+| label, rationale | texte | Posés par l'IA ; 500 caractères au plus chacun. |
+| answer | texte | 2 000 caractères au plus ; vide si la question est passée. |
+| state | enum | `ANSWERED` ou `SKIPPED`. |
+| askedAt, answeredAt | date | `answeredAt` change à chaque modification de la réponse. |
+
+**Règles** : seules les questions répondues ou passées sont enregistrées ; les autres restent dans
+la proposition. Une réponse modifiée ne change aucune fiche avant la génération suivante.
+
 ## ContextProposal (en mémoire, non persistée)
 
 Même cycle de vie que les propositions d'édition de 001 (`ProposalStore`) :
-- elle contient `projectId`, `baseContextHash`, le Markdown proposé, le diff unifié avec la fiche
-  actuelle, les sources lues (URL de page ou clé de ticket) et les pages en erreur ;
-- son acceptation n'est possible que si `baseContextHash` égale toujours le hash courant. Sinon,
-  le contexte a changé entre-temps, et il faut régénérer ou garder la fiche actuelle ;
+- elle contient `projectId`, pour **chaque fiche** le hash de base, le Markdown proposé et le diff
+  unifié avec la fiche actuelle, puis les sources citées (URL de page, clé de ticket, `Q-n`), les
+  pages en erreur et les questions de clarification en attente (FR-013h) ;
+- chaque fiche s'accepte séparément, si son hash de base égale toujours le hash courant. Sinon,
+  cette fiche a changé entre-temps, et il faut régénérer ou garder la fiche actuelle ;
 - à l'acceptation, `contextOrigin` vaut `GENERATED`. Une modification manuelle ultérieure le fait
   passer à `EDITED`.
 
@@ -55,7 +73,9 @@ Une par projet au plus, gardée 30 minutes après sa fin (research.md R14) :
   `finishedAt` ;
 - `errors` : `{kind, location, reason, httpStatus, message}`, sans contenu de page ni de ticket ;
 - `proposal` : la `ContextProposal` obtenue, une fois réussie. Une génération interrompue n'en a
-  pas.
+  pas ;
+- les faits extraits et les références connues, gardés pour une révision après les réponses
+  (research.md R16), jamais renvoyés par l'API.
 
 ## Session (modifiée, feature 001)
 
@@ -86,8 +106,8 @@ le changement de statut par l'utilisateur et la suppression de la session (FR-02
 
 | Champ ajouté | Type | Règles |
 |---|---|---|
-| contextHash | texte | Hash du contexte du projet utilisé, vide si aucun (FR-011). |
-| contextUpdatedAt | date | Date du contexte utilisé. Affichée : « contexte du 2026-11-03 ». |
+| contextHash | texte | Hash combiné des deux fiches utilisées, vide si aucune (FR-011, research.md R16). |
+| contextUpdatedAt | date | Date de la fiche la plus récente des deux. Affichée : « contexte du 2026-11-03 ». |
 
 **Règles**
 - `inputFingerprint` couvre aussi `contextHash` : à contexte identique, la version existante est
