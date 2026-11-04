@@ -92,4 +92,31 @@ class LangChainLlmClientTest {
         assertThat(logged).noneSatisfy(r -> assertThat(new java.util.logging.SimpleFormatter().formatMessage(r))
                 .contains("Payer en ligne"));
     }
+
+    /** Le délai d'un appel dépend de l'opération : la génération du contexte a droit à plus. */
+    @Test
+    void delaiParOperation() {
+        List<java.time.Duration> seen = new ArrayList<>();
+        ChatModel recording = new ChatModel() {
+            @Override
+            public ChatResponse doChat(ChatRequest request) {
+                seen.add(CallTimeout.current());
+                throw new DomainException(ErrorCode.LLM_UNAVAILABLE);
+            }
+        };
+        LangChainLlmClient client = new LangChainLlmClient(recording,
+                new LangChainLlmClient.Timeouts(java.time.Duration.ofSeconds(90), java.time.Duration.ofMinutes(12)));
+        assertThatThrownBy(() -> client.generateSpecification(new GenerationRequest("b", Language.FR, List.of())))
+                .isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> client.summarizeProjectSources(new dev.specwriter.domain.llm.SummarizeSourcesRequest(
+                Language.FR, List.of(), ""))).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> client.buildProjectContext(new dev.specwriter.domain.llm.BuildContextRequest(Language.FR,
+                List.of(), "", "", List.of(), List.of(), ""))).isInstanceOf(DomainException.class);
+        assertThat(seen).containsExactly(java.time.Duration.ofSeconds(90), java.time.Duration.ofMinutes(12),
+                java.time.Duration.ofMinutes(12));
+        // hors d'un appel, le délai par défaut
+        assertThat(CallTimeout.current()).isEqualTo(CallTimeout.DEFAULT);
+        assertThat(LangChainLlmClient.Timeouts.DEFAULT)
+                .isEqualTo(new LangChainLlmClient.Timeouts(java.time.Duration.ofSeconds(180), java.time.Duration.ofSeconds(600)));
+    }
 }

@@ -38,6 +38,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.time.Duration;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
@@ -71,11 +73,38 @@ public class LangChainLlmClient implements LlmClient {
             List<String> dependsOnQuestionIds) {
     }
 
+    /**
+     * Délai d'un appel : les opérations interactives de 001, et la génération du contexte, en tâche de
+     * fond, dont un lot de sources ou la rédaction des deux fiches dépasse la minute (research.md R4).
+     */
+    public record Timeouts(Duration interactive, Duration context) {
+
+        public static final Timeouts DEFAULT = new Timeouts(CallTimeout.DEFAULT, Duration.ofSeconds(600));
+
+        Duration of(String operation) {
+            return CONTEXT_OPERATIONS.contains(operation) ? context : interactive;
+        }
+    }
+
+    private static final Set<String> CONTEXT_OPERATIONS = Set.of("summarize-project-sources", "build-project-context");
+
     private final ChatModel model;
+    private final Timeouts timeouts;
+
+    public LangChainLlmClient(ChatModel model) {
+        this(model, Timeouts.DEFAULT);
+    }
+
+    public LangChainLlmClient(ChatModel model, Timeouts timeouts) {
+        this.model = model;
+        this.timeouts = timeouts;
+    }
 
     @Inject
-    public LangChainLlmClient(ChatModel model) {
-        this.model = model;
+    public LangChainLlmClient(ChatModel model,
+            @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s") Duration interactive,
+            @ConfigProperty(name = "specwriter.llm.timeout.context", defaultValue = "600s") Duration context) {
+        this(model, new Timeouts(interactive, context));
     }
 
     @Override
@@ -143,7 +172,8 @@ public class LangChainLlmClient implements LlmClient {
                     .build();
             String text;
             try {
-                text = model.chat(request).aiMessage().text();
+                text = ScopedValue.where(CallTimeout.CURRENT, timeouts.of(operation))
+                        .call(() -> model.chat(request).aiMessage().text());
             } catch (DomainException e) {
                 if (Thread.currentThread().isInterrupted()) {
                     LOG.infof("LLM %s : appel interrompu à la tentative %d", operation, attempt);

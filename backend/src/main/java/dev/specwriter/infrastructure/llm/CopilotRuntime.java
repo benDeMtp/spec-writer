@@ -18,6 +18,7 @@ import io.quarkus.runtime.ShutdownEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Locale;
@@ -40,7 +41,8 @@ import org.jboss.logging.Logger;
 public class CopilotRuntime implements CopilotSdkGateway {
 
     private static final Logger LOG = Logger.getLogger(CopilotRuntime.class);
-    private static final long CALL_TIMEOUT_SECONDS = 180;
+    /** Marge laissée au SDK pour signaler lui-même son délai dépassé. */
+    private static final long SDK_MARGIN_SECONDS = 15;
 
     /** Version du CLI embarqué par le SDK utilisé : un CLI plus ancien ne comprend pas son protocole. */
     static final String CLI_MIN_VERSION = "1.0.105";
@@ -162,6 +164,7 @@ public class CopilotRuntime implements CopilotSdkGateway {
         String sessionId = null;
         String phase = "la création de la session";
         long start = System.nanoTime();
+        Duration timeout = CallTimeout.current();
         try (CopilotSession session = c.createSession(toolLessSession(model, systemPrompt)).get(60, TimeUnit.SECONDS)) {
             sessionId = session.getSessionId();
             MessageOptions message = new MessageOptions().setPrompt(userPrompt);
@@ -170,7 +173,9 @@ public class CopilotRuntime implements CopilotSdkGateway {
             }
             phase = "l'envoi du message";
             try {
-                AssistantMessageEvent reply = session.sendAndWait(message).get(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                // sans délai explicite, sendAndWait abandonne au bout de 60 s, quel que soit le get()
+                AssistantMessageEvent reply = session.sendAndWait(message, timeout.toMillis())
+                        .get(timeout.toSeconds() + SDK_MARGIN_SECONDS, TimeUnit.SECONDS);
                 return reply.getData().content();
             } catch (InterruptedException e) {
                 // génération interrompue : la requête en cours est abandonnée côté CLI
@@ -181,7 +186,7 @@ public class CopilotRuntime implements CopilotSdkGateway {
             throw e;
         } catch (Exception e) {
             throw classify(e, phase + ", modèle " + (model == null ? "par défaut" : model) + ", après " + elapsedMs(start)
-                    + " ms (délai " + (sessionId == null ? 60 : CALL_TIMEOUT_SECONDS) + " s)");
+                    + " ms (délai " + (sessionId == null ? 60 : timeout.toSeconds()) + " s)");
         } finally {
             deleteQuietly(c, sessionId);
         }
