@@ -565,7 +565,8 @@ stdio, avec le journal.
   - jeu de référence réel hors dépôt (T118, `-Dgroups=reference`) : SC-002 à SC-004b, et comparaison de multilingual-e5-small avec un modèle sentence-camembert déclaré par dossier ;
   - modèle sur macOS, Windows et Linux depuis l'application installée (téléchargement par le proxy, puis sans réseau) ;
   - `spec-writer-mcp` avec Claude Code : features, contenu, `search_knowledge`.
-- [ ] T062 Exécuter les scénarios quickstart P1 à P12 et la suite complète (`./mvnw -B verify`, E2E, `ci/check-eval.sh`), puis cocher les tâches et ouvrir la PR.
+- [X] T062 Exécuter les scénarios quickstart P1 à P12 et la suite complète (`./mvnw -B verify`, E2E, `ci/check-eval.sh`), puis cocher les tâches et ouvrir la PR.
+  - *Note (T062, 2026-11-04)* : scénarios quickstart P1 à P12 couverts par les E2E sur le jar (55 verts), `./mvnw -B verify` vert (684 tests). L'utilisateur valide la feature et demande la PR et sa fusion une fois le pipeline vert. Reportés après la fusion, à sa demande : T058 (évaluation réelle avec Copilot, donc `ci/check-eval.sh`) et les essais de T061 encore ouverts (SC-004a au volume visé, jeu de référence réel, modèle sous Windows et Linux, `spec-writer-mcp` avec Claude Code ; voir `checklists/validation.md`).
 
 ---
 
