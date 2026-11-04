@@ -172,4 +172,32 @@ class ModelDownloaderTest {
                 .isInstanceOfSatisfying(ModelException.class,
                         e -> assertThat(e.reason()).isEqualTo(ModelException.Reason.UNREACHABLE));
     }
+
+    /** Hugging Face redirige vers son CDN (302, adresse relative ou absolue) : la redirection est suivie. */
+    @Test
+    void redirectionsSuiviesJusquAuCdn() throws Exception {
+        server.stubFor(get(urlEqualTo("/Xenova/e5/resolve/abc123/onnx/model_quantized.onnx"))
+                .willReturn(aResponse().withStatus(302).withHeader("Location", "/cdn/model?sig=1")));
+        server.stubFor(get(urlEqualTo("/cdn/model?sig=1"))
+                .willReturn(aResponse().withStatus(307).withHeader("Location", server.baseUrl() + "/cdn2/model")));
+        server.stubFor(get(urlEqualTo("/cdn2/model")).willReturn(aResponse().withStatus(200).withBody(MODEL)));
+        server.stubFor(get(urlEqualTo("/Xenova/e5/resolve/abc123/tokenizer.json"))
+                .willReturn(aResponse().withStatus(302).withHeader("Location", "../../../../cdn/tokenizer")));
+        server.stubFor(get(urlEqualTo("/cdn/tokenizer")).willReturn(aResponse().withStatus(200).withBody(TOKENIZER)));
+
+        Path folder = downloader.ensure(spec, progress(new AtomicLong()));
+        assertThat(folder.resolve("model_quantized.onnx")).hasBinaryContent(MODEL);
+        assertThat(folder.resolve("tokenizer.json")).hasBinaryContent(TOKENIZER);
+    }
+
+    @Test
+    void boucleDeRedirectionsArretee() {
+        server.stubFor(get(urlEqualTo("/Xenova/e5/resolve/abc123/onnx/model_quantized.onnx"))
+                .willReturn(aResponse().withStatus(302).withHeader("Location", "/Xenova/e5/resolve/abc123/onnx/model_quantized.onnx")));
+        assertThatThrownBy(() -> downloader.ensure(spec, progress(new AtomicLong())))
+                .isInstanceOfSatisfying(ModelException.class, e -> {
+                    assertThat(e.reason()).isEqualTo(ModelException.Reason.HTTP_ERROR);
+                    assertThat(e.getMessage()).contains("redirections");
+                });
+    }
 }

@@ -24,7 +24,8 @@ import org.jboss.logging.Logger;
 /**
  * Téléchargement d'un modèle d'embedding dans {@code ${data}/models/<nom>/} (research.md R19) :
  * fichiers à une révision épinglée, SHA-256 vérifiés, reprise d'un téléchargement incomplet par
- * {@code Range}. Un fichier altéré est supprimé.
+ * {@code Range}. Un fichier altéré est supprimé. Les redirections (Hugging Face renvoie vers son CDN)
+ * sont suivies ici, quel que soit le client HTTP fourni.
  */
 public final class ModelDownloader {
 
@@ -32,6 +33,7 @@ public final class ModelDownloader {
     private static final String PART = ".part";
     private static final String VERIFIED = ".sha256";
     private static final int BUFFER = 64 * 1024;
+    private static final int MAX_REDIRECTS = 5;
 
     /** Fichier du modèle : chemin dans le dépôt, empreinte et taille attendues. */
     public record ModelFile(String path, String sha256, long size) {
@@ -154,20 +156,7 @@ public final class ModelDownloader {
         if (offset >= file.size()) {
             offset = 0;
         }
-        HttpRequest.Builder request = HttpRequest.newBuilder(spec.uri(file)).timeout(Duration.ofMinutes(30)).GET();
-        if (offset > 0) {
-            request.header("Range", "bytes=" + offset + "-");
-        }
-        HttpResponse<InputStream> response;
-        try {
-            response = http.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
-        } catch (IOException e) {
-            throw new ModelException(ModelException.Reason.UNREACHABLE,
-                    "Modèle injoignable (" + e.getClass().getSimpleName() + ")", null);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ModelException(ModelException.Reason.CANCELLED, "Téléchargement interrompu", null);
-        }
+        HttpResponse<InputStream> response = fetch(spec.uri(file), offset);
         int status = response.statusCode();
         boolean resumed = status == 206 && offset > 0;
         if (status != 200 && !resumed) {
@@ -211,6 +200,43 @@ public final class ModelDownloader {
         } catch (IOException e) {
             throw new ModelException(ModelException.Reason.IO, "Fichier du modèle impossible à écrire", null);
         }
+    }
+
+    /** GET du fichier, en suivant au plus {@value #MAX_REDIRECTS} redirections ; le {@code Range} est gardé. */
+    private HttpResponse<InputStream> fetch(URI uri, long offset) throws ModelException {
+        URI current = uri;
+        for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
+            HttpRequest.Builder request = HttpRequest.newBuilder(current).timeout(Duration.ofMinutes(30)).GET();
+            if (offset > 0) {
+                request.header("Range", "bytes=" + offset + "-");
+            }
+            HttpResponse<InputStream> response;
+            try {
+                response = http.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
+            } catch (IOException e) {
+                throw new ModelException(ModelException.Reason.UNREACHABLE,
+                        "Modèle injoignable (" + e.getClass().getSimpleName() + ")", null);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new ModelException(ModelException.Reason.CANCELLED, "Téléchargement interrompu", null);
+            }
+            int status = response.statusCode();
+            String location = response.headers().firstValue("Location").orElse(null);
+            if (!redirect(status) || location == null) {
+                return response;
+            }
+            close(response);
+            try {
+                current = current.resolve(location);
+            } catch (IllegalArgumentException e) {
+                throw new ModelException(ModelException.Reason.HTTP_ERROR, "Modèle : redirection invalide", status);
+            }
+        }
+        throw new ModelException(ModelException.Reason.HTTP_ERROR, "Modèle : trop de redirections", null);
+    }
+
+    private static boolean redirect(int status) {
+        return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
     }
 
     private static boolean verified(Path folder, ModelFile file) {
