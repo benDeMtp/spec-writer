@@ -1,0 +1,399 @@
+{
+  "mappings": [
+    {
+      "priority": 0,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/search",
+        "queryParameters": {
+          "fields": {
+            "equalTo": "key"
+          },
+          "jql": {
+            "matches": "project = FACT( .*)?"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "startAt": 0,
+          "maxResults": 50,
+          "total": 6,
+          "issues": [
+            {
+              "key": "FACT-14"
+            },
+            {
+              "key": "FACT-12"
+            },
+            {
+              "key": "FACT-7"
+            },
+            {
+              "key": "FACT-11"
+            },
+            {
+              "key": "FACT-9"
+            },
+            {
+              "key": "FACT-15"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/search",
+        "queryParameters": {
+          "jql": {
+            "matches": "project = FACT( AND updated >= .*)? ORDER BY updated ASC"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "startAt": 0,
+          "maxResults": 50,
+          "total": 6,
+          "issues": [
+            {
+              "key": "FACT-14",
+              "fields": {
+                "summary": "Calculer la TVA par ligne",
+                "description": "Chaque ligne porte son taux de TVA ; le total TVA est la somme des lignes.",
+                "status": {
+                  "name": "Terminé",
+                  "statusCategory": {
+                    "key": "done"
+                  }
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-07-21T09:00:00.000+0000"
+              }
+            },
+            {
+              "key": "FACT-12",
+              "fields": {
+                "summary": "Relancer les factures impayées",
+                "description": "Une relance part automatiquement 15 jours après l'échéance.",
+                "status": {
+                  "name": "Terminé",
+                  "statusCategory": {
+                    "key": "done"
+                  }
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-08-02T09:00:00.000+0000"
+              }
+            },
+            {
+              "key": "FACT-7",
+              "fields": {
+                "summary": "Annuler une facture",
+                "description": "En tant que gestionnaire de facturation, je veux annuler une facture émise par un avoir total, pour corriger une erreur de facturation.",
+                "status": {
+                  "name": "Terminé",
+                  "statusCategory": {
+                    "key": "done"
+                  }
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-09-12T10:00:00.000+0000"
+              }
+            },
+            {
+              "key": "FACT-11",
+              "fields": {
+                "summary": "Exporter les factures en PDF",
+                "description": "Le client télécharge chaque facture au format PDF depuis le portail.",
+                "status": {
+                  "name": "En cours",
+                  "statusCategory": {
+                    "key": "indeterminate"
+                  }
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-10-25T14:00:00.000+0000"
+              }
+            },
+            {
+              "key": "FACT-9",
+              "fields": {
+                "summary": "Émettre un avoir partiel",
+                "description": "En tant que gestionnaire, je veux émettre un avoir partiel sur une ligne d'une facture émise, plafonné au restant dû.",
+                "status": {
+                  "name": "À faire",
+                  "statusCategory": {
+                    "key": "new"
+                  }
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-10-28T08:30:00.000+0000"
+              }
+            },
+            {
+              "key": "FACT-15",
+              "fields": {
+                "summary": "Connexion au portail client",
+                "description": "Le client se connecte au portail avec son compte unique.",
+                "status": {
+                  "name": "À faire",
+                  "statusCategory": {
+                    "key": "new"
+                  }
+                },
+                "issuetype": {
+                  "name": "Story"
+                },
+                "updated": "2026-10-30T16:00:00.000+0000"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "priority": 0,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/FACT-7",
+        "queryParameters": {
+          "fields": {
+            "equalTo": "status,updated"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "FACT-7",
+          "fields": {
+            "status": {
+              "name": "Terminé",
+              "statusCategory": {
+                "key": "done"
+              }
+            },
+            "updated": "2026-09-12T10:00:00.000+0000"
+          }
+        }
+      }
+    },
+    {
+      "priority": 0,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/FACT-9",
+        "queryParameters": {
+          "fields": {
+            "equalTo": "status,updated"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "FACT-9",
+          "fields": {
+            "status": {
+              "name": "À faire",
+              "statusCategory": {
+                "key": "new"
+              }
+            },
+            "updated": "2026-10-28T08:30:00.000+0000"
+          }
+        }
+      }
+    },
+    {
+      "priority": 0,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/FACT-11",
+        "queryParameters": {
+          "fields": {
+            "equalTo": "status,updated"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "FACT-11",
+          "fields": {
+            "status": {
+              "name": "En cours",
+              "statusCategory": {
+                "key": "indeterminate"
+              }
+            },
+            "updated": "2026-10-25T14:00:00.000+0000"
+          }
+        }
+      }
+    },
+    {
+      "priority": 0,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/FACT-12",
+        "queryParameters": {
+          "fields": {
+            "equalTo": "status,updated"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "FACT-12",
+          "fields": {
+            "status": {
+              "name": "Terminé",
+              "statusCategory": {
+                "key": "done"
+              }
+            },
+            "updated": "2026-08-02T09:00:00.000+0000"
+          }
+        }
+      }
+    },
+    {
+      "priority": 0,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/FACT-14",
+        "queryParameters": {
+          "fields": {
+            "equalTo": "status,updated"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "FACT-14",
+          "fields": {
+            "status": {
+              "name": "Terminé",
+              "statusCategory": {
+                "key": "done"
+              }
+            },
+            "updated": "2026-07-21T09:00:00.000+0000"
+          }
+        }
+      }
+    },
+    {
+      "priority": 0,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/FACT-15",
+        "queryParameters": {
+          "fields": {
+            "equalTo": "status,updated"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "FACT-15",
+          "fields": {
+            "status": {
+              "name": "À faire",
+              "statusCategory": {
+                "key": "new"
+              }
+            },
+            "updated": "2026-10-30T16:00:00.000+0000"
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/issueLinkType"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "issueLinkTypes": [
+            {
+              "id": "10000",
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks"
+            },
+            {
+              "id": "10003",
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/rest/api/2/issueLink",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": "$.type.name"
+          }
+        ]
+      },
+      "response": {
+        "status": 201
+      }
+    }
+  ]
+}

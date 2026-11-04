@@ -11,3 +11,14 @@ License Terms) : l'utilisateur installe lui-même le Copilot CLI de GitHub.
 
 Il embarque la bibliothèque jsoup (https://jsoup.org, licence MIT), utilisée pour lire la
 documentation Antora d'un projet.
+
+Pour la connaissance du projet, il embarque aussi :
+- LangChain4j Embeddings (https://github.com/langchain4j/langchain4j-embeddings, licence Apache
+  2.0), avec ONNX Runtime (https://onnxruntime.ai, licence MIT) et les tokenizers de Deep Java
+  Library (https://djl.ai, licence Apache 2.0, natifs de Hugging Face Tokenizers sous licence
+  Apache 2.0) ;
+- le parseur Structurizr DSL et ses modules core, client, import et export
+  (https://github.com/structurizr/java, licence Apache 2.0).
+
+Le modèle d'embedding n'est pas embarqué : il est téléchargé au premier usage depuis Hugging Face
+(Xenova/multilingual-e5-small, licence MIT, dérivé de intfloat/multilingual-e5-small, licence MIT).

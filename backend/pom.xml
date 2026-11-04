@@ -22,6 +22,9 @@
     <credential-secure-storage.version>1.0.4</credential-secure-storage.version>
     <flexmark.version>0.64.8</flexmark.version>
     <jsoup.version>1.23.2</jsoup.version>
+    <!-- aligné sur langchain4j-core 1.21.0 de Quarkus LangChain4j (research.md R19) -->
+    <langchain4j-embeddings.version>1.21.0-beta31</langchain4j-embeddings.version>
+    <structurizr-dsl.version>6.2.4</structurizr-dsl.version>
     <java-diff-utils.version>4.15</java-diff-utils.version>
     <wiremock.version>4.0.0-beta.41</wiremock.version>
     <archunit.version>1.5.1</archunit.version>
@@ -133,6 +136,28 @@
       <version>${jsoup.version}</version>
     </dependency>
 
+    <!-- Embeddings locaux de la connaissance du projet (research.md R19) : onnxruntime (MIT) et
+         tokenizers DJL (Apache 2.0) -->
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j-embeddings</artifactId>
+      <version>${langchain4j-embeddings.version}</version>
+    </dependency>
+
+    <!-- Lecture des workspaces Structurizr (research.md R21), Apache 2.0 -->
+    <dependency>
+      <groupId>com.structurizr</groupId>
+      <artifactId>structurizr-dsl</artifactId>
+      <version>${structurizr-dsl.version}</version>
+      <exclusions>
+        <!-- Pas d'analyse de code (!components) : le parseur exige en revanche structurizr-client (research.md R21) -->
+        <exclusion>
+          <groupId>com.structurizr</groupId>
+          <artifactId>structurizr-component</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
     <!-- Markdown et wiki Jira (research.md R10) -->
     <dependency>
       <groupId>io.github.java-diff-utils</groupId>
@@ -241,6 +266,30 @@
         </executions>
       </plugin>
 
+      <!-- Petit modèle ONNX pour les tests et les E2E, décompressé sans entrer dans le dépôt ni dans
+           le classpath (research.md R19, T088) -->
+      <plugin>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>test-model</id>
+            <phase>process-test-resources</phase>
+            <goals><goal>unpack</goal></goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>dev.langchain4j</groupId>
+                  <artifactId>langchain4j-embeddings-all-minilm-l6-v2-q</artifactId>
+                  <version>${langchain4j-embeddings.version}</version>
+                  <includes>*.onnx,*tokenizer.json</includes>
+                  <outputDirectory>${project.build.directory}/test-model</outputDirectory>
+                </artifactItem>
+              </artifactItems>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.14.1</version>
@@ -263,6 +312,7 @@
           <systemPropertyVariables>
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
             <specwriter.data-dir>${project.build.directory}/test-data</specwriter.data-dir>
+            <specwriter.test-model>${project.build.directory}/test-model</specwriter.test-model>
           </systemPropertyVariables>
           <argLine>@{argLine}</argLine>
         </configuration>

@@ -1,0 +1,56 @@
+[
+  {
+    "key": "FACT-7",
+    "summary": "Annuler une facture",
+    "description": "En tant que gestionnaire de facturation, je veux annuler une facture émise par un avoir total, pour corriger une erreur de facturation.",
+    "status": "Terminé",
+    "statusCategory": "done",
+    "issueType": "Story",
+    "updated": "2026-09-12T10:00:00.000+0000"
+  },
+  {
+    "key": "FACT-9",
+    "summary": "Émettre un avoir partiel",
+    "description": "En tant que gestionnaire, je veux émettre un avoir partiel sur une ligne d'une facture émise, plafonné au restant dû.",
+    "status": "À faire",
+    "statusCategory": "new",
+    "issueType": "Story",
+    "updated": "2026-10-28T08:30:00.000+0000"
+  },
+  {
+    "key": "FACT-11",
+    "summary": "Exporter les factures en PDF",
+    "description": "Le client télécharge chaque facture au format PDF depuis le portail.",
+    "status": "En cours",
+    "statusCategory": "indeterminate",
+    "issueType": "Story",
+    "updated": "2026-10-25T14:00:00.000+0000"
+  },
+  {
+    "key": "FACT-12",
+    "summary": "Relancer les factures impayées",
+    "description": "Une relance part automatiquement 15 jours après l'échéance.",
+    "status": "Terminé",
+    "statusCategory": "done",
+    "issueType": "Story",
+    "updated": "2026-08-02T09:00:00.000+0000"
+  },
+  {
+    "key": "FACT-14",
+    "summary": "Calculer la TVA par ligne",
+    "description": "Chaque ligne porte son taux de TVA ; le total TVA est la somme des lignes.",
+    "status": "Terminé",
+    "statusCategory": "done",
+    "issueType": "Story",
+    "updated": "2026-07-21T09:00:00.000+0000"
+  },
+  {
+    "key": "FACT-15",
+    "summary": "Connexion au portail client",
+    "description": "Le client se connecte au portail avec son compte unique.",
+    "status": "À faire",
+    "statusCategory": "new",
+    "issueType": "Story",
+    "updated": "2026-10-30T16:00:00.000+0000"
+  }
+]

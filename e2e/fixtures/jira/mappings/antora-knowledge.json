@@ -1,0 +1,49 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "/antora-knowledge/sitemap.xml"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/xml; charset=utf-8"
+        },
+        "bodyFileName": "antora-knowledge/sitemap.xml"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/antora-knowledge/[a-z0-9-]+/[a-z0-9-]+\\.html"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/html; charset=utf-8"
+        },
+        "bodyFileName": "antora-knowledge/{{request.pathSegments.[1]}}/{{request.pathSegments.[2]}}",
+        "transformers": [
+          "response-template"
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/antora-knowledge/[a-z0-9-]+/[a-z0-9-]+/[a-z0-9-]+\\.html"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/html; charset=utf-8"
+        },
+        "bodyFileName": "antora-knowledge/{{request.pathSegments.[1]}}/{{request.pathSegments.[2]}}/{{request.pathSegments.[3]}}",
+        "transformers": [
+          "response-template"
+        ]
+      }
+    }
+  ]
+}
