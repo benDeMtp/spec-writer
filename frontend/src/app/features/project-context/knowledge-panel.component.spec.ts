@@ -116,8 +116,24 @@ describe('KnowledgePanelComponent', () => {
     await settle(fixture);
     expect(el.textContent).toContain('Indexation terminée en 1 min 00 s, avec des erreurs.');
     expect(el.textContent).toContain("Modèle d'architecture : /c4/workspace.dsl:4 (INCLUDE_NOT_FOUND)");
+    expect(el.querySelector('summary')?.textContent?.trim()).toBe('Détail (1 erreur)');
     expect(el.textContent).toContain('8 tickets');
     expect(el.querySelector('[role="timer"]')).toBeNull();
+  });
+
+  it('des scripts ignorés sont des avertissements, pas des erreurs', async () => {
+    const warning = (line: number) => ({
+      kind: 'WARNING' as const,
+      location: `/c4/workspace.dsl:${line}`,
+      reason: 'SCRIPT_IGNORED',
+      httpStatus: null,
+      message: '!script ignoré',
+    });
+    await open(STATUS, indexation({ status: 'SUCCEEDED', finishedAt: '2026-11-04T10:01:00Z', errors: [warning(4), warning(10)] }));
+    expect(el.textContent).toContain('Indexation terminée en 1 min 00 s, avec des avertissements.');
+    expect(el.textContent).not.toContain('avec des erreurs');
+    expect(el.querySelector('summary')?.textContent?.trim()).toBe('Détail (2 avertissements)');
+    expect(el.textContent).toContain('Avertissement : /c4/workspace.dsl:4 (SCRIPT_IGNORED, !script ignoré)');
   });
 
   it('interrompt une indexation reprise au retour sur la page', async () => {

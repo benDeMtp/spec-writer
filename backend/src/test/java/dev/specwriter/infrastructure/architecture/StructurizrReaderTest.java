@@ -8,6 +8,7 @@ import dev.specwriter.domain.knowledge.ArchElement;
 import dev.specwriter.domain.knowledge.ArchRelation;
 import dev.specwriter.domain.knowledge.ArchScope;
 import dev.specwriter.domain.knowledge.ArchitectureModel;
+import dev.specwriter.domain.port.ArchitectureReader;
 import dev.specwriter.domain.port.ArchitectureReader.Result;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -131,11 +132,25 @@ class StructurizrReaderTest {
         assertThat(r.model()).isEqualTo(ArchitectureModel.EMPTY);
     }
 
+    /** Les scripts sont ignorés, jamais exécutés : un avertissement par script, avec fichier et ligne. */
     @Test
-    void scriptRefuse() {
+    void scriptsIgnoresAvecUnAvertissement() {
         Result r = reader.read(c4.resolve("scripted/workspace.dsl").toString(), null);
-        assertThat(r.failed()).isTrue();
-        assertThat(r.problem().message()).containsIgnoringCase("script");
+        assertThat(r.failed()).isFalse();
+        assertThat(r.model().element("Scripté")).isPresent();
+        assertThat(r.warnings()).extracting(ArchitectureReader.Problem::line).containsExactly(4, 10);
+        assertThat(r.warnings()).allSatisfy(w -> {
+            assertThat(w.file()).endsWith("scripted/workspace.dsl");
+            assertThat(w.message()).contains("!script ignoré");
+        });
+        // le script n'a pas tourné : le workspace garde son nom, l'élément n'a pas reçu de tag
+        assertThat(r.warnings()).noneMatch(w -> w.message().contains("piégé"));
+        assertThat(r.files()).noneMatch(f -> f.endsWith(".groovy"));
+    }
+
+    @Test
+    void sansScriptAucunAvertissement() {
+        assertThat(facturation.warnings()).isEmpty();
     }
 
     @Test
@@ -173,5 +188,38 @@ class StructurizrReaderTest {
         assertThat(r.model().elements()).extracting(ArchElement::name, ArchElement::scope)
                 .containsExactlyInAnyOrder(tuple("A", ArchScope.PROJECT), tuple("A/Api", ArchScope.PROJECT));
         assertThat(r.model().deployments()).isEmpty();
+    }
+
+    /** {@code !docs} et {@code !adrs} lisent des fichiers locaux : le modèle est lu (cas des workspaces réels). */
+    @Test
+    void docsEtAdrsAcceptes(@TempDir Path tmp) throws IOException {
+        Files.createDirectories(tmp.resolve("docs"));
+        Files.writeString(tmp.resolve("docs/01-intro.md"), "## Introduction\n\nTexte.\n");
+        Files.createDirectories(tmp.resolve("adrs"));
+        Files.writeString(tmp.resolve("adrs/0001-choix.md"), """
+                # 1. Choix
+
+                Date: 2026-01-01
+
+                ## Status
+
+                Accepted
+
+                ## Context
+
+                Contexte.
+                """);
+        Files.writeString(tmp.resolve("workspace.dsl"), """
+                workspace {
+                    !docs docs
+                    !adrs adrs
+                    model {
+                        a = softwareSystem "A"
+                    }
+                }
+                """);
+        Result r = reader.read(tmp.resolve("workspace.dsl").toString(), null);
+        assertThat(r.problem()).isNull();
+        assertThat(r.model().elements()).extracting(ArchElement::name).containsExactly("A");
     }
 }

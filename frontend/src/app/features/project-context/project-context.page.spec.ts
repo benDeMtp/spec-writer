@@ -127,6 +127,11 @@ describe('ProjectContextPage', () => {
   it('enregistre puis retire le workspace Structurizr', async () => {
     await open(FACT);
     expect(el.textContent).toContain('Jira : projet FACT.');
+    expect(el.textContent).toContain('Ownership du projet (facultatif)');
+    const ownership = el.querySelector<HTMLInputElement>('input[name="ownership"]')!;
+    expect(el.querySelector(`#${ownership.getAttribute('aria-describedby')}`)?.textContent).toContain(
+      'Sans valeur, les éléments du modèle étendu sont communs et les autres sont propres au projet.',
+    );
     type(el.querySelector<HTMLInputElement>('input[name="workspace"]')!, '/Users/moi/C4/facturation/workspace.dsl');
     type(el.querySelector<HTMLInputElement>('input[name="ownership"]')!, 'facturation');
     await settle(fixture);

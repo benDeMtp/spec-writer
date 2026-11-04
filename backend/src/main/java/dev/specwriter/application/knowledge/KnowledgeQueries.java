@@ -54,7 +54,8 @@ public class KnowledgeQueries {
         requireProject(projectId);
         KnowledgeSource source = sources.find(projectId);
         boolean incomplete = indexations.current(projectId)
-                .map(s -> s.status() != Indexations.Status.SUCCEEDED || !s.errors().isEmpty()).orElse(false);
+                .map(s -> s.status() != Indexations.Status.SUCCEEDED
+                        || s.errors().stream().anyMatch(e -> !e.warning())).orElse(false);
         EmbeddingPort.State model = embedding.state();
         return new Status(index.count(projectId, KnowledgeKind.TICKET), index.count(projectId, KnowledgeKind.DOC_SECTION),
                 index.count(projectId, KnowledgeKind.ADR), index.count(projectId, KnowledgeKind.ARCH_ELEMENT),

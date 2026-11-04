@@ -48,6 +48,7 @@ const ERROR_KINDS: Record<IndexationError['kind'], string> = {
   ARCHITECTURE: "Modèle d'architecture",
   MODEL: 'Modèle de recherche',
   FAILURE: 'Échec',
+  WARNING: 'Avertissement',
 };
 
 const MODEL_STATES: Record<ModelState, string> = {
@@ -106,7 +107,7 @@ const KINDS: Record<KnowledgeKind, string> = {
       }
       @if (g.errors.length) {
         <details class="errors-detail">
-          <summary>Détail des erreurs ({{ g.errors.length }})</summary>
+          <summary>{{ detailLabel(g) }}</summary>
           <ul class="errors">
             @for (e of g.errors; track $index) {
               <li>{{ errorLabel(e) }}</li>
@@ -338,12 +339,25 @@ export class KnowledgePanelComponent {
     const duration = g.finishedAt ? ` en ${formatDuration(Date.parse(g.finishedAt) - Date.parse(g.startedAt))}` : '';
     switch (g.status) {
       case 'SUCCEEDED':
-        return g.errors.length ? `Indexation terminée${duration}, avec des erreurs.` : `Indexation terminée${duration}.`;
+        if (g.errors.some((e) => e.kind !== 'WARNING')) {
+          return `Indexation terminée${duration}, avec des erreurs.`;
+        }
+        return g.errors.length ? `Indexation terminée${duration}, avec des avertissements.` : `Indexation terminée${duration}.`;
       case 'CANCELLED':
         return 'Indexation interrompue : ce qui était déjà indexé est gardé.';
       default:
         return 'Indexation en échec : ce qui était déjà indexé est gardé.';
     }
+  }
+
+  protected detailLabel(g: Indexation): string {
+    const warnings = g.errors.filter((e) => e.kind === 'WARNING').length;
+    const errors = g.errors.length - warnings;
+    const parts = [
+      errors ? `${errors} erreur${errors > 1 ? 's' : ''}` : '',
+      warnings ? `${warnings} avertissement${warnings > 1 ? 's' : ''}` : '',
+    ].filter((p) => p);
+    return `Détail (${parts.join(', ')})`;
   }
 
   protected errorLabel(e: IndexationError): string {

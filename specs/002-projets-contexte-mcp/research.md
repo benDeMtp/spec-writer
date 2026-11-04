@@ -531,7 +531,9 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   - Préfixes de e5 : `query: ` pour un besoin ou une recherche, `passage: ` pour un élément indexé.
   - **Distribution** : téléchargé une fois au premier besoin, dans `${data}/models/<nom>/`, par le
     proxy du poste (`ProxySettings`), avec la progression de l'indexation et la vérification des
-    SHA-256. Un modèle incomplet ou altéré est supprimé et retéléchargé.
+    SHA-256. Un modèle incomplet ou altéré est supprimé et retéléchargé. Hugging Face renvoie un
+    302 vers son CDN : `ModelDownloader` suit lui-même jusqu'à 5 redirections, en gardant le
+    `Range` d'une reprise.
   - **Remplacement** : dans Configuration, un dossier local contenant `model.onnx` et
     `tokenizer.json` (par exemple sentence-camembert exporté en ONNX), le mode de *pooling* et les
     préfixes. Changer de modèle recalcule tous les vecteurs (`embedding_model` diffère).
@@ -611,11 +613,18 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
 
 - **Decision** :
   - `com.structurizr:structurizr-dsl:6.2.4` (Java 21+), `StructurizrDslParser` en **mode
-    restreint** (`setRestricted(true)`), puis seules les fonctionnalités `Features.FILE_SYSTEM`
-    et `Features.INCLUDE` réactivées : en version 6, le mode restreint coupe aussi le système de
-    fichiers, donc `extends` et `!include`. Restent coupés : `!script`, `!plugin`, HTTP et HTTPS,
-    variables d'environnement, `!components`, `!docs` et `!adrs`. Les moteurs de script (Groovy,
-    Kotlin, JRuby) ne sont qu'en portée `test` dans son pom.
+    restreint** (`setRestricted(true)`), puis seules les fonctionnalités `Features.FILE_SYSTEM`,
+    `Features.INCLUDE`, `Features.DOCUMENTATION` et `Features.DECISIONS` réactivées : en version 6,
+    le mode restreint coupe aussi le système de fichiers, donc `extends` et `!include`. `!docs` et
+    `!adrs` ne font que lire des fichiers Markdown locaux ; ils sont présents dans les workspaces
+    réels et en faisaient échouer l'analyse. Restent coupés : `!plugin`, HTTP et HTTPS, variables
+    d'environnement et `!components`.
+  - **`!script` ignoré avec un avertissement** (décision du mainteneur après l'essai sur les
+    workspaces réels) : `Features.SCRIPTS` est activé, mais le seul moteur JSR-223 proposé au parseur
+    pendant l'analyse est `IgnoredScripts`, qui n'exécute rien. Le modèle est lu sans les effets des
+    scripts. Chaque `!script` donne une erreur d'indexation de type `WARNING` (`SCRIPT_IGNORED`,
+    fichier et ligne), montrée comme avertissement : elle ne rend pas les résultats partiels. Les
+    vrais moteurs (Groovy, Kotlin, JRuby) ne sont qu'en portée `test` dans le pom de Structurizr.
   - Vérifié en mise en route (T088, T090) : `structurizr-client` ne peut pas être exclu (le
     parseur charge `com.structurizr.http.HttpClient` à sa construction) ; `structurizr-component`
     (bcel, javaparser, guava) est exclu sans effet sur l'analyse.

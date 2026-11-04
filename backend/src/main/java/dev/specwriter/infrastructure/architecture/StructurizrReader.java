@@ -44,8 +44,10 @@ import org.jboss.logging.Logger;
 
 /**
  * Lecture d'un workspace Structurizr (FR-038, research.md R21) par l'analyseur officiel, en mode
- * restreint : seuls le système de fichiers et {@code !include} sont permis ; ni script, ni plugin,
- * ni HTTP, ni variable d'environnement. Le contenu des fichiers n'est jamais journalisé.
+ * restreint : seuls le système de fichiers, {@code !include}, {@code !docs} et {@code !adrs} sont
+ * permis ; ni plugin, ni HTTP, ni variable d'environnement. Un {@code !script} est reconnu mais jamais exécuté
+ * ({@link IgnoredScripts}) : il donne un avertissement avec son fichier et sa ligne. Le contenu des
+ * fichiers n'est jamais journalisé.
  */
 public class StructurizrReader implements ArchitectureReader {
 
@@ -59,6 +61,7 @@ public class StructurizrReader implements ArchitectureReader {
     private static final Pattern INCLUDE = Pattern.compile("(?m)^\\s*!include\\s+\"?([^\"\\s]+)\"?");
     private static final Pattern NODE = Pattern.compile("deploymentNode\\s+\"([^\"]+)\"");
     private static final Pattern NUMBER = Pattern.compile("\\d+");
+    private static final Pattern SCRIPT = Pattern.compile("^\\s*!script\\b");
     private static final Pattern ERROR_AT = Pattern.compile("^(.*?) at line (\\d+) of (.+?): .*$", Pattern.DOTALL);
 
     @Override
@@ -84,7 +87,7 @@ public class StructurizrReader implements ArchitectureReader {
         ArchitectureModel model = new ArchitectureModel(elements(parsed, ownership, common), relations(parsed),
                 deployments(parsed, sharedNodes));
         List<String> names = files.stream().map(Path::toString).sorted().toList();
-        return new Result(model, names, hash(files), null);
+        return new Result(model, names, hash(files), null, ignoredScripts(files));
     }
 
     private static Workspace parse(File file) throws StructurizrDslParserException {
@@ -92,8 +95,45 @@ public class StructurizrReader implements ArchitectureReader {
         parser.setRestricted(true);
         parser.getFeatures().enable(Features.FILE_SYSTEM);
         parser.getFeatures().enable(Features.INCLUDE);
-        parser.parse(file);
-        return parser.getWorkspace();
+        // !docs et !adrs : simples lectures de fichiers Markdown du dossier, pour que l'analyse aboutisse
+        parser.getFeatures().enable(Features.DOCUMENTATION);
+        parser.getFeatures().enable(Features.DECISIONS);
+        // reconnus pour que l'analyse aille au bout, mais confiés à un moteur qui n'exécute rien
+        parser.getFeatures().enable(Features.SCRIPTS);
+        StructurizrDslParserException[] failure = new StructurizrDslParserException[1];
+        Workspace workspace = IgnoredScripts.during(() -> {
+            try {
+                parser.parse(file);
+                return parser.getWorkspace();
+            } catch (StructurizrDslParserException e) {
+                failure[0] = e;
+                return null;
+            }
+        });
+        if (failure[0] != null) {
+            throw failure[0];
+        }
+        return workspace;
+    }
+
+    /** Un avertissement par {@code !script}, dans l'ordre des fichiers puis des lignes. */
+    private static List<Problem> ignoredScripts(Set<Path> files) {
+        List<Problem> warnings = new ArrayList<>();
+        for (Path f : files.stream().sorted().toList()) {
+            List<String> lines;
+            try {
+                lines = Files.readAllLines(f, StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                continue;
+            }
+            for (int i = 0; i < lines.size(); i++) {
+                if (SCRIPT.matcher(lines.get(i)).find()) {
+                    warnings.add(new Problem(f.toString(), i + 1,
+                            "!script ignoré : spec-writer n'exécute pas les scripts, le modèle est lu sans leurs effets"));
+                }
+            }
+        }
+        return warnings;
     }
 
     // ---------- Éléments ----------

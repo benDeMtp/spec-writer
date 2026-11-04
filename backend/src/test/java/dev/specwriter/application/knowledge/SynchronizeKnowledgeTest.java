@@ -240,6 +240,22 @@ class SynchronizeKnowledgeTest {
         assertThat(index.count(P, KnowledgeKind.ARCH_ELEMENT)).isZero();
     }
 
+    /** Un !script ignoré est un avertissement : le modèle est lu, l'index n'est pas partiel. */
+    @Test
+    void scriptIgnoreEnAvertissement() {
+        ArchitectureReader.Result read = model("h1");
+        architecture.set(new ArchitectureReader.Result(read.model(), read.files(), read.hash(), null,
+                List.of(new ArchitectureReader.Problem("/c4/workspace.dsl", 829, "!script ignoré"))));
+        sync.run(P, Mode.FULL, progress);
+        assertThat(progress.errors).singleElement().satisfies(e -> {
+            assertThat(e.kind()).isEqualTo(IndexationError.Kind.WARNING);
+            assertThat(e.warning()).isTrue();
+            assertThat(e.location()).isEqualTo("/c4/workspace.dsl:829");
+            assertThat(e.reason()).isEqualTo("SCRIPT_IGNORED");
+        });
+        assertThat(index.architecture(P).elements()).isNotEmpty();
+    }
+
     @Test
     void erreursSansContenuEtEtapesSuivantesMenees() {
         world.tracker.failure = IssueTrackerException.Kind.UNREACHABLE;

@@ -78,7 +78,7 @@ export type IndexationStep = 'MODEL' | 'JIRA' | 'DOCUMENTATION' | 'ARCHITECTURE'
 
 /** Erreur d'une indexation, sans contenu de page ni de ticket (FR-013g). */
 export interface IndexationError {
-  kind: 'PAGE' | 'SOURCE' | 'JIRA' | 'ARCHITECTURE' | 'MODEL' | 'FAILURE';
+  kind: 'PAGE' | 'SOURCE' | 'JIRA' | 'ARCHITECTURE' | 'MODEL' | 'FAILURE' | 'WARNING';
   location: string | null;
   reason: string;
   httpStatus: number | null;

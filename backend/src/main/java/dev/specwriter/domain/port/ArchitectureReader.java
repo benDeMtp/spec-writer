@@ -5,7 +5,8 @@ import java.util.List;
 
 /**
  * Lecture d'un workspace Structurizr depuis un dossier local (FR-038, research.md R21) : éléments
- * propres et communs, relations et déploiements. Aucun script ni plugin n'est exécuté.
+ * propres et communs, relations et déploiements. Aucun script ni plugin n'est exécuté : un
+ * {@code !script} est ignoré, avec un avertissement.
  */
 public interface ArchitectureReader {
 
@@ -13,8 +14,19 @@ public interface ArchitectureReader {
     record Problem(String file, Integer line, String message) {
     }
 
-    /** Modèle lu (vide en cas d'erreur), fichiers lus et leur empreinte combinée. */
-    record Result(ArchitectureModel model, List<String> files, String hash, Problem problem) {
+    /**
+     * Modèle lu (vide en cas d'erreur), fichiers lus et leur empreinte combinée ; {@code warnings} :
+     * ce qui a été ignoré sans empêcher la lecture, comme un {@code !script}.
+     */
+    record Result(ArchitectureModel model, List<String> files, String hash, Problem problem, List<Problem> warnings) {
+
+        public Result {
+            warnings = warnings == null ? List.of() : List.copyOf(warnings);
+        }
+
+        public Result(ArchitectureModel model, List<String> files, String hash, Problem problem) {
+            this(model, files, hash, problem, List.of());
+        }
 
         public boolean failed() {
             return problem != null;

@@ -266,6 +266,13 @@ public class SynchronizeKnowledge {
             // le modèle précédent est gardé
             return source;
         }
+        for (ArchitectureReader.Problem w : read.warnings()) {
+            progress.error(new IndexationError(IndexationError.Kind.WARNING,
+                    w.file() + (w.line() == null ? "" : ":" + w.line()), "SCRIPT_IGNORED", null, w.message()));
+        }
+        if (!read.warnings().isEmpty()) {
+            LOG.warnf("Connaissance : %d script(s) du modèle d'architecture ignoré(s)", read.warnings().size());
+        }
         if (mode == Mode.INCREMENTAL && read.hash() != null && read.hash().equals(source.architectureHash())) {
             return source;
         }

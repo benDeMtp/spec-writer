@@ -72,7 +72,7 @@ import { SheetEditorComponent } from './sheet-editor.component';
         <h2 id="architecture-title">Modèle d'architecture</h2>
         <p class="hint">
           Le fichier workspace.dsl Structurizr du projet, lu avec le modèle qu'il étend et les fichiers qu'il inclut. Les
-          éléments dont la propriété ownership vaut la valeur indiquée sont propres au projet.
+          blocs !script sont ignorés, avec un avertissement.
         </p>
         <form class="add" (ngSubmit)="saveWorkspace()" aria-label="Modèle d'architecture">
           <mat-form-field appearance="outline" class="grow">
@@ -80,8 +80,15 @@ import { SheetEditorComponent } from './sheet-editor.component';
             <input matInput name="workspace" maxlength="2000" [ngModel]="workspace()" (ngModelChange)="workspace.set($event)" />
           </mat-form-field>
           <mat-form-field appearance="outline">
-            <mat-label>Ownership du projet</mat-label>
-            <input matInput name="ownership" maxlength="80" [ngModel]="ownership()" (ngModelChange)="ownership.set($event)" />
+            <mat-label>Ownership du projet (facultatif)</mat-label>
+            <input
+              matInput
+              name="ownership"
+              maxlength="80"
+              aria-describedby="ownership-hint"
+              [ngModel]="ownership()"
+              (ngModelChange)="ownership.set($event)"
+            />
           </mat-form-field>
           <button mat-stroked-button type="submit" [disabled]="!workspace().trim() || busy()">Enregistrer</button>
           @if (p.architectureWorkspace) {
@@ -96,6 +103,10 @@ import { SheetEditorComponent } from './sheet-editor.component';
             </button>
           }
         </form>
+        <p class="hint" id="ownership-hint">
+          Ownership, facultatif : les éléments dont la propriété ownership vaut cette valeur sont propres au projet. Sans
+          valeur, les éléments du modèle étendu sont communs et les autres sont propres au projet.
+        </p>
         <p class="hint">Jira : {{ p.effectiveJiraProjectKey ? 'projet ' + p.effectiveJiraProjectKey : 'aucun projet Jira' }}.</p>
       </section>
 

@@ -375,7 +375,7 @@ components:
       type: object
       description: Sans aucun contenu de page, de ticket ni de modèle (FR-013g)
       properties:
-        kind: { enum: [PAGE, SOURCE, JIRA, ARCHITECTURE, MODEL, FAILURE] }
+        kind: { enum: [PAGE, SOURCE, JIRA, ARCHITECTURE, MODEL, FAILURE, WARNING], description: "WARNING : avertissement (par exemple !script ignoré), sans effet sur partial" }
         location: { type: string, description: "Adresse, clé, ou fichier:ligne pour ARCHITECTURE" }
         reason: { type: string }
         httpStatus: { type: integer }
