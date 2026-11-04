@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import dev.specwriter.domain.consent.ConsentRecord;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.port.ConsentRepository;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SettingsRepository;
+import dev.specwriter.domain.settings.EmbeddingSettings;
 import dev.specwriter.domain.settings.CopilotSettings;
 import dev.specwriter.domain.settings.JiraSettings;
 import dev.specwriter.domain.settings.JiraTestResult;
@@ -24,6 +26,22 @@ class SettingsPersistenceIT {
 
     @Inject
     ConsentRepository consents;
+
+    @Inject
+    ProjectRepository projects;
+
+    @Test
+    void reglagesDEmbeddingGardesQuandLeProjetCourantChange() {
+        EmbeddingSettings camembert = new EmbeddingSettings("/modeles/camembert", EmbeddingSettings.Pooling.CLS, "", "");
+        settings.saveEmbedding(camembert);
+        try {
+            projects.saveCurrentProjectId(projects.currentProjectId().orElse(null));
+            assertThat(settings.embedding()).isEqualTo(camembert);
+        } finally {
+            settings.saveEmbedding(EmbeddingSettings.DEFAULT);
+        }
+        assertThat(settings.embedding()).isEqualTo(EmbeddingSettings.DEFAULT);
+    }
 
     @Test
     void reglagesCopilotEtJira() {

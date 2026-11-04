@@ -13,6 +13,8 @@ import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.context.PreviewContextSources;
 import dev.specwriter.application.context.ContextGenerations;
+import dev.specwriter.application.knowledge.Indexations;
+import dev.specwriter.application.knowledge.SynchronizeKnowledge;
 import dev.specwriter.application.context.ContextGenerations.Snapshot;
 import dev.specwriter.application.context.GenerationError;
 import dev.specwriter.domain.error.DomainException;
@@ -129,6 +131,8 @@ public class ContextResource {
     ManageContextQuestions manageQuestions;
     @Inject
     ContextProposalStore proposals;
+    @Inject
+    Indexations indexations;
 
     @PUT
     @Path("/context/{sheet}")
@@ -175,7 +179,10 @@ public class ContextResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Response addSource(@PathParam("id") String id, DocSourceInput input) {
         DocSourceInput in = input == null ? new DocSourceInput(null, null) : input;
-        DocSource source = manageDocSources.add(ProjectResource.projectId(id), kind(in.kind()), in.location());
+        UUID projectId = ProjectResource.projectId(id);
+        DocSource source = manageDocSources.add(projectId, kind(in.kind()), in.location());
+        // une nouvelle source se lit en entier, sans attendre (research.md R20)
+        indexations.trigger(projectId, SynchronizeKnowledge.Mode.FULL);
         return Response.status(Response.Status.CREATED).entity(DocSourceView.of(source)).build();
     }
 

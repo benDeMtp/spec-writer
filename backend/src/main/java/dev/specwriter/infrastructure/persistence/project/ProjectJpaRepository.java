@@ -89,7 +89,7 @@ public class ProjectJpaRepository implements ProjectRepository {
     @Override
     @Transactional
     public void saveCurrentProjectId(UUID projectId) {
-        AppSettingsEntity s = new AppSettingsEntity();
+        AppSettingsEntity s = Optional.ofNullable(em.find(AppSettingsEntity.class, 1)).orElseGet(AppSettingsEntity::new);
         s.currentProjectId = projectId == null ? null : projectId.toString();
         em.merge(s);
     }

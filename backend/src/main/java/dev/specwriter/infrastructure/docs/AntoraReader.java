@@ -3,6 +3,7 @@ package dev.specwriter.infrastructure.docs;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.DocumentationReader;
 import dev.specwriter.domain.project.DocSource;
+import dev.specwriter.infrastructure.platform.ProxiedHttp;
 import dev.specwriter.infrastructure.platform.ProxySettings;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
@@ -10,12 +11,6 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.io.InputStream;
-import java.net.Authenticator;
-import java.net.InetSocketAddress;
-import java.net.PasswordAuthentication;
-import java.net.Proxy;
-import java.net.ProxySelector;
-import java.net.SocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -38,7 +33,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -83,12 +77,10 @@ public class AntoraReader implements DocumentationReader {
     public AntoraReader(ProxySettings proxy, ClockPort clock, Limits limits) {
         this.clock = clock;
         this.limits = limits;
-        HttpClient.Builder builder = HttpClient.newBuilder()
+        this.http = ProxiedHttp.builder(proxy)
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(Duration.ofSeconds(5))
-                .proxy(new SettingsProxySelector(proxy));
-        authenticator(proxy).ifPresent(builder::authenticator);
-        this.http = builder.build();
+                .build();
     }
 
     @Override
@@ -391,7 +383,8 @@ public class AntoraReader implements DocumentationReader {
         }
         Element h1 = article.selectFirst("h1");
         String title = h1 != null ? h1.text() : doc.title();
-        return Optional.of(new Page(ref, title, StructuredText.of(article)));
+        String text = StructuredText.of(article);
+        return Optional.of(new Page(ref, title, text, Sections.of(ref, title, article, text)));
     }
 
     private static Result result(List<Page> pages, List<Unread> unread, boolean stopped, URI origin) {
@@ -443,41 +436,5 @@ public class AntoraReader implements DocumentationReader {
         } catch (java.util.concurrent.ExecutionException e) {
             LOG.debugf("Lecture d'une page interrompue (%s)", e.getCause().getClass().getSimpleName());
         }
-    }
-
-    // ---------- Proxy d'entreprise (T139 de 001) ----------
-
-    /** Proxy de {@link ProxySettings}, et jamais celui des propriétés système du JDK. */
-    private static final class SettingsProxySelector extends ProxySelector {
-        private final ProxySettings settings;
-
-        SettingsProxySelector(ProxySettings settings) {
-            this.settings = settings;
-        }
-
-        @Override
-        public List<Proxy> select(URI uri) {
-            return settings.forUri(uri)
-                    .map(p -> List.of(new Proxy(Proxy.Type.HTTP, InetSocketAddress.createUnresolved(p.host(), p.port()))))
-                    .orElse(List.of(Proxy.NO_PROXY));
-        }
-
-        @Override
-        public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
-            // rien à mémoriser : la page est signalée comme injoignable
-        }
-    }
-
-    private static Optional<Authenticator> authenticator(ProxySettings settings) {
-        return Stream.of(URI.create("https://proxy.invalid"), URI.create("http://proxy.invalid"))
-                .map(settings::forUri).flatMap(Optional::stream).filter(p -> p.user() != null).findFirst()
-                .map(p -> new Authenticator() {
-                    @Override
-                    protected PasswordAuthentication getPasswordAuthentication() {
-                        return getRequestorType() == RequestorType.PROXY
-                                ? new PasswordAuthentication(p.user(), (p.password() == null ? "" : p.password()).toCharArray())
-                                : null;
-                    }
-                });
     }
 }

@@ -2,12 +2,14 @@ package dev.specwriter.support;
 
 import dev.specwriter.domain.port.SettingsRepository;
 import dev.specwriter.domain.settings.CopilotSettings;
+import dev.specwriter.domain.settings.EmbeddingSettings;
 import dev.specwriter.domain.settings.JiraSettings;
 import java.util.Optional;
 
 public class InMemorySettings implements SettingsRepository {
     private CopilotSettings copilot = CopilotSettings.initial();
     private JiraSettings jira;
+    private EmbeddingSettings embedding = EmbeddingSettings.DEFAULT;
 
     @Override
     public CopilotSettings copilot() {
@@ -32,5 +34,15 @@ public class InMemorySettings implements SettingsRepository {
     @Override
     public void deleteJira() {
         jira = null;
+    }
+
+    @Override
+    public EmbeddingSettings embedding() {
+        return embedding;
+    }
+
+    @Override
+    public void saveEmbedding(EmbeddingSettings settings) {
+        embedding = settings;
     }
 }

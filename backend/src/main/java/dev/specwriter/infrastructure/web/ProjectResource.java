@@ -10,6 +10,9 @@ import dev.specwriter.application.project.UpdateProject;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.DocSourceRepository;
+import dev.specwriter.application.knowledge.KnowledgeQueries;
+import dev.specwriter.domain.knowledge.KnowledgeSource;
+import dev.specwriter.domain.port.KnowledgeSourceRepository;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.project.DocSource;
@@ -47,7 +50,8 @@ public class ProjectResource {
 
     public record ProjectView(UUID id, String name, String description, String jiraProjectKey,
             String effectiveJiraProjectKey, String jiraKeyWarning, int sessionCount, ContextSheetView functionalContext,
-            ContextSheetView technicalContext, List<DocSourceView> docSources) {
+            ContextSheetView technicalContext, List<DocSourceView> docSources, String architectureWorkspace,
+            String architectureOwnership, KnowledgeQueries.Status knowledge) {
     }
 
     /** Une fiche du contexte (FR-008a). */
@@ -70,6 +74,10 @@ public class ProjectResource {
 
     @Inject
     ProjectRepository projects;
+    @Inject
+    KnowledgeSourceRepository knowledgeSources;
+    @Inject
+    KnowledgeQueries knowledge;
     @Inject
     SessionRepository sessions;
     @Inject
@@ -147,10 +155,12 @@ public class ProjectResource {
     }
 
     private ProjectView view(Project p, String warning, Map<UUID, Long> counts) {
+        KnowledgeSource source = knowledgeSources.find(p.id());
         return new ProjectView(p.id(), p.name().value(), p.description(),
                 p.jiraProjectKey() == null ? null : p.jiraProjectKey().value(), jira.effectiveProject(p), warning,
                 counts.getOrDefault(p.id(), 0L).intValue(), ContextSheetView.of(p.contexts().functional()),
-                ContextSheetView.of(p.contexts().technical()), docSources.list(p.id()).stream().map(DocSourceView::of).toList());
+                ContextSheetView.of(p.contexts().technical()), docSources.list(p.id()).stream().map(DocSourceView::of).toList(),
+                source.workspace(), source.ownership(), knowledge.status(p.id()));
     }
 
     private Map<UUID, Long> sessionCounts() {

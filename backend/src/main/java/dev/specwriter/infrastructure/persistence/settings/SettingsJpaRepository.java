@@ -2,6 +2,8 @@ package dev.specwriter.infrastructure.persistence.settings;
 
 import dev.specwriter.domain.port.SettingsRepository;
 import dev.specwriter.domain.settings.CopilotSettings;
+import dev.specwriter.domain.settings.EmbeddingSettings;
+import dev.specwriter.infrastructure.persistence.project.AppSettingsEntity;
 import dev.specwriter.domain.settings.JiraSettings;
 import dev.specwriter.domain.settings.JiraTestResult;
 import dev.specwriter.domain.settings.SecretPersistence;
@@ -80,5 +82,28 @@ public class SettingsJpaRepository implements SettingsRepository {
         if (e != null) {
             em.remove(e);
         }
+    }
+
+    @Override
+    @Transactional
+    public EmbeddingSettings embedding() {
+        AppSettingsEntity e = em.find(AppSettingsEntity.class, 1);
+        if (e == null) {
+            return EmbeddingSettings.DEFAULT;
+        }
+        return new EmbeddingSettings(e.embeddingModelFolder,
+                e.embeddingPooling == null ? null : EmbeddingSettings.Pooling.valueOf(e.embeddingPooling),
+                e.embeddingQueryPrefix, e.embeddingPassagePrefix);
+    }
+
+    @Override
+    @Transactional
+    public void saveEmbedding(EmbeddingSettings s) {
+        AppSettingsEntity e = Optional.ofNullable(em.find(AppSettingsEntity.class, 1)).orElseGet(AppSettingsEntity::new);
+        e.embeddingModelFolder = s.folder();
+        e.embeddingPooling = s.pooling().name();
+        e.embeddingQueryPrefix = s.queryPrefix();
+        e.embeddingPassagePrefix = s.passagePrefix();
+        em.merge(e);
     }
 }

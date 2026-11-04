@@ -13,6 +13,10 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import dev.specwriter.domain.port.DocumentationReader;
 import dev.specwriter.domain.port.DocumentationReader.Page;
 import dev.specwriter.domain.port.DocumentationReader.Result;
+import dev.specwriter.domain.port.DocumentationReader.Section;
+import dev.specwriter.domain.knowledge.AdrStatus;
+import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.KnowledgeRole;
 import dev.specwriter.domain.port.DocumentationReader.Unread;
 import dev.specwriter.domain.port.DocumentationReader.UnreadReason;
 import dev.specwriter.domain.project.DocSource;
@@ -298,5 +302,105 @@ class AntoraReaderTest {
         Result r = proxied.read(url("http://docs.example.invalid/doc/"));
         assertThat(r.pages()).singleElement().satisfies(p -> assertThat(p.text()).contains("Par le proxy."));
         site.verify(getRequestedFor(urlPathEqualTo("/doc/a.html")));
+    }
+
+    // ---------- Sections, ADR et rôles (T097, research.md R20) ----------
+
+    List<Page> knowledgePages() throws URISyntaxException {
+        Path knowledge = Path.of(AntoraReaderTest.class.getResource("/knowledge/antora").toURI());
+        Result r = reader.read(DocSource.create(UUID.randomUUID(), UUID.randomUUID(), DocSource.Kind.FOLDER,
+                knowledge.toString()));
+        assertThat(r.unread()).isEmpty();
+        return r.pages();
+    }
+
+    static Page page(List<Page> pages, String ref) {
+        return pages.stream().filter(p -> p.ref().equals(ref)).findFirst().orElseThrow();
+    }
+
+    @Test
+    void uneSectionParSect1AvecSonAncre() throws URISyntaxException {
+        Page glossary = page(knowledgePages(), "facturation/glossaire.html");
+        assertThat(glossary.sections()).extracting(Section::ref, Section::title).containsExactly(
+                org.assertj.core.groups.Tuple.tuple("facturation/glossaire.html#_avoir", "Avoir"),
+                org.assertj.core.groups.Tuple.tuple("facturation/glossaire.html#_facture_emise", "Facture émise"),
+                org.assertj.core.groups.Tuple.tuple("facturation/glossaire.html#_ecriture_comptable", "Écriture comptable"));
+        assertThat(glossary.sections()).allSatisfy(sec -> {
+            assertThat(sec.kind()).isEqualTo(KnowledgeKind.DOC_SECTION);
+            assertThat(sec.chunk()).isZero();
+            assertThat(sec.role()).isEqualTo(KnowledgeRole.VOCABULARY);
+        });
+        assertThat(glossary.sections().get(0).body()).contains("annule tout ou partie d'une facture");
+    }
+
+    @Test
+    void pageDArchitectureDEnsemble() throws URISyntaxException {
+        Page architecture = page(knowledgePages(), "facturation/architecture.html");
+        assertThat(architecture.sections()).isNotEmpty()
+                .allSatisfy(sec -> assertThat(sec.role()).isEqualTo(KnowledgeRole.ARCHITECTURE_OVERVIEW));
+        assertThat(page(knowledgePages(), "facturation/regles/avoir.html").sections())
+                .allSatisfy(sec -> assertThat(sec.role()).isNull());
+    }
+
+    @Test
+    void adrUniqueAvecSonStatut() throws URISyntaxException {
+        List<Page> pages = knowledgePages();
+        Page replaced = page(pages, "facturation/adr/adr-002.html");
+        assertThat(replaced.sections()).singleElement().satisfies(sec -> {
+            assertThat(sec.kind()).isEqualTo(KnowledgeKind.ADR);
+            assertThat(sec.ref()).isEqualTo("facturation/adr/adr-002.html");
+            assertThat(sec.title()).isEqualTo("ADR-002 : Notification synchrone de la comptabilité");
+            assertThat(sec.adr()).isEqualTo(AdrStatus.Statement.of(AdrStatus.SUPERSEDED, "ADR-005"));
+            assertThat(sec.body()).contains("HTTP synchrone");
+        });
+        assertThat(page(pages, "facturation/adr/adr-005.html").sections()).singleElement()
+                .extracting(Section::adr).isEqualTo(AdrStatus.Statement.of(AdrStatus.ACCEPTED, null));
+    }
+
+    @Test
+    void adrReconnuParSonTitreEtStatutSousUnTitre() {
+        String html = """
+                <html><body><article class="doc"><h1 class="page">Architecture Decision Record : cache Jira</h1>
+                <div class="sect1"><h2 id="_status">Status</h2><div class="sectionbody">
+                <div class="paragraph"><p>Proposed</p></div></div></div>
+                <div class="sect1"><h2 id="_decision">Décision</h2><div class="sectionbody">
+                <div class="paragraph"><p>Les tickets sont gardés en cache local.</p></div></div></div>
+                </article></body></html>""";
+        Page p = AntoraReader.page("decisions/cache.html", html, "http://doc/").orElseThrow();
+        assertThat(p.sections()).singleElement().satisfies(sec -> {
+            assertThat(sec.kind()).isEqualTo(KnowledgeKind.ADR);
+            assertThat(sec.adr()).isEqualTo(AdrStatus.Statement.of(AdrStatus.PROPOSED, null));
+        });
+        Page notAdr = AntoraReader.page("adr/index.html",
+                html.replace("Architecture Decision Record : cache Jira", "Liste des décisions"), "http://doc/")
+                .orElseThrow();
+        assertThat(notAdr.sections()).allSatisfy(sec -> assertThat(sec.kind()).isEqualTo(KnowledgeKind.DOC_SECTION));
+    }
+
+    @Test
+    void sectionLongueDecoupeeEnMorceaux() {
+        StringBuilder paragraphs = new StringBuilder();
+        for (int i = 0; i < 40; i++) {
+            paragraphs.append("<div class=\"paragraph\"><p>Paragraphe ").append(i).append(' ')
+                    .append("règle de facturation ".repeat(5)).append("</p></div>");
+        }
+        String html = "<html><body><article class=\"doc\"><h1 class=\"page\">Règles</h1>"
+                + "<div id=\"preamble\"><div class=\"sectionbody\"><div class=\"paragraph\"><p>Introduction.</p></div></div></div>"
+                + "<div class=\"sect1\"><h2 id=\"_regles\">Toutes les règles</h2><div class=\"sectionbody\">"
+                + paragraphs + "</div></div></article></body></html>";
+        Page p = AntoraReader.page("regles.html", html, "http://doc/").orElseThrow();
+        List<Section> rules = p.sections().stream().filter(sec -> sec.ref().equals("regles.html#_regles")).toList();
+        assertThat(rules).hasSizeGreaterThanOrEqualTo(3);
+        assertThat(rules).extracting(Section::chunk).containsExactlyElementsOf(
+                java.util.stream.IntStream.range(0, rules.size()).boxed().toList());
+        assertThat(rules).allSatisfy(sec -> {
+            assertThat(sec.body().length()).isLessThanOrEqualTo(2_000);
+            assertThat(sec.title()).isEqualTo("Toutes les règles");
+        });
+        assertThat(String.join("\n\n", rules.stream().map(Section::body).toList())).contains("Paragraphe 0 ")
+                .contains("Paragraphe 39 ");
+        // le préambule devient une section titrée par la page
+        assertThat(p.sections()).filteredOn(sec -> sec.ref().equals("regles.html")).singleElement()
+                .extracting(Section::title, Section::body).containsExactly("Règles", "Introduction.");
     }
 }

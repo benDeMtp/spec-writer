@@ -1,5 +1,8 @@
 package dev.specwriter.domain.port;
 
+import dev.specwriter.domain.knowledge.AdrStatus;
+import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.KnowledgeRole;
 import dev.specwriter.domain.project.DocSource;
 import java.util.List;
 
@@ -9,8 +12,28 @@ import java.util.List;
  */
 public interface DocumentationReader {
 
-    /** Page lue : son adresse ({@code ref}, citée par la fiche), son titre et son texte structuré. */
-    record Page(String ref, String title, String text) {
+    /**
+     * Page lue : son adresse ({@code ref}), son titre, son texte structuré et ses sections à
+     * indexer (research.md R20).
+     */
+    record Page(String ref, String title, String text, List<Section> sections) {
+
+        public Page {
+            sections = sections == null ? List.of() : List.copyOf(sections);
+        }
+
+        public Page(String ref, String title, String text) {
+            this(ref, title, text, List.of());
+        }
+    }
+
+    /**
+     * Élément indexé d'une page : une section ({@code .sect1}, titre {@code h2}) ou un ADR entier,
+     * découpé en morceaux d'environ 1 500 caractères. {@code ref} : adresse de la page avec l'ancre
+     * de la section ; {@code adr} : statut lu, pour un ADR seulement.
+     */
+    record Section(String ref, int chunk, String title, String body, KnowledgeKind kind, AdrStatus.Statement adr,
+            KnowledgeRole role) {
     }
 
     enum UnreadReason {

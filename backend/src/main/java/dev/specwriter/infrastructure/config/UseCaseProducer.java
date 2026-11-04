@@ -8,6 +8,14 @@ import dev.specwriter.application.context.PreviewContextSources;
 import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ContextGenerations;
+import dev.specwriter.application.knowledge.Indexations;
+import dev.specwriter.application.knowledge.KnowledgeQueries;
+import dev.specwriter.application.knowledge.ManageArchitectureSource;
+import dev.specwriter.application.knowledge.SynchronizeKnowledge;
+import dev.specwriter.domain.port.ArchitectureReader;
+import dev.specwriter.domain.port.EmbeddingPort;
+import dev.specwriter.domain.port.KnowledgeIndex;
+import dev.specwriter.domain.port.KnowledgeSourceRepository;
 import dev.specwriter.application.context.ContextProposalStore;
 import dev.specwriter.application.context.AcceptContextProposal;
 import dev.specwriter.application.context.ManageContextQuestions;
@@ -332,6 +340,37 @@ public class UseCaseProducer {
             ContextProposalStore proposals, ClockPort clock) {
         return new ContextGenerations(propose, projects, consent, proposals,
                 task -> Thread.ofVirtual().name("generation-contexte").start(task), clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SynchronizeKnowledge synchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
+            DocSourceRepository docSources, DocumentationReader reader, ArchitectureReader architecture, JiraAccess jira,
+            IssueTracker tracker, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
+        return new SynchronizeKnowledge(projects, sources, docSources, reader, architecture, jira, tracker, index,
+                embedding, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    Indexations indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, ClockPort clock,
+            @ConfigProperty(name = "specwriter.knowledge.auto-index", defaultValue = "true") boolean automatic) {
+        return new Indexations(synchronize, projects, task -> Thread.ofVirtual().name("indexation").start(task), clock,
+                automatic);
+    }
+
+    @Produces
+    @ApplicationScoped
+    KnowledgeQueries knowledgeQueries(ProjectRepository projects, KnowledgeIndex index, KnowledgeSourceRepository sources,
+            EmbeddingPort embedding, Indexations indexations, JiraAccess jira) {
+        return new KnowledgeQueries(projects, index, sources, embedding, indexations, jira);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageArchitectureSource manageArchitectureSource(ProjectRepository projects, KnowledgeSourceRepository sources,
+            KnowledgeIndex index, Indexations indexations) {
+        return new ManageArchitectureSource(projects, sources, index, indexations);
     }
 
     @Produces

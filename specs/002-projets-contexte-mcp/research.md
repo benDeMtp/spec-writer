@@ -498,9 +498,15 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
 - **Alternatives considered** : modèle embarqué dans l'installeur (135 Mo de plus pour chaque
   installation, même sans connaissance du projet) ; `langchain4j-embeddings-e5-small-v2-q`
   (anglais seulement) ; tri des candidats par Copilot (écarté par l'utilisateur).
-- **À vérifier en premier (tâche de mise en route)** : les tokenizers DJL embarquent leur
-  bibliothèque native pour macOS, Windows et Linux dans le jar, sans téléchargement à l'exécution
-  (`ai.djl.offline=true`) ; le jar jpackage les charge ; le temps d'un vecteur reste sous 50 ms.
+- **Vérifié en mise en route (T089, 2026-11-04)** :
+  - le jar des tokenizers DJL 0.36.0 embarque ses natifs pour linux-x86_64, linux-aarch64,
+    osx-aarch64 et win-x86_64, **pas pour osx-x86_64** ; onnxruntime 1.20.0 couvre les cinq ;
+  - avec `ai.djl.offline=true`, les natifs embarqués se chargent sans téléchargement ; un vecteur
+    prend moins de 50 ms (`OnnxEmbeddingSmokeIT`, modèle MiniLM quantifié de test) ;
+  - DJL extrait ses natifs dans `~/.djl.ai` : la propriété `DJL_CACHE_DIR` pointe vers
+    `${data}/djl` pour garder les données de l'outil dans son dossier ;
+  - sur un Mac Intel, le natif manquant n'est pas téléchargé (mode hors ligne) : la recherche
+    passe par les termes seuls, signalée (FR-043). Aucun poste de l'équipe n'est concerné.
 
 ## R20. Indexation et synchronisation (FR-013d à FR-013g, FR-033)
 
@@ -511,8 +517,9 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   - **Déclencheurs** : enregistrement d'une source (complète), ouverture d'un besoin
     (incrémentale, sans attendre), bouton « Resynchroniser » (incrémentale, ou complète au choix).
     Aucune indexation au démarrage de l'outil.
-  - **Jira** : `project = KEY AND updated >= "<repère - 1 min>" ORDER BY updated ASC`, par pages
-    de 50, dans la limite de débit de R13. Le repère est la plus grande date `updated` lue. La
+  - **Jira** : `project = KEY AND updated >= "<repère - 1 jour>" ORDER BY updated ASC`, par pages
+    de 50 (Jira lit la date JQL dans le fuseau de l'utilisateur : la marge d'un jour évite d'en
+    manquer ; relire quelques tickets inchangés ne coûte rien, l'empreinte les écarte), dans la limite de débit de R13. Le repère est la plus grande date `updated` lue. La
     description passe par `JiraFormatConverter.toMarkdown`. Un ticket est **fermé** si sa
     catégorie de statut Jira est `done`. Les tickets supprimés sont retirés à la synchronisation
     complète (liste des clés seule, `fields=key`), et dès qu'un ticket proche renvoie 404.
@@ -541,9 +548,14 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
 
 - **Decision** :
   - `com.structurizr:structurizr-dsl:6.2.4` (Java 21+), `StructurizrDslParser` en **mode
-    restreint** : aucun `!script` ni `!plugin` exécuté. Les moteurs de script (Groovy, Kotlin,
-    JRuby) ne sont qu'en portée `test` dans son pom. `structurizr-client` est exclu s'il n'est pas
-    nécessaire à l'analyse (à vérifier en mise en route).
+    restreint** (`setRestricted(true)`), puis seules les fonctionnalités `Features.FILE_SYSTEM`
+    et `Features.INCLUDE` réactivées : en version 6, le mode restreint coupe aussi le système de
+    fichiers, donc `extends` et `!include`. Restent coupés : `!script`, `!plugin`, HTTP et HTTPS,
+    variables d'environnement, `!components`, `!docs` et `!adrs`. Les moteurs de script (Groovy,
+    Kotlin, JRuby) ne sont qu'en portée `test` dans son pom.
+  - Vérifié en mise en route (T088, T090) : `structurizr-client` ne peut pas être exclu (le
+    parseur charge `com.structurizr.http.HttpClient` à sa construction) ; `structurizr-component`
+    (bcel, javaparser, guava) est exclu sans effet sur l'analyse.
   - On lit le **DSL**, jamais `workspace.json` (régénéré seulement par Structurizr lite).
   - Éléments indexés : personnes, systèmes, conteneurs, composants, avec un nom canonique
     (`Système/Conteneur/Composant`), description, technologie, tags et propriétés.
@@ -584,6 +596,12 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
       « traverse des infrastructures (ouverture réseau ou exposition à prévoir) » ;
     - module propre ajouté dans un système commun, ou déployé sur un nœud partagé : « dépend d'une
       infrastructure partagée ».
+  - **À confirmer sur le jeu de référence réel** : dans `~/Documents/Projets/laposte/C4`, tous les
+    nœuds de production sont définis dans `infra/`. La règle « déployé sur un nœud partagé »
+    signalerait alors chaque module propre. Le jeu fictif sépare un nœud propre (Azure, défini
+    dans le workspace avec `!element production`) d'un nœud partagé (ITaaS, dans `infra/`) ; si le
+    constat se révèle bavard sur le jeu réel, il sera restreint aux modules ajoutés dans un système
+    commun.
   - Ces constats sont des **faits calculés** : ils sont insérés tels quels dans les rubriques de
     la spécification (« Architecture », « Efforts supplémentaires (déploiement) »), sans être
     réécrits par le LLM.

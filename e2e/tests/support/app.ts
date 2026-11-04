@@ -22,6 +22,8 @@ export async function startApp(): Promise<string> {
     '-Dspecwriter.github.fake=true',
     '-Dspecwriter.print-launch-url=true',
     `-Dspecwriter.llm.replay-dir=${join(process.cwd(), 'fixtures', 'llm')}`,
+    // modèle d'embedding de test (décompressé par Maven) : aucun téléchargement depuis Hugging Face
+    `-Dspecwriter.embedding.folder=${join(process.cwd(), '../backend/target/test-model')}`,
     '-jar', jar,
   ], { stdio: ['ignore', 'pipe', 'pipe'], detached: true });
   writeFileSync(pidFile, String(app.pid));

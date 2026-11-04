@@ -13,6 +13,11 @@ import dev.specwriter.domain.jira.LinkedJiraTicket;
 import dev.specwriter.domain.jira.RequiredField;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IssueTracker;
+import dev.specwriter.domain.port.WikiMarkup;
+import dev.specwriter.domain.jira.IssueLinkType;
+import dev.specwriter.domain.jira.IssueStatus;
+import dev.specwriter.domain.jira.TrackedIssue;
+import dev.specwriter.domain.jira.TrackedIssuePage;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -52,12 +57,21 @@ public class JiraRestClient implements IssueTracker {
     private static final DateTimeFormatter JIRA_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     static final String SEARCH_FIELDS = "summary,status,issuetype,updated";
     static final String ISSUE_FIELDS = "summary,description,updated";
+    static final String TRACKED_FIELDS = "summary,description,status,issuetype,updated";
+    static final String STATUS_FIELDS = "status,updated";
+    private static final int KEYS_PAGE = 100;
+    private static final int MAX_KEYS = 50_000;
+
+    private final JiraThrottle throttle = new JiraThrottle();
 
     @Inject
     ClockPort clock;
 
     @Inject
     ProxySettings proxy;
+
+    @Inject
+    WikiMarkup markup;
 
     @Override
     public String serverVersion(JiraEndpoint endpoint) {
@@ -123,6 +137,94 @@ public class JiraRestClient implements IssueTracker {
             }
         }
         return new JiraIssuePage(issues, number(body.get("startAt"), startAt), number(body.get("total"), issues.size()));
+    }
+
+    @Override
+    public TrackedIssuePage searchUpdatedSince(JiraEndpoint endpoint, String projectKey, Instant since, int startAt,
+            int maxResults) {
+        String jql = JqlBuilder.updatedSince(projectKey, since);
+        Map<String, Object> body = call(endpoint, api -> api.search(jql, startAt, maxResults, TRACKED_FIELDS));
+        List<TrackedIssue> issues = new ArrayList<>();
+        if (body.get("issues") instanceof List<?> list) {
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> issue) {
+                    String key = String.valueOf(issue.get("key"));
+                    Map<?, ?> fields = map(issue.get("fields"));
+                    String wiki = text(fields.get("description"));
+                    Map<?, ?> status = map(fields.get("status"));
+                    issues.add(new TrackedIssue(key, text(fields.get("summary")),
+                            wiki == null ? "" : markup.toMarkdown(wiki, browse(endpoint, key)), text(status.get("name")),
+                            text(map(status.get("statusCategory")).get("key")), name(fields.get("issuetype")),
+                            date(fields.get("updated"))));
+                }
+            }
+        }
+        return new TrackedIssuePage(issues, number(body.get("startAt"), startAt), number(body.get("total"), issues.size()));
+    }
+
+    @Override
+    public List<String> listKeys(JiraEndpoint endpoint, String projectKey) {
+        String jql = JqlBuilder.allKeys(projectKey);
+        List<String> keys = new ArrayList<>();
+        int startAt = 0;
+        while (keys.size() < MAX_KEYS) {
+            int from = startAt;
+            Map<String, Object> body = call(endpoint, api -> api.search(jql, from, KEYS_PAGE, "key"));
+            int before = keys.size();
+            if (body.get("issues") instanceof List<?> list) {
+                list.stream().filter(Map.class::isInstance).map(o -> String.valueOf(((Map<?, ?>) o).get("key")))
+                        .forEach(keys::add);
+            }
+            int read = keys.size() - before;
+            startAt = number(body.get("startAt"), from) + read;
+            if (read == 0 || startAt >= number(body.get("total"), 0)) {
+                break;
+            }
+        }
+        return keys;
+    }
+
+    @Override
+    public IssueStatus issueStatus(JiraEndpoint endpoint, String issueKey) {
+        requireKey(issueKey);
+        Map<String, Object> body = call(endpoint, api -> api.issue(issueKey, STATUS_FIELDS));
+        Map<?, ?> fields = map(body.get("fields"));
+        Map<?, ?> status = map(fields.get("status"));
+        return new IssueStatus(String.valueOf(body.get("key")), text(status.get("name")),
+                text(map(status.get("statusCategory")).get("key")), date(fields.get("updated")));
+    }
+
+    @Override
+    public List<IssueLinkType> linkTypes(JiraEndpoint endpoint) {
+        Map<String, Object> body = call(endpoint, JiraApi::issueLinkTypes);
+        List<IssueLinkType> types = new ArrayList<>();
+        if (body.get("issueLinkTypes") instanceof List<?> list) {
+            for (Object o : list) {
+                Map<?, ?> t = map(o);
+                types.add(new IssueLinkType(text(t.get("id")), text(t.get("name")), text(t.get("inward")),
+                        text(t.get("outward"))));
+            }
+        }
+        return types;
+    }
+
+    @Override
+    public void createLink(JiraEndpoint endpoint, String typeName, String outwardKey, String inwardKey) {
+        requireKey(outwardKey);
+        requireKey(inwardKey);
+        Map<String, Object> link = new LinkedHashMap<>();
+        link.put("type", Map.of("name", typeName));
+        link.put("outwardIssue", Map.of("key", outwardKey));
+        link.put("inwardIssue", Map.of("key", inwardKey));
+        call(endpoint, api -> {
+            api.createIssueLink(link);
+            return null;
+        });
+    }
+
+    private static String browse(JiraEndpoint endpoint, String key) {
+        String server = endpoint.serverUrl();
+        return (server.endsWith("/") ? server : server + "/") + "browse/" + key;
     }
 
     @Override
@@ -312,6 +414,7 @@ public class JiraRestClient implements IssueTracker {
     }
 
     private <T> T once(JiraEndpoint endpoint, Function<JiraApi, T> action) {
+        throttle.acquire();
         try (JiraApi api = client(endpoint)) {
             return action.apply(api);
         } catch (ProcessingException e) {

@@ -1,6 +1,7 @@
 package dev.specwriter.domain.port;
 
 import dev.specwriter.domain.settings.CopilotSettings;
+import dev.specwriter.domain.settings.EmbeddingSettings;
 import dev.specwriter.domain.settings.JiraSettings;
 import java.util.Optional;
 
@@ -16,4 +17,8 @@ public interface SettingsRepository {
     void saveJira(JiraSettings settings);
 
     void deleteJira();
+
+    EmbeddingSettings embedding();
+
+    void saveEmbedding(EmbeddingSettings settings);
 }
