@@ -49,6 +49,21 @@ const JIRA_REASONS: Record<string, string> = {
   REJECTED: 'requête refusée',
 };
 
+/** Horloge du minuteur de la génération ; remplacée par les tests. */
+export const CONTEXT_CLOCK = new InjectionToken<() => number>('CONTEXT_CLOCK', { factory: () => () => Date.now() });
+
+/** « 12 s », « 1 min 05 s » ou « 1 h 02 min » : une durée lisible, arrondie à la seconde. */
+export function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  if (h > 0) {
+    return `${h} h ${String(m).padStart(2, '0')} min`;
+  }
+  return m > 0 ? `${m} min ${String(sec).padStart(2, '0')} s` : `${sec} s`;
+}
+
 /** Intervalle d'interrogation de l'état d'une génération (research.md R14) ; réduit par les tests. */
 export const CONTEXT_POLL_MS = new InjectionToken<number>('CONTEXT_POLL_MS', { factory: () => 1000 });
 
@@ -152,6 +167,7 @@ const REASONS: Record<UnreadReason, string> = {
           @if (g.status === 'RUNNING') {
             <div class="progress" role="group" aria-labelledby="progress-step">
               <p id="progress-step" class="step">{{ stepLabel(g) }}</p>
+              <p class="meta" role="timer">{{ elapsed(g) }}</p>
               @if (g.total > 0) {
                 <progress [value]="g.done" [max]="g.total" [attr.aria-label]="stepLabel(g)"></progress>
               } @else {
@@ -165,6 +181,9 @@ const REASONS: Record<UnreadReason, string> = {
             </div>
           } @else {
             <p class="outcome">{{ outcomeLabel(g) }}</p>
+            @if (g.finishedAt) {
+              <p class="meta">Durée : {{ duration(g) }}</p>
+            }
           }
         }
         @if (proposal(); as pr) {
@@ -411,6 +430,10 @@ export class ProjectContextPage {
   });
   private readonly destroyRef = inject(DestroyRef);
   private readonly pollMs = inject(CONTEXT_POLL_MS);
+  private readonly clock = inject(CONTEXT_CLOCK);
+  /** Heure du minuteur, avancée chaque seconde pendant une génération. */
+  private readonly now = signal(this.clock());
+  private ticker: ReturnType<typeof setInterval> | null = null;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private pollToken = 0;
   private lastStep: GenerationStep | null = null;
@@ -421,7 +444,37 @@ export class ProjectContextPage {
       const id = this.id();
       untracked(() => void this.load(id).then(() => Promise.all([this.resume(id), this.loadHistory(id)])));
     });
-    this.destroyRef.onDestroy(() => this.stopPolling());
+    effect(() => {
+      const running = this.generation()?.status === 'RUNNING';
+      untracked(() => (running ? this.startTicker() : this.stopTicker()));
+    });
+    this.destroyRef.onDestroy(() => {
+      this.stopPolling();
+      this.stopTicker();
+    });
+  }
+
+  private startTicker(): void {
+    this.now.set(this.clock());
+    this.ticker ??= setInterval(() => this.now.set(this.clock()), 1000);
+  }
+
+  private stopTicker(): void {
+    if (this.ticker) {
+      clearInterval(this.ticker);
+      this.ticker = null;
+    }
+  }
+
+  /** Temps écoulé depuis le début de la génération et de l'étape en cours. */
+  protected elapsed(g: ContextGeneration): string {
+    const now = this.now();
+    const total = `Temps écoulé : ${formatDuration(now - Date.parse(g.startedAt))}`;
+    return g.stepStartedAt ? `${total} · étape en cours depuis ${formatDuration(now - Date.parse(g.stepStartedAt))}` : total;
+  }
+
+  protected duration(g: ContextGeneration): string {
+    return formatDuration(Date.parse(g.finishedAt ?? g.startedAt) - Date.parse(g.startedAt));
   }
 
   /** Au retour sur la page : la génération en cours, ou la dernière si sa proposition est encore d'actualité. */

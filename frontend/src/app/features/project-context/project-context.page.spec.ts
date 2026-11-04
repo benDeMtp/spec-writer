@@ -6,7 +6,7 @@ import { provideRouter } from '@angular/router';
 import { provideMarkdown } from 'ngx-markdown';
 import { ContextGeneration, ContextProposal, Project } from '../../core/projects/projects.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
-import { CONTEXT_POLL_MS, ProjectContextPage } from './project-context.page';
+import { CONTEXT_CLOCK, CONTEXT_POLL_MS, ProjectContextPage, formatDuration } from './project-context.page';
 
 const FACT: Project = {
   id: 'p1',
@@ -55,6 +55,7 @@ function generation(over: Partial<ContextGeneration>): ContextGeneration {
     done: 0,
     total: 0,
     startedAt: '2026-11-03T10:00:00Z',
+    stepStartedAt: null,
     finishedAt: null,
     errors: [],
     proposal: null,
@@ -87,6 +88,7 @@ function providers(consent: () => boolean) {
     provideMarkdown(),
     { provide: ConsentGate, useValue: { ensure: async () => consent() } },
     { provide: CONTEXT_POLL_MS, useValue: 0 },
+    { provide: CONTEXT_CLOCK, useValue: () => Date.parse('2026-11-03T10:01:05Z') },
     { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
   ];
 }
@@ -179,14 +181,19 @@ describe('ProjectContextPage', () => {
     await settle(fixture);
     ctrl.expectOne((r) => r.method === 'POST' && r.url === '/api/projects/p1/context-generations').flush(generation({ step: null }));
     await settle(fixture);
-    ctrl.expectOne(CURRENT).flush(generation({ current: 'https://docs.example.com/billing/tva.html', done: 12, total: 32 }));
+    ctrl.expectOne(CURRENT).flush(
+      generation({ current: 'https://docs.example.com/billing/tva.html', done: 12, total: 32, stepStartedAt: '2026-11-03T10:00:50Z' }),
+    );
     await settle(fixture);
     expect(el.textContent).toContain('page 12 sur 32');
     expect(el.textContent).toContain('En cours : https://docs.example.com/billing/tva.html');
+    expect(el.querySelector('[role="timer"]')?.textContent?.trim()).toBe('Temps écoulé : 1 min 05 s · étape en cours depuis 15 s');
     ctrl.expectOne(CURRENT).flush(generation({ status: 'SUCCEEDED', step: 'BUILDING', done: 1, total: 1, finishedAt: '2026-11-03T10:01:00Z', ...final }));
     await settle(fixture);
     ctrl.expectOne('/api/projects').flush([FACT]);
     await settle(fixture);
+    expect(el.textContent).toContain('Durée : 1 min 00 s');
+    expect(el.querySelector('[role="timer"]')).toBeNull();
   }
 
   it('propose deux fiches : accepter l’une, garder l’autre, avec le détail des erreurs', async () => {
@@ -334,5 +341,14 @@ describe('ProjectContextPage, retour sur la page', () => {
     await settle(fixture);
     expect(el.textContent).toContain("La génération a échoué : La réponse de l'IA est invalide.");
     ctrl.verify();
+  });
+});
+
+describe('formatDuration', () => {
+  it('écrit les secondes, les minutes puis les heures', () => {
+    expect(formatDuration(12_400)).toBe('12 s');
+    expect(formatDuration(65_000)).toBe('1 min 05 s');
+    expect(formatDuration(3_720_000)).toBe('1 h 02 min');
+    expect(formatDuration(-5)).toBe('0 s');
   });
 });

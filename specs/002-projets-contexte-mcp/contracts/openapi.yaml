@@ -289,6 +289,7 @@ components:
         done: { type: integer }
         total: { type: integer }
         startedAt: { type: string, format: date-time }
+        stepStartedAt: { type: string, format: date-time, description: "Début de l'étape en cours, pour le minuteur" }
         finishedAt: { type: string, format: date-time }
         errors: { type: array, items: { $ref: '#/components/schemas/GenerationError' } }
         proposal: { $ref: '#/components/schemas/ContextProposal' }

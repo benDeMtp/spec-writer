@@ -118,6 +118,7 @@ test.describe.serial('US8 contexte de projet', () => {
       await expect(progress).toBeVisible();
       await expect(progress).toContainText(/page \d+ sur 32/);
       await expect(progress).toContainText('En cours : http://127.0.0.1:47698/antora/');
+      await expect(page.getByRole('timer')).toContainText(/Temps écoulé : \d+ s/);
       await expectNoA11yViolations(page);
 
       await page.goto('/projets');

@@ -110,6 +110,7 @@ class ContextResourceIT {
         JsonPath state = generate();
         assertThat(state.getString("status")).isEqualTo("SUCCEEDED");
         assertThat(state.getString("step")).isEqualTo("BUILDING");
+        assertThat(state.getString("stepStartedAt")).isNotNull();
         assertThat(state.getString("proposal.functional.markdown")).contains("[source : billing/regle-tva.html]");
         assertThat(state.getString("proposal.technical.markdown")).startsWith("## Architecture");
         assertThat(state.getList("proposal.questions.sheet")).containsExactly("TECHNICAL", "FUNCTIONAL");

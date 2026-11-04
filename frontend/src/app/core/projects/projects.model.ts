@@ -132,6 +132,8 @@ export interface ContextGeneration {
   done: number;
   total: number;
   startedAt: string;
+  /** Début de l'étape en cours, pour le minuteur. */
+  stepStartedAt: string | null;
   finishedAt: string | null;
   errors: GenerationError[];
   proposal: ContextProposal | null;

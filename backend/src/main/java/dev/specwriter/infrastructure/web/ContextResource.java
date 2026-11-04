@@ -101,12 +101,12 @@ public class ContextResource {
 
     /** État d'une génération : étape, élément en cours, avancement, erreurs et proposition (FR-013f, FR-013g). */
     public record GenerationView(String status, String step, String current, int done, int total, Instant startedAt,
-            Instant finishedAt, List<GenerationError> errors, ContextProposalView proposal) {
+            Instant stepStartedAt, Instant finishedAt, List<GenerationError> errors, ContextProposalView proposal) {
 
         /** {@code proposal} : son état courant (questions répondues, fiches acceptées), absente si elle a expiré. */
         static GenerationView of(Snapshot s, ContextProposal proposal) {
             return new GenerationView(s.status().name(), s.step() == null ? null : s.step().name(), s.current(), s.done(),
-                    s.total(), s.startedAt(), s.finishedAt(), s.errors(),
+                    s.total(), s.startedAt(), s.stepStartedAt(), s.finishedAt(), s.errors(),
                     proposal == null ? null : ContextProposalView.of(proposal));
         }
     }

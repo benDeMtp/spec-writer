@@ -33,7 +33,8 @@ public class ContextGenerations {
 
     /** État d'une génération à un instant donné. */
     public record Snapshot(UUID projectId, Status status, Step step, String current, int done, int total,
-            Instant startedAt, Instant finishedAt, List<GenerationError> errors, ContextProposal proposal) {
+            Instant startedAt, Instant stepStartedAt, Instant finishedAt, List<GenerationError> errors,
+            ContextProposal proposal) {
     }
 
     private final Map<UUID, Generation> generations = new ConcurrentHashMap<>();
@@ -122,6 +123,8 @@ public class ContextGenerations {
         private Thread worker;
         private Status status = Status.RUNNING;
         private Step step;
+        /** Début de l'étape en cours, pour le minuteur de l'écran. */
+        private Instant stepStartedAt;
         private String current;
         private int done;
         private int total;
@@ -233,6 +236,7 @@ public class ContextGenerations {
         @Override
         public synchronized void step(Step newStep, int newTotal) {
             step = newStep;
+            stepStartedAt = clock.now();
             current = null;
             done = 0;
             total = newTotal;
@@ -256,7 +260,8 @@ public class ContextGenerations {
         }
 
         synchronized Snapshot snapshot() {
-            return new Snapshot(projectId, status, step, current, done, total, startedAt, finishedAt, List.copyOf(errors),
+            return new Snapshot(projectId, status, step, current, done, total, startedAt, stepStartedAt, finishedAt,
+                    List.copyOf(errors),
                     proposal);
         }
     }

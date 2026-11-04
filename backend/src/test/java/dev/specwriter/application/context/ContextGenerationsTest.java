@@ -249,6 +249,23 @@ class ContextGenerationsTest {
         assertThat(s.errors()).allSatisfy(e -> assertThat(String.valueOf(e.message())).doesNotContain(SECRET_TEXT));
     }
 
+    /** Le minuteur de l'écran (FR-013f) : début de la génération et début de l'étape en cours. */
+    @Test
+    void debutDeChaqueEtapeDate() {
+        scriptLlm();
+        w.docs.onPage = () -> w.clock.advance(Duration.ofSeconds(30));
+        Instant started = w.clock.now();
+        generations.start(project.id());
+        Snapshot queuedState = generations.current(project.id()).orElseThrow();
+        assertThat(queuedState.stepStartedAt()).isNull();
+        runQueued();
+        Snapshot s = generations.current(project.id()).orElseThrow();
+        assertThat(s.startedAt()).isEqualTo(started);
+        assertThat(s.step()).isEqualTo(Step.BUILDING);
+        // la lecture a pris du temps ; la rédaction, non (horloge figée)
+        assertThat(s.stepStartedAt()).isAfter(started).isEqualTo(s.finishedAt());
+    }
+
     @Test
     void generationTermineeGardee30Minutes() {
         scriptLlm();

@@ -111,6 +111,13 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     inconnue déclenche une `correction`, comme pour la traçabilité de 001.
   - Pour 300 pages et 200 tickets, il faut une quinzaine d'appels au LLM, ce qui tient dans les
     10 minutes de SC-004a.
+  - **Délai d'un appel** : 600 s pour `summarize-project-sources` et `build-project-context`
+    (`specwriter.llm.timeout.context`), 180 s pour les opérations interactives de 001
+    (`specwriter.llm.timeout.interactive`). Un lot de 40 000 caractères, ou la rédaction des deux
+    fiches, dépasse souvent la minute ; la génération tourne en tâche de fond et s'interrompt à
+    tout moment (R14), donc rien ne justifie de couper un appel long. Le délai est passé au SDK
+    (`sendAndWait(message, délai)`) : sans lui, le SDK abandonne au bout de 60 s, quel que soit
+    le délai d'attente de l'appelant.
   - Les tickets sont les 200 plus récemment modifiés du projet Jira associé (JQL
     `project = X ORDER BY updated DESC`, par pages de 50). Leur description passe par
     `JiraFormatConverter.toMarkdown`.
@@ -310,6 +317,8 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     la tâche coupée renvoie ensuite (échec ou proposition) est ignoré.
   - Une interrogation remplacée (par la relecture qui suit l'interruption) ignore sa réponse : une
     seule boucle d'interrogation à la fois.
+  - Minuteur : l'état porte `stepStartedAt` ; l'écran affiche le temps écoulé depuis le début de
+    la génération et de l'étape en cours (`role="timer"`, sans annonce), puis la durée finale.
   - Erreurs (FR-013g) : `{kind, location, reason, httpStatus, message}`, avec `kind` parmi
     `PAGE`, `SOURCE`, `JIRA`, `CORRECTION` et `FAILURE`. Les messages ne citent que des
     adresses, des clés de ticket et des motifs, jamais un contenu.
