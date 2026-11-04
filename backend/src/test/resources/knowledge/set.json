@@ -1,0 +1,7 @@
+{
+  "jiraProjectKey": "FACT",
+  "jira": "jira/issues.json",
+  "antora": "antora",
+  "workspace": "c4/facturation/workspace.dsl",
+  "ownership": "facturation"
+}

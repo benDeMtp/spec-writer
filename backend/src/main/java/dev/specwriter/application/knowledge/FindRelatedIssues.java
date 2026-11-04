@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.jboss.logging.Logger;
 
 /**
@@ -62,11 +63,8 @@ public class FindRelatedIssues {
         if (index.count(project.id(), KnowledgeKind.TICKET) == 0) {
             return RelatedIssues.UNAVAILABLE;
         }
-        String need = session.need().text();
         boolean meaning = embedding.state() == EmbeddingPort.State.READY;
-        float[] vector = meaning ? embedding.query(need) : null;
-        List<KnowledgeItem> candidates = index.search(project.id(), need, vector, meaning ? embedding.modelId() : null,
-                EnumSet.of(KnowledgeKind.TICKET), CANDIDATES).stream().map(KnowledgeIndex.Hit::item).toList();
+        List<KnowledgeItem> candidates = candidates(project.id(), session.need().text());
         boolean partial = !meaning || indexations.current(project.id())
                 .map(s -> s.status() == Indexations.Status.RUNNING).orElse(false);
         RelatedIssues.Status status = partial ? RelatedIssues.Status.PARTIAL : RelatedIssues.Status.READY;
@@ -81,6 +79,17 @@ public class FindRelatedIssues {
             fresh(project, item, kept.getValue(), target).ifPresent(issues::add);
         }
         return new RelatedIssues(status, issues, null);
+    }
+
+    /**
+     * Tickets candidats du besoin, les plus proches d'abord, soumis ensuite au jugement de l'IA ;
+     * mesurés sur le jeu de référence (research.md R27).
+     */
+    public List<KnowledgeItem> candidates(UUID projectId, String need) {
+        boolean meaning = embedding.state() == EmbeddingPort.State.READY;
+        float[] vector = meaning ? embedding.query(need) : null;
+        return index.search(projectId, need, vector, meaning ? embedding.modelId() : null, EnumSet.of(KnowledgeKind.TICKET),
+                CANDIDATES).stream().map(KnowledgeIndex.Hit::item).toList();
     }
 
     /** Clé et raison des tickets retenus, dans l'ordre ; les 3 meilleurs sans raison à défaut de Copilot. */

@@ -50,8 +50,9 @@ simulé par WireMock et le LLM rejoué. Ils sont lancés sur le jar par `npm --p
 
 - **Jeu de référence fictif** (dans `verify`) : recherche, tickets proches (sans LLM), flux,
   propre ou commun, constats de déploiement sur `backend/src/test/resources/knowledge/`.
-- **Jeu de référence réel** (manuel, hors dépôt, `-Dspecwriter.reference-set=<dossier>
-  -Dgroups=reference`) : rappel des tickets attendus (≥ 90 %), ADR, flux et efforts (100 %, sans
+- **Jeu de référence réel** (manuel, hors dépôt, `./mvnw -pl backend test -Preference
+  -Dspecwriter.reference-set=<dossier>` ; `-Dtest=ReferenceSetPreparer` écrit d'abord
+  `candidates.json` pour choisir les attendus) : rappel des tickets attendus (≥ 90 %), ADR, flux et efforts (100 %, sans
   faux positif), rédaction du premier essai (100 %), SC-002 à SC-004b. Il compare aussi
   multilingual-e5-small et un modèle sentence-camembert déclaré par dossier.
 - **Évaluation LLM** (`./mvnw -pl backend verify -Peval`) : part de questions déjà couvertes par

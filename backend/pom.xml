@@ -37,8 +37,8 @@
     <dependency-check.version>12.2.2</dependency-check.version>
     <jreleaser.version>1.16.0</jreleaser.version>
 
-    <!-- Les tests taggés spike et eval sont exclus du build par défaut -->
-    <surefire.excludedGroups>spike,eval</surefire.excludedGroups>
+    <!-- Les tests taggés spike, eval et reference sont exclus du build par défaut -->
+    <surefire.excludedGroups>spike,eval,reference</surefire.excludedGroups>
     <surefire.groups></surefire.groups>
   </properties>
 
@@ -499,7 +499,7 @@
     <profile>
       <id>eval</id>
       <properties>
-        <surefire.excludedGroups>spike</surefire.excludedGroups>
+        <surefire.excludedGroups>spike,reference</surefire.excludedGroups>
         <surefire.groups>eval</surefire.groups>
         <!-- la couverture ne porte pas sur la suite d'évaluation seule -->
         <jacoco.skip>true</jacoco.skip>
@@ -510,8 +510,21 @@
     <profile>
       <id>spike</id>
       <properties>
-        <surefire.excludedGroups>eval</surefire.excludedGroups>
+        <surefire.excludedGroups>eval,reference</surefire.excludedGroups>
         <surefire.groups>spike</surefire.groups>
+      </properties>
+    </profile>
+
+    <!--
+      Jeu de référence réel de la connaissance (research.md R27 de 002), hors du dépôt :
+      ./mvnw -pl backend test -Preference -Dspecwriter.reference-set=<dossier>
+    -->
+    <profile>
+      <id>reference</id>
+      <properties>
+        <surefire.excludedGroups>spike,eval</surefire.excludedGroups>
+        <surefire.groups>reference</surefire.groups>
+        <jacoco.skip>true</jacoco.skip>
       </properties>
     </profile>
 
