@@ -57,9 +57,33 @@ class JournalTest {
         assertThat(error.logger()).isEqualTo("dev.specwriter.Test");
         assertThat(error.cause()).startsWith("java.lang.IllegalStateException: " + RedactingLogFilter.MASK)
                 .contains("causée par java.io.IOException: " + RedactingLogFilter.MASK);
-        assertThat(error.stack()).isNotEmpty().hasSizeLessThanOrEqualTo(JournalFormatter.MAX_STACK)
-                .allSatisfy(l -> assertThat(l).startsWith("at "));
+        // la pile de chaque cause suit celle de l'exception, sous un en-tête « Causée par »
+        assertThat(error.stack()).isNotEmpty().first().asString().startsWith("at ");
+        assertThat(error.stack()).contains("Causée par : java.io.IOException: " + RedactingLogFilter.MASK)
+                .allSatisfy(l -> assertThat(l).matches("(at |Causée par : |… ).*"));
         assertThat(error.at()).isNotNull();
+    }
+
+    @Test
+    void pileBorneeParExceptionEtAuTotal() throws IOException {
+        Throwable chain = deep(new IllegalStateException("racine"), 60);
+        for (int i = 0; i < 6; i++) {
+            chain = new RuntimeException("niveau " + i, chain);
+        }
+        log(Level.SEVERE, "Échec", chain);
+        JournalEntry entry = new LogJournal(dir).latest(null).getFirst();
+        assertThat(entry.stack()).hasSizeLessThanOrEqualTo(JournalFormatter.MAX_STACK_TOTAL)
+                .anySatisfy(l -> assertThat(l).matches("… \\d+ lignes? de plus"));
+        assertThat(entry.stack().stream().filter(l -> l.startsWith("Causée par")).count()).isGreaterThanOrEqualTo(3);
+    }
+
+    /** Exception levée sous {@code depth} appels récursifs : sa pile dépasse MAX_STACK. */
+    private static Throwable deep(RuntimeException e, int depth) {
+        if (depth == 0) {
+            e.fillInStackTrace();
+            return e;
+        }
+        return deep(e, depth - 1);
     }
 
     @Test

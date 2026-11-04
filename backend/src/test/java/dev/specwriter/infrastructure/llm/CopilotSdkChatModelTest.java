@@ -101,8 +101,10 @@ class CopilotSdkChatModelTest {
     private void assertCode(GatewayException.Kind kind, ErrorCode expected) {
         gateway.failure = new GatewayException(kind, "x", null);
         gateway.attempts.set(0);
+        // la cause reste attachée : le journal en montre la phase et la pile
         assertThatThrownBy(() -> model.chat(request()))
                 .isInstanceOf(DomainException.class)
+                .hasCause(gateway.failure)
                 .extracting(e -> ((DomainException) e).code()).isEqualTo(expected);
         assertThat(gateway.attempts.get()).isEqualTo(1);
     }

@@ -141,7 +141,19 @@ public class LangChainLlmClient implements LlmClient {
                     .messages(SystemMessage.from(system), UserMessage.from(user + feedback))
                     .responseFormat(format)
                     .build();
-            String text = model.chat(request).aiMessage().text();
+            String text;
+            try {
+                text = model.chat(request).aiMessage().text();
+            } catch (DomainException e) {
+                if (Thread.currentThread().isInterrupted()) {
+                    LOG.infof("LLM %s : appel interrompu à la tentative %d", operation, attempt);
+                    throw e;
+                }
+                // ni le besoin ni la réponse : l'opération, la tentative, la durée et la cause sans contenu
+                LOG.warnf(e, "LLM %s : échec à la tentative %d après %d ms (%s)", operation, attempt,
+                        (System.nanoTime() - start) / 1_000_000, e.code());
+                throw e;
+            }
             try {
                 T result = parse.apply(text);
                 LOG.infof("LLM %s : %d ms, %d tentative(s)", operation, (System.nanoTime() - start) / 1_000_000, attempt);

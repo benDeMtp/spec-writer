@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import jakarta.inject.Inject;
+import dev.specwriter.infrastructure.logging.SafeThrowable;
 import org.jboss.logging.Logger;
 
 /**
@@ -86,11 +87,12 @@ public class CopilotRuntime implements CopilotSdkGateway {
                 }
             }
             CopilotClient c = new CopilotClient(options);
+            long start = System.nanoTime();
             try {
                 c.start().get(120, TimeUnit.SECONDS);
             } catch (Exception e) {
                 c.close();
-                throw classify(e);
+                throw classify(e, "le démarrage du Copilot CLI, après " + elapsedMs(start) + " ms (délai 120 s)");
             }
             client = c;
         }
@@ -158,35 +160,68 @@ public class CopilotRuntime implements CopilotSdkGateway {
     public String complete(String model, String systemPrompt, String userPrompt, Map<String, Object> responseSchema) {
         CopilotClient c = client();
         String sessionId = null;
+        String phase = "la création de la session";
+        long start = System.nanoTime();
         try (CopilotSession session = c.createSession(toolLessSession(model, systemPrompt)).get(60, TimeUnit.SECONDS)) {
             sessionId = session.getSessionId();
             MessageOptions message = new MessageOptions().setPrompt(userPrompt);
             if (responseSchema != null) {
                 message.setResponseSchema(responseSchema);
             }
-            AssistantMessageEvent reply = session.sendAndWait(message).get(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            return reply.getData().content();
+            phase = "l'envoi du message";
+            try {
+                AssistantMessageEvent reply = session.sendAndWait(message).get(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                return reply.getData().content();
+            } catch (InterruptedException e) {
+                // génération interrompue : la requête en cours est abandonnée côté CLI
+                abortQuietly(session);
+                throw e;
+            }
         } catch (GatewayException e) {
             throw e;
         } catch (Exception e) {
-            throw classify(e);
+            throw classify(e, phase + ", modèle " + (model == null ? "par défaut" : model) + ", après " + elapsedMs(start)
+                    + " ms (délai " + (sessionId == null ? 60 : CALL_TIMEOUT_SECONDS) + " s)");
         } finally {
             deleteQuietly(c, sessionId);
         }
     }
 
-    /** Le SDK écrit la conversation sur disque : elle est supprimée après chaque appel (FR-022). */
-    private static void deleteQuietly(CopilotClient c, String sessionId) {
-        if (sessionId == null) {
-            return;
-        }
+    private static long elapsedMs(long start) {
+        return (System.nanoTime() - start) / 1_000_000;
+    }
+
+    private static void abortQuietly(CopilotSession session) {
         try {
-            c.deleteSession(sessionId).get(30, TimeUnit.SECONDS);
+            session.abort().get(5, TimeUnit.SECONDS);
         } catch (Exception e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
+            LOG.debugf("Requête Copilot non abandonnée (%s)", e.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Le SDK écrit la conversation sur disque : elle est supprimée après chaque appel (FR-022), même
+     * quand l'appel a été interrompu ; l'interruption est rétablie ensuite.
+     */
+    private static void deleteQuietly(CopilotClient c, String sessionId) {
+        if (sessionId == null) {
+            return;
+        }
+        boolean interrupted = Thread.interrupted();
+        try {
+            c.deleteSession(sessionId).get(30, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                interrupted = true;
+            }
             LOG.warnf("Session Copilot non supprimée (%s)", e.getClass().getSimpleName());
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -195,6 +230,14 @@ public class CopilotRuntime implements CopilotSdkGateway {
      * Les libellés ont été observés pendant le spike S1 ; un message inconnu donne UNAVAILABLE.
      */
     public static GatewayException classify(Throwable error) {
+        return classify(error, null);
+    }
+
+    /**
+     * Comme {@link #classify(Throwable)}, avec la circonstance de l'échec (phase, modèle, durée), écrite
+     * par l'outil. La cause gardée est une {@link SafeThrowable} : classes et piles, sans message.
+     */
+    public static GatewayException classify(Throwable error, String during) {
         Throwable root = error;
         if (root instanceof ExecutionException && root.getCause() != null) {
             root = root.getCause();
@@ -221,7 +264,8 @@ public class CopilotRuntime implements CopilotSdkGateway {
         } else {
             kind = Kind.UNAVAILABLE;
         }
-        return new GatewayException(kind, kind.name(), root);
+        return new GatewayException(kind, during == null ? kind.name() : kind.name() + " pendant " + during,
+                SafeThrowable.of(root));
     }
 
     synchronized void onStop(@Observes ShutdownEvent event) {
