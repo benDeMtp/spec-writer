@@ -12,7 +12,9 @@ Résultats des essais faits par le mainteneur sur ses propres projets, hors du d
   (« semble fonctionner »). Les 7 workspaces avaient aussi été lus sans erreur par un test jetable
   du développeur.
 - [ ] SC-004a sur un vrai projet (300 pages, 200 tickets, workspace de 2 000 lignes) : première
-  indexation, hors téléchargement du modèle.
+  indexation, hors téléchargement du modèle. Observation partielle le 2026-11-04 : 20 tickets, une
+  documentation de 10 pages et un workspace C4 indexés en moins de 30 secondes. Le volume visé par
+  SC-004a reste à mesurer.
 - [ ] Jeu de référence réel hors dépôt (`-Preference`) : SC-002 à SC-004c, et comparaison de
   multilingual-e5-small avec un modèle sentence-camembert déclaré par dossier.
 - [ ] Modèle sur Windows et Linux depuis l'application installée (téléchargement par le proxy, puis
