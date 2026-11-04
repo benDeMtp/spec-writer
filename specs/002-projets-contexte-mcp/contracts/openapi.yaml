@@ -57,33 +57,13 @@ paths:
       summary: Change le projet courant, conservé d'un lancement à l'autre (FR-005)
       requestBody: { content: { application/json: { schema: { type: object, required: [projectId], properties: { projectId: { type: string, format: uuid } } } } } }
       responses: { '204': { description: Enregistré } }
-  /api/projects/{id}/context/{sheet}:
+  /api/projects/{id}/context:
     put:
-      summary: Enregistre une fiche modifiée à la main (FR-008a, FR-013c) ; origine EDITED
-      parameters:
-        - { name: sheet, in: path, required: true, schema: { enum: [functional, technical] } }
+      summary: Enregistre la fiche générale, rédigée à la main (FR-008)
       requestBody: { content: { application/json: { schema: { type: object, required: [markdown], properties: { markdown: { type: string, maxLength: 20000 } } } } } }
-      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } } }
-  /api/projects/{id}/context-questions:
-    get:
-      summary: Questions de clarification répondues ou passées, par numéro (FR-013i)
-      responses: { '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ContextQuestion' } } } } } }
-  /api/projects/{id}/context-questions/{number}:
-    put:
-      summary: Modifie une réponse enregistrée ; aucune fiche ne change avant la génération suivante (FR-013i)
-      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/QuestionAnswer' } } } }
-      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextQuestion' } } } } }
-  /api/projects/{id}/context-proposals/{proposalId}/questions/{questionId}:
-    put:
-      summary: Répond à une question de la proposition, ou la passe ; elle est enregistrée aussitôt avec son numéro (FR-013h, FR-013i)
-      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/QuestionAnswer' } } } }
-      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextQuestion' } } } } }
-  /api/projects/{id}/context-proposals/{proposalId}/revise:
-    post:
-      summary: Révise la proposition avec les réponses, sans relire les sources (R16) ; génération suivie comme context-generations
       responses:
-        '202': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextGeneration' } } } }
-        '404': { description: Proposition ou génération expirée ; il faut régénérer }
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } }
+        '422': { description: Plus de 20 000 caractères }
   /api/projects/{id}/doc-sources:
     post:
       summary: Ajoute une source de documentation Antora (FR-013)
@@ -94,35 +74,73 @@ paths:
   /api/projects/{id}/doc-sources/{sourceId}:
     delete:
       responses: { '204': { description: Supprimée } }
-  /api/projects/{id}/context-proposals/preview:
-    get:
-      summary: Ce qui sera envoyé à Copilot avant génération (FR-013b) ; lit le sitemap, sans lire les pages
+  /api/projects/{id}/architecture-source:
+    put:
+      summary: Déclare le workspace Structurizr du projet (FR-013, FR-038) ; démarre une indexation complète
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace]
+              properties:
+                workspace: { type: string, maxLength: 2000, description: Chemin absolu d'un fichier workspace.dsl existant et lisible }
+                ownership: { type: string, maxLength: 80, description: "Valeur de la propriété ownership qui désigne ce projet (facultative)" }
       responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  pages: { type: integer }
-                  tickets: { type: integer }
-                  unreadable: { type: array, items: { $ref: '#/components/schemas/UnreadSource' } }
-  /api/projects/{id}/context-generations:
-    post:
-      summary: Démarre la génération d'une proposition de fiche en arrière-plan (FR-013a, FR-013f, R14) ; exige le consentement Copilot
-      responses:
-        '202': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextGeneration' } } } }
-        '409': { description: Une génération est déjà en cours pour ce projet (OPERATION_IN_PROGRESS) }
-        '428': { description: Consentement Copilot requis }
-  /api/projects/{id}/context-generations/current:
-    get:
-      summary: État de la génération en cours ou de la dernière, gardée 30 minutes (FR-013f, FR-013g)
-      responses:
-        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/ContextGeneration' } } } }
-        '404': { description: Aucune génération pour ce projet }
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } }
+        '422': { description: 'Chemin relatif, fichier absent, dossier, ou droits insuffisants (motif précis)' }
     delete:
-      summary: Interrompt la génération en cours ; rien n'est proposé ni enregistré
-      responses: { '204': { description: Interruption demandée } }
+      summary: Retire le workspace et les éléments d'architecture de l'index
+      responses: { '204': { description: Retiré } }
+  /api/projects/{id}/indexations:
+    post:
+      summary: Lance une synchronisation (FR-033, R20) ; FULL relit tout, INCREMENTAL seulement ce qui a changé
+      requestBody: { content: { application/json: { schema: { type: object, properties: { mode: { enum: [FULL, INCREMENTAL], default: INCREMENTAL } } } } } }
+      responses:
+        '202': { content: { application/json: { schema: { $ref: '#/components/schemas/Indexation' } } } }
+        '409': { description: Une indexation est déjà en cours pour ce projet (OPERATION_IN_PROGRESS) }
+  /api/projects/{id}/indexations/current:
+    get:
+      summary: Indexation en cours ou dernière, gardée 30 minutes (FR-013f, FR-013g)
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Indexation' } } } }
+        '404': { description: Aucune indexation pour ce projet }
+    delete:
+      summary: Interrompt l'indexation ; ce qui est déjà indexé est gardé
+      responses: { '204': { description: Interruption faite } }
+  /api/projects/{id}/knowledge:
+    get:
+      summary: État de la connaissance du projet (compteurs par type, dernière synchronisation, partiel, modèle)
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/KnowledgeStatus' } } } } }
+  /api/projects/{id}/knowledge/search:
+    get:
+      summary: Recherche dans l'index (FR-032), pour vérifier ce que l'outil retrouve
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, maxLength: 2000 } }
+        - { name: kinds, in: query, schema: { type: array, items: { enum: [TICKET, DOC_SECTION, ADR, ARCH_ELEMENT] } } }
+      responses: { '200': { content: { application/json: { schema: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/KnowledgeHit' } } } } } }
+  /api/sessions/{id}/related-issues:
+    get:
+      summary: Tickets proches du besoin (FR-034, R23), avant les questions ; PENDING tant que la recherche tourne
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/RelatedIssues' } } } } }
+  /api/sessions/{id}/related-issues/{key}/comparison:
+    post:
+      summary: Compare le besoin et un ticket non fermé (FR-035)
+      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/IssueComparison' } } } } }
+  /api/sessions/{id}/related-issues/decision:
+    put:
+      summary: Choix de l'utilisateur (FR-035) ; SAME renvoie la session qui remplace celle-ci (import du ticket puis modification assistée)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { enum: [LINK_NEW, SAME, DIFFERENT, NONE] }
+                key: { type: string, description: Requis sauf pour NONE }
+      responses:
+        '200': { content: { application/json: { schema: { type: object, properties: { sessionId: { type: string, format: uuid }, relatesTo: { type: string } } } } } }
   /api/journal:
     get:
       summary: Les 500 dernières entrées WARN et ERROR du journal, expurgées, les plus récentes d'abord (FR-031, R15)
@@ -130,12 +148,6 @@ paths:
         - { name: level, in: query, schema: { enum: [WARN, ERROR] }, description: 'Sans niveau : les deux' }
       responses:
         '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/JournalEntry' } } } } }
-  /api/projects/{id}/context-proposals/{proposalId}/accept:
-    post:
-      summary: Accepte les fiches choisies de la proposition ; refusée pour une fiche qui a changé depuis (409 CONTEXT_CHANGED)
-      requestBody: { content: { application/json: { schema: { type: object, required: [sheets], properties: { sheets: { type: array, minItems: 1, items: { enum: [FUNCTIONAL, TECHNICAL] } } } } } } }
-      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Project' } } } } }
-
   /api/sessions/{id}/project:
     put:
       summary: Déplace une spécification vers un autre projet, avec ses versions (FR-004)
@@ -222,8 +234,16 @@ paths:
       security: [ { agentSecret: [] } ]
       summary: Contenu complet d'une feature (outil MCP get_feature)
       responses:
-        '200': { description: 'Markdown de la dernière version, identique à l’export, et contexte du projet' }
+        '200': { description: 'Markdown de la dernière version, identique à l’export, et connaissance enregistrée avec la version (fiche générale, ADR, modules) ; mcp-tools.md' }
         '404': { description: 'Introuvable : supprimée, déplacée ou non à implémenter' }
+  /api/agent/projects/{id}/knowledge:
+    get:
+      security: [ { agentSecret: [] } ]
+      summary: Recherche dans l'index du projet (outil MCP search_knowledge) ; calcul local, sans Jira ni Copilot (FR-025, FR-029)
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, maxLength: 2000 } }
+        - { name: kinds, in: query, schema: { type: array, items: { enum: [TICKET, DOC_SECTION, ADR, ARCH_ELEMENT] } } }
+      responses: { '200': { content: { application/json: { schema: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/KnowledgeHit' } } } } } }
   /api/agent/features/{id}/status:
     put:
       security: [ { agentSecret: [] } ]
@@ -253,8 +273,11 @@ components:
             id: { type: string, format: uuid }
             effectiveJiraProjectKey: { type: string, description: 'Clé du projet, sinon projet Jira par défaut' }
             jiraKeyWarning: { type: string, description: 'Clé introuvable dans Jira (FR-007), sinon absente' }
-            functionalContext: { $ref: '#/components/schemas/ContextSheet' }
-            technicalContext: { $ref: '#/components/schemas/ContextSheet' }
+            context: { type: string, description: Fiche générale (FR-008) }
+            contextUpdatedAt: { type: string, format: date-time }
+            architectureWorkspace: { type: string }
+            architectureOwnership: { type: string }
+            knowledge: { $ref: '#/components/schemas/KnowledgeStatus' }
             docSources: { type: array, items: { $ref: '#/components/schemas/DocSource' } }
             sessionCount: { type: integer }
     DocSourceInput:
@@ -280,28 +303,74 @@ components:
           enum: [UNREACHABLE, NOT_ANTORA, HTTP_ERROR, TOO_LARGE, REDIRECT_OTHER_HOST, LIMIT_REACHED,
             FOLDER_NOT_FOUND, NOT_A_FOLDER, ACCESS_DENIED, UNREADABLE, NO_HTML, ADOC_SOURCES]
         httpStatus: { type: integer, description: 'Code HTTP reçu, absent sans réponse' }
-    ContextGeneration:
+    Indexation:
       type: object
       properties:
         status: { enum: [RUNNING, SUCCEEDED, FAILED, CANCELLED] }
-        step: { enum: [READING_DOCS, READING_TICKETS, SUMMARIZING, BUILDING] }
-        current: { type: string, description: 'Adresse de la page ou clé du ticket en cours de lecture' }
+        mode: { enum: [FULL, INCREMENTAL] }
+        step: { enum: [MODEL, JIRA, DOCUMENTATION, ARCHITECTURE, EMBEDDING] }
+        current: { type: string, description: "Clé du ticket, adresse de la page ou fichier en cours" }
         done: { type: integer }
         total: { type: integer }
         startedAt: { type: string, format: date-time }
         stepStartedAt: { type: string, format: date-time, description: "Début de l'étape en cours, pour le minuteur" }
         finishedAt: { type: string, format: date-time }
         errors: { type: array, items: { $ref: '#/components/schemas/GenerationError' } }
-        proposal: { $ref: '#/components/schemas/ContextProposal' }
     GenerationError:
       type: object
-      description: Sans aucun contenu de page ni de ticket (FR-013g)
+      description: Sans aucun contenu de page, de ticket ni de modèle (FR-013g)
       properties:
-        kind: { enum: [PAGE, SOURCE, JIRA, CORRECTION, REPAIRED, FAILURE] }
-        location: { type: string }
+        kind: { enum: [PAGE, SOURCE, JIRA, ARCHITECTURE, MODEL, FAILURE] }
+        location: { type: string, description: "Adresse, clé, ou fichier:ligne pour ARCHITECTURE" }
         reason: { type: string }
         httpStatus: { type: integer }
         message: { type: string }
+    KnowledgeStatus:
+      type: object
+      properties:
+        tickets: { type: integer }
+        docSections: { type: integer }
+        adrs: { type: integer }
+        architectureElements: { type: integer }
+        syncedAt: { type: string, format: date-time }
+        partial: { type: boolean, description: "Indexation en cours, source en erreur ou modèle absent" }
+        model: { enum: [MISSING, DOWNLOADING, READY, ERROR, TERMS_ONLY] }
+    KnowledgeHit:
+      type: object
+      properties:
+        kind: { enum: [TICKET, DOC_SECTION, ADR, ARCH_ELEMENT] }
+        ref: { type: string }
+        title: { type: string }
+        status: { type: string }
+        scope: { enum: [PROJECT, COMMON] }
+        excerpt: { type: string, maxLength: 600 }
+        url: { type: string }
+    RelatedIssues:
+      type: object
+      properties:
+        status: { enum: [PENDING, READY, PARTIAL, UNAVAILABLE] }
+        issues:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            properties:
+              key: { type: string }
+              title: { type: string }
+              status: { type: string }
+              closed: { type: boolean }
+              statusFresh: { type: boolean, description: "Faux si Jira n'a pas pu être relu : statut indexé" }
+              updatedAt: { type: string, format: date-time }
+              reason: { type: string, description: "Raison du rapprochement ; absente sans Copilot" }
+              url: { type: string }
+        decision: { enum: [LINK_NEW, SAME, DIFFERENT, NONE] }
+    IssueComparison:
+      type: object
+      properties:
+        key: { type: string }
+        common: { type: array, maxItems: 8, items: { type: string } }
+        different: { type: array, maxItems: 8, items: { type: string } }
+        suggestion: { enum: [SAME, DIFFERENT] }
     JournalEntry:
       type: object
       properties:
@@ -311,54 +380,6 @@ components:
         message: { type: string }
         cause: { type: string }
         stack: { type: array, items: { type: string } }
-    ContextSheet:
-      type: object
-      properties:
-        markdown: { type: string }
-        origin: { enum: [NONE, GENERATED, EDITED] }
-        updatedAt: { type: string, format: date-time }
-    ContextProposal:
-      type: object
-      properties:
-        proposalId: { type: string, format: uuid }
-        functional: { $ref: '#/components/schemas/ProposedSheet' }
-        technical: { $ref: '#/components/schemas/ProposedSheet' }
-        sources: { type: array, items: { type: string }, description: 'URL de page, clé de ticket ou Q-n citées' }
-        unread: { type: array, items: { $ref: '#/components/schemas/UnreadSource' } }
-        questions: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/ProposalQuestion' } }
-    ProposedSheet:
-      type: object
-      properties:
-        markdown: { type: string }
-        unifiedDiff: { type: string }
-        changed: { type: boolean, description: 'Faux si la fiche proposée est identique à la fiche actuelle' }
-    ProposalQuestion:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        sheet: { enum: [FUNCTIONAL, TECHNICAL] }
-        label: { type: string }
-        rationale: { type: string }
-        suggestions: { type: array, items: { type: string } }
-        state: { enum: [OPEN, ANSWERED, SKIPPED] }
-        number: { type: integer, description: 'Numéro Q-n, une fois répondue ou passée' }
-        answer: { type: string }
-    ContextQuestion:
-      type: object
-      properties:
-        number: { type: integer }
-        sheet: { enum: [FUNCTIONAL, TECHNICAL] }
-        label: { type: string }
-        rationale: { type: string }
-        answer: { type: string }
-        state: { enum: [ANSWERED, SKIPPED] }
-        askedAt: { type: string, format: date-time }
-        answeredAt: { type: string, format: date-time }
-    QuestionAnswer:
-      type: object
-      properties:
-        answer: { type: string, maxLength: 2000 }
-        skip: { type: boolean }
     IssuePage:
       type: object
       properties:

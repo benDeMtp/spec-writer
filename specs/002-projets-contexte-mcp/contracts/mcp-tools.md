@@ -29,7 +29,7 @@ L'écran Configuration fournit cet extrait avec le bon chemin. Il ne contient au
 | `initialize` | Renvoie `protocolVersion`, `serverInfo {name: "spec-writer", version}` et `capabilities {tools: {}}`. Retient `clientInfo.name` pour le journal (FR-028). |
 | `notifications/initialized` | Aucune réponse. |
 | `ping` | Renvoie `{}`. |
-| `tools/list` | Les 4 outils ci-dessous, avec leur `inputSchema` JSON. |
+| `tools/list` | Les 5 outils ci-dessous, avec leur `inputSchema` JSON. |
 | `tools/call` | Exécute l'outil. Une erreur métier est renvoyée en `result` avec `isError: true` et un message en langage clair. |
 | autre | Erreur JSON-RPC `-32601` (méthode inconnue). |
 
@@ -39,7 +39,8 @@ L'écran Configuration fournit cet extrait avec le bon chemin. Il ne contient au
 |---|---|---|---|
 | `list_projects` | aucune | `[{id, name, description, jiraProjectKey}]` | `GET /api/agent/projects` |
 | `list_features` | `{projectId}` | `[{id, title, status, latestVersion, updatedAt}]`, sessions `READY` et `IN_PROGRESS` ayant au moins une version | `GET /api/agent/projects/{id}/features` |
-| `get_feature` | `{featureId}` | `{id, title, status, version, markdown, technicalContext, jiraIssueKey?}`. `technicalContext` est la fiche technique du projet (FR-008a, R16). `markdown` est identique à l'export de la version (SC-007). | `GET /api/agent/features/{id}` |
+| `get_feature` | `{featureId}` | `{id, title, status, version, markdown, knowledge, jiraIssueKey?}`. `markdown` est identique à l'export de la version (SC-007). `knowledge` est la connaissance enregistrée avec la version (research.md R26) : `{generalContext, adrs: [{ref, title, status, url, excerpt}], modules: [{name, type, scope, relations: [{to, description, technology, via?}]}]}`. | `GET /api/agent/features/{id}` |
+| `search_knowledge` | `{projectId, query, kinds?: ["TICKET"\|"DOC_SECTION"\|"ADR"\|"ARCH_ELEMENT"]}` | `[{kind, ref, title, status?, scope?, excerpt}]`, 10 au plus, `excerpt` de 600 caractères. Calcul local : aucun appel à Jira ni à Copilot, aucune synchronisation. La requête n'est pas consignée. | `GET /api/agent/projects/{id}/knowledge?q=&kinds=` |
 | `set_feature_status` | `{featureId, status: "IN_PROGRESS" \| "IMPLEMENTED"}` | `{id, status}`. Seules READY → IN_PROGRESS et IN_PROGRESS → IMPLEMENTED sont permises (FR-027). | `PUT /api/agent/features/{id}/status` |
 
 ## Erreurs métier (`isError: true`)

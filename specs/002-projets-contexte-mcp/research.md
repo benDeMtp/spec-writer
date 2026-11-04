@@ -99,6 +99,9 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
 
 ## R4. Génération de la fiche de contexte (FR-013a à FR-013c, SC-004a)
 
+> **Remplacée le 2026-11-04** par R18 à R28 (connaissance du projet par index local). Gardée pour
+> l'historique des tâches T019–T034 et T065–T087.
+
 - **Decision** : génération en deux temps (map-reduce) par le port LLM, avec deux nouvelles
   opérations :
   1. **`summarize-project-sources`** : les pages et tickets sont regroupés par lots d'environ
@@ -139,6 +142,9 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   - RAG : écarté dans cette feature (clarification Q1).
 
 ## R5. Contexte dans les opérations LLM et traçabilité (FR-009 à FR-012)
+
+> **Remplacée le 2026-11-04** par R24 (connaissance retrouvée dans les opérations) et R25 (fiche
+> générale).
 
 - **Decision** :
   - une balise `<contexte-projet>` est ajoutée au message utilisateur des 6 opérations existantes
@@ -241,6 +247,8 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
 
 ## R10. Évaluation et golden set (SC-002, SC-003, principe IV)
 
+> **Complétée le 2026-11-04** par R27 (jeu de référence de la connaissance du projet).
+
 - **Decision** :
   - chaque cas du golden set reçoit un `context.md` facultatif. Deux nouveaux cas avec contexte
     sont ajoutés, et le rejeu (`ScriptedChatModel`) vérifie `<contexte-projet>` par
@@ -301,6 +309,9 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
 
 
 ## R14. Progression, interruption et erreurs de la génération du contexte (FR-013f, FR-013g)
+
+> **Réutilisée le 2026-11-04** pour l'indexation (R20) : même suivi, même interruption, même
+> détail des erreurs. La génération des fiches disparaît.
 
 - **Decision** : la génération devient une **opération en arrière-plan**, suivie par interrogation.
   - `POST /api/projects/{id}/context-generations` vérifie le consentement, démarre la génération
@@ -381,6 +392,9 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
 
 ## R16. Deux fiches et questions de clarification (FR-008a, FR-013h, FR-013i)
 
+> **Remplacée le 2026-11-04** par R25 (fiche générale unique, fusion des deux fiches et des
+> réponses Q-n).
+
 - **Decision** :
   - **Deux fiches**, `FUNCTIONAL` et `TECHNICAL`, chacune un `ProjectContext` (Markdown, hash,
     origine, date). La migration `V9__context_sheets.sql` ajoute à `project` les colonnes
@@ -423,3 +437,269 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     l'utilisateur, au-delà des 30 minutes de conservation ;
   - une table `project_context` à deux lignes par projet : plus générale, mais elle impose de
     reconstruire `project` sous SQLite, ce que R6 évite.
+
+## R18. Index local de la connaissance du projet (FR-032, FR-012)
+
+- **Decision** :
+  - Une table `knowledge_item` par élément indexé, rattachée au projet (`ON DELETE CASCADE`) :
+    `kind` (`TICKET`, `DOC_SECTION`, `ADR`, `ARCH_ELEMENT`), `ref` (clé du ticket, URL de la page
+    avec son ancre, nom canonique de l'élément d'architecture), `title`, `body` (texte borné à
+    8 000 caractères), `status` (statut Jira et sa catégorie, statut d'un ADR), `scope`
+    (`PROJECT`, `COMMON`) pour l'architecture, `role` (`VOCABULARY`, `ARCHITECTURE_OVERVIEW`, nul)
+    pour la priorité de FR-042, `content_hash`, `source_updated_at`, `indexed_at`, `embedding`
+    (BLOB, `float32` normalisés) et `embedding_model`.
+  - Plein texte : table FTS5 `knowledge_fts` (`title`, `body`), tenue par des triggers comme
+    `session_fts` (V6 de 001).
+  - Graphe d'architecture : `arch_relation` (source, destination, description, technologie) et
+    `arch_deployment` (élément, environnement, nœud racine, chemin du nœud, nombre d'instances).
+  - Recherche **hybride** : les 50 meilleurs par le sens (cosinus en mémoire sur les vecteurs du
+    projet, chargés à la demande puis gardés tant que l'index ne change pas) et les 50 meilleurs
+    par BM25 (FTS5), fusionnés par *reciprocal rank fusion* (k = 60). Filtres par `kind`.
+  - Volume visé : 10 000 éléments × 384 dimensions, soit 15 Mo de vecteurs et un parcours complet
+    en moins de 20 ms, sans index vectoriel.
+- **Rationale** :
+  - SQLite et FTS5 sont déjà là ; le calcul exhaustif suffit largement à ce volume et évite une
+    extension native (`sqlite-vec`) de plus.
+  - La fusion par rang ne demande aucun réglage de poids entre deux échelles de score
+    incomparables, ce qui sert l'anti-objectif « aucun réglage ».
+  - Le texte indexé reste dans le dossier de données (`rwx------`), comme les spécifications ; il
+    n'est envoyé à Copilot que par extraits retrouvés (FR-012).
+- **Alternatives considered** :
+  - `sqlite-vec` : une bibliothèque native à distribuer sur trois OS pour un gain inutile à ce
+    volume ;
+  - un moteur externe (Lucene, Qdrant) : une dépendance ou un service de plus ;
+  - plein texte seul : ne rapproche pas « saisir un avoir » et « annuler une facture ».
+
+## R19. Modèle d'embedding local (FR-032, Q « recherche par le sens »)
+
+- **Decision** :
+  - `dev.langchain4j:langchain4j-embeddings:1.21.0-beta31` (aligné sur `langchain4j-core` 1.21.0
+    de Quarkus LangChain4j), avec `OnnxEmbeddingModel`, onnxruntime 1.20.0 et les tokenizers DJL
+    0.36.0, en *mean pooling*, vecteurs normalisés.
+  - Modèle par défaut : `Xenova/multilingual-e5-small`, `onnx/model_quantized.onnx` (118 Mo) et
+    `tokenizer.json` (17 Mo), licence MIT, à une révision épinglée avec les SHA-256 des fichiers.
+  - Préfixes de e5 : `query: ` pour un besoin ou une recherche, `passage: ` pour un élément indexé.
+  - **Distribution** : téléchargé une fois au premier besoin, dans `${data}/models/<nom>/`, par le
+    proxy du poste (`ProxySettings`), avec la progression de l'indexation et la vérification des
+    SHA-256. Un modèle incomplet ou altéré est supprimé et retéléchargé.
+  - **Remplacement** : dans Configuration, un dossier local contenant `model.onnx` et
+    `tokenizer.json` (par exemple sentence-camembert exporté en ONNX), le mode de *pooling* et les
+    préfixes. Changer de modèle recalcule tous les vecteurs (`embedding_model` diffère).
+  - Sans modèle (téléchargement impossible, fichier illisible) : recherche par les termes seuls,
+    signalée (FR-043).
+- **Rationale** :
+  - SDK Copilot vérifié (1.0.28) : aucune API d'embedding, seulement des sessions de conversation.
+  - e5 est entraîné pour la recherche (besoin court contre long passage) et multilingue ; sur
+    MTEB-French, 0,52 en recherche contre 0,44 pour les MiniLM multilingues. Les modèles
+    sentence-camembert et sentence-flaubert sont entraînés à comparer deux phrases de même nature :
+    ils restent possibles par le dossier local et seront comparés sur le jeu de référence (R27).
+  - Le téléchargement à l'usage garde l'installeur léger ; les fichiers sont joignables par le
+    proxy (vérifié le 2026-11-04).
+- **Alternatives considered** : modèle embarqué dans l'installeur (135 Mo de plus pour chaque
+  installation, même sans connaissance du projet) ; `langchain4j-embeddings-e5-small-v2-q`
+  (anglais seulement) ; tri des candidats par Copilot (écarté par l'utilisateur).
+- **À vérifier en premier (tâche de mise en route)** : les tokenizers DJL embarquent leur
+  bibliothèque native pour macOS, Windows et Linux dans le jar, sans téléchargement à l'exécution
+  (`ai.djl.offline=true`) ; le jar jpackage les charge ; le temps d'un vecteur reste sous 50 ms.
+
+## R20. Indexation et synchronisation (FR-013d à FR-013g, FR-033)
+
+- **Decision** :
+  - Une **indexation** par projet à la fois, sur thread virtuel, avec le suivi de R14 (étapes
+    `JIRA`, `DOCUMENTATION`, `ARCHITECTURE`, `EMBEDDING`, élément en cours, compteurs, temps
+    écoulé, interruption immédiate). Ce qui est indexé avant une interruption est gardé.
+  - **Déclencheurs** : enregistrement d'une source (complète), ouverture d'un besoin
+    (incrémentale, sans attendre), bouton « Resynchroniser » (incrémentale, ou complète au choix).
+    Aucune indexation au démarrage de l'outil.
+  - **Jira** : `project = KEY AND updated >= "<repère - 1 min>" ORDER BY updated ASC`, par pages
+    de 50, dans la limite de débit de R13. Le repère est la plus grande date `updated` lue. La
+    description passe par `JiraFormatConverter.toMarkdown`. Un ticket est **fermé** si sa
+    catégorie de statut Jira est `done`. Les tickets supprimés sont retirés à la synchronisation
+    complète (liste des clés seule, `fields=key`), et dès qu'un ticket proche renvoie 404.
+  - **Antora** : relecture des pages du sitemap ; chaque section (`.sect1`, titre `h2`) devient un
+    élément, découpé en morceaux d'environ 1 500 caractères s'il est plus long. Seuls les
+    éléments dont le `content_hash` change sont réécrits et revectorisés : la date `lastmod`
+    d'Antora est celle de la construction du site, elle ne suffit pas.
+  - **ADR** : une page dont le chemin ou le titre désigne un ADR (`adr`, `ADR-<n>`,
+    « Architecture Decision Record ») est un élément `ADR` unique (découpé si long), avec son
+    statut lu dans la page (ligne « Statut » ou « Status » : accepté, proposé, remplacé par
+    ADR-<n>, obsolète). Un ADR remplacé garde le lien vers celui qui le remplace.
+  - **Rôles** (FR-042) : une page ou section dont le titre évoque le glossaire ou le vocabulaire
+    porte `VOCABULARY` ; l'architecture d'ensemble porte `ARCHITECTURE_OVERVIEW`.
+  - **Structurizr** : relecture quand le hash du workspace ou d'un fichier qu'il étend ou inclut
+    change (fichiers repérés par les directives `extends` et `!include`). Une erreur d'analyse
+    garde le modèle précédent et donne le fichier et la ligne.
+  - Un index incomplet (indexation en cours, source en erreur, modèle absent) est **annoncé**
+    par l'état de la connaissance ; il ne bloque rien (FR-043).
+- **Rationale** : la synchronisation incrémentale tient en quelques requêtes ; la comparaison par
+  hash évite de revectoriser tout le site à chaque construction ; la reprise de R14 donne le
+  suivi déjà testé.
+- **Alternatives considered** : synchronisation périodique en tâche de fond (un service qui tourne
+  sans demande, contraire à l'esprit local de 001) ; webhook Jira (exige une exposition réseau).
+
+## R21. Lecture du workspace Structurizr (FR-038)
+
+- **Decision** :
+  - `com.structurizr:structurizr-dsl:6.2.4` (Java 21+), `StructurizrDslParser` en **mode
+    restreint** : aucun `!script` ni `!plugin` exécuté. Les moteurs de script (Groovy, Kotlin,
+    JRuby) ne sont qu'en portée `test` dans son pom. `structurizr-client` est exclu s'il n'est pas
+    nécessaire à l'analyse (à vérifier en mise en route).
+  - On lit le **DSL**, jamais `workspace.json` (régénéré seulement par Structurizr lite).
+  - Éléments indexés : personnes, systèmes, conteneurs, composants, avec un nom canonique
+    (`Système/Conteneur/Composant`), description, technologie, tags et propriétés.
+  - **Propre ou commun** :
+    1. la propriété `ownership` fait foi quand elle est renseignée (valeur égale à l'identifiant
+       du projet déclaré avec le workspace : propre ; autre : commun) ;
+    2. sinon on analyse aussi, seul, le modèle étendu (`workspace extends <fichier>`) ; un élément
+       qui y existe déjà est commun ;
+    3. le reste est propre au projet, y compris ce qu'il ajoute dans un système commun avec
+       `!element`.
+  - **Infrastructure partagée** : un nœud de déploiement défini dans un fichier inclus depuis un
+    dossier partagé (par défaut `infra/`, repéré par les directives `!include`) est partagé.
+- **Rationale** : l'analyseur officiel résout `extends`, `!include`, `!element` et `archetypes`
+  comme Structurizr ; réécrire ce DSL serait long et fragile. Le mode restreint évite d'exécuter
+  du code venu d'un fichier (OWASP A03, A08).
+- **Alternatives considered** : `workspace.json` (en retard sur le DSL) ; l'API du serveur
+  Structurizr (choix de l'utilisateur : dossier local) ; un analyseur maison.
+- **Organisation réelle observée** (`~/Documents/Projets/laposte/C4`) : `model.dsl` commun,
+  `02-relaiV2/workspace.dsl` en `extends ../model.dsl`, `!include "../infra/…"`, `!element`,
+  archétype `topic`, 17 éléments avec `ownership`. Elle sert de base au jeu de référence (R27).
+
+## R22. Flux, modules impactés et efforts de déploiement (FR-039 à FR-041)
+
+- **Decision** :
+  - **Modules impactés** : la recherche (R18) propose au plus 15 éléments d'architecture
+    candidats ; une opération LLM `identifyImpact` choisit parmi eux les modules impactés et
+    déclare les échanges que le besoin suppose (paires source, destination, raison). Un nom hors
+    des candidats est refusé (même mécanisme de réparation que `Citations`).
+  - **Existence d'un flux**, calculée par l'outil : relation directe entre A et B ou leurs
+    descendants, dans un sens ou dans l'autre ; ou relation A–T et T–B avec **un seul**
+    intermédiaire T de transport. T est de transport si un tag ou un archétype vaut `topic`,
+    `queue` ou `bus`, ou si sa technologie cite Kafka, AMQP, JMS ou MQ (liste réglable).
+  - **Déploiement de production** : environnement dont le nom contient `prod` (insensible à la
+    casse, réglable). Constats :
+    - module sans instance en production : « à déployer » ;
+    - module en plusieurs instances : « plusieurs déploiements » ;
+    - échange entre modules dont les instances de production ont des nœuds racines différents :
+      « traverse des infrastructures (ouverture réseau ou exposition à prévoir) » ;
+    - module propre ajouté dans un système commun, ou déployé sur un nœud partagé : « dépend d'une
+      infrastructure partagée ».
+  - Ces constats sont des **faits calculés** : ils sont insérés tels quels dans les rubriques de
+    la spécification (« Architecture », « Efforts supplémentaires (déploiement) »), sans être
+    réécrits par le LLM.
+- **Rationale** : l'IA juge ce que le besoin suppose ; l'outil vérifie ce que le modèle contient
+  (FR-040 : « jamais deviné »). Borner l'intermédiaire à un seul évite que tout soit relié.
+- **Alternatives considered** : laisser le LLM lire tout le modèle (volume, et vérification
+  impossible) ; chemins de longueur quelconque (tout serait relié).
+
+## R23. Tickets proches et parcours selon le statut (FR-034, FR-035)
+
+- **Decision** :
+  - Après la saisie du besoin, `FindRelatedIssues` cherche les 20 meilleurs tickets (R18), puis
+    l'opération LLM `judgeRelatedIssues` en garde 5 au plus, avec la raison du rapprochement (titre
+    et extrait de 600 caractères par candidat). Sans consentement Copilot, ou si l'appel échoue,
+    les 3 meilleurs par score sont montrés sans raison.
+  - Le statut des tickets retenus est relu dans Jira (`fields=status,updated`) ; à défaut, le
+    statut indexé et sa date sont montrés.
+  - Les questions de clarification ne sont demandées qu'après le choix de l'utilisateur sur ces
+    tickets (ou « aucun ne correspond »).
+  - **Fermé** : la session garde `relatesTo`. À la création du ticket (flux de 001), l'aperçu
+    annonce le lien, puis `POST /rest/api/2/issueLink` crée le lien, avec le type dont le sens
+    sortant est « relates to » (lu une fois par `GET /rest/api/2/issueLinkType`). Un échec du lien
+    laisse la story créée et propose de réessayer le lien.
+  - **Non fermé** : `compareWithIssue` (besoin, ticket complet) renvoie le commun, les écarts et
+    une suggestion. « C'est la même » : la session est remplacée par l'import du ticket (001),
+    puis le besoin est proposé comme modification assistée (`ProposeAiEdit`) du ticket importé.
+    « C'est différent » : la rédaction continue.
+- **Rationale** : la recherche ramène des candidats, le LLM juge sur un petit nombre ; le parcours
+  réutilise l'import, la modification assistée et la création de ticket de 001.
+- **Alternatives considered** : seuil de similarité seul (bruit selon le modèle, réglage à
+  faire) ; création du lien avant la story (impossible : la story n'existe pas encore).
+
+## R24. Connaissance retrouvée dans les opérations de l'IA (FR-009 à FR-011, FR-036, FR-037, FR-042)
+
+- **Decision** :
+  - Une **sélection de connaissance** est calculée pour la session à partir du besoin et des
+    réponses : fiche générale ; rôles `VOCABULARY` et `ARCHITECTURE_OVERVIEW` (3 000 caractères
+    au plus) ; 4 ADR au plus (6 000), un ADR remplacé étant remplacé par son successeur ; 3
+    tickets proches retenus (3 000) ; faits d'architecture calculés (R22, 3 000). Elle est
+    recalculée quand le besoin ou les réponses changent.
+  - Elle est transmise aux 6 opérations dans une balise `<connaissance-projet>`, avec
+    `<fiche-generale>`, `<vocabulaire>`, `<adr ref statut>`, `<ticket ref statut>` et
+    `<architecture>`, contenu échappé par `data()`. Elle remplace `<contexte-fonctionnel>` et
+    `<contexte-technique>`.
+  - Nouvelles sources d'un élément de spécification : `PROJECT_CONTEXT` (extrait de la fiche),
+    `JIRA_ISSUE` (clé), `DOC_PAGE` (URL, y compris un ADR), `ARCH_ELEMENT` (nom). Une référence
+    hors de la sélection est ramenée par `Citations` ou retirée (T087).
+  - `DraftSpecification` gagne `adrDeviations` (ADR, décision, écart), rendu dans une rubrique
+    « Écarts aux ADR ». Un écart détecté pendant les questions passe par le canal
+    `contradictions` de `propose-questions` (FR-037).
+  - `InputFingerprint` couvre la fiche générale et, pour chaque élément de la sélection, sa
+    référence et son `content_hash` (FR-011). La version enregistre la sélection (références et
+    hash), ce qui sert aussi à MCP (R26).
+- **Rationale** : le volume envoyé reste borné quel que soit le projet (anti-objectif
+  « devoir s'y reprendre ») ; la sélection enregistrée rend la version reproductible.
+- **Alternatives considered** : laisser le LLM appeler un outil de recherche pendant la rédaction
+  (sessions Copilot sans outil, règle 6a de 001) ; une sélection par opération (empreintes
+  instables d'une opération à l'autre).
+
+## R25. Fiche générale (FR-008, FR-008a)
+
+- **Decision** :
+  - La colonne `context` de `project` devient la fiche générale ; une migration y fusionne la
+    fiche fonctionnelle, la fiche technique (sous les titres « ## Fonctionnel » et
+    « ## Technique ») et, s'il y en a, les réponses Q-n (« ## Réponses de clarification »),
+    tronquée à 20 000 caractères avec un avertissement journalisé si besoin. Les colonnes
+    `technical_context*` et la table `project_context_question` sont supprimées par une migration
+    nouvelle (les migrations appliquées ne changent pas).
+  - Un seul éditeur, à la main ; `PUT /api/projects/{id}/context`.
+- **Rationale** : aucune saisie de l'utilisateur n'est perdue, et le modèle redevient simple.
+
+## R26. Connaissance pour les agents de code (FR-025)
+
+- **Decision** :
+  - `get_feature` renvoie `knowledge` : la fiche générale, les ADR et les modules de la sélection
+    enregistrée avec la version (R24), avec leur statut, leur lien et, pour les modules, leurs
+    relations et leur portée (propre, commun).
+  - Nouvel outil `search_knowledge {projectId, query, kinds?}` : 10 éléments au plus (type,
+    référence, titre, statut, extrait de 600 caractères). Le vecteur de la requête est calculé
+    localement ; aucun appel à Jira ni à Copilot, aucune synchronisation (FR-029).
+- **Rationale** : l'agent lit exactement la connaissance qui a servi à rédiger, et peut chercher
+  au-delà sans élargir ses droits.
+
+## R27. Jeu de référence de la connaissance (SC-002 à SC-004b, principe IV)
+
+- **Decision** :
+  - **Forme** : un dossier contenant `cases.json` (`[{need, expectedIssues, expectedAdrs,
+    expectedModules, expectedMissingFlows: [[a, b]], expectedEfforts}]`) et les sources figées :
+    `jira/` (tickets exportés en JSON), `antora/` (site produit) et `c4/` (workspace et fichiers
+    inclus).
+  - **Jeu fictif** dans le dépôt (`backend/src/test/resources/knowledge/`) : tickets, ADR (dont un
+    remplacé), glossaire, workspace qui étend un modèle commun, inclut une infrastructure et
+    passe par un topic. Il tourne dans `verify` (recherche, flux, déploiements, sans LLM) et en
+    E2E avec le LLM rejoué.
+  - **Jeu réel** hors du dépôt : chemin donné par `specwriter.reference-set` ; la classe de test
+    taguée `reference` (exclue par défaut, comme `eval`) s'arrête proprement s'il est absent. Les
+    réponses attendues sont écrites par l'utilisateur ; une commande prépare les besoins et les
+    candidats retrouvés pour qu'il n'ait qu'à valider.
+  - Mesures : rappel des tickets attendus parmi les 5 montrés (≥ 90 %), ADR cités (100 %), flux
+    manquants et efforts (100 %, sans faux positif), rédaction aboutie du premier essai (100 %).
+    Le jeu réel sert aussi à comparer e5 et sentence-camembert (R19).
+- **Rationale** : les données de l'entreprise ne doivent jamais entrer dans le dépôt personnel ;
+  le jeu fictif garde un garde-fou dans le build.
+
+## R28. Retrait des fiches générées (tâches T019–T034 et T065–T087)
+
+- **Decision** :
+  - Retirés : `ProposeProjectContext`, `ContextProposalStore`, `AcceptContextProposal`,
+    `AnswerContextQuestion`, `ManageContextQuestions`, `PreviewContextSources`, les opérations
+    `summarize-project-sources` et `build-project-context` (prompts, schémas, rejeux),
+    `ContextSheet`, `ContextSheets`, `ContextQuestion`, les endpoints `context-proposals`,
+    `context-questions` et `context/{sheet}`, et les composants front de proposition.
+  - Gardés et réemployés : projets, sources de documentation et leurs motifs, `AntoraReader`
+    (lecture et sections), la limite de débit Jira, `ContextGenerations` devenu `Indexations`
+    (suivi, minuteur, interruption), le journal des erreurs et `SafeThrowable`, les délais
+    d'appel par opération, `Citations` (références de la sélection).
+  - Le retrait se fait dans les tâches qui remplacent chaque partie, test par test, pour que
+    `verify` et les E2E restent verts à chaque commit.
+
