@@ -7,9 +7,10 @@ Résultats des essais faits par le mainteneur sur ses propres projets, hors du d
   <clé> » est correcte. Validé par l'utilisateur le 2026-11-04.
 - [X] Recherche par le sens (RAG) après le correctif du téléchargement du modèle (redirection
   302) : validée par l'utilisateur le 2026-11-04.
-- [ ] Lecture des workspaces C4 réels depuis l'application (`!script` ignoré avec un
-  avertissement, `!docs` et `!adrs` acceptés). Les 7 workspaces ont été lus sans erreur par un test
-  jetable du développeur, pas encore depuis l'application par l'utilisateur.
+- [X] Lecture des workspaces C4 réels depuis l'application (`!script` ignoré avec un
+  avertissement, `!docs` et `!adrs` acceptés) : l'utilisateur la juge fonctionnelle le 2026-11-04
+  (« semble fonctionner »). Les 7 workspaces avaient aussi été lus sans erreur par un test jetable
+  du développeur.
 - [ ] SC-004a sur un vrai projet (300 pages, 200 tickets, workspace de 2 000 lignes) : première
   indexation, hors téléchargement du modèle.
 - [ ] Jeu de référence réel hors dépôt (`-Preference`) : SC-002 à SC-004c, et comparaison de
