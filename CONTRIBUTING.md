@@ -65,6 +65,19 @@ Un changement de comportement sans test qui l'a fait échouer d'abord n'est pas 
 - L'heure vient de `ClockPort`, jamais de `Instant.now()` hors plateforme et web.
 - Migrations Flyway : ne jamais modifier une migration déjà appliquée, en ajouter une.
 
+### Passerelle MCP
+
+- `dev.specwriter.mcp` est un processus à part, sans Quarkus ni CDI : il ne dépend ni du domaine,
+  ni de l'application, ni de l'infrastructure (règle ArchUnit). Il ne parle à l'outil que par
+  `/api/agent/**`, en HTTP/1.1, avec le secret de `agent-endpoint.json`.
+- Depuis les sources : `java -cp 'backend/target/quarkus-app/app/*:backend/target/quarkus-app/lib/main/*'
+  dev.specwriter.mcp.McpBridge`, ou la commande affichée dans **Configuration › Accès des agents**.
+- Tests : `McpBridgeTest` rejoue les échanges JSON-RPC contre un serveur HTTP du JDK ;
+  `AgentResourceIT` couvre l'API des agents et ses refus ; `e2e/tests/us11-agents.spec.ts` lance
+  la passerelle avec le client `e2e/mcp-client.ts`. stdout ne doit porter que du JSON-RPC.
+- Le lanceur `spec-writer-mcp` des installeurs est déclaré dans `jreleaser.yml`
+  (`dist/launchers/spec-writer-mcp.properties`).
+
 ### Quality gates (CI bloquante)
 
 | Gate | Seuil |

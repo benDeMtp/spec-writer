@@ -13,7 +13,12 @@ L'outil tourne sur votre poste. Il s'ouvre dans votre navigateur, à l'adresse
 - exporter une version en Markdown ;
 - créer un ticket Jira à partir d'une spécification, ou faire évoluer avec l'IA un ticket existant,
   puis renvoyer la mise à jour en signalant tout conflit ;
-- chercher à la fois dans vos spécifications et dans Jira.
+- chercher à la fois dans vos spécifications et dans Jira, par pages de 25 ;
+- ranger les spécifications par projet, chacun avec sa connaissance : tickets Jira, documentation
+  Antora et modèle d'architecture Structurizr ;
+- supprimer une version ou une spécification sans toucher à Jira ;
+- suivre le statut d'implémentation, et donner aux agents de code (Claude Code, Copilot, Cursor)
+  les features à implémenter.
 
 ## Prérequis
 
@@ -82,6 +87,64 @@ les variables `HTTPS_PROXY` et `HTTP_PROXY` (identifiants acceptés :
 journal au démarrage. Si le proxy inspecte le trafic HTTPS, déclarez son certificat d'autorité
 dans la configuration Jira.
 
+## Projets et connaissance du projet
+
+Chaque spécification appartient à un projet ; le projet courant se choisit en haut de l'écran.
+La page **Contexte** d'un projet déclare ce que l'outil doit connaître :
+
+- **Jira** : la clé du projet (sinon celle de la configuration). Les tickets sont copiés dans un
+  index local, puis tenus à jour en tâche de fond, sans dépasser 8 requêtes par seconde.
+- **Documentation Antora** : l'adresse du site généré, ou un dossier local de pages HTML. Les ADR
+  sont reconnus, avec leur statut.
+- **Architecture** : le `workspace.dsl` Structurizr d'un dossier local (`workspace extends`,
+  `!include` et `!element` sont suivis), et l'ownership qui distingue les modules propres au
+  projet des modules communs.
+- **Fiche générale** : un texte écrit à la main, qui l'emporte sur les sources.
+
+La recherche dans cet index se fait sur le poste, par mots et par sens. Le modèle de recherche
+(multilingual-e5-small, environ 120 Mo) est téléchargé une seule fois, par le proxy d'entreprise,
+à la première indexation. Il peut être remplacé par un autre modèle ONNX depuis
+**Configuration › Modèle de recherche**.
+
+Avant de poser ses questions, l'outil montre les tickets proches du besoin. Un ticket fermé peut
+recevoir une nouvelle story liée (« relates to ») ; un ticket ouvert peut être comparé au besoin,
+repris tel quel, ou laissé de côté. La spécification cite ensuite les ADR et leurs écarts, les
+modules impactés, les flux manquants et les efforts de déploiement en production.
+
+## Statut d'implémentation
+
+Une spécification est « brouillon », « prête à implémenter », « en cours » ou « implémentée ».
+Une spécification implémentée est verrouillée : ni nouvelle version, ni envoi vers Jira, ni
+suppression de version. Pour la faire évoluer, rétablissez un statut antérieur après
+confirmation, ou **Créez une évolution** : une nouvelle spécification qui part de sa dernière
+version et cite son origine.
+
+## Agents de code (MCP)
+
+Les agents de code lisent les features « prêtes » ou « en cours », leur contenu et la
+connaissance du projet, et passent une feature à « en cours » puis à « implémentée ». Ils ne
+peuvent rien faire d'autre : aucun accès aux jetons ni à la configuration, aucun appel à Jira ou
+à Copilot.
+
+1. Dans **Configuration › Accès des agents**, cliquez **Activer l'accès des agents**.
+2. Copiez l'extrait affiché et ajoutez-le à la configuration MCP de l'agent. Il désigne le
+   lanceur `spec-writer-mcp` installé avec l'application et ne contient aucun secret.
+
+| Agent | Où déclarer le serveur |
+|---|---|
+| Claude Code | `.mcp.json` du dépôt, ou `claude mcp add spec-writer -- <commande>` |
+| GitHub Copilot (VS Code) | `.vscode/mcp.json` : l'extrait sous la clé `servers` au lieu de `mcpServers` |
+| Cursor | `~/.cursor/mcp.json` ou `.cursor/mcp.json` du dépôt |
+
+```json
+{ "mcpServers": { "spec-writer": { "command": "/Applications/spec-writer.app/Contents/MacOS/spec-writer-mcp" } } }
+```
+
+L'outil doit être ouvert pendant que l'agent travaille. La passerelle lit le secret dans le
+fichier `agent-endpoint.json` du dossier de données, réservé à votre compte. **Régénérer le
+secret** coupe les accès en cours, et désactiver l'accès supprime ce fichier. Chaque accès est
+consigné, sans contenu, dans le journal de la carte.
+
 ## Vos données
 
 | OS | Dossier de données |
@@ -90,8 +153,9 @@ dans la configuration Jira.
 | Windows | `%LOCALAPPDATA%\spec-writer\` |
 | Linux | `~/.local/share/spec-writer/` et `~/.config/spec-writer/` |
 
-Le dossier contient la base des sessions et des spécifications (`spec-writer.db`) et la
-configuration du client Copilot. Il est réservé à votre compte utilisateur.
+Le dossier contient la base des sessions, des spécifications et de l'index de connaissance
+(`spec-writer.db`), le modèle de recherche, la configuration du client Copilot et, si l'accès des
+agents est activé, `agent-endpoint.json`. Il est réservé à votre compte utilisateur.
 
 Les jetons ne sont jamais écrits dans ce dossier ni dans les journaux : le jeton Jira est rangé
 dans le trousseau du système (service `spec-writer`), le jeton GitHub dans l'entrée gérée par le
