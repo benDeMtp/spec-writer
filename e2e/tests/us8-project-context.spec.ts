@@ -8,8 +8,8 @@ const NEED = 'Il faut pouvoir émettre un avoir sur une facture déjà émise, p
 const EDITED = '## Acteurs\n- Le gestionnaire de facturation émet les avoirs.\n\n## Règles métier\n- Un avoir ne dépasse jamais le restant dû.';
 
 /**
- * US2 de la feature 002 : le contexte de projet (quickstart P5 à P8). Le site Antora et les 120
- * tickets de FACT sont servis par WireMock ; Copilot est rejoué depuis fixtures/llm.
+ * US2 de la feature 002 : la fiche générale du projet (quickstart P6 à P8), rédigée à la main.
+ * Copilot est rejoué depuis fixtures/llm. Réécrit en T117 avec la connaissance indexée.
  */
 test.describe.serial('US8 contexte de projet', () => {
   let context: BrowserContext;
@@ -19,22 +19,13 @@ test.describe.serial('US8 contexte de projet', () => {
   let specId = '';
   const headers = { Origin: baseURL };
 
-  type Sheet = { markdown: string; origin: string };
-
-  async function project(): Promise<{ functionalContext: Sheet; technicalContext: Sheet }> {
+  async function project(): Promise<{ context: string; contextUpdatedAt: string | null }> {
     const all = (await (await page.request.get('/api/projects')).json()) as {
       id: string;
-      functionalContext: Sheet;
-      technicalContext: Sheet;
+      context: string;
+      contextUpdatedAt: string | null;
     }[];
     return all.find((p) => p.id === projectId)!;
-  }
-
-  async function proposeFromUi(): Promise<void> {
-    await page.getByRole('button', { name: 'Proposer une fiche' }).click();
-    await expect(page.getByText('Seront envoyés à Copilot : 32 pages de documentation et 120 tickets Jira.')).toBeVisible();
-    await page.getByRole('button', { name: 'Envoyer à Copilot' }).click();
-    await expect(page.getByRole('heading', { name: 'Fiche fonctionnelle proposée' })).toBeVisible({ timeout: 60_000 });
   }
 
   test.beforeAll(async ({ browser }) => {
@@ -63,163 +54,21 @@ test.describe.serial('US8 contexte de projet', () => {
     await context.close();
   });
 
-  test('P5 : aperçu de l’envoi, proposition sourcée, rien d’enregistré avant « Accepter »', async () => {
-    await page.goto('/projets');
-    await page.getByRole('link', { name: 'Contexte du projet Facturation contexte' }).click();
-    await expect(page.getByRole('heading', { name: 'Contexte du projet Facturation contexte', level: 1 })).toBeVisible();
-    await expect(page.getByText('Aucune fiche fonctionnelle pour ce projet.')).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Technique' })).toBeVisible();
-    await expectNoA11yViolations(page);
-
-    await page.getByLabel('Adresse du site').fill(`${jiraURL}/antora/`);
-    await page.getByRole('button', { name: 'Ajouter' }).click();
-    await expect(page.getByRole('status')).toContainText('Source ajoutée.');
-    await expect(page.locator('ul.sources > li')).toContainText('jamais lue');
-
-    await proposeFromUi();
-    const proposal = page.getByRole('region', { name: 'Contenu de la fiche fonctionnelle proposée' });
-    await expect(proposal).toContainText('[source : FACT-120]');
-    await expect(proposal).toContainText('[source : http://127.0.0.1:47698/antora/billing/regle-tva.html]');
-    await expect(page.getByRole('region', { name: 'Contenu de la fiche technique proposée' })).toContainText('[source : FACT-119]');
-    await page.getByText(/Détail des erreurs/).click();
-    await expect(page.locator('ul.errors')).toContainText('tarifs-2025.html : erreur du serveur (HTTP 500)');
-    await expect(page.locator('ul.errors')).toContainText('recherche.html : pas une page Antora');
-    await expectNoA11yViolations(page);
-    expect((await project()).functionalContext.origin).toBe('NONE');
-
-    await page.getByRole('button', { name: 'Accepter la fiche fonctionnelle' }).click();
-    await expect(page.getByRole('status')).toContainText('Fiche fonctionnelle acceptée et enregistrée.');
-    await expect(page.getByText("Proposée par l'IA et acceptée le")).toBeVisible();
-    await expect(page.locator('ul.sources > li')).toContainText('30 pages lues, 1 en erreur');
-    expect((await project()).functionalContext.origin).toBe('GENERATED');
-    expect((await project()).technicalContext.origin).toBe('NONE');
-  });
-
-  test('P5a : progression suivie, retrouvée après un aller-retour, puis interruption', async () => {
-    // pages servies lentement pour observer la progression
-    const slow = await jira.post('/__admin/mappings', {
-      data: {
-        priority: 1,
-        request: { method: 'GET', urlPathPattern: '/antora/billing/[a-z0-9-]+\\.html' },
-        response: {
-          status: 200,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-          bodyFileName: 'antora/billing/{{request.pathSegments.[2]}}',
-          transformers: ['response-template'],
-          fixedDelayMilliseconds: 800,
-        },
-      },
-    });
-    expect(slow.status()).toBe(201);
-    try {
-      await page.getByRole('button', { name: 'Proposer une fiche' }).click();
-      await page.getByRole('button', { name: 'Envoyer à Copilot' }).click();
-      const progress = page.getByRole('group', { name: 'Lecture de la documentation' });
-      await expect(progress).toBeVisible();
-      await expect(progress).toContainText(/page \d+ sur 32/);
-      await expect(progress).toContainText('En cours : http://127.0.0.1:47698/antora/');
-      await expect(page.getByRole('timer')).toContainText(/Temps écoulé : \d+ s/);
-      await expectNoA11yViolations(page);
-
-      await page.goto('/projets');
-      await page.getByRole('link', { name: 'Contexte du projet Facturation contexte' }).click();
-      await expect(page.getByRole('group', { name: 'Lecture de la documentation' })).toContainText(/page \d+ sur 32/);
-
-      await page.getByRole('button', { name: 'Interrompre' }).click();
-      await expect(page.locator('p.outcome')).toHaveText("Génération interrompue. Rien n'a été proposé ni enregistré.", {
-        timeout: 15_000,
-      });
-      await expect(page.getByRole('heading', { name: 'Fiche fonctionnelle proposée' })).toHaveCount(0);
-      expect((await project()).functionalContext.origin).toBe('GENERATED');
-    } finally {
-      await jira.post('/__admin/mappings/reset');
-    }
-  });
-
-  test('P5b : le journal montre la page en erreur, sans contenu', async () => {
-    await page.getByRole('link', { name: 'Journal' }).click();
-    await expect(page.getByRole('heading', { name: 'Journal', level: 1 })).toBeVisible();
-    const entry = page.locator('ol.entries > li').filter({ hasText: 'tarifs-2025.html' }).first();
-    await expect(entry).toContainText('Avertissement');
-    await expect(entry).toContainText('HTTP 500');
-    await expect(page.locator('ol.entries')).not.toContainText('Chaque ligne de facturation');
-    await expectNoA11yViolations(page);
-
-    await page.getByRole('combobox', { name: 'Niveau' }).click();
-    await page.getByRole('option', { name: 'Erreurs' }).click();
-    await expect(page.locator('ol.entries > li').filter({ hasText: 'tarifs-2025.html' })).toHaveCount(0);
-
-    const journal = (await (await page.request.get('/api/journal?level=WARN')).json()) as { message: string }[];
-    expect(journal.some((e) => e.message.includes('tarifs-2025.html'))).toBe(true);
+  test('P6 : fiche générale rédigée à la main, avec un aperçu', async () => {
     await page.goto(`/projets/${projectId}/contexte`);
-  });
-
-  test('P5c : deux fiches proposées, l’une acceptée, l’autre gardée', async () => {
-    await page.goto(`/projets/${projectId}/contexte`);
-    await proposeFromUi();
-    await expect(page.getByRole('region', { name: 'Différences avec la fiche technique actuelle' })).toContainText('FACT-119');
-    await page.getByRole('button', { name: 'Garder la mienne : fiche technique actuelle' }).click();
-    await expect(page.getByRole('status')).toContainText('Fiche technique actuelle conservée.');
-    await expect(page.getByRole('button', { name: 'Accepter la fiche technique' })).toHaveCount(0);
-    await expectNoA11yViolations(page);
-    expect((await project()).technicalContext.origin).toBe('NONE');
-  });
-
-  test('P5d : questions répondue et passée, révision citant Q-1, puis la question passée n’est pas reposée', async () => {
-    const questions = page.getByRole('region', { name: "Questions de l'assistant" });
-    await expect(questions).toContainText('Quel système calcule la TVA ?');
-    await expect(page.getByRole('button', { name: 'Réviser la proposition' })).toBeDisabled();
-    await page.getByRole('button', { name: "L'ERP" }).click();
-    await page.getByRole('button', { name: 'Répondre à « Quel système calcule la TVA ? »' }).click();
-    await expect(page.getByRole('status')).toContainText('Réponse Q-1 enregistrée.');
-    await page.getByRole('button', { name: 'Passer la question « Quelle est la vision du produit ? »' }).click();
-    await expect(page.getByRole('status')).toContainText('Question Q-2 passée.');
-    await expectNoA11yViolations(page);
-
-    await page.getByRole('button', { name: 'Réviser la proposition' }).click();
-    await expect(page.getByRole('region', { name: 'Contenu de la fiche technique proposée' })).toContainText('[source : Q-1]', {
-      timeout: 60_000,
-    });
-    await expect(page.getByRole('heading', { name: "Questions de l'assistant" })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Accepter la fiche technique' }).click();
-    await expect(page.getByRole('status')).toContainText('Fiche technique acceptée et enregistrée.');
-    expect((await project()).technicalContext.markdown).toContain('[source : Q-1]');
-
-    // historique : la réponse reste modifiable
-    const history = page.locator('ol.history');
-    await expect(history).toContainText("Q-1 Quel système calcule la TVA ?");
-    await expect(history).toContainText('Question passée.');
-    await page.getByRole('button', { name: 'Modifier la réponse Q-1' }).click();
-    await page.getByLabel('Réponse à Q-1').fill("L'ERP SAP");
-    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
-    await expect(page.getByRole('status')).toContainText('Réponse Q-1 modifiée.');
-    await expect(history).toContainText("Réponse : L'ERP SAP");
-
-    // régénération : la réponse est transmise, la question passée n'est pas reposée
-    await proposeFromUi();
-    await expect(page.getByRole('heading', { name: "Questions de l'assistant" })).toHaveCount(0);
-  });
-
-  test('P6 : fiche modifiée à la main, puis proposition comparée et « Garder la mienne »', async () => {
-    await page.getByLabel('Fiche fonctionnelle (Markdown)').fill(EDITED);
+    await expect(page.getByRole('button', { name: 'Proposer une fiche' })).toHaveCount(0);
+    await page.getByLabel('Fiche générale (Markdown)').fill(EDITED);
     await page.getByRole('button', { name: 'Enregistrer la fiche' }).click();
-    await expect(page.getByRole('status')).toContainText('Fiche fonctionnelle enregistrée.');
-    await expect(page.getByText('Modifiée à la main le')).toBeVisible();
+    await expect(page.getByRole('status')).toContainText('Fiche générale enregistrée.');
+    await expect(page.getByText('Modifiée le')).toBeVisible();
 
     await page.getByRole('button', { name: 'Aperçu' }).click();
-    await expect(page.getByLabel('Aperçu de la fiche fonctionnelle')).toContainText('Le gestionnaire de facturation émet les avoirs.');
-    await page.getByRole('button', { name: 'Aperçu' }).click();
-
-    await proposeFromUi();
-    const diff = page.getByRole('region', { name: 'Différences avec la fiche fonctionnelle actuelle' });
-    await expect(diff).toContainText('Un avoir ne dépasse jamais le restant dû.');
+    await expect(page.getByLabel('Aperçu de la fiche générale')).toContainText('Le gestionnaire de facturation émet les avoirs.');
     await expectNoA11yViolations(page);
-    await page.getByRole('button', { name: 'Garder la mienne : fiche fonctionnelle actuelle' }).click();
-    await expect(page.getByRole('status')).toContainText('Fiche fonctionnelle actuelle conservée.');
-    await expect(page.getByLabel('Fiche fonctionnelle (Markdown)')).toHaveValue(EDITED);
+    await page.getByRole('button', { name: 'Aperçu' }).click();
     const p = await project();
-    expect(p.functionalContext.markdown).toBe(EDITED);
-    expect(p.functionalContext.origin).toBe('EDITED');
+    expect(p.context).toBe(EDITED);
+    expect(p.contextUpdatedAt).not.toBeNull();
   });
 
   test('P7 : aucune question sur les acteurs, use case sourcé par le contexte du projet', async () => {
@@ -245,7 +94,7 @@ test.describe.serial('US8 contexte de projet', () => {
   });
 
   test('P8 : nouvelle version après une modification du contexte, réutilisation sinon', async () => {
-    const edited = await page.request.put(`/api/projects/${projectId}/context/functional`, {
+    const edited = await page.request.put(`/api/projects/${projectId}/context`, {
       headers,
       data: { markdown: `${EDITED}\n- Un avoir porte la date du jour.` },
     });

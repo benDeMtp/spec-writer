@@ -15,7 +15,6 @@ import dev.specwriter.application.knowledge.SelectKnowledge;
 import dev.specwriter.application.knowledge.SessionKnowledge;
 import dev.specwriter.application.specification.DraftValidation;
 import dev.specwriter.domain.knowledge.ProjectKnowledge;
-import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.question.Question;
@@ -83,9 +82,8 @@ class GoldenSetIT {
         String general = read(dir.resolve("general.md"));
         InMemoryKnowledgeIndex index = KnowledgeFixture.read(dir.resolve("knowledge.json"), Project.DEFAULT_ID);
         if (!general.isEmpty()) {
-            // jusqu'à la fusion des fiches (T113), la fiche générale est portée par la fiche fonctionnelle
             projects.save(projects.find(Project.DEFAULT_ID).orElseThrow()
-                    .withContext(ContextSheet.FUNCTIONAL, ProjectContext.edited(general, Instant.EPOCH)));
+                    .withContext(ProjectContext.edited(general, Instant.EPOCH)));
         }
         if (!general.isEmpty() || Files.exists(dir.resolve("knowledge.json"))) {
             try (Stream<Path> files = Files.list(dir.resolve("llm"))) {

@@ -15,7 +15,6 @@ import dev.specwriter.domain.llm.DraftSpecification.DraftSource;
 import dev.specwriter.domain.llm.DraftSpecification.DraftUseCase;
 import dev.specwriter.domain.llm.ProposeQuestionsResult;
 import dev.specwriter.domain.llm.ProposedQuestion;
-import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.question.QuestionTheme;
@@ -64,14 +63,9 @@ class ProjectContextInOperationsTest {
 
     static final String TECHNICAL = "## Architecture\n- Les réservations passent par l'API REST du service salles.";
 
-    void setTechnical(String markdown, Instant at) {
-        Project p = projects.find(Project.DEFAULT_ID).orElseThrow();
-        projects.save(p.withContext(ContextSheet.TECHNICAL, ProjectContext.edited(markdown, at)));
-    }
-
     void setContext(String markdown, Instant at) {
         Project p = projects.find(Project.DEFAULT_ID).orElseThrow();
-        projects.save(p.withContext(ContextSheet.FUNCTIONAL, ProjectContext.edited(markdown, at)));
+        projects.save(p.withContext(ProjectContext.edited(markdown, at)));
     }
 
     @BeforeEach
@@ -134,11 +128,11 @@ class ProjectContextInOperationsTest {
     }
 
     @Test
-    void ficheTechniqueTransmiseCitableEtDansLEmpreinte() {
+    void ficheCompleteeTransmiseCitableEtDansLEmpreinte() {
         llm.drafts.add(citingContext("Le gestionnaire valide les réservations."));
         SpecificationVersion first = generate.run(sessionId).version();
 
-        setTechnical(TECHNICAL, CONTEXT_AT.plusSeconds(120));
+        setContext(CONTEXT + "\n\n" + TECHNICAL, CONTEXT_AT.plusSeconds(120));
         llm.drafts.add(citingContext("Les réservations passent par l'API REST du service salles."));
         GenerateSpecification.Generated second = generate.run(sessionId);
         assertThat(second.reused()).isFalse();

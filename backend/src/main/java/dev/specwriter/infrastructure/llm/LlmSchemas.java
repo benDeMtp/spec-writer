@@ -10,7 +10,6 @@ import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
 import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.request.json.JsonSchemaElement;
 import dev.langchain4j.model.chat.request.json.JsonStringSchema;
-import dev.specwriter.domain.llm.SourceFacts;
 import dev.specwriter.domain.question.QuestionTheme;
 import java.util.Arrays;
 import java.util.List;
@@ -89,27 +88,6 @@ final class LlmSchemas {
                     .addStringProperty("adrRef")
                     .addStringProperty("decision")
                     .addStringProperty("deviation")
-                    .build()))
-            .build());
-
-    /** Faits sourcés d'un lot de pages et de tickets (feature 002, research.md R4). */
-    static final ResponseFormat FACTS = format("facts", JsonObjectSchema.builder()
-            .addProperty("facts", array(JsonObjectSchema.builder()
-                    .addEnumProperty("category", Arrays.stream(SourceFacts.Category.values()).map(Enum::name).toList())
-                    .addStringProperty("statement")
-                    .addProperty("refs", array(string()))
-                    .build()))
-            .build());
-
-    /** Fiche de contexte de projet, en Markdown (feature 002, research.md R4). */
-    static final ResponseFormat PROJECT_CONTEXT = format("project_context", JsonObjectSchema.builder()
-            .addStringProperty("functional")
-            .addStringProperty("technical")
-            .addProperty("questions", array(JsonObjectSchema.builder()
-                    .addEnumProperty("sheet", List.of("FUNCTIONAL", "TECHNICAL"))
-                    .addStringProperty("label")
-                    .addStringProperty("rationale")
-                    .addProperty("suggestions", array(string()))
                     .build()))
             .build());
 

@@ -2,7 +2,6 @@ package dev.specwriter.infrastructure.persistence.project;
 
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.project.JiraProjectKey;
-import dev.specwriter.domain.project.ContextSheets;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.project.ProjectName;
@@ -29,16 +28,9 @@ public class ProjectJpaRepository implements ProjectRepository {
         e.nameKey = p.nameKey();
         e.description = p.description();
         e.jiraProjectKey = p.jiraProjectKey() == null ? null : p.jiraProjectKey().value();
-        ProjectContext functional = p.contexts().functional();
-        e.context = functional.markdown();
-        e.contextHash = functional.hash();
-        e.contextOrigin = functional.origin().name();
-        e.contextUpdatedAt = functional.updatedAt();
-        ProjectContext technical = p.contexts().technical();
-        e.technicalContext = technical.markdown();
-        e.technicalContextHash = technical.hash();
-        e.technicalContextOrigin = technical.origin().name();
-        e.technicalContextUpdatedAt = technical.updatedAt();
+        e.context = p.context().markdown();
+        e.contextHash = p.context().hash();
+        e.contextUpdatedAt = p.context().updatedAt();
         e.createdAt = p.createdAt();
         e.updatedAt = p.updatedAt();
         em.merge(e);
@@ -95,12 +87,8 @@ public class ProjectJpaRepository implements ProjectRepository {
     }
 
     private static Project toDomain(ProjectEntity e) {
-        ProjectContext functional = new ProjectContext(e.context, e.contextHash,
-                ProjectContext.Origin.valueOf(e.contextOrigin), e.contextUpdatedAt);
-        ProjectContext technical = new ProjectContext(e.technicalContext, e.technicalContextHash,
-                ProjectContext.Origin.valueOf(e.technicalContextOrigin), e.technicalContextUpdatedAt);
         return new Project(UUID.fromString(e.id), new ProjectName(e.name), e.description,
-                JiraProjectKey.ofNullable(e.jiraProjectKey), new ContextSheets(functional, technical), e.createdAt,
-                e.updatedAt);
+                JiraProjectKey.ofNullable(e.jiraProjectKey), new ProjectContext(e.context, e.contextHash,
+                        e.contextUpdatedAt), e.createdAt, e.updatedAt);
     }
 }

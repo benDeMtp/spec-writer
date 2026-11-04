@@ -7,21 +7,17 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
-import dev.specwriter.domain.llm.BuildContextRequest;
 import dev.specwriter.domain.llm.Contradiction;
 import dev.specwriter.domain.llm.DraftSpecification;
 import dev.specwriter.domain.llm.EditRequest;
 import dev.specwriter.domain.llm.GenerationRequest;
 import dev.specwriter.domain.llm.MergeRequest;
-import dev.specwriter.domain.llm.ProjectContextDraft;
 import dev.specwriter.domain.llm.ProposeQuestionsRequest;
 import dev.specwriter.domain.llm.ProposeQuestionsResult;
 import dev.specwriter.domain.llm.ProposedQuestion;
 import dev.specwriter.domain.llm.ReassessRequest;
 import dev.specwriter.domain.llm.ReassessResult;
-import dev.specwriter.domain.llm.SourceFacts;
 import dev.specwriter.domain.llm.StructureImportRequest;
-import dev.specwriter.domain.llm.SummarizeSourcesRequest;
 import dev.specwriter.domain.llm.CompareIssueRequest;
 import dev.specwriter.domain.llm.ImpactRequest;
 import dev.specwriter.domain.llm.ImpactResult;
@@ -79,38 +75,19 @@ public class LangChainLlmClient implements LlmClient {
             List<String> dependsOnQuestionIds) {
     }
 
-    /**
-     * Délai d'un appel : les opérations interactives de 001, et la génération du contexte, en tâche de
-     * fond, dont un lot de sources ou la rédaction des deux fiches dépasse la minute (research.md R4).
-     */
-    public record Timeouts(Duration interactive, Duration context) {
-
-        public static final Timeouts DEFAULT = new Timeouts(CallTimeout.DEFAULT, Duration.ofSeconds(600));
-
-        Duration of(String operation) {
-            return CONTEXT_OPERATIONS.contains(operation) ? context : interactive;
-        }
-    }
-
-    private static final Set<String> CONTEXT_OPERATIONS = Set.of("summarize-project-sources", "build-project-context");
-
     private final ChatModel model;
-    private final Timeouts timeouts;
+    /** Délai d'un appel : toutes les opérations sont interactives (180 s par défaut). */
+    private final Duration timeout;
 
     public LangChainLlmClient(ChatModel model) {
-        this(model, Timeouts.DEFAULT);
-    }
-
-    public LangChainLlmClient(ChatModel model, Timeouts timeouts) {
-        this.model = model;
-        this.timeouts = timeouts;
+        this(model, CallTimeout.DEFAULT);
     }
 
     @Inject
     public LangChainLlmClient(ChatModel model,
-            @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s") Duration interactive,
-            @ConfigProperty(name = "specwriter.llm.timeout.context", defaultValue = "600s") Duration context) {
-        this(model, new Timeouts(interactive, context));
+            @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s") Duration timeout) {
+        this.model = model;
+        this.timeout = timeout;
     }
 
     @Override
@@ -156,18 +133,6 @@ public class LangChainLlmClient implements LlmClient {
     }
 
     @Override
-    public SourceFacts summarizeProjectSources(SummarizeSourcesRequest request) {
-        String user = UserMessages.sources(request.language(), request.sources(), request.correction());
-        return call("summarize-project-sources", user, LlmSchemas.FACTS, LangChainLlmClient::toFacts);
-    }
-
-    @Override
-    public ProjectContextDraft buildProjectContext(BuildContextRequest request) {
-        String user = UserMessages.buildContext(request);
-        return call("build-project-context", user, LlmSchemas.PROJECT_CONTEXT, LangChainLlmClient::toContext);
-    }
-
-    @Override
     public RelatedIssuesJudgement judgeRelatedIssues(RelatedIssuesRequest request) {
         return call("judge-related-issues", UserMessages.relatedIssues(request), LlmSchemas.RELATED_ISSUES,
                 LangChainLlmClient::toRelated);
@@ -195,7 +160,7 @@ public class LangChainLlmClient implements LlmClient {
                     .build();
             String text;
             try {
-                text = ScopedValue.where(CallTimeout.CURRENT, timeouts.of(operation))
+                text = ScopedValue.where(CallTimeout.CURRENT, timeout)
                         .call(() -> model.chat(request).aiMessage().text());
             } catch (DomainException e) {
                 if (Thread.currentThread().isInterrupted()) {
@@ -252,23 +217,6 @@ public class LangChainLlmClient implements LlmClient {
             throw new IllegalArgumentException("échange sans émetteur ou sans destinataire");
         }
         return impact;
-    }
-
-    private static SourceFacts toFacts(String json) {
-        SourceFacts facts = JSON.readValue(json, SourceFacts.class);
-        if (facts == null || facts.facts().stream().anyMatch(f -> f.category() == null || blank(f.statement()))) {
-            throw new IllegalArgumentException("fait sans catégorie ou sans énoncé");
-        }
-        return facts;
-    }
-
-    private static ProjectContextDraft toContext(String json) {
-        ProjectContextDraft draft = JSON.readValue(json, ProjectContextDraft.class);
-        if (draft == null || draft.questions().stream().anyMatch(q -> q.sheet() == null || blank(q.label()))) {
-            throw new IllegalArgumentException("fiches absentes ou question sans fiche ni libellé");
-        }
-        return new ProjectContextDraft(TABLES.wikiTablesToMarkdown(draft.functional()),
-                TABLES.wikiTablesToMarkdown(draft.technical()), draft.questions());
     }
 
     private static ProposeQuestionsResult toQuestions(String json) {

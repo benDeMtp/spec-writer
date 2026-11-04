@@ -9,48 +9,37 @@ import java.time.Instant;
 import java.util.HexFormat;
 
 /**
- * Fiche de contexte d'un projet, en Markdown (data-model.md de 002, FR-008). Son hash entre dans
- * l'empreinte des générations (FR-011). Elle est vide par défaut ; une fiche vidée redevient
- * « aucun contexte ».
+ * Fiche générale d'un projet, en Markdown, rédigée à la main (data-model.md de 002, FR-008,
+ * research.md R25). Son hash entre dans l'empreinte des générations (FR-011). Elle est vide par
+ * défaut ; une fiche vidée redevient « aucune fiche ».
  */
-public record ProjectContext(String markdown, String hash, Origin origin, Instant updatedAt) {
-
-    public enum Origin { NONE, GENERATED, EDITED }
+public record ProjectContext(String markdown, String hash, Instant updatedAt) {
 
     public static final int MAX_LENGTH = 20_000;
-    public static final ProjectContext NONE = new ProjectContext("", "", Origin.NONE, null);
+    public static final ProjectContext NONE = new ProjectContext("", "", null);
 
     public ProjectContext {
         markdown = markdown == null ? "" : markdown;
         if (markdown.length() > MAX_LENGTH) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Une fiche de contexte dépasse 20 000 caractères.");
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "La fiche générale dépasse 20 000 caractères.");
         }
         hash = hash == null ? "" : hash;
     }
 
-    /** Fiche acceptée depuis une proposition de l'IA (FR-013a). */
-    public static ProjectContext generated(String markdown, Instant now) {
-        return of(markdown, Origin.GENERATED, now);
-    }
-
-    /** Fiche modifiée à la main (FR-013c). */
+    /** Fiche modifiée à la main (FR-008). */
     public static ProjectContext edited(String markdown, Instant now) {
-        return of(markdown, Origin.EDITED, now);
+        String value = markdown == null ? "" : markdown.strip();
+        if (value.length() > MAX_LENGTH) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "La fiche générale dépasse 20 000 caractères.");
+        }
+        if (value.isEmpty()) {
+            return new ProjectContext("", "", now);
+        }
+        return new ProjectContext(value, sha256(value), now);
     }
 
     public boolean isEmpty() {
         return markdown.isBlank();
-    }
-
-    private static ProjectContext of(String markdown, Origin origin, Instant now) {
-        String value = markdown == null ? "" : markdown.strip();
-        if (value.length() > MAX_LENGTH) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Une fiche de contexte dépasse 20 000 caractères.");
-        }
-        if (value.isEmpty()) {
-            return new ProjectContext("", "", Origin.NONE, now);
-        }
-        return new ProjectContext(value, sha256(value), origin, now);
     }
 
     static String sha256(String value) {

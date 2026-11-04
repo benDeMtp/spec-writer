@@ -93,9 +93,9 @@ class LangChainLlmClientTest {
                 .contains("Payer en ligne"));
     }
 
-    /** Le délai d'un appel dépend de l'opération : la génération du contexte a droit à plus. */
+    /** Chaque appel a le délai configuré ; hors d'un appel, le délai par défaut. */
     @Test
-    void delaiParOperation() {
+    void delaiDUnAppel() {
         List<java.time.Duration> seen = new ArrayList<>();
         ChatModel recording = new ChatModel() {
             @Override
@@ -104,19 +104,11 @@ class LangChainLlmClientTest {
                 throw new DomainException(ErrorCode.LLM_UNAVAILABLE);
             }
         };
-        LangChainLlmClient client = new LangChainLlmClient(recording,
-                new LangChainLlmClient.Timeouts(java.time.Duration.ofSeconds(90), java.time.Duration.ofMinutes(12)));
+        LangChainLlmClient client = new LangChainLlmClient(recording, java.time.Duration.ofSeconds(90));
         assertThatThrownBy(() -> client.generateSpecification(new GenerationRequest("b", Language.FR, List.of())))
                 .isInstanceOf(DomainException.class);
-        assertThatThrownBy(() -> client.summarizeProjectSources(new dev.specwriter.domain.llm.SummarizeSourcesRequest(
-                Language.FR, List.of(), ""))).isInstanceOf(DomainException.class);
-        assertThatThrownBy(() -> client.buildProjectContext(new dev.specwriter.domain.llm.BuildContextRequest(Language.FR,
-                List.of(), "", "", List.of(), List.of(), ""))).isInstanceOf(DomainException.class);
-        assertThat(seen).containsExactly(java.time.Duration.ofSeconds(90), java.time.Duration.ofMinutes(12),
-                java.time.Duration.ofMinutes(12));
-        // hors d'un appel, le délai par défaut
+        assertThat(seen).containsExactly(java.time.Duration.ofSeconds(90));
         assertThat(CallTimeout.current()).isEqualTo(CallTimeout.DEFAULT);
-        assertThat(LangChainLlmClient.Timeouts.DEFAULT)
-                .isEqualTo(new LangChainLlmClient.Timeouts(java.time.Duration.ofSeconds(180), java.time.Duration.ofSeconds(600)));
+        assertThat(CallTimeout.DEFAULT).isEqualTo(java.time.Duration.ofSeconds(180));
     }
 }

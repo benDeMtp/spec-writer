@@ -2,19 +2,15 @@ package dev.specwriter.support;
 
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
-import dev.specwriter.domain.llm.BuildContextRequest;
 import dev.specwriter.domain.llm.DraftSpecification;
 import dev.specwriter.domain.llm.EditRequest;
 import dev.specwriter.domain.llm.GenerationRequest;
 import dev.specwriter.domain.llm.MergeRequest;
-import dev.specwriter.domain.llm.ProjectContextDraft;
 import dev.specwriter.domain.llm.ProposeQuestionsRequest;
 import dev.specwriter.domain.llm.ProposeQuestionsResult;
 import dev.specwriter.domain.llm.ReassessRequest;
 import dev.specwriter.domain.llm.ReassessResult;
-import dev.specwriter.domain.llm.SourceFacts;
 import dev.specwriter.domain.llm.StructureImportRequest;
-import dev.specwriter.domain.llm.SummarizeSourcesRequest;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.llm.CompareIssueRequest;
 import dev.specwriter.domain.llm.ImpactRequest;
@@ -42,10 +38,6 @@ public class StubLlm implements LlmClient {
     public final List<EditRequest> editRequests = new ArrayList<>();
     public final List<MergeRequest> mergeRequests = new ArrayList<>();
     public final List<StructureImportRequest> structureRequests = new ArrayList<>();
-    public final Deque<SourceFacts> facts = new ArrayDeque<>();
-    public final Deque<ProjectContextDraft> contexts = new ArrayDeque<>();
-    public final List<SummarizeSourcesRequest> summarizeRequests = new ArrayList<>();
-    public final List<BuildContextRequest> contextRequests = new ArrayList<>();
     public final Deque<RelatedIssuesJudgement> judgements = new ArrayDeque<>();
     public final Deque<IssueComparison> comparisons = new ArrayDeque<>();
     public final Deque<ImpactResult> impacts = new ArrayDeque<>();
@@ -54,8 +46,6 @@ public class StubLlm implements LlmClient {
     public final List<ImpactRequest> impactRequests = new ArrayList<>();
     /** Erreur levée par {@code structureImportedText} à la place d'une réponse. */
     public ErrorCode structureFailure;
-    /** Appelé avant chaque rédaction du contexte : simule un appel long, par exemple. */
-    public volatile Runnable onBuildContext;
 
     public static ProposeQuestionsResult none() {
         return new ProposeQuestionsResult(List.of(), List.of(), Set.of());
@@ -110,22 +100,6 @@ public class StubLlm implements LlmClient {
     }
 
     @Override
-    public SourceFacts summarizeProjectSources(SummarizeSourcesRequest request) {
-        summarizeRequests.add(request);
-        return next(facts);
-    }
-
-    @Override
-    public ProjectContextDraft buildProjectContext(BuildContextRequest request) {
-        contextRequests.add(request);
-        Runnable hook = onBuildContext;
-        if (hook != null) {
-            hook.run();
-        }
-        return next(contexts);
-    }
-
-    @Override
     public RelatedIssuesJudgement judgeRelatedIssues(RelatedIssuesRequest request) {
         relatedRequests.add(request);
         return next(judgements);
@@ -153,7 +127,7 @@ public class StubLlm implements LlmClient {
     /** Nombre total d'appels au LLM. */
     public int calls() {
         return questionRequests.size() + reassessRequests.size() + generationRequests.size() + editRequests.size()
-                + mergeRequests.size() + structureRequests.size() + summarizeRequests.size() + contextRequests.size()
+                + mergeRequests.size() + structureRequests.size()
                 + relatedRequests.size() + compareRequests.size() + impactRequests.size();
     }
 }

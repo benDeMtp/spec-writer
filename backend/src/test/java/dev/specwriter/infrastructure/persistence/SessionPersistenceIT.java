@@ -44,6 +44,9 @@ class SessionPersistenceIT {
     @Inject
     SpecificationRepository versions;
 
+    @Inject
+    jakarta.persistence.EntityManager em;
+
     Session session() {
         return Session.start(UUID.randomUUID(), Project.DEFAULT_ID,
                 Need.of("Les employés doivent pouvoir réserver une salle de réunion pour une durée donnée."), null, T0);
@@ -130,6 +133,22 @@ class SessionPersistenceIT {
                 .isEqualTo("h1");
         assertThat(read.contextHash()).isEqualTo(used.sheetHash());
         assertThat(read.markdown()).contains("## Écarts aux ADR").contains("**flux manquant, à créer**");
+    }
+
+    /** T113 : une version antérieure à la fiche générale, dont une source porte {@code sheet}, se relit. */
+    @Test
+    void versionAvecFicheFonctionnelleRelue() {
+        Session s = session();
+        sessions.save(s, Questionnaire.empty());
+        SpecificationContent content = Specs.valid();
+        versions.save(new SpecificationVersion(UUID.randomUUID(), s.id(), 1, content, "fp-old", VersionOrigin.GENERATED,
+                "md", T0.truncatedTo(ChronoUnit.MILLIS)));
+        io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(() -> em.createNativeQuery("update specification_version set content = replace(content, '\"kind\":\"NEED_EXCERPT\"',"
+                + " '\"kind\":\"PROJECT_CONTEXT\",\"sheet\":\"FUNCTIONAL\"') where session_id = ?1")
+                .setParameter(1, s.id().toString()).executeUpdate());
+        SpecificationVersion read = versions.find(s.id(), 1).orElseThrow();
+        assertThat(read.content().useCases().getFirst().source().kind()).isEqualTo(SourceRef.Kind.PROJECT_CONTEXT);
+        assertThat(read.content().useCases().getFirst().source().ref()).isNull();
     }
 
     @Test

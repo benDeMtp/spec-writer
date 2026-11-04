@@ -1,38 +1,29 @@
 package dev.specwriter.domain.specification;
 
 import dev.specwriter.domain.knowledge.KnowledgeKind;
-import dev.specwriter.domain.project.ContextSheet;
 import java.util.Set;
 import java.util.UUID;
 
 /**
  * Source d'un use case : extrait du besoin, réponse, hypothèse, extrait de la fiche générale, ou
  * élément de la connaissance du projet cité par sa référence (FR-010 de 002, research.md R24).
- * {@code sheet} : fiche d'une source PROJECT_CONTEXT pour une version antérieure à la fiche générale,
- * {@code null} sinon. {@code ref} : clé du ticket, URL de la page ou de l'ADR, nom canonique de
- * l'élément d'architecture ; {@code null} pour les autres sortes.
+ * {@code ref} : clé du ticket, URL de la page ou de l'ADR, nom canonique de l'élément
+ * d'architecture ; {@code null} pour les autres sortes. Le champ {@code sheet} des versions
+ * antérieures à la fiche générale est ignoré à la lecture.
  */
-public record SourceRef(Kind kind, UUID questionId, String excerpt, ContextSheet sheet, String ref) {
+public record SourceRef(Kind kind, UUID questionId, String excerpt, String ref) {
 
     public SourceRef(Kind kind, UUID questionId, String excerpt) {
-        this(kind, questionId, excerpt, null, null);
-    }
-
-    public SourceRef(Kind kind, UUID questionId, String excerpt, ContextSheet sheet) {
-        this(kind, questionId, excerpt, sheet, null);
+        this(kind, questionId, excerpt, null);
     }
 
     /** Élément de la connaissance du projet, cité par sa référence. */
     public static SourceRef knowledge(Kind kind, String ref, String excerpt) {
-        return new SourceRef(kind, null, excerpt, null, ref);
-    }
-
-    public SourceRef inSheet(ContextSheet newSheet) {
-        return new SourceRef(kind, questionId, excerpt, newSheet, ref);
+        return new SourceRef(kind, null, excerpt, ref);
     }
 
     public SourceRef withRef(String newRef) {
-        return new SourceRef(kind, questionId, excerpt, sheet, newRef);
+        return new SourceRef(kind, questionId, excerpt, newRef);
     }
 
     public enum Kind {

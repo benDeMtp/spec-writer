@@ -14,7 +14,6 @@ import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.ImpactResult;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.port.EmbeddingPort;
-import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.question.QuestionTheme;
@@ -63,13 +62,8 @@ class SelectKnowledgeTest {
         return new QuestionAndAnswer(id, QuestionTheme.GOAL, "Objectif ?", value, false);
     }
 
-    void sheet(String functional, String technical) {
-        Project p = w.projects.find(P).orElseThrow();
-        p = p.withContext(ContextSheet.FUNCTIONAL, ProjectContext.edited(functional, SHEET_AT));
-        if (technical != null) {
-            p = p.withContext(ContextSheet.TECHNICAL, ProjectContext.edited(technical, SHEET_AT));
-        }
-        w.projects.save(p);
+    void sheet(String markdown) {
+        w.projects.save(w.projects.find(P).orElseThrow().withContext(ProjectContext.edited(markdown, SHEET_AT)));
     }
 
     @BeforeEach
@@ -116,7 +110,7 @@ class SelectKnowledgeTest {
 
     @Test
     void ficheGeneraleToujoursTransmise() {
-        sheet(SHEET, null);
+        sheet(SHEET);
         ProjectKnowledge k = select.forQuestions(session, List.of());
         assertThat(k.generalSheet()).isEqualTo(SHEET);
         assertThat(k.sheetUpdatedAt()).isEqualTo(SHEET_AT);
@@ -162,7 +156,7 @@ class SelectKnowledgeTest {
 
     @Test
     void trenteCinqMilleCaracteresAuPlusEnTout() {
-        sheet(text("## Fonctionnel", 20_000), text("## Technique", 20_000));
+        sheet(text("## Fiche générale", 20_000));
         w.llm.impacts.add(new ImpactResult(List.of("Facturation/Service Avoirs", "Comptabilité"),
                 List.of(new ImpactResult.Exchange("Facturation/Service Avoirs", "Comptabilité", "Transmettre l'avoir"))));
         ProjectKnowledge k = select.forSpecification(session, List.of());

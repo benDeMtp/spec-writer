@@ -696,6 +696,9 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     `technical_context*` et la table `project_context_question` sont supprimées par une migration
     nouvelle (les migrations appliquées ne changent pas).
   - Un seul éditeur, à la main ; `PUT /api/projects/{id}/context`.
+  - **Implémentation (T113)** : migration Java `V11__general_context` (journalisation de la
+    troncature, sans contenu). Une fiche fonctionnelle seule, sans réponse, est gardée telle quelle,
+    sans titre ajouté ; l'empreinte de chaque fiche est recalculée.
 - **Rationale** : aucune saisie de l'utilisateur n'est perdue, et le modèle redevient simple.
 
 ## R26. Connaissance pour les agents de code (FR-025)

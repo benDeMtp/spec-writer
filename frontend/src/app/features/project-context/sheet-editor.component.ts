@@ -4,31 +4,20 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MarkdownComponent } from 'ngx-markdown';
-import { ContextSheetState, SheetKind } from '../../core/projects/projects.model';
 
-export const SHEET_LABELS: Record<SheetKind, { name: string; adjective: string; hint: string }> = {
-  FUNCTIONAL: {
-    name: 'Fiche fonctionnelle',
-    adjective: 'fonctionnelle',
-    hint: 'Vision et objectifs, acteurs, vocabulaire, règles métier, contraintes fonctionnelles.',
-  },
-  TECHNICAL: {
-    name: 'Fiche technique',
-    adjective: 'technique',
-    hint: 'Architecture, contraintes techniques, conventions de code, intégrations. Transmise aussi aux agents de code.',
-  },
-};
-
-/** Une fiche du contexte, modifiable à la main avec un aperçu Markdown (FR-008a, FR-013c). */
+/** Fiche générale, rédigée à la main avec un aperçu Markdown (FR-008). */
 @Component({
   selector: 'sw-sheet-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, MarkdownComponent, MatButtonModule, MatFormFieldModule, MatInputModule],
   template: `
-    <p class="meta">{{ originLabel() }}</p>
-    <p class="hint">{{ labels().hint }}</p>
+    <p class="meta">{{ updatedLabel() }}</p>
+    <p class="hint">
+      Vocabulaire, acteurs, règles et décisions propres au projet. Elle l'emporte sur la documentation, les tickets et
+      le modèle d'architecture, et accompagne chaque rédaction.
+    </p>
     @if (previewing()) {
-      <div class="rendered" role="region" [attr.aria-label]="'Aperçu de la ' + labels().name.toLowerCase()">
+      <div class="rendered" role="region" aria-label="Aperçu de la fiche générale">
         @if (draft().trim()) {
           <markdown class="rich" [data]="draft()" />
         } @else {
@@ -37,17 +26,17 @@ export const SHEET_LABELS: Record<SheetKind, { name: string; adjective: string; 
       </div>
     } @else {
       <mat-form-field appearance="outline" class="editor">
-        <mat-label>{{ labels().name }} (Markdown)</mat-label>
+        <mat-label>Fiche générale (Markdown)</mat-label>
         <textarea
           matInput
           rows="14"
           maxlength="20000"
-          [name]="'context-' + sheet()"
+          name="context"
           [ngModel]="draft()"
           (ngModelChange)="draft.set($event)"
-          [attr.aria-describedby]="'count-' + sheet()"
+          aria-describedby="context-count"
         ></textarea>
-        <mat-hint [id]="'count-' + sheet()" align="end">{{ draft().length }} / 20 000</mat-hint>
+        <mat-hint id="context-count" align="end">{{ draft().length }} / 20 000</mat-hint>
       </mat-form-field>
     }
     <div class="actions">
@@ -82,31 +71,25 @@ export const SHEET_LABELS: Record<SheetKind, { name: string; adjective: string; 
   `,
 })
 export class SheetEditorComponent {
-  readonly sheet = input.required<SheetKind>();
-  readonly state = input.required<ContextSheetState>();
+  readonly markdown = input.required<string>();
+  readonly updatedAt = input<string | null>(null);
   readonly busy = input(false);
   readonly saved = output<string>();
 
   protected readonly draft = signal('');
   protected readonly previewing = signal(false);
-  protected readonly labels = computed(() => SHEET_LABELS[this.sheet()]);
-  protected readonly dirty = computed(() => this.draft().trim() !== this.state().markdown);
+  protected readonly dirty = computed(() => this.draft().trim() !== this.markdown());
 
   constructor() {
-    // une fiche enregistrée ou acceptée remplace la saisie
-    effect(() => this.draft.set(this.state().markdown));
+    // une fiche enregistrée remplace la saisie
+    effect(() => this.draft.set(this.markdown()));
   }
 
-  protected originLabel(): string {
-    const s = this.state();
-    const at = s.updatedAt ? new Date(s.updatedAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '';
-    switch (s.origin) {
-      case 'GENERATED':
-        return `Proposée par l'IA et acceptée le ${at}.`;
-      case 'EDITED':
-        return `Modifiée à la main le ${at}.`;
-      default:
-        return `Aucune ${this.labels().name.toLowerCase()} pour ce projet.`;
+  protected updatedLabel(): string {
+    const at = this.updatedAt();
+    if (!this.markdown() || !at) {
+      return 'Aucune fiche générale pour ce projet.';
     }
+    return `Modifiée le ${new Date(at).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}.`;
   }
 }

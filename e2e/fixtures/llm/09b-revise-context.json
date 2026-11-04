@@ -1,5 +1,0 @@
-{"operation": "build-project-context", "userContains": ["Chaque ligne de facturation porte son taux de TVA.", "<reponse ref=\"Q-"], "response": {
-  "functional": "## Vision et objectifs\n\n## Acteurs\n- Le gestionnaire de facturation contrôle les lignes des factures. [source : FACT-120]\n\n## Vocabulaire\n\n## Règles métier\n- Chaque ligne de facturation porte son taux de TVA. [source : http://127.0.0.1:47698/antora/billing/regle-tva.html]\n\n## Contraintes fonctionnelles\n",
-  "technical": "## Architecture\n- La TVA est calculée par l'ERP. [source : Q-1]\n\n## Contraintes techniques\n\n## Conventions de code\n\n## Intégrations\n",
-  "questions": []
-}}

@@ -4,7 +4,6 @@ import dev.specwriter.domain.knowledge.ArchScope;
 import dev.specwriter.domain.knowledge.ArchitectureModel.DeploymentFact;
 import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
 import dev.specwriter.domain.knowledge.KnowledgeSelection;
-import dev.specwriter.domain.project.ContextSheet;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.session.Language;
 import java.util.List;
@@ -32,8 +31,7 @@ public final class MarkdownRenderer {
             String technical, String actor, String goal, String preconditions, String flow, String alternatives,
             String source, String needExcerpt, String answer, String assumption, String projectContext, String asA,
             String given,
-            String when, String then, String and, String none, String colon, String functionalSheet,
-            String technicalSheet, String ticket, String page, String element, String architecture, String modules,
+            String when, String then, String and, String none, String colon, String ticket, String page, String element, String architecture, String modules,
             String exchanges, String own, String common, String missing, String existing, String via,
             String deviations, String decision, String deviation, String efforts, String notDeployed,
             String multiple, String cross, String shared) {
@@ -42,7 +40,7 @@ public final class MarkdownRenderer {
     private static final Labels FR = new Labels("Résumé", "Détails", "Use cases", "Scénarios d'acceptation", "Hypothèses",
             "Exigences fonctionnelles", "Exigences techniques", "Acteur", "Objectif", "Préconditions",
             "Déroulement nominal", "Alternatives", "Source", "extrait du besoin", "réponse", "Hypothèse", "contexte du projet",
-            "En tant que", "Étant donné", "Quand", "Alors", "Et", "Aucune.", " : ", "fiche fonctionnelle", "fiche technique",
+            "En tant que", "Étant donné", "Quand", "Alors", "Et", "Aucune.", " : ",
             "ticket", "page", "élément d'architecture", "Architecture", "Modules impactés", "Flux", "propre au projet",
             "commun", "flux manquant, à créer", "flux existant", "via", "Écarts aux ADR", "Décision", "Écart",
             "Efforts supplémentaires (déploiement)", "aucune instance en production, à déployer",
@@ -51,7 +49,7 @@ public final class MarkdownRenderer {
     private static final Labels EN = new Labels("Summary", "Details", "Use cases", "Acceptance scenarios", "Assumptions",
             "Functional requirements", "Technical requirements", "Actor", "Goal", "Preconditions", "Main flow",
             "Alternatives", "Source", "need excerpt", "answer", "Assumption", "project context", "As a", "Given", "When", "Then", "And",
-            "None.", ": ", "functional sheet", "technical sheet", "ticket", "page", "architecture element", "Architecture",
+            "None.", ": ", "ticket", "page", "architecture element", "Architecture",
             "Impacted modules", "Flows", "project-specific", "shared", "missing flow, to be created", "existing flow", "via",
             "ADR deviations", "Decision", "Deviation", "Additional effort (deployment)",
             "no production instance, to be deployed", "several production instances",
@@ -241,9 +239,7 @@ public final class MarkdownRenderer {
             case NEED_EXCERPT -> l.needExcerpt();
             case ANSWER -> l.answer();
             case ASSUMPTION -> l.assumption().toLowerCase(java.util.Locale.ROOT);
-            case PROJECT_CONTEXT -> source.sheet() == null ? l.projectContext()
-                    : l.projectContext() + ", " + (source.sheet() == ContextSheet.FUNCTIONAL ? l.functionalSheet()
-                            : l.technicalSheet());
+            case PROJECT_CONTEXT -> l.projectContext();
             case JIRA_ISSUE -> l.ticket() + " " + escape(source.ref());
             case DOC_PAGE -> l.page() + " " + escape(source.ref());
             case ARCH_ELEMENT -> l.element() + " " + escape(source.ref());

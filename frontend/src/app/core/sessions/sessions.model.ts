@@ -57,11 +57,11 @@ export interface VersionSummary {
 }
 
 export interface SourceRef {
-  kind: 'NEED_EXCERPT' | 'ANSWER' | 'ASSUMPTION' | 'PROJECT_CONTEXT';
+  kind: 'NEED_EXCERPT' | 'ANSWER' | 'ASSUMPTION' | 'PROJECT_CONTEXT' | 'JIRA_ISSUE' | 'DOC_PAGE' | 'ARCH_ELEMENT';
   questionId: string | null;
   excerpt: string;
-  /** Fiche du contexte citée par une source PROJECT_CONTEXT (FR-008a). */
-  sheet?: 'FUNCTIONAL' | 'TECHNICAL' | null;
+  /** Clé du ticket, page ou ADR, nom de l'élément d'architecture cité (research.md R24 de 002). */
+  ref?: string | null;
 }
 
 export interface UseCase {

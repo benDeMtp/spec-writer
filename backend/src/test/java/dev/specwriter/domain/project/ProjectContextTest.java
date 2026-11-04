@@ -13,7 +13,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Contexte de projet et sources de documentation (data-model.md de 002, FR-008, FR-013, T019). */
+/** Fiche générale et sources de documentation (data-model.md de 002, FR-008, FR-013, T019, T113). */
 class ProjectContextTest {
 
     static final Instant T0 = Instant.parse("2026-11-03T09:00:00Z");
@@ -29,7 +29,6 @@ class ProjectContextTest {
     @Test
     void contexteVideParDefautEtDe20000CaracteresAuPlus() {
         assertThat(ProjectContext.NONE.markdown()).isEmpty();
-        assertThat(ProjectContext.NONE.origin()).isEqualTo(ProjectContext.Origin.NONE);
         assertThat(ProjectContext.NONE.isEmpty()).isTrue();
         assertThat(ProjectContext.NONE.hash()).isEmpty();
         assertThat(ProjectContext.NONE.updatedAt()).isNull();
@@ -50,56 +49,15 @@ class ProjectContextTest {
     }
 
     @Test
-    void origineAucunPuisGenerePuisModifieFicheParFiche() {
+    void uneSeuleFicheGeneraleModifieeALaMain() {
         Project p = Project.create(UUID.randomUUID(), ProjectName.of("Facturation"), null, null, T0);
-        assertThat(p.context(ContextSheet.FUNCTIONAL).origin()).isEqualTo(ProjectContext.Origin.NONE);
-        assertThat(p.contexts().isEmpty()).isTrue();
-        Project generated = p.withContext(ContextSheet.FUNCTIONAL, ProjectContext.generated("## Vocabulaire\n- avoir", T0));
-        assertThat(generated.context(ContextSheet.FUNCTIONAL).origin()).isEqualTo(ProjectContext.Origin.GENERATED);
-        assertThat(generated.context(ContextSheet.TECHNICAL)).isEqualTo(ProjectContext.NONE);
-        assertThat(generated.updatedAt()).isEqualTo(T0);
-        Project edited = generated.withContext(ContextSheet.TECHNICAL,
-                ProjectContext.edited("## Architecture\n- Quarkus", T0.plusSeconds(1)));
-        assertThat(edited.context(ContextSheet.TECHNICAL).origin()).isEqualTo(ProjectContext.Origin.EDITED);
-        assertThat(edited.context(ContextSheet.FUNCTIONAL)).isEqualTo(generated.context(ContextSheet.FUNCTIONAL));
-        // modifier le projet ne touche pas à ses fiches
-        assertThat(edited.update(ProjectName.of("Facturation clients"), null, null, T0.plusSeconds(2)).contexts())
-                .isEqualTo(edited.contexts());
-    }
-
-    @Test
-    void hashCombineEtDateLaPlusRecenteDesDeuxFiches() {
-        ProjectContext f = ProjectContext.edited("## Acteurs\n- comptable", T0);
-        ProjectContext t = ProjectContext.edited("## Architecture\n- Quarkus", T0.plusSeconds(60));
-        assertThat(ContextSheets.NONE.combinedHash()).isEmpty();
-        assertThat(ContextSheets.NONE.updatedAt()).isNull();
-        ContextSheets both = new ContextSheets(f, t);
-        assertThat(both.combinedHash()).hasSize(64).isNotEqualTo(f.hash()).isNotEqualTo(t.hash());
-        assertThat(both.updatedAt()).isEqualTo(T0.plusSeconds(60));
-        // une fiche qui change change le hash combiné ; la même fiche dans l'autre case aussi
-        assertThat(new ContextSheets(f, ProjectContext.NONE).combinedHash()).isNotEqualTo(both.combinedHash())
-                .isNotEqualTo(new ContextSheets(ProjectContext.NONE, f).combinedHash());
-        assertThat(new ContextSheets(ProjectContext.NONE, t).updatedAt()).isEqualTo(T0.plusSeconds(60));
-    }
-
-    @Test
-    void questionNumeroteeRepondueOuPassee() {
-        UUID project = UUID.randomUUID();
-        ContextQuestion answered = ContextQuestion.recorded(UUID.randomUUID(), project, 3, ContextSheet.TECHNICAL,
-                "Quelle base de données ?", "Les sources se contredisent", "  PostgreSQL 16 ", false, T0, T0.plusSeconds(5));
-        assertThat(answered.ref()).isEqualTo("Q-3");
-        assertThat(answered.answer()).isEqualTo("PostgreSQL 16");
-        assertThat(answered.state()).isEqualTo(ContextQuestion.State.ANSWERED);
-        ContextQuestion skipped = answered.reanswered("ignorée", true, T0.plusSeconds(9));
-        assertThat(skipped.state()).isEqualTo(ContextQuestion.State.SKIPPED);
-        assertThat(skipped.answer()).isEmpty();
-        assertThat(skipped.answeredAt()).isEqualTo(T0.plusSeconds(9));
-        assertThat(skipped.askedAt()).isEqualTo(T0);
-        assertInvalid(() -> answered.reanswered("  ", false, T0));
-        assertInvalid(() -> answered.reanswered("x".repeat(2_001), false, T0));
-        // un libellé trop long est tronqué, pas refusé : il vient de l'IA
-        assertThat(ContextQuestion.recorded(UUID.randomUUID(), project, 1, ContextSheet.FUNCTIONAL, "q".repeat(600), null,
-                null, true, T0, T0).label()).hasSize(ContextQuestion.MAX_LABEL);
+        assertThat(p.context()).isEqualTo(ProjectContext.NONE);
+        Project edited = p.withContext(ProjectContext.edited("## Vocabulaire\n- avoir", T0.plusSeconds(1)));
+        assertThat(edited.context().markdown()).isEqualTo("## Vocabulaire\n- avoir");
+        assertThat(edited.updatedAt()).isEqualTo(T0.plusSeconds(1));
+        // modifier le projet ne touche pas à sa fiche
+        assertThat(edited.update(ProjectName.of("Facturation clients"), null, null, T0.plusSeconds(2)).context())
+                .isEqualTo(edited.context());
     }
 
     @Test

@@ -10,14 +10,15 @@ import java.util.UUID;
 /**
  * Projet qui regroupe des spécifications (data-model.md de 002, FR-001 à FR-006). Immuable :
  * chaque changement crée une copie. La clé Jira, facultative, surcharge le projet Jira par défaut
- * des réglages. Sa fiche de contexte guide toutes les opérations de l'IA (FR-008).
+ * des réglages. Sa fiche générale, rédigée à la main, guide toutes les opérations de l'IA et
+ * l'emporte sur les autres sources de la connaissance (FR-008).
  */
 public record Project(
         UUID id,
         ProjectName name,
         String description,
         JiraProjectKey jiraProjectKey,
-        ContextSheets contexts,
+        ProjectContext context,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -30,26 +31,21 @@ public record Project(
         Objects.requireNonNull(id);
         Objects.requireNonNull(name);
         description = validDescription(description);
-        contexts = contexts == null ? ContextSheets.NONE : contexts;
+        context = context == null ? ProjectContext.NONE : context;
     }
 
     public static Project create(UUID id, ProjectName name, String description, JiraProjectKey jiraProjectKey,
             Instant now) {
-        return new Project(id, name, description, jiraProjectKey, ContextSheets.NONE, now, now);
+        return new Project(id, name, description, jiraProjectKey, ProjectContext.NONE, now, now);
     }
 
     public Project update(ProjectName newName, String newDescription, JiraProjectKey newKey, Instant now) {
-        return new Project(id, newName, newDescription, newKey, contexts, createdAt, now);
+        return new Project(id, newName, newDescription, newKey, context, createdAt, now);
     }
 
-    public ProjectContext context(ContextSheet sheet) {
-        return contexts.get(sheet);
-    }
-
-    /** Nouvelle version d'une fiche, générée ou modifiée à la main (FR-008a, FR-013a, FR-013c). */
-    public Project withContext(ContextSheet sheet, ProjectContext newContext) {
-        return new Project(id, name, description, jiraProjectKey, contexts.with(sheet, newContext), createdAt,
-                newContext.updatedAt());
+    /** Nouvelle version de la fiche générale, modifiée à la main (FR-008). */
+    public Project withContext(ProjectContext newContext) {
+        return new Project(id, name, description, jiraProjectKey, newContext, createdAt, newContext.updatedAt());
     }
 
     public String nameKey() {

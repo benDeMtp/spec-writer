@@ -3,13 +3,10 @@ package dev.specwriter.infrastructure.llm;
 import dev.specwriter.domain.knowledge.ArchitectureModel;
 import dev.specwriter.domain.knowledge.KnowledgeRole;
 import dev.specwriter.domain.knowledge.ProjectKnowledge;
-import dev.specwriter.domain.llm.BuildContextRequest;
 import dev.specwriter.domain.llm.CompareIssueRequest;
 import dev.specwriter.domain.llm.ImpactRequest;
 import dev.specwriter.domain.llm.RelatedIssuesRequest;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
-import dev.specwriter.domain.llm.SourceFacts;
-import dev.specwriter.domain.llm.SummarizeSourcesRequest;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.session.Language;
 import java.util.Collection;
@@ -61,41 +58,6 @@ final class UserMessages {
     static String structure(String text, Language language, String correction, ProjectKnowledge knowledge) {
         return language(language) + "\n" + knowledge(knowledge) + block("texte-importe", text) + "\n<correction>" + data(correction)
                 + "</correction>";
-    }
-
-    /** Lot de pages et de tickets à résumer (summarize-project-sources). */
-    static String sources(Language language, List<SummarizeSourcesRequest.Source> sources, String correction) {
-        StringBuilder out = new StringBuilder(language(language)).append("\n<sources>\n");
-        for (SummarizeSourcesRequest.Source s : sources) {
-            out.append("<source ref=\"").append(attribute(s.ref())).append("\" titre=\"").append(attribute(s.title()))
-                    .append("\">\n").append(data(s.text())).append("\n</source>\n");
-        }
-        return out.append("</sources>\n<correction>").append(data(correction)).append("</correction>").toString();
-    }
-
-    /** Faits extraits, fiches actuelles, réponses et questions passées (build-project-context, R16 de 002). */
-    static String buildContext(BuildContextRequest r) {
-        StringBuilder out = new StringBuilder(language(r.language())).append("\n<faits>\n");
-        for (SourceFacts.Fact f : r.facts()) {
-            String category = f.category() == null ? "" : f.category().name();
-            String sheet = f.category() == null ? "" : f.category().sheet().name();
-            out.append("<fait fiche=\"").append(sheet).append("\" categorie=\"").append(category).append("\" sources=\"")
-                    .append(attribute(String.join(" ", f.refs()))).append("\">").append(data(f.statement())).append("</fait>\n");
-        }
-        out.append("</faits>\n").append(block("fiche-fonctionnelle-actuelle", r.currentFunctional())).append('\n')
-                .append(block("fiche-technique-actuelle", r.currentTechnical())).append("\n<reponses>\n");
-        for (BuildContextRequest.Answer a : r.answers()) {
-            out.append("<reponse ref=\"").append(attribute(a.ref())).append("\" fiche=\"").append(a.sheet().name())
-                    .append("\" question=\"").append(attribute(a.question())).append("\">").append(data(a.answer()))
-                    .append("</reponse>\n");
-        }
-        out.append("</reponses>\n<questions-passees>\n");
-        for (BuildContextRequest.Skipped q : r.skipped()) {
-            out.append("<question fiche=\"").append(q.sheet().name()).append("\">").append(data(q.question()))
-                    .append("</question>\n");
-        }
-        return out.append("</questions-passees>\n<correction>").append(data(r.correction())).append("</correction>")
-                .toString();
     }
 
     /** Besoin et tickets candidats (judge-related-issues, R23 de 002). */
