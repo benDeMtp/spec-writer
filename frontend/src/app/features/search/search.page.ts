@@ -6,8 +6,9 @@ import { MatInputModule } from '@angular/material/input';
 import { Router, RouterLink } from '@angular/router';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { SearchApi } from '../../core/search/search.api';
-import { JiraStatus, PAGE_SIZE, SearchResult } from '../../core/search/search.model';
+import { JiraStatus, SearchResult } from '../../core/search/search.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
+import { PagerComponent } from '../../shared/ui/pager.component';
 import { count } from '../../shared/text';
 import { ResultsTableComponent } from './results-table.component';
 
@@ -26,7 +27,7 @@ const JIRA_NOTICE: Partial<Record<JiraStatus, string>> = {
 @Component({
   selector: 'sw-search-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, ResultsTableComponent, RouterLink],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, PagerComponent, ResultsTableComponent, RouterLink],
   template: `
     <h1>Rechercher une spécification</h1>
     <form class="search" role="search" (ngSubmit)="submit()">
@@ -64,20 +65,25 @@ const JIRA_NOTICE: Partial<Record<JiraStatus, string>> = {
         <div class="sheet">
           <sw-results-table [items]="r.items" [caption]="'Résultats pour « ' + q() + ' »'" />
         </div>
-        @if (pages() > 1) {
-          <nav class="pages" aria-label="Pages de résultats Jira">
-            <button mat-button type="button" [disabled]="pageIndex() === 0" (click)="goTo(pageIndex() - 1)">
-              Résultats précédents
-            </button>
-            <span>Page {{ pageIndex() + 1 }} sur {{ pages() }}</span>
-            <button mat-button type="button" [disabled]="pageIndex() + 1 >= pages()" (click)="goTo(pageIndex() + 1)">
-              Résultats suivants
-            </button>
-          </nav>
+        @if (index() > 0 || r.nextCursor) {
+          <sw-pager
+            label="Pages de résultats"
+            [position]="r.position"
+            [hasPrevious]="index() > 0"
+            [hasNext]="!!r.nextCursor"
+            [busy]="busy()"
+            (previous)="previous()"
+            (next)="next()"
+          />
         }
       } @else {
         <div class="empty">
-          <p>Aucun résultat pour « {{ q() }} ». Essayez d'autres mots, ou décrivez un nouveau besoin.</p>
+          @if (index() > 0) {
+            <button mat-stroked-button type="button" (click)="previous()">Page précédente</button>
+            <p>Aucun autre résultat pour « {{ q() }} ».</p>
+          } @else {
+            <p>Aucun résultat pour « {{ q() }} ». Essayez d'autres mots, ou décrivez un nouveau besoin.</p>
+          }
           <a mat-flat-button routerLink="/nouveau">Décrire un nouveau besoin</a>
         </div>
       }
@@ -129,12 +135,6 @@ const JIRA_NOTICE: Partial<Record<JiraStatus, string>> = {
       border: 1px solid var(--sw-rule);
       border-radius: var(--sw-radius-sheet);
     }
-    .pages {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      margin-top: 0.75rem;
-    }
     .empty {
       margin-top: 1.5rem;
       max-width: var(--sw-measure);
@@ -153,20 +153,24 @@ export class SearchPage {
   private readonly consent = inject(ConsentGate);
   private readonly projects = inject(ProjectsStore);
 
-  /** Paramètres d'URL : la recherche se partage et survit au retour arrière. */
+  /** Paramètre d'URL : la recherche se partage et survit au retour arrière. */
   readonly q = input<string>('');
-  readonly page = input<string>('0');
 
   protected readonly max = MAX_QUERY;
   protected readonly draft = signal('');
   protected readonly tooShort = signal(false);
   protected readonly result = signal<SearchResult | null>(null);
   protected readonly announce = signal('');
-  protected readonly pageIndex = computed(() => Math.max(0, Number(this.page()) || 0));
-  protected readonly pages = computed(() => Math.ceil((this.result()?.jiraTotal ?? 0) / PAGE_SIZE));
+  protected readonly busy = signal(false);
+  /** Curseur de chaque page déjà vue, pour revenir en arrière (le premier est nul). */
+  private readonly cursors = signal<(string | null)[]>([null]);
+  protected readonly index = signal(0);
   protected readonly notice = computed(() => {
-    const status = this.result()?.jiraStatus;
-    return status ? (JIRA_NOTICE[status] ?? null) : null;
+    const r = this.result();
+    if (!r) {
+      return null;
+    }
+    return r.jiraError ?? JIRA_NOTICE[r.jiraStatus] ?? null;
   });
 
   constructor() {
@@ -174,9 +178,10 @@ export class SearchPage {
     effect(() => {
       this.projects.currentId();
       const q = this.q() ?? '';
-      const page = this.pageIndex();
       this.draft.set(q);
-      void this.run(q, page);
+      this.cursors.set([null]);
+      this.index.set(0);
+      void this.run(q, null);
     });
   }
 
@@ -184,36 +189,58 @@ export class SearchPage {
     const q = this.draft().trim();
     this.tooShort.set(q.length < MIN_QUERY);
     if (q.length >= MIN_QUERY) {
-      void this.router.navigate([], { queryParams: { q, page: null } });
+      void this.router.navigate([], { queryParams: { q } });
     }
   }
 
-  protected goTo(page: number): void {
-    void this.router.navigate([], { queryParams: { q: this.q(), page: page || null } });
+  protected async next(): Promise<void> {
+    const cursor = this.result()?.nextCursor;
+    if (!cursor) {
+      return;
+    }
+    if (await this.run(this.q(), cursor)) {
+      this.cursors.update((c) => [...c.slice(0, this.index() + 1), cursor]);
+      this.index.update((i) => i + 1);
+    }
+  }
+
+  protected async previous(): Promise<void> {
+    const target = this.index() - 1;
+    if (target >= 0 && (await this.run(this.q(), this.cursors()[target]))) {
+      this.index.set(target);
+    }
   }
 
   protected retry(): void {
-    void this.run(this.q(), this.pageIndex());
+    void this.run(this.q(), this.cursors()[this.index()]);
   }
 
   protected async allowJira(): Promise<void> {
     if (await this.consent.ensure('JIRA')) {
-      await this.run(this.q(), this.pageIndex());
+      await this.run(this.q(), this.cursors()[this.index()]);
     }
   }
 
-  private async run(q: string, page: number): Promise<void> {
+  /** Charge une page ; en cas d'échec, la page affichée reste en place (FR-022 de 002). */
+  private async run(q: string, cursor: string | null): Promise<boolean> {
     if (q.trim().length < MIN_QUERY) {
       this.result.set(null);
-      return;
+      return false;
     }
     this.announce.set('Recherche en cours…');
+    this.busy.set(true);
     try {
-      const r = await this.api.search(q.trim(), page);
+      const r = await this.api.search(q.trim(), cursor);
       this.result.set(r);
-      this.announce.set(r.items.length ? `${count(r.items.length, 'résultat', 'résultats')}.` : 'Aucun résultat.');
+      this.announce.set(
+        cursor ? '' : r.items.length ? `${count(r.items.length, 'résultat', 'résultats')}.` : 'Aucun résultat.',
+      );
+      return true;
     } catch {
-      this.announce.set('');
+      this.announce.set("Cette page n'a pas pu être chargée : relancez la recherche.");
+      return false;
+    } finally {
+      this.busy.set(false);
     }
   }
 }

@@ -249,6 +249,24 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     renvoyée avec le curseur inchangé (FR-022).
 - **Rationale** : une page ne demande jamais plus de 25 tickets à Jira (SC-006), et l'ordre est
   stable entre les pages. Un `startAt` global est impossible avec deux sources.
+- **Mise en œuvre (US4)** :
+  - Le curseur porte `{l, j, s, q}` : les deux décalages, le nombre d'éléments déjà montrés (pour
+    la position) et l'empreinte SHA-256 de la saisie. Il est encodé en base64url et signé par HMAC
+    avec une clé tirée au démarrage. Un curseur modifié, venu d'une autre recherche ou d'un
+    lancement précédent est refusé (`VALIDATION_FAILED`, « relancez la recherche »).
+  - Un ticket lié dont la session correspond aussi à la recherche n'est montré qu'une fois, côté
+    local (`LocalSearch.matches`). Il est quand même consommé côté Jira, pour que le décalage
+    reste juste. Un ticket lié dont la session ne correspond pas est montré par Jira, avec la
+    provenance « les deux » et la session.
+  - La date d'un élément « les deux » montré côté local est celle de la session, pour que chaque
+    source reste triée. Elle ne combine plus les deux dates, comme le faisait la recherche de 001.
+  - Le total est `local + Jira`, sans soustraire les éléments liés. Il est marqué approximatif
+    (« sur environ N ») dès qu'un ticket lié peut être compté deux fois, ou quand Jira n'a pas
+    répondu.
+  - Quand Jira échoue, la page ne porte que sur les sessions locales, avec `jiraError`. Le
+    décalage Jira ne bouge pas, et un curseur suivant reste proposé pour réessayer Jira.
+  - La liste des tickets du projet passe par `IssueTracker.projectIssues(endpoint, clé, startAt,
+    max)` et non par un `searchPage(jql)` générique : aucune JQL ne traverse le port.
 
 ## R10. Évaluation et golden set (SC-002, SC-003, principe IV)
 
@@ -290,6 +308,11 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   consentement Copilot de 001 couvre cet envoi, et l'interface annonce le volume (FR-013b).
 
 ## R13. Limite de débit vers Jira (FR-022a)
+
+> **Mise en œuvre** : le limiteur s'appelle `JiraThrottle`, existe depuis T102, et appartient au
+> client `JiraRestClient` (singleton). Le seuil reste une constante (8), testée en unitaire avec
+> une horloge `LongSupplier` et une attente simulées. Une attente pour le verrou équitable compte
+> dans les 10 s.
 
 - **Decision** : un limiteur maison `JiraRateLimiter` (`infrastructure/jira`, `@ApplicationScoped`)
   à **fenêtre glissante** : il garde les instants des 8 dernières requêtes, et une nouvelle requête

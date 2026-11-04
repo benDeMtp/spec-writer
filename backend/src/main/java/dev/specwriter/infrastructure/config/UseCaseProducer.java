@@ -27,6 +27,7 @@ import dev.specwriter.application.jira.CreateJiraTicket;
 import dev.specwriter.application.jira.GetJiraIssue;
 import dev.specwriter.application.jira.ImportJiraIssue;
 import dev.specwriter.application.jira.JiraAccess;
+import dev.specwriter.application.jira.ListProjectIssues;
 import dev.specwriter.application.jira.PreviewJiraTicket;
 import dev.specwriter.application.jira.PushToJira;
 import dev.specwriter.application.project.CheckJiraProjectKey;
@@ -319,6 +320,12 @@ public class UseCaseProducer {
     @ApplicationScoped
     GetJiraIssue getJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup) {
         return new GetJiraIssue(tracker, jira, markup);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ListProjectIssues listProjectIssues(IssueTracker tracker, JiraAccess jira, LinkedTicketRepository tickets) {
+        return new ListProjectIssues(tracker, jira, tickets);
     }
 
     @Produces

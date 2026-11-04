@@ -449,8 +449,9 @@ components:
       properties:
         items: { type: array, description: 'Mêmes colonnes que FR-041 de 001 ; 25 au plus' }
         position: { type: string, example: '26 à 50 sur 120' }
-        approximateTotal: { type: boolean }
-        nextCursor: { type: string }
+        approximateTotal: { type: boolean, description: 'La position dit alors « sur environ N »' }
+        nextCursor: { type: string, description: 'Absent en fin de liste ; un curseur modifié ou d’une autre recherche donne 422' }
+        jiraStatus: { enum: [OK, NOT_CONFIGURED, UNAVAILABLE, TOKEN_REJECTED, CONSENT_REQUIRED] }
         jiraError: { type: string, description: 'Présent si Jira n’a pas répondu (FR-045 de 001)' }
     AgentAccess:
       type: object

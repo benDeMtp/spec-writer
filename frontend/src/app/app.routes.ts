@@ -5,6 +5,12 @@ import { copilotRequiredGuard } from './core/settings/copilot-required.guard';
 export const routes: Routes = [
   { path: '', title: 'Recherche · spec-writer', loadComponent: () => import('./features/search/search.page').then((m) => m.SearchPage) },
   {
+    path: 'jira',
+    pathMatch: 'full',
+    title: 'Tickets Jira · spec-writer',
+    loadComponent: () => import('./features/jira-issues/jira-issues.page').then((m) => m.JiraIssuesPage),
+  },
+  {
     path: 'jira/:key',
     title: 'Ticket Jira · spec-writer',
     loadComponent: () => import('./features/search/item-detail.page').then((m) => m.ItemDetailPage),

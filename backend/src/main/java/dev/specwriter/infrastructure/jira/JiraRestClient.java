@@ -5,7 +5,6 @@ import dev.specwriter.domain.jira.IssueTrackerException;
 import dev.specwriter.domain.jira.IssueTrackerException.Kind;
 import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
-import dev.specwriter.domain.jira.JiraIssuePage;
 import dev.specwriter.domain.jira.JiraIssueSummary;
 import dev.specwriter.domain.jira.IssueType;
 import dev.specwriter.domain.jira.JiraSearchPage;
@@ -107,7 +106,16 @@ public class JiraRestClient implements IssueTracker {
     @Override
     public JiraSearchPage searchText(JiraEndpoint endpoint, String projectKey, String terms, int startAt, int maxResults) {
         String jql = JqlBuilder.textSearch(projectKey, terms);
-        Map<String, Object> body = call(endpoint, api -> api.search(jql, startAt, maxResults, SEARCH_FIELDS));
+        return summaries(call(endpoint, api -> api.search(jql, startAt, maxResults, SEARCH_FIELDS)), startAt);
+    }
+
+    @Override
+    public JiraSearchPage projectIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults) {
+        String jql = JqlBuilder.recent(projectKey);
+        return summaries(call(endpoint, api -> api.search(jql, startAt, maxResults, SEARCH_FIELDS)), startAt);
+    }
+
+    private static JiraSearchPage summaries(Map<String, Object> body, int startAt) {
         List<JiraIssueSummary> issues = new ArrayList<>();
         if (body.get("issues") instanceof List<?> list) {
             for (Object o : list) {
@@ -119,24 +127,6 @@ public class JiraRestClient implements IssueTracker {
             }
         }
         return new JiraSearchPage(issues, number(body.get("startAt"), startAt), number(body.get("total"), issues.size()));
-    }
-
-    @Override
-    public JiraIssuePage recentIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults) {
-        String jql = JqlBuilder.recent(projectKey);
-        Map<String, Object> body = call(endpoint, api -> api.search(jql, startAt, maxResults, ISSUE_FIELDS));
-        List<JiraIssue> issues = new ArrayList<>();
-        if (body.get("issues") instanceof List<?> list) {
-            for (Object o : list) {
-                if (o instanceof Map<?, ?> issue) {
-                    Map<?, ?> fields = map(issue.get("fields"));
-                    String description = text(fields.get("description"));
-                    issues.add(new JiraIssue(String.valueOf(issue.get("key")), text(fields.get("summary")),
-                            description == null ? "" : description, date(fields.get("updated"))));
-                }
-            }
-        }
-        return new JiraIssuePage(issues, number(body.get("startAt"), startAt), number(body.get("total"), issues.size()));
     }
 
     @Override

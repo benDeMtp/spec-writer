@@ -56,3 +56,19 @@ export interface JiraConflict {
   localMarkdown: string;
   jiraUpdated: string;
 }
+
+/** Ticket d'une page de la liste du projet Jira (FR-020 de 002). */
+export interface ProjectIssue {
+  key: string;
+  summary: string;
+  updated: string | null;
+  /** Session déjà liée à ce ticket, s'il y en a une. */
+  linkedSessionId: string | null;
+}
+
+/** Page de 25 tickets au plus, les plus récemment modifiés d'abord. */
+export interface IssuePage {
+  startAt: number;
+  total: number;
+  issues: ProjectIssue[];
+}

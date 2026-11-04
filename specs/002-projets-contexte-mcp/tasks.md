@@ -393,29 +393,36 @@ flux manquants et les efforts de déploiement ; une fiche générale à la main.
 
 ### Tests for User Story 4
 
-- [ ] T042 [P] [US4] `BT/application/search/PagedUnifiedSearchTest.java` :
+- [X] T042 [P] [US4] `BT/application/search/PagedUnifiedSearchTest.java` :
   - fusion par date décroissante de deux sources simulées ;
   - curseur `{localOffset, jiraOffset}` stable : la page 2 continue l'ordre, sans doublon ni élément sauté ;
   - un élément « les deux » apparaît une seule fois ;
   - 25 tickets Jira demandés au plus par page ;
   - position « 26 à 50 sur N » et total approximatif ;
   - en cas d'erreur Jira, la page locale est rendue avec `jiraError` et le curseur Jira est inchangé (FR-022).
-- [ ] T043 [P] [US4] `BT/infrastructure/jira/JiraIssuePagingIT.java` (WireMock `FACT`) : `startAt`, `maxResults=25`, JQL `project = FACT ORDER BY updated DESC` nettoyée, `total` lu ; mot-clé échappé dans la JQL.
-- [ ] T063 [P] [US4] `BT/infrastructure/jira/JiraRateLimiterTest.java` (horloge et attente simulées, research.md R13) :
+  - Fait : `PagedUnifiedSearchTest` (6 cas, dont le curseur falsifié et la liste sans Jira) ; `UnifiedSearchTest` adapté.
+- [X] T043 [P] [US4] `BT/infrastructure/jira/JiraIssuePagingIT.java` (WireMock `FACT`) : `startAt`, `maxResults=25`, JQL `project = FACT ORDER BY updated DESC` nettoyée, `total` lu ; mot-clé échappé dans la JQL.
+  - Fait : `JiraIssuePagingIT` sur un WireMock dédié (le mapping `FACT` des E2E sert à la connaissance).
+- [X] T063 [P] [US4] `BT/infrastructure/jira/JiraRateLimiterTest.java` (horloge et attente simulées, research.md R13) :
   - les 8 premières requêtes n'attendent pas, la 9ᵉ attend jusqu'à « plus ancienne + 1 s » ;
   - sur une rafale de 50 requêtes, aucune fenêtre d'une seconde n'en contient plus de 8 ;
   - une attente au-delà de 10 s échoue en `RATE_LIMITED`, une interruption en `UNREACHABLE` ;
   - dans `JiraRestClientIT` (WireMock), 20 recherches et une nouvelle tentative après 429 : au plus 8 requêtes reçues par seconde (FR-022a). Le limiteur `JiraThrottle` existe depuis T102 (testé dans `JiraKnowledgeSyncIT`) ; reste ce test des recherches et du 429.
-- [ ] T044 [P] [US4] E2E `E/us10-jira-paging.spec.ts`, scénario quickstart P10 : pages suivante et précédente, position affichée, recherche de 70 résultats triée par date, Jira coupé avec la page conservée et un message, axe.
+  - Fait : `JiraThrottleTest` (nom du limiteur existant) et `JiraRestClientIT` : 20 recherches simultanées, plusieurs 429, au plus 8 requêtes reçues par seconde.
+- [X] T044 [P] [US4] E2E `E/us10-jira-paging.spec.ts`, scénario quickstart P10 : pages suivante et précédente, position affichée, recherche de 70 résultats triée par date, Jira coupé avec la page conservée et un message, axe.
+  - Fait : projet Jira `PAGE` simulé par le test (120 tickets, 60 résultats servis à tout décalage), plutôt que `FACT`, déjà pris par la connaissance ; 10 sessions locales.
 
 ### Implementation for User Story 4
 
-- [ ] T045 [US4] Ajouter `IssueTracker.searchPage(endpoint, jql, startAt, max)` et `JiraSearchPage.total` (`B/domain/jira/`). Créer le cas d'usage `B/application/jira/ListProjectIssues.java` et la ressource `GET /api/jira/projects/{key}/issues`. Réécrire `UnifiedSearch` avec un curseur opaque, encodé en base64url d'un JSON signé par HMAC avec une clé de processus, pour qu'un curseur modifié soit refusé. `GET /api/search?cursor=` suit le contrat.
-- [ ] T064 [US4] Créer `B/infrastructure/jira/JiraRateLimiter.java` (fenêtre glissante, file équitable, attente plafonnée à 10 s, seuil `specwriter.jira.max-requests-per-second=8`) et l'appeler au début de `JiraRestClient.once()`. Faire passer T063. Indépendante du reste d'US4.
-- [ ] T046 [P] [US4] Front :
+- [X] T045 [US4] Ajouter `IssueTracker.searchPage(endpoint, jql, startAt, max)` et `JiraSearchPage.total` (`B/domain/jira/`). Créer le cas d'usage `B/application/jira/ListProjectIssues.java` et la ressource `GET /api/jira/projects/{key}/issues`. Réécrire `UnifiedSearch` avec un curseur opaque, encodé en base64url d'un JSON signé par HMAC avec une clé de processus, pour qu'un curseur modifié soit refusé. `GET /api/search?cursor=` suit le contrat.
+  - Fait : `IssueTracker.projectIssues(endpoint, clé, startAt, max)` au lieu d'un `searchPage(jql)` générique (research.md R9) ; `SearchCursor` ; `ListProjectIssues` et `JiraProjectIssuesResource`.
+- [X] T064 [US4] Créer `B/infrastructure/jira/JiraRateLimiter.java` (fenêtre glissante, file équitable, attente plafonnée à 10 s, seuil `specwriter.jira.max-requests-per-second=8`) et l'appeler au début de `JiraRestClient.once()`. Faire passer T063. Indépendante du reste d'US4.
+  - Fait : `JiraThrottle` (T102) garde son nom ; horloge et attente injectables, interruption en `UNREACHABLE`, verrou équitable (research.md R13).
+- [X] T046 [P] [US4] Front :
   - `F/features/jira-issues/jira-issues.page.ts` (liste paginée des tickets du projet courant, lien vers le détail et l'import) ;
   - pagination de `F/features/search/` avec une pile de curseurs pour la page précédente, la position et le message d'erreur Jira sans perdre la page ;
   - un composant partagé `F/shared/ui/pager.component.ts`, accessible au clavier, avec annonce `aria-live` de la position.
+  - Fait : page `/jira` (menu « Tickets Jira »), pile de curseurs dans la recherche, `PagerComponent`.
 
 **Checkpoint** : US4 utilisable seule.
 

@@ -24,6 +24,7 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
             <li><a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page">Recherche</a></li>
             <li><a routerLink="/nouveau" routerLinkActive="active" ariaCurrentWhenActive="page">Nouveau besoin</a></li>
             <li><a routerLink="/sessions" routerLinkActive="active" ariaCurrentWhenActive="page">Sessions</a></li>
+            <li><a routerLink="/jira" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page">Tickets Jira</a></li>
             <li><a routerLink="/projets" routerLinkActive="active" ariaCurrentWhenActive="page">Projets</a></li>
             <li><a routerLink="/journal" routerLinkActive="active" ariaCurrentWhenActive="page">Journal</a></li>
             <li><a routerLink="/configuration" routerLinkActive="active" ariaCurrentWhenActive="page">Configuration</a></li>

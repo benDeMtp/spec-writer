@@ -10,28 +10,28 @@ class JqlBuilderTest {
 
     @Test
     void requeteDeBase() {
-        assertThat(JqlBuilder.textSearch("PROJ", "réservation salle")).isEqualTo("project = PROJ AND text ~ \"réservation salle\"");
+        assertThat(JqlBuilder.textSearch("PROJ", "réservation salle")).isEqualTo("project = PROJ AND text ~ \"réservation salle\" ORDER BY updated DESC");
     }
 
     @Test
     void caracteresLuceneRetiresEtGuillemetsEchappes() {
         assertThat(JqlBuilder.textSearch("PROJ", "a+b-c&d|e!f(g)h{i}j[k]l^m~n*o?p\\q:r"))
-                .isEqualTo("project = PROJ AND text ~ \"a b c d e f g h i j k l m n o p q r\"");
-        assertThat(JqlBuilder.textSearch("PROJ", "dit \"oui\"")).isEqualTo("project = PROJ AND text ~ \"dit \\\"oui\\\"\"");
+                .isEqualTo("project = PROJ AND text ~ \"a b c d e f g h i j k l m n o p q r\" ORDER BY updated DESC");
+        assertThat(JqlBuilder.textSearch("PROJ", "dit \"oui\"")).isEqualTo("project = PROJ AND text ~ \"dit \\\"oui\\\"\" ORDER BY updated DESC");
     }
 
     @Test
     void injectionEnfermeeDansUnSeulLitteral() {
         String jql = JqlBuilder.textSearch("PROJ", "\") OR project != X OR text ~ (\"");
-        assertThat(jql).isEqualTo("project = PROJ AND text ~ \"\\\" OR project = X OR text \\\"\"");
+        assertThat(jql).isEqualTo("project = PROJ AND text ~ \"\\\" OR project = X OR text \\\"\" ORDER BY updated DESC");
         // un seul littéral : hors des guillemets échappés, il ne reste que la structure attendue
         String outside = jql.replace("\\\"", "").replaceAll("\"[^\"]*\"", "\"\"");
-        assertThat(outside).isEqualTo("project = PROJ AND text ~ \"\"");
+        assertThat(outside).isEqualTo("project = PROJ AND text ~ \"\" ORDER BY updated DESC");
     }
 
     @Test
     void espacesNormalisesEtSaisieVideRefusee() {
-        assertThat(JqlBuilder.textSearch("PROJ", "  a \n\t b  ")).endsWith("~ \"a b\"");
+        assertThat(JqlBuilder.textSearch("PROJ", "  a \n\t b  ")).endsWith("~ \"a b\" ORDER BY updated DESC");
         assertThatThrownBy(() -> JqlBuilder.textSearch("PROJ", "(*)")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> JqlBuilder.textSearch("PROJ OR 1=1", "a")).isInstanceOf(IllegalArgumentException.class);
     }

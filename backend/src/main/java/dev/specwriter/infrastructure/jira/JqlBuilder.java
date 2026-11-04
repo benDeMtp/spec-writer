@@ -53,7 +53,7 @@ final class JqlBuilder {
         if (cleaned.replace("\"", "").isBlank()) {
             throw new IllegalArgumentException("Recherche vide");
         }
-        return "project = " + projectKey + " AND text ~ \"" + cleaned.replace("\"", "\\\"") + "\"";
+        return "project = " + projectKey + " AND text ~ \"" + cleaned.replace("\"", "\\\"") + "\" ORDER BY updated DESC";
     }
 
     private static void requireProject(String projectKey) {

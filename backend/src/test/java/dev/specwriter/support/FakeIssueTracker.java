@@ -11,7 +11,6 @@ import java.time.Instant;
 import dev.specwriter.domain.jira.IssueTrackerException.Kind;
 import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
-import dev.specwriter.domain.jira.JiraIssuePage;
 import dev.specwriter.domain.jira.JiraIssueSummary;
 import dev.specwriter.domain.jira.JiraSearchPage;
 import dev.specwriter.domain.jira.RequiredField;
@@ -27,6 +26,10 @@ public class FakeIssueTracker implements IssueTracker {
 
     public final Map<String, JiraIssue> issues = new LinkedHashMap<>();
     public final List<JiraIssueSummary> searchResults = new ArrayList<>();
+    /** Pages demandées à la recherche, {@code startAt+maxResults}. */
+    public final List<String> searchPages = new ArrayList<>();
+    /** Tickets du projet, du plus récent au plus ancien. */
+    public final List<JiraIssueSummary> projectResults = new ArrayList<>();
     public final List<String> calls = new ArrayList<>();
     public final List<String> writes = new ArrayList<>();
     public Kind failure;
@@ -86,17 +89,18 @@ public class FakeIssueTracker implements IssueTracker {
             }
         }
         fail();
-        return new JiraSearchPage(searchResults, startAt, searchResults.size());
+        searchPages.add(startAt + "+" + maxResults);
+        return new JiraSearchPage(searchResults.stream().skip(startAt).limit(maxResults).toList(), startAt,
+                searchResults.size());
     }
 
-    /** Les tickets de {@link #issues} du projet, du plus récent au plus ancien. */
+    /** Les tickets de {@link #projectResults}, page par page. */
     @Override
-    public JiraIssuePage recentIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults) {
-        calls.add("recent " + projectKey + " " + startAt + " " + maxResults);
+    public JiraSearchPage projectIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults) {
+        calls.add("project " + projectKey + " " + startAt + " " + maxResults);
         fail();
-        List<JiraIssue> all = issues.values().stream().filter(i -> i.key().startsWith(projectKey + "-"))
-                .sorted(java.util.Comparator.comparing(JiraIssue::updated).reversed()).toList();
-        return new JiraIssuePage(all.stream().skip(startAt).limit(maxResults).toList(), startAt, all.size());
+        return new JiraSearchPage(projectResults.stream().skip(startAt).limit(maxResults).toList(), startAt,
+                projectResults.size());
     }
 
     @Override

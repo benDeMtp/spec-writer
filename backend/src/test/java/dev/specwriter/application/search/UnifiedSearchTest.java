@@ -46,7 +46,7 @@ class UnifiedSearchTest {
     @Test
     void listeUniqueAvecProvenanceEtElementLieUneSeuleFois() {
         w.configureJira().grant(ConsentService.JIRA);
-        UnifiedSearch.Result r = search.run("salle", 0);
+        UnifiedSearch.Page r = search.run("salle", null);
         assertThat(r.jiraStatus()).isEqualTo(JiraStatus.OK);
         assertThat(r.items()).extracting(Item::id, Item::provenance).containsExactlyInAnyOrder(
                 org.assertj.core.groups.Tuple.tuple(localOnly.toString(), Provenance.SPEC_WRITER),
@@ -56,7 +56,8 @@ class UnifiedSearchTest {
         assertThat(both.title()).isEqualTo("Réservation");
         assertThat(both.jiraKey()).isEqualTo("PROJ-2");
         assertThat(both.sessionId()).isEqualTo(linked.id());
-        assertThat(both.updatedAt()).isEqualTo(T2);
+        // la date est celle de la session : la liste reste triée par date de chaque source (R9)
+        assertThat(both.updatedAt()).isEqualTo(T1);
         assertThat(both.latestVersion()).isEqualTo(1);
         assertThat(r.items()).filteredOn(i -> i.id().equals(localOnly.toString())).singleElement()
                 .satisfies(i -> assertThat(i.latestVersion()).isNull());
@@ -65,13 +66,13 @@ class UnifiedSearchTest {
             assertThat(i.title()).isNotBlank();
             assertThat(i.updatedAt()).isNotNull();
         });
-        assertThat(r.items().getLast().id()).isEqualTo(localOnly.toString());
+        assertThat(r.items().getFirst().id()).isEqualTo("PROJ-1");
         assertThat(w.tracker.calls).containsExactly("search PROJ salle");
     }
 
     @Test
     void jiraNonConfigure() {
-        UnifiedSearch.Result r = search.run("salle", 0);
+        UnifiedSearch.Page r = search.run("salle", null);
         assertThat(r.jiraStatus()).isEqualTo(JiraStatus.NOT_CONFIGURED);
         assertThat(r.items()).hasSize(2);
         assertThat(w.tracker.calls).isEmpty();
@@ -80,7 +81,7 @@ class UnifiedSearchTest {
     @Test
     void sansConsentementJiraPasAppele() {
         w.configureJira();
-        UnifiedSearch.Result r = search.run("salle", 0);
+        UnifiedSearch.Page r = search.run("salle", null);
         assertThat(r.jiraStatus()).isEqualTo(JiraStatus.CONSENT_REQUIRED);
         assertThat(r.items()).extracting(Item::provenance).containsOnly(Provenance.SPEC_WRITER, Provenance.BOTH);
         assertThat(w.tracker.calls).isEmpty();
@@ -90,14 +91,14 @@ class UnifiedSearchTest {
     void jiraEnErreurOuTropLentResultatsLocauxConserves() {
         w.configureJira().grant(ConsentService.JIRA);
         w.tracker.failure = Kind.UNREACHABLE;
-        assertThat(search.run("salle", 0)).satisfies(r -> {
+        assertThat(search.run("salle", null)).satisfies(r -> {
             assertThat(r.jiraStatus()).isEqualTo(JiraStatus.UNAVAILABLE);
             assertThat(r.items()).hasSize(2);
         });
         w.tracker.failure = null;
         w.tracker.searchDelayMillis = 2000;
         long start = System.nanoTime();
-        assertThat(search.run("salle", 0).jiraStatus()).isEqualTo(JiraStatus.UNAVAILABLE);
+        assertThat(search.run("salle", null).jiraStatus()).isEqualTo(JiraStatus.UNAVAILABLE);
         assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(1500);
     }
 
@@ -105,25 +106,15 @@ class UnifiedSearchTest {
     void jetonRefuseOuAbsent() {
         w.configureJira().grant(ConsentService.JIRA);
         w.tracker.failure = Kind.UNAUTHORIZED;
-        assertThat(search.run("salle", 0).jiraStatus()).isEqualTo(JiraStatus.TOKEN_REJECTED);
+        assertThat(search.run("salle", null).jiraStatus()).isEqualTo(JiraStatus.TOKEN_REJECTED);
         w.secrets.delete(SecretStore.JIRA_PAT);
-        assertThat(search.run("salle", 0).jiraStatus()).isEqualTo(JiraStatus.TOKEN_REJECTED);
-    }
-
-    @Test
-    void pagesSuivantesUniquementJira() {
-        w.configureJira().grant(ConsentService.JIRA);
-        UnifiedSearch.Result r = search.run("salle", 1);
-        assertThat(r.items()).extracting(Item::id).containsExactlyInAnyOrder("PROJ-1", linked.id().toString());
-        assertThat(r.jiraTotal()).isEqualTo(2);
-        assertThat(w.local.queries).isEmpty();
+        assertThat(search.run("salle", null).jiraStatus()).isEqualTo(JiraStatus.TOKEN_REJECTED);
     }
 
     @Test
     void longueurDeLaSaisie() {
-        assertThatThrownBy(() -> search.run(" a ", 0)).isInstanceOf(DomainException.class);
-        assertThatThrownBy(() -> search.run("x".repeat(201), 0)).isInstanceOf(DomainException.class);
-        assertThatThrownBy(() -> search.run(null, 0)).isInstanceOf(DomainException.class);
-        assertThatThrownBy(() -> search.run("salle", -1)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> search.run(" a ", null)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> search.run("x".repeat(201), null)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> search.run(null, null)).isInstanceOf(DomainException.class);
     }
 }

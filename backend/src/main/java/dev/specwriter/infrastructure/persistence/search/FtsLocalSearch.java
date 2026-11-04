@@ -43,6 +43,57 @@ public class FtsLocalSearch implements LocalSearch {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<Hit> byDate(UUID projectId, String terms, int offset, int limit) {
+        String match = toMatch(terms);
+        if (match.isEmpty()) {
+            return List.of();
+        }
+        List<Object[]> rows = em.createNativeQuery("""
+                        select f.session_id, s.name,
+                               snippet(spec_search, -1, '', '', '…', 16), s.updated_at
+                        from spec_search f join session s on s.id = f.session_id
+                        where spec_search match ?1 and s.project_id = ?2
+                        order by s.updated_at desc, s.id
+                        limit ?3 offset ?4""")
+                .setParameter(1, match).setParameter(2, projectId.toString()).setParameter(3, limit)
+                .setParameter(4, offset).getResultList();
+        return rows.stream()
+                .map(r -> new Hit(UUID.fromString((String) r[0]), (String) r[1], (String) r[2], Instant.parse((String) r[3])))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public int count(UUID projectId, String terms) {
+        String match = toMatch(terms);
+        if (match.isEmpty()) {
+            return 0;
+        }
+        Number n = (Number) em.createNativeQuery("""
+                        select count(*) from spec_search f join session s on s.id = f.session_id
+                        where spec_search match ?1 and s.project_id = ?2""")
+                .setParameter(1, match).setParameter(2, projectId.toString()).getSingleResult();
+        return n.intValue();
+    }
+
+    @Override
+    @Transactional
+    public boolean matches(UUID projectId, String terms, UUID sessionId) {
+        String match = toMatch(terms);
+        if (match.isEmpty()) {
+            return false;
+        }
+        Number n = (Number) em.createNativeQuery("""
+                        select count(*) from spec_search f join session s on s.id = f.session_id
+                        where spec_search match ?1 and s.project_id = ?2 and s.id = ?3""")
+                .setParameter(1, match).setParameter(2, projectId.toString()).setParameter(3, sessionId.toString())
+                .getSingleResult();
+        return n.intValue() > 0;
+    }
+
     /** {@code "mot1"* "mot2"*} : tous les mots doivent figurer, en début de mot indexé. */
     static String toMatch(String terms) {
         if (terms == null) {

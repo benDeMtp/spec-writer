@@ -12,4 +12,16 @@ public interface LocalSearch {
 
     /** Termes saisis librement ; ils ne sont jamais interprétés comme une syntaxe de requête. */
     List<Hit> search(UUID projectId, String terms, int limit);
+
+    /**
+     * Sessions qui correspondent, de la plus récemment modifiée à la plus ancienne, à partir de
+     * {@code offset} : la source locale de la liste unique paginée (FR-021a de 002).
+     */
+    List<Hit> byDate(UUID projectId, String terms, int offset, int limit);
+
+    /** Nombre de sessions du projet qui correspondent. */
+    int count(UUID projectId, String terms);
+
+    /** La session correspond-elle ? Un ticket qui lui est lié n'est alors montré qu'une fois, côté local. */
+    boolean matches(UUID projectId, String terms, UUID sessionId);
 }

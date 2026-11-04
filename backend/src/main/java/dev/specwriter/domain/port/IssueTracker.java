@@ -6,7 +6,6 @@ import dev.specwriter.domain.jira.IssueStatus;
 import dev.specwriter.domain.jira.IssueType;
 import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
-import dev.specwriter.domain.jira.JiraIssuePage;
 import dev.specwriter.domain.jira.JiraSearchPage;
 import dev.specwriter.domain.jira.RequiredField;
 import dev.specwriter.domain.jira.TrackedIssuePage;
@@ -38,17 +37,18 @@ public interface IssueTracker {
     Map<String, Boolean> permissions(JiraEndpoint endpoint, String projectKey, Set<String> permissions);
 
     /**
-     * Recherche plein texte dans un projet ({@code search}, champs {@code summary,status,issuetype,updated}).
-     * La requête JQL est construite par l'adaptateur : {@code terms} n'est jamais interprété.
+     * Recherche plein texte dans un projet, du plus récemment modifié au plus ancien ({@code search},
+     * champs {@code summary,status,issuetype,updated}). La requête JQL est construite par
+     * l'adaptateur : {@code terms} n'est jamais interprété.
      */
     JiraSearchPage searchText(JiraEndpoint endpoint, String projectKey, String terms, int startAt, int maxResults);
 
     /**
-     * Tickets d'un projet, du plus récemment modifié au plus ancien, avec leur description
-     * ({@code search}, JQL {@code project = X ORDER BY updated DESC}, champs
-     * {@code summary,description,updated}). Sert à la fiche de contexte (research.md R4 de 002).
+     * Une page des tickets d'un projet, du plus récemment modifié au plus ancien ({@code search}, JQL
+     * {@code project = X ORDER BY updated DESC}, champs {@code summary,status,issuetype,updated}),
+     * avec le total annoncé par Jira (FR-020, FR-021 de 002).
      */
-    JiraIssuePage recentIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults);
+    JiraSearchPage projectIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults);
 
     /** Lecture d'un ticket ({@code issue/{key}}, champs {@code summary,description,updated}). */
     JiraIssue getIssue(JiraEndpoint endpoint, String issueKey);

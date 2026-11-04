@@ -69,7 +69,7 @@ class JiraAccessTest {
         w.projects.saveCurrentProjectId(facturation.id());
         UnifiedSearch search = new UnifiedSearch(w.local, w.versions, w.tickets, w.tracker, w.jira, w.projects,
                 Duration.ofMillis(300));
-        search.run("salle", 0);
+        search.run("salle", null);
         assertThat(w.tracker.calls).containsExactly("search FACT salle");
     }
 }
