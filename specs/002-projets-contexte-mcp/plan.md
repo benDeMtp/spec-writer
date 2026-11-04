@@ -46,7 +46,11 @@ Approche technique, détaillée dans [research.md](research.md) :
   les échanges supposés (R22) ;
 - trois petites opérations LLM bornées : `judgeRelatedIssues`, `compareWithIssue`,
   `identifyImpact` (R22, R23) ;
-- pagination de la liste unique par curseur sur les deux sources (R9).
+- pagination de la liste unique par curseur sur les deux sources (R9) ;
+- liens entre tickets lus à la synchronisation (`ticket_link`, migration `V14`) : la famille de la
+  story liée (parent, sous-tâches) est exclue des tickets proches et transmise à part à l'IA ; la
+  rubrique « Sous-tâches de <clé> » rattache chaque sous-tâche à un cas d'usage par les vecteurs
+  déjà indexés et signale, de façon déterministe, celles dont le cas d'usage a changé (R29).
 
 ## Technical Context
 
@@ -120,8 +124,8 @@ Constitution v2.0.0.
 
 | Principe / section | Exigence | Avant Phase 0 | Après Phase 1 | Où c'est traité |
 |---|---|---|---|---|
-| I. UX guidée | Ne pas reposer ce qui est connu, erreurs utiles, WCAG 2.1 AA | ✅ | ✅ | La connaissance retrouvée évite les questions déjà couvertes (FR-009, SC-003). Tickets proches montrés avant les questions (FR-034). Indexation qui ne bloque jamais la saisie, résultats partiels annoncés (FR-033, FR-043). Motifs d'erreur précis (dossier, workspace avec fichier et ligne). Confirmations nommées pour les suppressions, pagination annoncée (« 26 à 50 sur 120 »), axe sur les nouveaux écrans (quickstart P1 à P12) |
-| II. Traçabilité, reproductibilité | Sources de chaque use case, hypothèses, structure reproductible | ✅ | ✅ | Sources `PROJECT_CONTEXT`, `JIRA_ISSUE`, `DOC_PAGE`, `ARCH_ELEMENT` vérifiées contre la sélection (R24). Sélection de connaissance enregistrée avec la version et dans l'empreinte (FR-011). Flux et déploiements calculés de façon déterministe (R22). Numéros de version jamais réattribués (R8) |
+| I. UX guidée | Ne pas reposer ce qui est connu, erreurs utiles, WCAG 2.1 AA | ✅ | ✅ | La connaissance retrouvée évite les questions déjà couvertes (FR-009, SC-003). Tickets proches montrés avant les questions (FR-034), sans les sous-tâches de la story, qui ont leur propre rubrique (FR-045, FR-046). Indexation qui ne bloque jamais la saisie, résultats partiels annoncés (FR-033, FR-043). Motifs d'erreur précis (dossier, workspace avec fichier et ligne). Confirmations nommées pour les suppressions, pagination annoncée (« 26 à 50 sur 120 »), axe sur les nouveaux écrans (quickstart P1 à P12) |
+| II. Traçabilité, reproductibilité | Sources de chaque use case, hypothèses, structure reproductible | ✅ | ✅ | Sources `PROJECT_CONTEXT`, `JIRA_ISSUE`, `DOC_PAGE`, `ARCH_ELEMENT` vérifiées contre la sélection (R24). Sélection de connaissance enregistrée avec la version et dans l'empreinte (FR-011). Flux et déploiements calculés de façon déterministe (R22), comme les changements de cas d'usage qui touchent une sous-tâche (R29). Numéros de version jamais réattribués (R8) |
 | III. Test-First | TDD, couverture ≥ 80 % sur le cœur, dépendances externes simulées | ✅ | ✅ | Nouveaux cas d'usage dans `application`, couverts par JaCoCo. Site Antora et Jira simulés par WireMock. LLM rejoué. Passerelle testée sur des échanges JSON-RPC enregistrés |
 | IV. E2E et qualité des sorties | Un E2E par parcours, golden set, évaluation, un recul bloque | ✅ | ✅ | Scénarios E2E P1 à P12 (P5 à P8 réécrits). Jeu de référence fictif dans `verify`, jeu réel hors dépôt (R27). Évaluation avec connaissance |
 | V. Sécurité et confidentialité | Journaux sans contenu, entrées bornées, séparation des prompts, consentement | ✅ | ✅ | `<connaissance-projet>` échappée et déclarée comme donnée (R24, contracts/llm-port.md). Index dans le dossier de données, jamais journalisé ; seuls des extraits retrouvés vont à Copilot (FR-012). Embeddings calculés en local. DSL analysé en mode restreint, sans script (R21). Toutes les bornes sont dans [openapi.yaml](contracts/openapi.yaml) |
@@ -169,7 +173,8 @@ backend/src/main/java/dev/specwriter/
 │   ├── project/             # Create/Update/DeleteProject, SelectCurrentProject, MoveSession
 │   ├── context/             # EditContext (fiche générale) ; Indexations (ex-ContextGenerations)
 │   ├── knowledge/           # SynchronizeKnowledge, SearchKnowledge, SelectKnowledge,
-│                            #   FindRelatedIssues, CompareWithIssue, ResolveRelatedIssue, AnalyzeArchitecture
+│                            #   FindRelatedIssues, CompareWithIssue, ResolveRelatedIssue, AnalyzeArchitecture,
+│                            #   StoryFamily, MatchSubtasks, UseCaseChanges, SubtaskReport (R29)
 │   ├── specification/       # + DeleteVersion, EvolveSpecification, ChangeStatus
 │   ├── search/              # + recherche paginée par curseur
 │   ├── jira/                # + ListProjectIssues ; résolution du projet Jira effectif dans JiraAccess
@@ -186,7 +191,7 @@ backend/src/main/java/dev/specwriter/
 backend/src/main/resources/
 ├── prompts/                 # + judge-related-issues.txt, compare-with-issue.txt, identify-impact.txt ;
 │                            #   <connaissance-projet> dans les 6 prompts existants
-└── db/migration/V7__projects_agents.sql
+└── db/migration/V7__projects_agents.sql … V14__ticket_links.sql (liens entre tickets, R29)
 backend/src/test/resources/
 ├── golden/0x-*/context.md   # fiche générale facultative par cas
 ├── knowledge/               # jeu de référence fictif : tickets, site Antora, workspace C4, cases.json

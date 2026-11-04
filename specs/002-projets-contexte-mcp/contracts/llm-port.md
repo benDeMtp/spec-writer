@@ -20,7 +20,12 @@ d'appel par opération (180 s pour les opérations interactives).
   - `<fiche-generale>` : la fiche, qui l'emporte sur toutes les autres sources ;
   - `<vocabulaire ref="…">` et `<vue-architecture ref="…">` ;
   - `<adr ref="…" statut="ACCEPTED|PROPOSED">` (un ADR remplacé n'est jamais transmis) ;
-  - `<ticket ref="FACT-12" statut="…" ferme="oui|non">` ;
+  - `<ticket ref="FACT-12" statut="…" ferme="oui|non">`, avec `lien="bloque PAY-10"` quand il est
+    lié explicitement à la story de la session ; jamais un ticket de la famille de la story ;
+  - `<sous-taches story="PAY-10">` : `<sous-tache ref statut ferme>titre</sous-tache>`, 15 au
+    plus, 1 500 caractères en tout (research.md R29). La règle du prompt : les sous-tâches font
+    partie de la story, ne sont jamais des travaux concurrents ; une modification qui touche ce
+    qu'elles semblent couvrir peut être mentionnée comme impact ;
   - `<architecture>` : modules impactés (`<module nom portee="PROJECT|COMMON">`), échanges et leur
     existence (`<echange de vers existe="oui|non" via="…">`), constats de déploiement.
 - La règle de sécurité de chaque prompt liste ces balises parmi les données.

@@ -92,6 +92,22 @@ longues, générations perdues). Conception validée :
 - Q: Quel accès à Jira ? → A: l'index sert de cache ; seuls les tickets modifiés sont relus, et le
   statut des tickets proches est relu en direct avant d'être montré.
 
+### Session 2026-11-04 (suite) : liens entre tickets
+
+Retour d'essai : en éditant une story, spec-writer annonçait des « travaux en cours » sur deux
+autres stories, qui étaient en fait ses propres sous-tâches.
+
+- Q: Que faire des sous-tâches de la story liée à une spécification ? → A: ni les ignorer ni les
+  présenter comme des travaux concurrents : elles sont montrées dans une rubrique à part, et l'outil
+  signale celles qu'une nouvelle version rend incohérentes (cas d'usage modifié ou supprimé).
+- Q: Comment rattacher une sous-tâche à un cas d'usage ? → A: par le sens, car les sous-tâches ne
+  citent pas aujourd'hui le code du cas d'usage ; l'alerte est donc marquée « probable ». Quand
+  spec-writer proposera de créer les sous-tâches (évolution future), elles citeront ce code et le
+  rattachement deviendra certain.
+- Q: Et les autres liens entre tickets ? → A: un ticket lié explicitement (« relates to »,
+  « blocks », « duplicates »…) reste dans les alertes, avec le type de lien affiché. Le lien
+  d'epic (champ propre à Jira Server) viendra plus tard.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Ranger ses spécifications par projet (Priority: P1)
@@ -190,6 +206,21 @@ manquant et l'effort de déploiement attendus, et la story est proposée liée a
    d'analyse du workspace avec fichier et ligne…), sans aucun contenu.
 13. **Given** un projet indexé, **When** un ticket est modifié dans Jira ou une page Antora change,
    **Then** la synchronisation suivante ne relit que ce qui a changé.
+14. **Given** une spécification liée à la story PAY-10, qui a deux sous-tâches ouvertes PAY-11 et
+   PAY-12, **When** l'utilisateur demande une modification assistée ou régénère la story, **Then**
+   PAY-11 et PAY-12 ne sont jamais annoncées comme des travaux en cours sur d'autres stories ; elles
+   apparaissent dans la rubrique « Sous-tâches de PAY-10 ».
+15. **Given** la même spécification, **When** une nouvelle version modifie le cas d'usage UC-02 que
+   PAY-11 semble implémenter, et supprime UC-03 que PAY-12 semble implémenter, **Then** la rubrique
+   signale PAY-11 « à revoir : UC-02 a changé » et PAY-12 « à revoir : UC-03 a été supprimé »,
+   chacune marquée « probable » avec la raison du rapprochement.
+16. **Given** une sous-tâche **fermée** rattachée à un cas d'usage modifié, **When** la nouvelle
+   version est affichée, **Then** elle est signalée « livrée, à reprendre ».
+17. **Given** des sous-tâches que la nouvelle version ne touche pas, ou qu'aucun cas d'usage ne
+   rapproche, **When** la rubrique est affichée, **Then** elles sont regroupées, repliées, comme
+   « cohérentes » ou « non rattachées », sans alerte.
+18. **Given** un ticket PAY-20 lié à PAY-10 par « blocks », **When** la story est éditée, **Then**
+   PAY-20 reste dans les alertes, avec le type de lien « bloque PAY-10 ».
 
 ---
 
@@ -327,6 +358,18 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - Le modèle de recherche par le sens est absent ou illisible : la recherche se fait par les termes
   seuls, et l'outil le signale avec la cause.
 - Un même module est cité sous deux noms (modèle et documentation) : l'élément du modèle fait foi.
+- Une sous-tâche a été supprimée ou déplacée dans Jira depuis la dernière synchronisation : elle
+  n'est plus montrée dans la rubrique ; tant que la synchronisation n'a pas eu lieu, son statut
+  relu en direct le révèle et elle est retirée.
+- La spécification est liée à une sous-tâche plutôt qu'à une story : son parent est montré dans la
+  rubrique comme « story parente », jamais comme travail concurrent ; les autres sous-tâches du même
+  parent restent des tickets ordinaires.
+- Une sous-tâche se rapproche de deux cas d'usage : elle est rattachée au plus proche, et l'autre
+  est indiqué dans la raison du rapprochement.
+- La première version d'une spécification n'a pas de version précédente : les sous-tâches sont
+  montrées rattachées ou non, sans alerte de changement.
+- Le modèle de recherche par le sens est absent : les sous-tâches sont montrées sans rattachement,
+  et la rubrique dit pourquoi.
 - Une suppression est demandée pendant une génération ou une proposition de l'IA en cours sur la
   même spécification : elle est refusée tant que l'opération n'est pas terminée.
 - Une version supprimée était ouverte dans un autre onglet : l'onglet affiche « version supprimée »
@@ -428,7 +471,8 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   questions sur le besoin de 001 demeurent, FR-009)*
 - **FR-013i**: *(retirée le 2026-11-04 : réponses Q-n citables)*
 - **FR-032**: L'outil DOIT tenir, sur le poste et par projet, un **index** des sources déclarées :
-  les tickets du projet Jira (clé, titre, description, type, statut, date de mise à jour), les
+  les tickets du projet Jira (clé, titre, description, type, statut, date de mise à jour, ticket
+  parent, sous-tâches et liens vers d'autres tickets avec leur type et leur sens), les
   sections des pages de documentation (un ADR, une entrée de vocabulaire, une section
   d'architecture…) avec leur lien, et le modèle d'architecture (éléments, relations,
   déploiements). Il DOIT pouvoir y chercher les éléments proches d'un besoin **par le sens** (un
@@ -483,6 +527,29 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **FR-043**: Une erreur de la connaissance du projet (index incomplet, source injoignable, modèle
   de recherche absent) NE DOIT jamais faire échouer une rédaction : la story est rédigée avec ce
   qui est disponible, et le manque est signalé.
+- **FR-044**: La synchronisation DOIT lire, pour chaque ticket, son **parent**, ses **sous-tâches** et
+  ses **liens** vers d'autres tickets (type et sens, par exemple « bloque » ou « est bloqué par »),
+  et les tenir à jour comme le reste du ticket (FR-033). Un lien vers un ticket hors du projet Jira
+  est gardé avec la clé de ce ticket.
+- **FR-045**: Les sous-tâches et le parent de la story liée à une spécification NE DOIVENT jamais
+  être présentés comme des tickets proches ni comme des travaux concurrents : ni dans les tickets
+  montrés avant les questions (FR-034), ni dans ce que l'IA reçoit ou rédige. L'IA les reçoit comme
+  les sous-tâches de la story, pour signaler un impact et non un doublon. Un ticket lié
+  explicitement (« relates to », « blocks », « duplicates »…) reste montré, avec le type de lien.
+  Un ticket proche qui est la sous-tâche d'un autre ticket est montré avec la clé de son parent.
+- **FR-046**: Une spécification liée à une story qui a des sous-tâches DOIT montrer, avec sa
+  dernière version, une rubrique « Sous-tâches de <clé> » : chaque sous-tâche avec sa clé, son
+  titre, son statut relu dans Jira (à défaut, le statut indexé avec sa date) et le cas d'usage
+  qu'elle semble implémenter. Le rattachement se fait **par le sens** (titre et description de la
+  sous-tâche face à chaque cas d'usage), est marqué « probable » avec la raison du rapprochement, et
+  une sous-tâche sans cas d'usage assez proche est « non rattachée ».
+- **FR-047**: Quand une nouvelle version (modification assistée, régénération, import) modifie ou
+  supprime un cas d'usage par rapport à la version précédente, l'outil DOIT signaler chaque
+  sous-tâche rattachée à ce cas d'usage : « à revoir » si elle est ouverte, « livrée, à reprendre »
+  si elle est fermée, avec le cas d'usage et la nature du changement (modifié, supprimé). Les
+  sous-tâches non touchées et non rattachées DOIVENT être regroupées, repliées, sans alerte. Ces
+  constats sont établis par l'outil, jamais laissés à l'IA. L'outil NE DOIT jamais modifier les
+  sous-tâches dans Jira.
 
 **Suppression locale**
 
@@ -602,6 +669,11 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **Relation et déploiement** : relation entre deux éléments d'architecture (description,
   technologie) ; instance d'un élément dans un environnement de déploiement, sous une
   infrastructure racine.
+- **Lien entre tickets** : parent et sous-tâches d'un ticket, et liens explicites (type, sens,
+  ticket visé, même hors du projet) ; lus à la synchronisation.
+- **Sous-tâche rattachée** : sous-tâche de la story d'une spécification, avec le cas d'usage
+  qu'elle semble implémenter (rattachement « probable » et sa raison, ou « non rattachée ») et son
+  état face à la dernière version : cohérente, à revoir, livrée à reprendre.
 - **Ticket proche** : ticket retrouvé pour un besoin, avec son statut relu et la raison du
   rapprochement ; mène à une story liée, à l'enrichissement du ticket ou à une nouvelle story.
 - **Indexation** : opération en cours ou terminée d'un projet (étape, élément en cours, compteurs,
@@ -642,6 +714,9 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
 - **SC-004b**: Sur le jeu de référence, 100 % des rédactions aboutissent du premier essai, sans
   réglage ni relance de la part de l'utilisateur, et aucune n'échoue à cause du volume des sources
   du projet.
+- **SC-004c**: Sur le jeu de référence, aucune sous-tâche ni aucun parent de la story liée n'est
+  présenté comme un ticket proche ou un travail concurrent (0 cas), et au moins 80 % des
+  sous-tâches dont le cas d'usage a changé sont signalées « à revoir » ou « livrée, à reprendre ».
 - **SC-005**: Après confirmation, un élément supprimé n'apparaît plus dans aucune vue, recherche,
   export ni réponse à un agent, dans 100 % des cas, et aucun appel n'est fait vers Jira.
 - **SC-006**: Une page de tickets Jira s'affiche en moins de 3 secondes dans 95 % des cas, quel que
@@ -684,6 +759,10 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   build.
 - La recherche par le sens se fait seulement en local ; une option passant par GitHub Copilot est
   hors périmètre.
+- Les sous-tâches ne citent pas aujourd'hui le code du cas d'usage qu'elles implémentent : leur
+  rattachement est seulement probable. Hors périmètre, pour une évolution future : la création des
+  sous-tâches par spec-writer, qui citeront ce code (rattachement certain), et le lien d'epic
+  (champ propre à Jira Server).
 - La documentation est accessible sans authentification depuis le poste (site interne, serveur
   local ou dossier). Un site protégé par un identifiant est hors périmètre.
 - Un site Antora publie la liste de ses pages, avec leur date de modification ; l'outil s'en sert

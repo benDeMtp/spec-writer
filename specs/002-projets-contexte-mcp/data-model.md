@@ -121,7 +121,7 @@ chaque élément retenu `{kind, ref, chunk, contentHash}`, plus les faits d'arch
 ## RelatedIssues (en mémoire, par session)
 
 Tickets proches d'un besoin (FR-034) : `{key, title, status, statusCategory, statusFresh,
-updatedAt, reason, url}`, 5 au plus ; et le choix de l'utilisateur : `LINK_NEW`, `SAME`,
+updatedAt, reason, url, parentKey}`, 5 au plus, hors famille de la story liée (R29) ; et le choix de l'utilisateur : `LINK_NEW`, `SAME`,
 `DIFFERENT` ou `NONE`.
 
 ## Session (modifiée, feature 001)
@@ -229,3 +229,41 @@ Journal des avertissements et des erreurs (FR-031, research.md R15) :
 
 **Règles** : aucun contenu de spécification n'est stocké. Les entrées de plus de 90 jours sont
 purgées au démarrage.
+
+## TicketLink (nouveau, `ticket_link`, migration `V14`)
+
+Liens d'un ticket indexé (research.md R29, FR-044).
+
+| Champ | Type | Règles |
+|---|---|---|
+| projectId | UUID | `REFERENCES project ON DELETE CASCADE`. |
+| sourceKey | texte | Clé du ticket indexé qui porte le lien. |
+| kind | enum | `PARENT`, `SUBTASK` ou `LINK`. |
+| targetKey | texte | Clé du ticket visé, éventuellement d'un autre projet Jira. |
+| linkType | texte | `LINK` : nom du type Jira (`Blocks`, `Relates`, `Duplicate`…) ; vide sinon. |
+| direction | enum | `LINK` : `OUTWARD` ou `INWARD` ; nul sinon. |
+| label | texte | `LINK` : libellé Jira du sens (« blocks », « is blocked by »), 100 caractères au plus. |
+
+**Règles**
+- Clé primaire `(projectId, sourceKey, kind, targetKey, linkType)` ; index sur
+  `(projectId, targetKey)` pour retrouver le parent et les liens entrants.
+- Les liens d'un ticket sont remplacés en bloc à chaque relecture du ticket ; ils disparaissent
+  avec lui.
+- `V14` remet `project.jira_sync_mark` à nul pour que la synchronisation suivante lise les liens
+  des tickets déjà indexés.
+
+## SubtaskReport (calculé, non persisté)
+
+Rubrique « Sous-tâches de <clé> » d'une version (FR-046, FR-047) :
+- `storyKey`, `parentKey` (si la story liée est elle-même une sous-tâche), `matching`
+  (`SEMANTIC` ou `UNAVAILABLE` avec la raison) ;
+- `subtasks` : `{key, title, url, status, statusCategory, statusFresh, statusDate, useCase
+  {code, title} | null, alternative {code, title} | null, closeness (VERY_CLOSE | CLOSE) | null,
+  change (CHANGED | REMOVED) | null, state (TO_REVIEW | DELIVERED_TO_REWORK | CONSISTENT |
+  UNMATCHED)}`, triées : `TO_REVIEW`, `DELIVERED_TO_REWORK`, puis les autres.
+
+## KnowledgeSelection (complétée)
+
+Gagne `subtasks` : `{ref, status, closed, title}` de la famille de la story (15 au plus), et pour
+les tickets retenus le lien explicite éventuel avec la story (`label`). Ils entrent dans
+l'empreinte (FR-011) par leur référence et leur statut.

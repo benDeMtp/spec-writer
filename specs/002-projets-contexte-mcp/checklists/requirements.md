@@ -47,3 +47,9 @@
   l'index : ce sont des choix du plan.
 - Les exigences retirées gardent leur numéro, marquées « retirée », pour que les tâches déjà
   faites restent traçables ; les nouvelles exigences prennent les numéros FR-032 et suivants.
+- Revalidée le 2026-11-04 après l'ajout des liens entre tickets (US2 scénarios 14 à 18,
+  FR-032 complétée, FR-044 à FR-047, SC-004c), à la suite d'un essai réel : des sous-tâches de la
+  story éditée étaient annoncées comme des travaux concurrents. Aucun marqueur
+  [NEEDS CLARIFICATION] : le rattachement par le sens, marqué « probable », a été choisi avec
+  l'utilisateur ; la citation du code des cas d'usage par les sous-tâches et le lien d'epic sont
+  notés hors périmètre (Assumptions).

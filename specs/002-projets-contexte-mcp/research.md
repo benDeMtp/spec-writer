@@ -821,3 +821,70 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
   - Le retrait se fait dans les tâches qui remplacent chaque partie, test par test, pour que
     `verify` et les E2E restent verts à chaque commit.
 
+
+## R29. Liens entre tickets et sous-tâches de la story (FR-044 à FR-047, SC-004c)
+
+Retour d'essai du 2026-11-04 : en modification assistée, la sélection de connaissance (R24) prenait
+les 3 tickets les plus proches du besoin, qui étaient les sous-tâches de la story elle-même ; l'IA
+les annonçait comme des « travaux en cours » concurrents.
+
+- **Decision** :
+  - **Lecture** : `searchUpdatedSince` demande en plus `parent,subtasks,issuelinks`. Chaque lien
+    est gardé dans une table `ticket_link` (data-model) : `PARENT`, `SUBTASK` ou `LINK` avec le
+    nom du type (`Blocks`), son sens (`OUTWARD` ou `INWARD`) et le libellé Jira de ce sens
+    (« blocks », « is blocked by »). Les liens d'un ticket sont remplacés à chaque relecture du
+    ticket, même si son `content_hash` n'a pas changé (un lien ne change pas le texte indexé). Un
+    ticket supprimé perd ses liens. Le lien d'epic (champ personnalisé) n'est pas lu.
+  - **Reprise de l'existant** : la migration `V14` remet `project.jira_sync_mark` à nul ; la
+    synchronisation suivante relit tous les tickets une fois, sans revectoriser ceux dont le
+    `content_hash` est inchangé.
+  - **Famille de la story** : pour une session liée à un ticket (`linked_jira_ticket`), la famille
+    est ce ticket, son parent et ses sous-tâches (et, si le ticket lié est une sous-tâche, les
+    sous-tâches de son parent restent des tickets ordinaires, spec Edge Cases). `SelectKnowledge`
+    exclut la famille des tickets candidats (on cherche 3 tickets hors famille), et
+    `FindRelatedIssues` l'exclut des tickets proches. Un ticket proche ordinaire qui a un parent
+    est montré avec la clé de ce parent.
+  - **Dans les prompts** : nouvelle balise `<sous-taches story="PAY-10">` dans
+    `<connaissance-projet>`, avec `<sous-tache ref statut ferme>titre</sous-tache>`, 15 au plus,
+    1 500 caractères en tout (titres seuls : les descriptions servent au rattachement, pas à la
+    rédaction). Un ticket lié explicitement à la story porte `lien="bloque PAY-10"`. La règle des
+    prompts dit que les sous-tâches font partie de la story et ne sont jamais des travaux
+    concurrents. Les réponses rejouées (`ReplayChatModel`) se choisissent par sous-chaînes : la
+    nouvelle balise ne les invalide pas.
+  - **Rattachement sous-tâche ↔ cas d'usage** (`MatchSubtasks`, dans `application`) :
+    - texte d'un cas d'usage : code, titre, objectif et scénario nominal, 1 500 caractères au
+      plus, vectorisé avec le préfixe `passage: ` au moment du calcul (20 cas d'usage au plus :
+      quelques dizaines de millisecondes) ;
+    - texte d'une sous-tâche : son vecteur déjà dans l'index (titre et description, `passage: `) ;
+      une sous-tâche absente de l'index (autre projet Jira) est « non rattachée (hors index) » ;
+    - similarité cosinus ; rattachée au meilleur cas d'usage si le score atteint le seuil
+      `specwriter.knowledge.subtask-threshold` (0,82 par défaut pour e5, dont les scores sont
+      resserrés entre 0,7 et 0,95 ; calibré sur le jeu fictif puis sur le jeu réel) ; un second
+      cas d'usage à moins de 0,02 est cité dans la raison ;
+    - la raison dit le cas d'usage, son titre et le degré de proximité (« très proche » au-delà
+      de 0,88, « proche » sinon), jamais un score brut ;
+    - sans modèle de recherche par le sens, aucune sous-tâche n'est rattachée et la rubrique dit
+      pourquoi.
+  - **Changement d'un cas d'usage** (déterministe, `UseCaseChanges`) : comparaison avec la version
+    précédente encore présente (après suppressions, la plus récente des versions antérieures).
+    Par code : absent → `REMOVED` ; contenu normalisé (titre, acteur, objectif, préconditions,
+    scénario nominal, alternatives ; espaces et casse ignorés) différent → `CHANGED`. Un code
+    absent dont le contenu exact réapparaît sous un autre code est un renumérotage, pas un
+    changement. Première version : aucun changement.
+  - **État d'une sous-tâche** : `TO_REVIEW` (ouverte, cas d'usage changé ou supprimé),
+    `DELIVERED_TO_REWORK` (fermée, idem), `CONSISTENT` (rattachée, cas d'usage inchangé),
+    `UNMATCHED`. Le statut est relu dans Jira (`issueStatus`, 15 au plus, sous la limite de débit
+    de R13) ; à défaut, le statut indexé avec sa date.
+  - **Exposition** : `GET /api/sessions/{id}/versions/{n}/subtasks`, calculé à la demande (pas
+    stocké : le statut Jira et l'index bougent). La page de la version charge la rubrique à part,
+    sans retarder la spécification. Aucune écriture vers Jira. Les agents MCP ne reçoivent pas
+    cette rubrique dans cette itération.
+- **Rationale** : exclure la famille corrige la cause (une sélection « par proximité » ne sait pas
+  qu'un ticket fait partie de la story) ; le rattachement réutilise les vecteurs déjà calculés ;
+  le changement de cas d'usage est calculé par l'outil, comme les flux (R22), pour ne pas dépendre
+  de l'IA.
+- **Alternatives considered** : ignorer les sous-tâches (perd le signal d'incohérence, refusé par
+  l'utilisateur) ; demander le rattachement à l'IA (appel de plus à chaque version, résultat non
+  reproductible) ; lire la famille en direct dans Jira à chaque opération (requêtes à chaque lot de
+  questions, alors que l'index est déjà le cache) ; stocker l'état des sous-tâches avec la version
+  (statut figé, faux dès le lendemain).

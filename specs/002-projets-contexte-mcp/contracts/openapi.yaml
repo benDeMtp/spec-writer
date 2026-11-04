@@ -207,6 +207,20 @@ paths:
         '204': { description: Supprimée }
         '409': { description: 'Spécification verrouillée (SPECIFICATION_LOCKED) ou opération en cours (OPERATION_IN_PROGRESS)' }
 
+  /api/sessions/{id}/versions/{n}/subtasks:
+    get:
+      summary: >-
+        Rubrique « Sous-tâches de <clé> » de la version (FR-046, FR-047, research.md R29), calculée à
+        la demande : SubtaskReport {storyKey, parentKey, matching SEMANTIC|UNAVAILABLE, matchingProblem,
+        subtasks [{key, title, url, status, statusCategory, statusFresh, statusDate, useCase {code,
+        title}, alternative {code, title}, closeness VERY_CLOSE|CLOSE, change CHANGED|REMOVED, state
+        TO_REVIEW|DELIVERED_TO_REWORK|CONSISTENT|UNMATCHED}]}. 204 si la spécification n'est liée à
+        aucun ticket ou si le ticket n'a ni sous-tâche ni parent. N'écrit jamais dans Jira.
+      responses:
+        '200': { description: SubtaskReport }
+        '204': { description: Aucune sous-tâche }
+        '404': { description: Session ou version introuvable }
+
   /api/jira/projects/{key}/issues:
     get:
       summary: Tickets du projet Jira, du plus récemment modifié au plus ancien, par 25 (FR-020, FR-021)
@@ -429,6 +443,7 @@ components:
               updatedAt: { type: string, format: date-time }
               reason: { type: string, description: "Raison du rapprochement ; absente sans Copilot" }
               url: { type: string }
+              parentKey: { type: string, description: "Ticket parent quand le ticket proche est une sous-tâche (R29)" }
         decision: { enum: [LINK_NEW, SAME, DIFFERENT, NONE] }
     IssueComparison:
       type: object
