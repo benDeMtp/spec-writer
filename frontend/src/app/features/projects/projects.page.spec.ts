@@ -14,9 +14,8 @@ const DEFAULT: Project = {
   effectiveJiraProjectKey: 'PROJ',
   jiraKeyWarning: null,
   sessionCount: 3,
-  context: '',
-  contextOrigin: 'NONE',
-  contextUpdatedAt: null,
+  functionalContext: { markdown: '', origin: 'NONE', updatedAt: null },
+  technicalContext: { markdown: '', origin: 'NONE', updatedAt: null },
   docSources: [],
 };
 const FACT: Project = { ...DEFAULT, id: 'p1', name: 'Facturation', jiraProjectKey: 'FACT', effectiveJiraProjectKey: 'FACT', sessionCount: 2 };

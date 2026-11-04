@@ -60,6 +60,8 @@ export interface SourceRef {
   kind: 'NEED_EXCERPT' | 'ANSWER' | 'ASSUMPTION' | 'PROJECT_CONTEXT';
   questionId: string | null;
   excerpt: string;
+  /** Fiche du contexte citée par une source PROJECT_CONTEXT (FR-008a). */
+  sheet?: 'FUNCTIONAL' | 'TECHNICAL' | null;
 }
 
 export interface UseCase {

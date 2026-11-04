@@ -550,8 +550,10 @@ export class SpecificationPage {
         const q = this.session()?.answeredQuestions.find((x) => x.id === s.questionId);
         return q ? `Réponse à « ${q.label} » : ${q.answer}` : `Réponse : « ${s.excerpt} »`;
       }
-      case 'PROJECT_CONTEXT':
-        return `Contexte du projet : « ${s.excerpt} »`;
+      case 'PROJECT_CONTEXT': {
+        const sheet = s.sheet === 'TECHNICAL' ? ', fiche technique' : s.sheet === 'FUNCTIONAL' ? ', fiche fonctionnelle' : '';
+        return `Contexte du projet${sheet} : « ${s.excerpt} »`;
+      }
       default:
         return `Hypothèse${s.excerpt ? ` : ${s.excerpt}` : ''}`;
     }

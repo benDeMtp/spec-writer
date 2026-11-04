@@ -15,16 +15,23 @@ export interface Project {
   /** Clé introuvable dans Jira (FR-007) : signalée, sans bloquer l'enregistrement. */
   jiraKeyWarning: string | null;
   sessionCount: number;
-  /** Fiche de contexte en Markdown, vide sans contexte (FR-011). */
-  context: string;
-  contextOrigin: ContextOrigin;
-  contextUpdatedAt: string | null;
+  /** Fiches fonctionnelle et technique, vides sans contexte (FR-008a). */
+  functionalContext: ContextSheetState;
+  technicalContext: ContextSheetState;
   docSources: DocSource[];
 }
 
 export type DeletionMode = 'MOVE' | 'DELETE';
 
 export type ContextOrigin = 'NONE' | 'GENERATED' | 'EDITED';
+export type SheetKind = 'FUNCTIONAL' | 'TECHNICAL';
+
+/** Une fiche du contexte d'un projet (FR-008a). */
+export interface ContextSheetState {
+  markdown: string;
+  origin: ContextOrigin;
+  updatedAt: string | null;
+}
 export type DocSourceKind = 'URL' | 'FOLDER';
 export type UnreadReason = 'UNREACHABLE' | 'NOT_ANTORA' | 'HTTP_ERROR' | 'TOO_LARGE' | 'REDIRECT_OTHER_HOST' | 'LIMIT_REACHED';
 
@@ -51,13 +58,46 @@ export interface ContextPreview {
   unreadable: UnreadSource[];
 }
 
-/** Fiche proposée par l'IA, gardée en mémoire jusqu'à « Accepter » (FR-013a). */
-export interface ContextProposal {
-  proposalId: string;
+/** Fiche proposée ; {@code changed} est faux si elle est identique à la fiche actuelle. */
+export interface ProposedSheet {
   markdown: string;
   unifiedDiff: string;
+  changed: boolean;
+  accepted: boolean;
+}
+
+/** Question de clarification de l'assistant (FR-013h) ; {@code number} une fois répondue ou passée. */
+export interface ProposalQuestion {
+  id: string;
+  sheet: SheetKind;
+  label: string;
+  rationale: string;
+  suggestions: string[];
+  state: 'OPEN' | 'ANSWERED' | 'SKIPPED';
+  number: number | null;
+  answer: string | null;
+}
+
+/** Question répondue ou passée, citable sous Q-n (FR-013i). */
+export interface ContextQuestion {
+  number: number;
+  sheet: SheetKind;
+  label: string;
+  rationale: string;
+  answer: string;
+  state: 'ANSWERED' | 'SKIPPED';
+  askedAt: string;
+  answeredAt: string;
+}
+
+/** Fiches proposées par l'IA, gardées en mémoire jusqu'à « Accepter » (FR-013a). */
+export interface ContextProposal {
+  proposalId: string;
+  functional: ProposedSheet;
+  technical: ProposedSheet;
   sources: string[];
   unread: UnreadSource[];
+  questions: ProposalQuestion[];
 }
 
 export type GenerationStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';

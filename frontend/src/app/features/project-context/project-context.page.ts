@@ -5,24 +5,25 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
-import { MarkdownComponent } from 'ngx-markdown';
+import { MatTabsModule } from '@angular/material/tabs';
 import { ContextApi } from '../../core/projects/context.api';
 import {
   ContextGeneration,
   ContextPreview,
   ContextProposal,
+  ContextQuestion,
   DocSource,
   DocSourceKind,
   GenerationError,
   GenerationStep,
   Project,
+  SheetKind,
   UnreadReason,
 } from '../../core/projects/projects.model';
 import { ProjectsApi } from '../../core/projects/projects.api';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
-import { UnifiedDiffComponent } from '../../shared/ui/unified-diff.component';
-
-const MAX_CONTEXT = 20_000;
+import { ContextProposalComponent, QuestionReply } from './context-proposal.component';
+import { SHEET_LABELS, SheetEditorComponent } from './sheet-editor.component';
 
 const STEPS: Record<GenerationStep, string> = {
   READING_DOCS: 'Lecture de la documentation',
@@ -69,14 +70,15 @@ const REASONS: Record<UnreadReason, string> = {
   selector: 'sw-project-context-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    ContextProposalComponent,
     FormsModule,
-    MarkdownComponent,
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    MatTabsModule,
     RouterLink,
-    UnifiedDiffComponent,
+    SheetEditorComponent,
   ],
   template: `
     <p class="back"><a routerLink="/projets">Projets</a></p>
@@ -85,41 +87,19 @@ const REASONS: Record<UnreadReason, string> = {
       <p role="status" aria-live="polite" class="announce">{{ announce() }}</p>
 
       <section class="sheet" aria-labelledby="fiche-title">
-        <h2 id="fiche-title">Fiche de contexte</h2>
-        <p class="meta">{{ originLabel(p) }}</p>
+        <h2 id="fiche-title">Fiches de contexte</h2>
         <p class="hint">
-          Vocabulaire, acteurs, règles métier, contraintes et conventions du projet. La fiche est transmise à chaque
-          rédaction de spécification de ce projet.
+          Les deux fiches sont transmises à chaque rédaction de spécification de ce projet ; la fiche technique l'est aussi
+          aux agents de code.
         </p>
-        @if (previewing()) {
-          <div class="rendered" role="region" aria-label="Aperçu de la fiche">
-            @if (draft().trim()) {
-              <markdown class="rich" [data]="draft()" />
-            } @else {
-              <p class="hint">La fiche est vide.</p>
-            }
-          </div>
-        } @else {
-          <mat-form-field appearance="outline" class="editor">
-            <mat-label>Fiche de contexte (Markdown)</mat-label>
-            <textarea
-              matInput
-              name="context"
-              rows="14"
-              [maxlength]="max"
-              [ngModel]="draft()"
-              (ngModelChange)="draft.set($event)"
-              aria-describedby="context-count"
-            ></textarea>
-            <mat-hint id="context-count" align="end">{{ draft().length }} / 20 000</mat-hint>
-          </mat-form-field>
-        }
-        <div class="actions">
-          <button mat-stroked-button type="button" (click)="previewing.set(!previewing())" [attr.aria-pressed]="previewing()">
-            Aperçu
-          </button>
-          <button mat-flat-button type="button" (click)="save()" [disabled]="!dirty() || busy()">Enregistrer la fiche</button>
-        </div>
+        <mat-tab-group animationDuration="0ms" mat-stretch-tabs="false">
+          <mat-tab label="Fonctionnel">
+            <sw-sheet-editor sheet="FUNCTIONAL" [state]="p.functionalContext" [busy]="busy()" (saved)="save('FUNCTIONAL', $event)" />
+          </mat-tab>
+          <mat-tab label="Technique">
+            <sw-sheet-editor sheet="TECHNICAL" [state]="p.technicalContext" [busy]="busy()" (saved)="save('TECHNICAL', $event)" />
+          </mat-tab>
+        </mat-tab-group>
       </section>
 
       <section class="sheet" aria-labelledby="sources-title">
@@ -181,19 +161,17 @@ const REASONS: Record<UnreadReason, string> = {
           }
         }
         @if (proposal(); as pr) {
-          <h3>Fiche proposée</h3>
-          <sw-unified-diff [diff]="pr.unifiedDiff" label="Différences avec la fiche actuelle" />
-          <div class="rendered" role="region" aria-label="Fiche proposée">
-            <markdown class="rich" [data]="pr.markdown" />
-          </div>
-          @if (pr.sources.length) {
-            <p class="meta">Sources citées : {{ pr.sources.length }}</p>
-          }
-          <div class="actions">
-            <button mat-flat-button type="button" (click)="accept(pr)" [disabled]="busy()">Accepter</button>
-            <button mat-button type="button" (click)="keepMine()" [disabled]="busy()">Garder la mienne</button>
-          </div>
-        } @else if (sending(); as s) {
+          <sw-context-proposal
+            [proposal]="pr"
+            [busy]="busy()"
+            [dismissed]="dismissed()"
+            (accept)="accept(pr, $event)"
+            (keep)="keepMine($event)"
+            (answer)="reply(pr, $event)"
+            (revise)="revise(pr)"
+          />
+        }
+        @if (sending(); as s) {
           <p>{{ summary(s) }}</p>
           @if (s.unreadable.length) {
             <ul class="unread">
@@ -227,6 +205,41 @@ const REASONS: Record<UnreadReason, string> = {
           </details>
         }
       </section>
+
+      @if (history().length) {
+        <section class="sheet" aria-labelledby="history-title">
+          <h2 id="history-title">Réponses de clarification</h2>
+          <p class="hint">Réutilisées à chaque génération. Une réponse modifiée sert à la génération suivante.</p>
+          <ol class="history">
+            @for (q of history(); track q.number) {
+              <li>
+                <p class="label"><span class="ref">Q-{{ q.number }}</span> {{ q.label }}</p>
+                @if (editingNumber() === q.number) {
+                  <mat-form-field appearance="outline" class="answer">
+                    <mat-label>Réponse à Q-{{ q.number }}</mat-label>
+                    <textarea matInput rows="2" maxlength="2000" [name]="'history-' + q.number" [ngModel]="historyText()"
+                      (ngModelChange)="historyText.set($event)"></textarea>
+                  </mat-form-field>
+                  <div class="actions">
+                    <button mat-flat-button type="button" [disabled]="busy() || !historyText().trim()" (click)="updateAnswer(q, false)">
+                      Enregistrer
+                    </button>
+                    <button mat-button type="button" [disabled]="busy()" (click)="updateAnswer(q, true)">Passer</button>
+                    <button mat-button type="button" (click)="editingNumber.set(null)">Annuler</button>
+                  </div>
+                } @else {
+                  <p class="given">
+                    {{ q.state === 'ANSWERED' ? 'Réponse : ' + q.answer : 'Question passée.' }}
+                    <button mat-button type="button" (click)="editAnswer(q)" [attr.aria-label]="'Modifier la réponse Q-' + q.number">
+                      Modifier
+                    </button>
+                  </p>
+                }
+              </li>
+            }
+          </ol>
+        </section>
+      }
     }
   `,
   styles: `
@@ -311,6 +324,30 @@ const REASONS: Record<UnreadReason, string> = {
     .current span {
       overflow-wrap: anywhere;
     }
+    .history {
+      margin: 0;
+      padding-left: 1.25rem;
+    }
+    .history li {
+      margin-bottom: 0.75rem;
+    }
+    .history .label {
+      margin: 0;
+      font-weight: 600;
+    }
+    .history .ref {
+      margin-right: 0.5rem;
+      padding: 0 0.4rem;
+      border: 1px solid var(--sw-rule);
+      border-radius: var(--sw-radius-field);
+      font-weight: 500;
+    }
+    .history .answer {
+      width: 100%;
+    }
+    .history .given {
+      margin: 0.25rem 0;
+    }
     .progress {
       display: grid;
       gap: 0.25rem;
@@ -347,10 +384,12 @@ export class ProjectContextPage {
   private readonly api = inject(ContextApi);
   private readonly consent = inject(ConsentGate);
 
-  protected readonly max = MAX_CONTEXT;
   protected readonly project = signal<Project | null>(null);
-  protected readonly draft = signal('');
-  protected readonly previewing = signal(false);
+  /** Fiches de la proposition gardées telles quelles (« Garder la mienne »). */
+  protected readonly dismissed = signal<SheetKind[]>([]);
+  protected readonly history = signal<ContextQuestion[]>([]);
+  protected readonly editingNumber = signal<number | null>(null);
+  protected readonly historyText = signal('');
   protected readonly kind = signal<DocSourceKind>('URL');
   protected readonly location = signal('');
   protected readonly sending = signal<ContextPreview | null>(null);
@@ -368,12 +407,11 @@ export class ProjectContextPage {
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private lastStep: GenerationStep | null = null;
   protected readonly announce = signal('');
-  protected readonly dirty = computed(() => this.draft().trim() !== (this.project()?.context ?? ''));
 
   constructor() {
     effect(() => {
       const id = this.id();
-      untracked(() => void this.load(id).then(() => this.resume(id)));
+      untracked(() => void this.load(id).then(() => Promise.all([this.resume(id), this.loadHistory(id)])));
     });
     this.destroyRef.onDestroy(() => this.stopPolling());
   }
@@ -384,13 +422,12 @@ export class ProjectContextPage {
     if (!g) {
       return;
     }
-    const p = this.project();
-    const stale = g.finishedAt && p?.contextUpdatedAt && new Date(p.contextUpdatedAt) >= new Date(g.finishedAt);
     this.generation.set(g);
     this.lastStep = g.step;
     if (g.status === 'RUNNING') {
       this.poll(id);
-    } else if (g.status === 'SUCCEEDED' && !stale) {
+    } else if (g.status === 'SUCCEEDED') {
+      // la proposition renvoyée est son état courant : absente si elle a expiré ou si ses deux fiches sont acceptées
       this.proposal.set(g.proposal);
     }
   }
@@ -402,19 +439,10 @@ export class ProjectContextPage {
 
   private show(p: Project | null): void {
     this.project.set(p);
-    this.draft.set(p?.context ?? '');
   }
 
-  protected originLabel(p: Project): string {
-    const at = p.contextUpdatedAt ? new Date(p.contextUpdatedAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '';
-    switch (p.contextOrigin) {
-      case 'GENERATED':
-        return `Proposée par l'IA et acceptée le ${at}.`;
-      case 'EDITED':
-        return `Modifiée à la main le ${at}.`;
-      default:
-        return 'Aucun contexte pour ce projet.';
-    }
+  private async loadHistory(id: string): Promise<void> {
+    this.history.set(await this.api.questions(id));
   }
 
   protected lastRead(s: DocSource): string {
@@ -490,14 +518,14 @@ export class ProjectContextPage {
     return `Seront envoyés à Copilot : ${pages} et ${tickets}.`;
   }
 
-  protected async save(): Promise<void> {
+  protected async save(sheet: SheetKind, markdown: string): Promise<void> {
     const p = this.project();
     if (!p) {
       return;
     }
     await this.run(async () => {
-      this.show(await this.api.save(p.id, this.draft()));
-      this.announce.set('Fiche de contexte enregistrée.');
+      this.show(await this.api.save(p.id, sheet, markdown));
+      this.announce.set(`${SHEET_LABELS[sheet].name} enregistrée.`);
     });
   }
 
@@ -544,6 +572,7 @@ export class ProjectContextPage {
       const g = await this.api.start(p.id);
       this.sending.set(null);
       this.proposal.set(null);
+      this.dismissed.set([]);
       this.lastStep = null;
       this.generation.set(g);
       this.announce.set('Génération du contexte démarrée.');
@@ -597,7 +626,7 @@ export class ProjectContextPage {
     } else {
       this.announce.set(this.outcomeLabel(g));
     }
-    await this.reload(false);
+    await this.reload();
   }
 
   private stopPolling(): void {
@@ -607,30 +636,79 @@ export class ProjectContextPage {
     }
   }
 
-  protected async accept(pr: ContextProposal): Promise<void> {
+  protected async accept(pr: ContextProposal, sheet: SheetKind): Promise<void> {
     const p = this.project();
     if (!p) {
       return;
     }
     await this.run(async () => {
-      this.show(await this.api.accept(p.id, pr.proposalId));
-      this.proposal.set(null);
-      this.announce.set('Fiche proposée acceptée et enregistrée.');
+      this.show(await this.api.accept(p.id, pr.proposalId, [sheet]));
+      const accepted = { ...(sheet === 'FUNCTIONAL' ? pr.functional : pr.technical), accepted: true };
+      this.proposal.set(sheet === 'FUNCTIONAL' ? { ...pr, functional: accepted } : { ...pr, technical: accepted });
+      this.announce.set(`${SHEET_LABELS[sheet].name} acceptée et enregistrée.`);
     });
   }
 
-  protected keepMine(): void {
-    this.proposal.set(null);
-    this.announce.set('Fiche actuelle conservée.');
+  protected keepMine(sheet: SheetKind): void {
+    this.dismissed.update((d) => [...d, sheet]);
+    this.announce.set(`${SHEET_LABELS[sheet].name} actuelle conservée.`);
   }
 
-  /** Recharge le projet ; la fiche en cours de saisie est gardée si demandé. */
-  private async reload(resetDraft = false): Promise<void> {
-    const draft = this.draft();
-    await this.load(this.id());
-    if (!resetDraft) {
-      this.draft.set(draft);
+  protected async reply(pr: ContextProposal, r: QuestionReply): Promise<void> {
+    const p = this.project();
+    if (!p) {
+      return;
     }
+    await this.run(async () => {
+      const saved = await this.api.answer(p.id, pr.proposalId, r.question.id, r.answer, r.skip);
+      const current = this.proposal() ?? pr;
+      this.proposal.set({
+        ...current,
+        questions: current.questions.map((q) =>
+          q.id === r.question.id ? { ...q, state: saved.state, number: saved.number, answer: saved.answer } : q,
+        ),
+      });
+      this.announce.set(r.skip ? `Question Q-${saved.number} passée.` : `Réponse Q-${saved.number} enregistrée.`);
+      await this.loadHistory(p.id);
+    });
+  }
+
+  protected async revise(pr: ContextProposal): Promise<void> {
+    const p = this.project();
+    if (!p || !(await this.consent.ensure('COPILOT'))) {
+      return;
+    }
+    await this.run(async () => {
+      const g = await this.api.revise(p.id, pr.proposalId);
+      this.proposal.set(null);
+      this.dismissed.set([]);
+      this.lastStep = null;
+      this.generation.set(g);
+      this.announce.set('Révision de la proposition démarrée.');
+      this.poll(p.id);
+    });
+  }
+
+  protected editAnswer(q: ContextQuestion): void {
+    this.historyText.set(q.answer);
+    this.editingNumber.set(q.number);
+  }
+
+  protected async updateAnswer(q: ContextQuestion, skip: boolean): Promise<void> {
+    const p = this.project();
+    if (!p) {
+      return;
+    }
+    await this.run(async () => {
+      await this.api.updateQuestion(p.id, q.number, skip ? null : this.historyText().trim(), skip);
+      this.editingNumber.set(null);
+      this.announce.set(`Réponse Q-${q.number} modifiée. Elle servira à la prochaine génération.`);
+      await this.loadHistory(p.id);
+    });
+  }
+
+  private async reload(): Promise<void> {
+    await this.load(this.id());
   }
 
   private async run(action: () => Promise<void>): Promise<void> {
