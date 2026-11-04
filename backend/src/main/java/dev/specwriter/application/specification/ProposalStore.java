@@ -70,6 +70,11 @@ public class ProposalStore {
         return Optional.ofNullable(proposals.remove(proposalId));
     }
 
+    /** Retire les propositions de la session : sa version ou la session elle-même est supprimée (research.md R8). */
+    public void discard(UUID sessionId) {
+        proposals.values().removeIf(p -> p.sessionId().equals(sessionId));
+    }
+
     private void purge() {
         Instant limit = clock.now().minus(TTL);
         proposals.values().removeIf(p -> !p.createdAt().isAfter(limit));

@@ -361,24 +361,24 @@ flux manquants et les efforts de déploiement ; une fiche générale à la main.
 
 ### Tests for User Story 3
 
-- [ ] T035 [P] [US3] `BT/application/specification/DeleteVersionTest.java` :
+- [X] T035 [P] [US3] `BT/application/specification/DeleteVersionTest.java` :
   - les numéros des autres versions sont inchangés, et un numéro supprimé n'est pas réattribué (`nextVersionNumber`) ;
   - le lien Jira est reporté sur la dernière version restante et l'état de synchronisation est recalculé ;
   - après suppression de la dernière version, la session repasse à l'état prêt à générer avec son besoin et ses réponses (FR-015) ;
   - la suppression est refusée pendant une opération IA en cours (`OPERATION_IN_PROGRESS`) ;
-  - les propositions en mémoire de la session sont purgées.
-- [ ] T036 [P] [US3] `BT/infrastructure/web/DeletionIT.java` :
+  - les propositions en mémoire de la session sont purgées. *Fait : sept cas, dont l'ouverture d'une opération par la rédaction et la proposition.*
+- [X] T036 [P] [US3] `BT/infrastructure/web/DeletionIT.java` :
   - `DELETE /api/sessions/{id}/versions/{n}` et `DELETE /api/sessions/{id}` ;
   - l'élément disparaît de la liste, de l'historique, de la comparaison, de la recherche FTS et de l'export ;
-  - **aucune requête WireMock Jira** n'est faite (SC-005).
-- [ ] T037 [P] [US3] E2E `E/us9-deletion.spec.ts`, scénario quickstart P9 : confirmation nommée, annulation sans effet, avertissement « Jira n'est pas modifié » pour une spec liée, axe.
+  - **aucune requête WireMock Jira** n'est faite (SC-005). *Fait : les recherches de vérification du test interrogent Jira (« text ~ ») et sont écartées de la vérification. Aucune autre requête.*
+- [X] T037 [P] [US3] E2E `E/us9-deletion.spec.ts`, scénario quickstart P9 : confirmation nommée, annulation sans effet, avertissement « Jira n'est pas modifié » pour une spec liée, axe. *Fait : `us9-deletion.spec.ts` ; FACT-1 importé avec le rejeu `fixtures/llm/26`.*
 
 ### Implementation for User Story 3
 
-- [ ] T038 [US3] Écrire la migration (prochain numéro libre) `BR/db/migration/V<n>__version_numbering.sql` : colonne `session.next_version_number`, valorisée à `max(number)+1`. Adapter `GenerateSpecification`, `AcceptAiEdit`, `ImportJiraIssue` et `PushToJira` pour numéroter par ce compteur.
-- [ ] T039 [US3] Créer `B/application/specification/OperationRegistry.java` (opérations IA en cours par session, ouvertes et fermées par les cas d'usage IA) et le cas d'usage `DeleteVersion`. Ajouter à `ManageSessions.delete` le refus pendant une opération et la purge des propositions. Port `SpecificationRepository.delete(sessionId, number)`.
-- [ ] T040 [US3] `B/infrastructure/web/VersionResource.java` : `DELETE /api/sessions/{id}/versions/{n}`. Codes `OPERATION_IN_PROGRESS`, puis `SPECIFICATION_LOCKED`, ajouté en T047.
-- [ ] T041 [P] [US3] Front : action « Supprimer cette version » dans `F/features/specification/versions-panel.component.ts`, et « Supprimer la spécification » sur la page de spécification et dans la liste des sessions. Utiliser `F/shared/ui/confirm-dialog.component.ts` avec le nom, le numéro et l'avertissement Jira. Après suppression, rediriger vers la dernière version restante ou vers la liste.
+- [X] T038 [US3] Écrire la migration (prochain numéro libre) `BR/db/migration/V<n>__version_numbering.sql` : colonne `session.next_version_number`, valorisée à `max(number)+1`. Adapter `GenerateSpecification`, `AcceptAiEdit`, `ImportJiraIssue` et `PushToJira` pour numéroter par ce compteur. *Fait : `V12__version_numbering.sql`, avec en plus le déclencheur `spec_search_version_delete` : V6 ne mettait pas la recherche à jour à la suppression d'une version, contrairement à ce qu'annonçait R8 (FR-018). Le compteur est tenu par `SpecificationRepository.nextNumber`. Test : `MigrationVersionNumberingIT`.*
+- [X] T039 [US3] Créer `B/application/specification/OperationRegistry.java` (opérations IA en cours par session, ouvertes et fermées par les cas d'usage IA) et le cas d'usage `DeleteVersion`. Ajouter à `ManageSessions.delete` le refus pendant une opération et la purge des propositions. Port `SpecificationRepository.delete(sessionId, number)`. *Fait : la rédaction, la proposition et l'envoi Jira (reprise et fusion) ouvrent une opération. Lien Jira (`LinkedJiraTicket.afterVersionDeleted`) : si la version liée est supprimée, le lien passe à la dernière restante, en LOCAL_AHEAD ; sinon le ticket redevient IN_SYNC dès qu'aucune version ne dépasse la version liée ; un conflit le reste.*
+- [X] T040 [US3] `B/infrastructure/web/VersionResource.java` : `DELETE /api/sessions/{id}/versions/{n}`. Codes `OPERATION_IN_PROGRESS`, puis `SPECIFICATION_LOCKED`, ajouté en T047. *Fait.*
+- [X] T041 [P] [US3] Front : action « Supprimer cette version » dans `F/features/specification/versions-panel.component.ts`, et « Supprimer la spécification » sur la page de spécification et dans la liste des sessions. Utiliser `F/shared/ui/confirm-dialog.component.ts` avec le nom, le numéro et l'avertissement Jira. Après suppression, rediriger vers la dernière version restante ou vers la liste. *Fait : « Supprimer cette version » et « Supprimer la spécification » sont dans les actions de la page de spécification, et non dans le panneau des versions : celui-ci n'est pas affiché quand il n'y a qu'une version. La liste des sessions annonce « Jira n'est pas modifié » pour une spécification liée.*
 
 **Checkpoint** : US3 utilisable seule.
 

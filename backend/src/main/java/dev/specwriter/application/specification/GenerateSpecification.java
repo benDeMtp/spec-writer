@@ -36,6 +36,7 @@ public class GenerateSpecification {
     public record Generated(SpecificationVersion version, boolean reused) {
     }
 
+    private final OperationRegistry operations;
     private final SessionRepository sessions;
     private final SpecificationRepository versions;
     private final LlmClient llm;
@@ -52,6 +53,14 @@ public class GenerateSpecification {
 
     public GenerateSpecification(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
             ConsentPolicy consent, ClockPort clock, IdGenerator ids, String toolVersion, SessionKnowledge knowledge) {
+        this(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge, new OperationRegistry());
+    }
+
+    /** {@code operations} : la rédaction est une opération de l'IA, qui bloque les suppressions (FR-019 de 002). */
+    public GenerateSpecification(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
+            ConsentPolicy consent, ClockPort clock, IdGenerator ids, String toolVersion, SessionKnowledge knowledge,
+            OperationRegistry operations) {
+        this.operations = operations;
         this.sessions = sessions;
         this.knowledge = knowledge;
         this.versions = versions;
@@ -63,6 +72,15 @@ public class GenerateSpecification {
     }
 
     public Generated run(UUID sessionId) {
+        OperationRegistry.Operation operation = operations.begin(sessionId);
+        try {
+            return generate(sessionId);
+        } finally {
+            operation.close();
+        }
+    }
+
+    private Generated generate(UUID sessionId) {
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         Questionnaire questionnaire = sessions.questionnaire(sessionId).orElseThrow();
         if (questionnaire.hasPendingContradiction()) {
@@ -83,7 +101,7 @@ public class GenerateSpecification {
         SpecificationContent content = DraftValidation.produce(
                 correction -> llm.generateSpecification(correction == null ? request : request.withCorrection(correction)),
                 treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, used);
-        SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.lastNumber(sessionId) + 1,
+        SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.nextNumber(sessionId),
                 content, fingerprint, VersionOrigin.GENERATED,
                 MarkdownRenderer.render(content, session.language(), used.selection()), clock.now()).withKnowledge(used);
         versions.save(version);

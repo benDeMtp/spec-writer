@@ -40,7 +40,7 @@ public class AcceptAiEdit {
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         ProposalStore.Proposal p = proposals.take(sessionId, proposalId)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Cette proposition n'existe plus."));
-        SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.lastNumber(sessionId) + 1,
+        SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.nextNumber(sessionId),
                 p.content(), "proposal:" + p.id(), p.origin(), p.markdown(), clock.now())
                 .withKnowledge(p.knowledge());
         versions.save(version);

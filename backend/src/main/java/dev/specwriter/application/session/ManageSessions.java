@@ -1,6 +1,8 @@
 package dev.specwriter.application.session;
 
 import dev.specwriter.application.project.CurrentProject;
+import dev.specwriter.application.specification.OperationRegistry;
+import dev.specwriter.application.specification.ProposalStore;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.ClockPort;
@@ -26,13 +28,23 @@ public class ManageSessions {
     private final SpecificationRepository versions;
     private final ProjectRepository projects;
     private final ClockPort clock;
+    private final ProposalStore proposals;
+    private final OperationRegistry operations;
 
     public ManageSessions(SessionRepository sessions, SpecificationRepository versions, ProjectRepository projects,
             ClockPort clock) {
+        this(sessions, versions, projects, clock, null, new OperationRegistry());
+    }
+
+    /** {@code proposals} : propositions de l'IA purgées avec la session ; {@code operations} : refus pendant l'IA. */
+    public ManageSessions(SessionRepository sessions, SpecificationRepository versions, ProjectRepository projects,
+            ClockPort clock, ProposalStore proposals, OperationRegistry operations) {
         this.sessions = sessions;
         this.versions = versions;
         this.projects = projects;
         this.clock = clock;
+        this.proposals = proposals;
+        this.operations = operations;
     }
 
     /** Sessions du projet courant, les plus récemment modifiées d'abord. */
@@ -50,13 +62,23 @@ public class ManageSessions {
         return session;
     }
 
-    /** Suppression physique de la session, de ses questions, réponses et versions. */
+    /**
+     * Suppression physique de la session, de ses questions, réponses, versions et lien Jira, refusée
+     * pendant une opération de l'IA (FR-016, FR-019 de 002). Jira n'est pas modifié.
+     */
     public void delete(UUID id) {
         if (sessions.list().stream().noneMatch(s -> s.id().equals(id))) {
             throw new DomainException(ErrorCode.NOT_FOUND);
         }
+        if (operations.running(id)) {
+            throw new DomainException(ErrorCode.OPERATION_IN_PROGRESS,
+                    "L'IA travaille sur cette spécification. Attendez la fin de l'opération, puis supprimez-la.");
+        }
         versions.deleteAll(id);
         sessions.delete(id);
+        if (proposals != null) {
+            proposals.discard(id);
+        }
     }
 
     public List<SpecificationVersion> versions(UUID id) {

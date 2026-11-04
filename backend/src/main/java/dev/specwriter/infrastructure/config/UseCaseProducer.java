@@ -42,6 +42,7 @@ import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.session.StartSession;
 import dev.specwriter.application.specification.AcceptAiEdit;
 import dev.specwriter.application.specification.GenerateSpecification;
+import dev.specwriter.application.specification.DeleteVersion;
 import dev.specwriter.application.specification.OperationRegistry;
 import dev.specwriter.application.specification.ProposalStore;
 import dev.specwriter.application.specification.ProposeAiEdit;
@@ -213,15 +214,23 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     GenerateSpecification generateSpecification(SessionRepository sessions, SpecificationRepository versions,
-            LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
-        return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge);
+            LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
+            OperationRegistry operations) {
+        return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge, operations);
     }
 
     @Produces
     @ApplicationScoped
     ManageSessions manageSessions(SessionRepository sessions, SpecificationRepository versions,
-            ProjectRepository projects, ClockPort clock) {
-        return new ManageSessions(sessions, versions, projects, clock);
+            ProjectRepository projects, ClockPort clock, ProposalStore proposals, OperationRegistry operations) {
+        return new ManageSessions(sessions, versions, projects, clock, proposals, operations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DeleteVersion deleteVersion(SessionRepository sessions, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ProposalStore proposals, OperationRegistry operations, ClockPort clock) {
+        return new DeleteVersion(sessions, versions, tickets, proposals, operations, clock);
     }
 
     // ---------- Projets (feature 002, User Story 1) ----------
@@ -295,8 +304,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     ProposeAiEdit proposeAiEdit(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
-            ConsentPolicy consent, ProposalStore proposals, SessionKnowledge knowledge) {
-        return new ProposeAiEdit(sessions, versions, llm, consent, proposals, knowledge);
+            ConsentPolicy consent, ProposalStore proposals, SessionKnowledge knowledge, OperationRegistry operations) {
+        return new ProposeAiEdit(sessions, versions, llm, consent, proposals, knowledge, operations);
     }
 
     @Produces
@@ -325,9 +334,10 @@ public class UseCaseProducer {
     @ApplicationScoped
     PushToJira pushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
-            ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
+            OperationRegistry operations) {
         return new PushToJira(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids,
-                knowledge);
+                knowledge, operations);
     }
 
     @Produces

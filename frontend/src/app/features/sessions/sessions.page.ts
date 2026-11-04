@@ -180,7 +180,9 @@ export class SessionsPage {
         .open(ConfirmDialogComponent, {
           data: {
             title: 'Supprimer cette session ?',
-            message: `« ${s.name} » et toutes ses versions seront supprimées définitivement.`,
+            message:
+              `« ${s.name} » et toutes ses versions seront supprimées définitivement.` +
+              (s.jiraKey ? ` Elle est liée au ticket ${s.jiraKey} : Jira n'est pas modifié.` : ''),
             confirm: 'Supprimer définitivement',
           },
         })

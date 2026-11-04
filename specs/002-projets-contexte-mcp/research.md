@@ -217,8 +217,13 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     version, la session repasse à l'état prêt à générer (FR-015) ;
   - `DeleteSession` existe déjà (FR-017 de 001) : la cascade SQL couvre les réponses, les versions
     et le lien Jira. Une confirmation nommée est ajoutée dans l'interface ;
-  - la FTS5 est tenue à jour par les triggers `DELETE` de V6. Les propositions en mémoire de la
-    session sont purgées ;
+  - la FTS5 est tenue à jour : le trigger `DELETE` de V6 retire une session, et V12 ajoute celui
+    d'une version (la dernière restante prend sa place dans l'index). Les propositions en mémoire
+    de la session sont purgées ;
+  - lien Jira après la suppression de la version liée : il passe à la dernière restante, en
+    `LOCAL_AHEAD` (Jira porte une version qui n'existe plus localement) ; après celle d'une autre
+    version, le ticket redevient `IN_SYNC` si plus aucune version ne dépasse la version liée. Un
+    conflit en cours le reste ;
   - refus pendant une opération IA en cours : un registre en mémoire des opérations par session
     (`OperationRegistry`), consulté par les suppressions (FR-019) ;
   - aucune suppression n'appelle Jira (FR-017). Un test WireMock vérifie qu'aucune requête ne part.

@@ -29,6 +29,7 @@ public class ProposeAiEdit {
 
     public static final int MAX_INSTRUCTION = 2000;
 
+    private final OperationRegistry operations;
     private final SessionRepository sessions;
     private final SpecificationRepository versions;
     private final LlmClient llm;
@@ -43,6 +44,13 @@ public class ProposeAiEdit {
 
     public ProposeAiEdit(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
             ConsentPolicy consent, ProposalStore proposals, SessionKnowledge knowledge) {
+        this(sessions, versions, llm, consent, proposals, knowledge, new OperationRegistry());
+    }
+
+    /** {@code operations} : la proposition est une opération de l'IA, qui bloque les suppressions (FR-019 de 002). */
+    public ProposeAiEdit(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
+            ConsentPolicy consent, ProposalStore proposals, SessionKnowledge knowledge, OperationRegistry operations) {
+        this.operations = operations;
         this.sessions = sessions;
         this.versions = versions;
         this.llm = llm;
@@ -52,6 +60,15 @@ public class ProposeAiEdit {
     }
 
     public ProposalStore.Proposal run(UUID sessionId, String instruction) {
+        OperationRegistry.Operation operation = operations.begin(sessionId);
+        try {
+            return propose(sessionId, instruction);
+        } finally {
+            operation.close();
+        }
+    }
+
+    private ProposalStore.Proposal propose(UUID sessionId, String instruction) {
         String text = instruction == null ? "" : instruction.strip();
         if (text.isEmpty() || text.length() > MAX_INSTRUCTION) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "L'instruction doit faire entre 1 et 2 000 caractères.");

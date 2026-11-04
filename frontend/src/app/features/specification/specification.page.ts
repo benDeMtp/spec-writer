@@ -19,6 +19,7 @@ import {
   UseCase,
   VersionSummary,
 } from '../../core/sessions/sessions.model';
+import { ConfirmData, ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ScenarioComponent } from '../../shared/ui/scenario.component';
 import { AiEditPanelComponent } from '../ai-edit/ai-edit.panel';
@@ -40,6 +41,11 @@ const EFFORTS: Record<DeploymentFact['kind'], string> = {
 type DeploymentFact = NonNullable<Specification['architecture']>['deploymentFacts'][number];
 
 const ADR_NAME = /adr[-_ ]?\d+/i;
+
+/** Avertissement de la confirmation d'une suppression liée à Jira (FR-017 de 002). */
+function jiraNotice(ticket: LinkedTicket | null): string {
+  return ticket ? ` Elle est liée au ticket ${ticket.issueKey} : Jira n'est pas modifié.` : '';
+}
 
 const SYNC: Record<SyncState, string> = {
   IN_SYNC: 'à jour avec Jira',
@@ -97,6 +103,10 @@ const SYNC: Record<SyncState, string> = {
           }
           @if (session()?.origin !== 'JIRA_IMPORT') {
             <a mat-button [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
+          }
+          @if (session()) {
+            <button mat-button type="button" (click)="removeVersion(v.number)">Supprimer cette version</button>
+            <button mat-button type="button" (click)="removeSpecification()">Supprimer la spécification</button>
           }
         </div>
         @if (session() && !session()?.linkedTicket && !jiraReady()) {
@@ -524,6 +534,63 @@ export class SpecificationPage {
     this.status.set(`Spécification déplacée vers le projet « ${name} ».`);
     this.session.set(await this.api.get(this.id()));
     await this.projects.load();
+  }
+
+  /** Suppression d'une version, après une confirmation qui la nomme (FR-014 de 002). Jira n'est pas modifié. */
+  protected async removeVersion(n: number): Promise<void> {
+    const session = this.session();
+    if (!session) {
+      return;
+    }
+    const others = this.versions().filter((v) => v.number !== n);
+    const confirmed = await this.confirm({
+      title: `Supprimer la version ${n} ?`,
+      message:
+        `La version ${n} de « ${session.name} » sera supprimée définitivement. ` +
+        (others.length
+          ? 'Les autres versions gardent leur numéro.'
+          : 'Le besoin et les réponses sont gardés : vous pourrez rédiger une nouvelle version.') +
+        jiraNotice(session.linkedTicket),
+      confirm: 'Supprimer la version',
+    });
+    if (!confirmed) {
+      return;
+    }
+    await this.api.deleteVersion(session.id, n);
+    const latest = others.at(-1);
+    if (latest) {
+      // la même page affiche la version restante : l'annonce reste
+      this.status.set(`Version ${n} supprimée. Jira n'a pas été modifié.`);
+      await this.router.navigate(['/sessions', session.id, 'versions', String(latest.number)]);
+    } else {
+      await this.router.navigate(['/sessions', session.id]);
+    }
+  }
+
+  /** Suppression de la spécification entière : session, réponses et versions (FR-016 de 002). */
+  protected async removeSpecification(): Promise<void> {
+    const session = this.session();
+    if (!session) {
+      return;
+    }
+    const count = this.versions().length;
+    const confirmed = await this.confirm({
+      title: 'Supprimer la spécification ?',
+      message:
+        `« ${session.name} », ses réponses et ${count > 1 ? `ses ${count} versions` : 'sa version'} seront supprimés ` +
+        'définitivement.' + jiraNotice(session.linkedTicket),
+      confirm: 'Supprimer la spécification',
+    });
+    if (!confirmed) {
+      return;
+    }
+    await this.api.delete(session.id);
+    await this.router.navigate(['/sessions']);
+  }
+
+  private async confirm(data: ConfirmData): Promise<boolean> {
+    const result = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, { data }).afterClosed());
+    return result === true;
   }
 
   /** Aperçu (type, champs obligatoires) puis création sur confirmation (FR-036 à FR-038). */

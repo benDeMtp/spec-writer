@@ -5,6 +5,7 @@ import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.application.specification.DraftValidation;
+import dev.specwriter.application.specification.OperationRegistry;
 import dev.specwriter.application.specification.ProposalStore;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
@@ -74,6 +75,7 @@ public class PushToJira {
     private final ClockPort clock;
     private final IdGenerator ids;
     private final SessionKnowledge knowledge;
+    private final OperationRegistry operations;
 
     public PushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
@@ -85,6 +87,16 @@ public class PushToJira {
     public PushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+        this(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids, knowledge,
+                new OperationRegistry());
+    }
+
+    /** {@code operations} : la reprise et la fusion appellent l'IA ; l'envoi bloque les suppressions (FR-019 de 002). */
+    public PushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
+            SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
+            OperationRegistry operations) {
+        this.operations = operations;
         this.knowledge = knowledge;
         this.tracker = tracker;
         this.jira = jira;
@@ -100,6 +112,15 @@ public class PushToJira {
     }
 
     public Outcome run(UUID sessionId, int versionNumber, boolean confirm, ConflictResolution resolution) {
+        OperationRegistry.Operation operation = operations.begin(sessionId);
+        try {
+            return push(sessionId, versionNumber, confirm, resolution);
+        } finally {
+            operation.close();
+        }
+    }
+
+    private Outcome push(UUID sessionId, int versionNumber, boolean confirm, ConflictResolution resolution) {
         if (!confirm) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "L'envoi vers Jira doit être confirmé.");
         }
@@ -145,7 +166,7 @@ public class PushToJira {
         ProjectKnowledge used = knowledge.forSpecification(session, List.of());
         SpecificationContent content = ImportJiraIssue.structure(llm, markup.toMarkdown(current.description(), ticket.issueUrl()),
                 session.language(), used);
-        int number = versions.lastNumber(session.id()) + 1;
+        int number = versions.nextNumber(session.id());
         SpecificationVersion taken = new SpecificationVersion(ids.next(), session.id(), number, content,
                 "jira-import:" + current.key() + ":" + current.updated(), VersionOrigin.JIRA_IMPORT,
                 MarkdownRenderer.render(content, session.language(), used.selection()), clock.now()).withKnowledge(used);

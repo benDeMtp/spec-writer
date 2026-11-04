@@ -36,6 +36,11 @@ export class SessionsApi {
     return firstValueFrom(this.http.delete<void>(`/api/sessions/${encodeURIComponent(id)}`));
   }
 
+  /** Suppression locale d'une version ; Jira n'est pas modifié (FR-014 de 002). */
+  deleteVersion(id: string, n: number): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`/api/sessions/${encodeURIComponent(id)}/versions/${n}`));
+  }
+
   versions(id: string): Promise<VersionSummary[]> {
     return firstValueFrom(this.http.get<VersionSummary[]>(`/api/sessions/${encodeURIComponent(id)}/versions`));
   }

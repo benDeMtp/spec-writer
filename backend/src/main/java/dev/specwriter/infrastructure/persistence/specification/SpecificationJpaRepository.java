@@ -40,6 +40,9 @@ public class SpecificationJpaRepository implements SpecificationRepository {
         e.knowledge = v.knowledge().equals(KnowledgeSelection.EMPTY) ? null : JSON.writeValueAsString(v.knowledge());
         // persist et non merge : une version existante n'est jamais réécrite
         em.persist(e);
+        // le compteur de la session n'est jamais décrémenté : un numéro supprimé n'est pas réattribué
+        em.createNativeQuery("update session set next_version_number = max(next_version_number, ?1) where id = ?2")
+                .setParameter(1, v.number() + 1).setParameter(2, v.sessionId().toString()).executeUpdate();
     }
 
     @Override
@@ -70,6 +73,22 @@ public class SpecificationJpaRepository implements SpecificationRepository {
     public void deleteAll(UUID sessionId) {
         em.createQuery("delete from SpecificationVersionEntity v where v.sessionId = :s")
                 .setParameter("s", sessionId.toString()).executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID sessionId, int number) {
+        em.createQuery("delete from SpecificationVersionEntity v where v.sessionId = :s and v.number = :n")
+                .setParameter("s", sessionId.toString()).setParameter("n", number).executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public int nextNumber(UUID sessionId) {
+        List<?> next = em.createNativeQuery("select next_version_number from session where id = ?1")
+                .setParameter(1, sessionId.toString()).getResultList();
+        int counter = next.isEmpty() ? 1 : ((Number) next.get(0)).intValue();
+        return Math.max(counter, lastNumber(sessionId) + 1);
     }
 
     @Override

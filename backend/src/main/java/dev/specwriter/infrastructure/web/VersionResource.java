@@ -1,6 +1,7 @@
 package dev.specwriter.infrastructure.web;
 
 import dev.specwriter.application.session.ManageSessions;
+import dev.specwriter.application.specification.DeleteVersion;
 import dev.specwriter.application.specification.GenerateSpecification;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
@@ -11,6 +12,7 @@ import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.specification.SpecificationVersion;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -40,6 +42,8 @@ public class VersionResource {
 
     @Inject
     ManageSessions manageSessions;
+    @Inject
+    DeleteVersion deleteVersion;
 
     @GET
     public List<SessionViews.VersionSummary> list(@PathParam("id") String id) {
@@ -76,6 +80,16 @@ public class VersionResource {
         return Response.ok(version.markdown(), "text/markdown; charset=UTF-8")
                 .header("Content-Disposition", ExportFileName.contentDisposition(ExportFileName.of(session.name(), number)))
                 .build();
+    }
+
+    /**
+     * Supprime une version locale (FR-014 de 002) ; 409 pendant une opération de l'IA (FR-019).
+     * Jira n'est pas modifié.
+     */
+    @DELETE
+    @Path("/{n}")
+    public void delete(@PathParam("id") String id, @PathParam("n") int number) {
+        deleteVersion.run(Ids.parse(id), number);
     }
 
     private UUID existing(String id) {
