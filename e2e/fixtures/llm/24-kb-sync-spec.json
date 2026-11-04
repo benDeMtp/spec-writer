@@ -1,0 +1,59 @@
+{
+  "operation": "generate-specification",
+  "userContains": [
+    "appeler la comptabilité en synchrone",
+    "<architecture>"
+  ],
+  "response": {
+    "title": "Avoir enregistré en comptabilité par un appel synchrone",
+    "summary": "Le gestionnaire saisit un avoir ; la comptabilité est appelée en synchrone pour l'enregistrer.",
+    "useCases": [
+      {
+        "title": "Enregistrer l'avoir en comptabilité",
+        "actor": "gestionnaire de facturation",
+        "goal": "Tenir la comptabilité à jour",
+        "preconditions": [
+          "La facture est émise"
+        ],
+        "nominalFlow": [
+          "Saisir l'avoir",
+          "Appeler la comptabilité en synchrone"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "DOC_PAGE",
+          "questionId": "",
+          "excerpt": "",
+          "ref": "adr-005.html"
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "useCaseIndex": 0,
+        "title": "Avoir enregistré",
+        "kind": "NOMINAL",
+        "asA": "gestionnaire de facturation",
+        "given": [
+          "l'avoir AV-002 est saisi"
+        ],
+        "when": [
+          "je valide l'avoir"
+        ],
+        "then": [
+          "la comptabilité confirme l'enregistrement"
+        ],
+        "assumption": false
+      }
+    ],
+    "assumptions": [],
+    "requirements": [],
+    "adrDeviations": [
+      {
+        "adrRef": "adr-005.html",
+        "decision": "La comptabilité est notifiée de façon asynchrone, par un événement publié sur un topic Kafka.",
+        "deviation": "Le besoin appelle la comptabilité en synchrone."
+      }
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "operation": "judge-related-issues",
+  "userContains": ["appeler la comptabilité en synchrone"],
+  "response": {"related": []}
+}

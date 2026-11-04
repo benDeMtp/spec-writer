@@ -1,0 +1,14 @@
+{
+  "operation": "judge-related-issues",
+  "userContains": [
+    "avoirs partiels dans le portail"
+  ],
+  "response": {
+    "related": [
+      {
+        "key": "FACT-9",
+        "reason": "Le ticket traite déjà des avoirs partiels."
+      }
+    ]
+  }
+}

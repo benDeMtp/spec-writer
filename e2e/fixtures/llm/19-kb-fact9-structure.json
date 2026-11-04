@@ -1,0 +1,51 @@
+{
+  "operation": "structure-imported-text",
+  "userContains": [
+    "avoir partiel sur une ligne"
+  ],
+  "response": {
+    "title": "Émettre un avoir partiel",
+    "summary": "Le gestionnaire émet un avoir partiel sur une ligne d'une facture émise, plafonné au restant dû.",
+    "details": "",
+    "useCases": [
+      {
+        "title": "Émettre un avoir partiel",
+        "actor": "gestionnaire de facturation",
+        "goal": "Corriger une ligne",
+        "preconditions": [
+          "La facture est émise"
+        ],
+        "nominalFlow": [
+          "Choisir la ligne",
+          "Saisir le montant"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "NEED_EXCERPT",
+          "questionId": "",
+          "excerpt": "émettre un avoir partiel"
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "useCaseIndex": 0,
+        "title": "Avoir partiel",
+        "kind": "NOMINAL",
+        "asA": "gestionnaire de facturation",
+        "given": [
+          "la ligne 1 vaut 50 € TTC"
+        ],
+        "when": [
+          "j'émets un avoir de 10 € TTC sur la ligne 1"
+        ],
+        "then": [
+          "l'avoir est créé"
+        ],
+        "assumption": false
+      }
+    ],
+    "assumptions": [],
+    "requirements": []
+  }
+}

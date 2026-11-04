@@ -394,6 +394,36 @@
       "response": {
         "status": 201
       }
+    },
+    {
+      "priority": 5,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/FACT-9"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "FACT-9",
+          "fields": {
+            "summary": "Émettre un avoir partiel",
+            "description": "En tant que gestionnaire, je veux émettre un avoir partiel sur une ligne d'une facture émise, plafonné au restant dû.",
+            "status": {
+              "name": "À faire",
+              "statusCategory": {
+                "key": "new"
+              }
+            },
+            "issuetype": {
+              "name": "Story"
+            },
+            "updated": "2026-10-28T08:30:00.000+0000"
+          }
+        }
+      }
     }
   ]
 }

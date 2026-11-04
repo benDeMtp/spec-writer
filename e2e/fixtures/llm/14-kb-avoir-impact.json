@@ -1,0 +1,27 @@
+{
+  "operation": "identify-impact",
+  "userContains": [
+    "Saisir un avoir sur une facture émise"
+  ],
+  "response": {
+    "modules": [
+      "Facturation/API Facturation",
+      "Facturation/Service Avoirs",
+      "Comptabilite/Ecritures",
+      "Comptabilite/Grand Livre",
+      "Facturation/Portail Client"
+    ],
+    "exchanges": [
+      {
+        "from": "Facturation/Service Avoirs",
+        "to": "Comptabilite/Ecritures",
+        "reason": "Informer la comptabilité de l'avoir"
+      },
+      {
+        "from": "Facturation/API Facturation",
+        "to": "Comptabilite/Ecritures",
+        "reason": "Consulter l'état comptable de la facture"
+      }
+    ]
+  }
+}
