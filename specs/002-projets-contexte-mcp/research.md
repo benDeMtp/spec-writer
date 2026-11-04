@@ -205,6 +205,16 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     à l'état DRAFT.
 - **Rationale** : un garde unique, vérifié par ArchUnit, empêche d'oublier le verrou dans un cas
   d'usage futur.
+- **Mise en œuvre (US5)** :
+  - le statut vit dans les colonnes de `session`, mais hors de l'entité JPA. Seul le changement
+    de statut l'écrit (`SessionRepository.saveImplementation`), si bien qu'un enregistrement de la
+    session pendant une opération de l'IA ne peut pas annuler un passage à IMPLEMENTED ;
+  - `SpecificationLock.requireEditable(sessions, id)` relit le statut à chaque appel ;
+  - la liste ArchUnit retire `ImportJiraIssue`, qui crée toujours une nouvelle session, et
+    `ReviseAnswer`, aide d'`AnswerQuestion` qui ne lit pas le dépôt. Elle ajoute
+    `ResolveRelatedIssue` ;
+  - l'évolution passe par `StartSession` dans le projet d'origine. Le besoin est le Markdown de
+    la dernière version, coupé à 10 000 caractères.
 
 ## R8. Suppression locale (FR-014 à FR-019)
 

@@ -1,6 +1,7 @@
 package dev.specwriter.domain.port;
 
 import dev.specwriter.domain.question.Questionnaire;
+import dev.specwriter.domain.session.Implementation;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.session.SessionListing;
 import java.util.List;
@@ -21,4 +22,10 @@ public interface SessionRepository {
     List<SessionListing> list();
 
     void delete(UUID id);
+
+    /** Statut d'implémentation, lu à chaque garde du verrou ; vide si la session n'existe pas. */
+    Optional<Implementation> implementation(UUID sessionId);
+
+    /** Seule écriture du statut : {@link #save} ne le touche pas (research.md R7). */
+    void saveImplementation(UUID sessionId, Implementation implementation);
 }

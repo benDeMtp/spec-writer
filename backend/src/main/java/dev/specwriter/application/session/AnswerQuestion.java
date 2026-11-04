@@ -14,6 +14,7 @@ import dev.specwriter.domain.question.Answer;
 import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SpecificationLock;
 import dev.specwriter.domain.session.SessionState;
 import java.util.List;
 import java.util.UUID;
@@ -52,6 +53,7 @@ public class AnswerQuestion {
     /** {@code value} vide et {@code skip} vrai pour passer la question. */
     public SessionSnapshot run(UUID sessionId, UUID questionId, String value, boolean skip) {
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationLock.requireEditable(sessions, sessionId);
         Questionnaire before = sessions.questionnaire(sessionId).orElseThrow();
         Answer previous = before.question(questionId).map(Question::answer).orElse(null);
         Questionnaire questionnaire = skip ? before.skip(questionId, clock.now()) : before.answer(questionId, value, clock.now());

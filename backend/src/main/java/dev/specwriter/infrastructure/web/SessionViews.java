@@ -13,6 +13,8 @@ import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.QuestionState;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
+import dev.specwriter.domain.session.Implementation;
+import dev.specwriter.domain.session.ImplementationStatus;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.session.SessionRelation;
 import dev.specwriter.domain.session.SessionListing;
@@ -36,7 +38,15 @@ final class SessionViews {
     }
 
     record SessionSummary(UUID id, String name, String state, Instant updatedAt, Integer latestVersion,
-            String jiraKey, boolean readable) {
+            String jiraKey, boolean readable, String implementationStatus) {
+    }
+
+    /** Statut d'implémentation (FR-026) ; {@code evolvedFromSessionId} : spécification d'origine d'une évolution. */
+    record ImplementationView(String status, Instant implementedAt, UUID evolvedFromSessionId) {
+
+        static ImplementationView of(Implementation i) {
+            return new ImplementationView(i.status().name(), i.implementedAt(), i.evolvedFrom());
+        }
     }
 
     record RevisionView(List<String> removed, List<String> added) {
@@ -49,7 +59,8 @@ final class SessionViews {
 
     record SessionDetail(UUID id, UUID projectId, String name, String state, Instant updatedAt, Integer latestVersion,
             String jiraKey, LinkedTicketView linkedTicket, String origin, String need, String language, Progress progress, List<QuestionView> currentBatch,
-            List<QuestionView> answeredQuestions, List<String> warnings, RevisionView revision) {
+            List<QuestionView> answeredQuestions, List<String> warnings, RevisionView revision,
+            ImplementationView implementation) {
     }
 
     record VersionSummary(int number, String origin, Instant createdAt, boolean pushedToJira) {
@@ -91,15 +102,16 @@ final class SessionViews {
     private SessionViews() {
     }
 
-    static SessionSummary summary(Session s, int latestVersion, LinkedJiraTicket ticket) {
+    static SessionSummary summary(Session s, int latestVersion, LinkedJiraTicket ticket, ImplementationStatus status) {
         return new SessionSummary(s.id(), s.name(), s.state().name(), s.updatedAt(),
-                latestVersion == 0 ? null : latestVersion, ticket == null ? null : ticket.issueKey(), true);
+                latestVersion == 0 ? null : latestVersion, ticket == null ? null : ticket.issueKey(), true, status.name());
     }
 
     static SessionSummary summary(ManageSessions.Entry e, LinkedJiraTicket ticket) {
         SessionListing s = e.session();
         return new SessionSummary(s.id(), s.name(), s.state() == null ? null : s.state().name(), s.updatedAt(),
-                e.latestVersion() == 0 ? null : e.latestVersion(), ticket == null ? null : ticket.issueKey(), s.readable());
+                e.latestVersion() == 0 ? null : e.latestVersion(), ticket == null ? null : ticket.issueKey(), s.readable(),
+                s.implementationStatus().name());
     }
 
     static LinkedTicketView ticket(LinkedJiraTicket t) {
@@ -112,6 +124,11 @@ final class SessionViews {
     }
 
     static SessionDetail detail(SessionSnapshot snapshot, int latestVersion, LinkedJiraTicket ticket) {
+        return detail(snapshot, latestVersion, ticket, Implementation.initial());
+    }
+
+    static SessionDetail detail(SessionSnapshot snapshot, int latestVersion, LinkedJiraTicket ticket,
+            Implementation implementation) {
         Session s = snapshot.session();
         Questionnaire q = snapshot.questionnaire();
         List<String> warnings = new ArrayList<>(snapshot.warnings());
@@ -121,7 +138,8 @@ final class SessionViews {
                 ticket == null ? null : ticket.issueKey(), ticket(ticket), s.origin().name(), s.need().text(), s.language().code(), new Progress(p.answered(), p.skipped(), p.total()),
                 q.currentBatch().stream().map(SessionViews::question).toList(),
                 q.treated().stream().map(SessionViews::question).toList(), warnings,
-                new RevisionView(snapshot.revision().removed(), snapshot.revision().added()));
+                new RevisionView(snapshot.revision().removed(), snapshot.revision().added()),
+                ImplementationView.of(implementation));
     }
 
     static QuestionView question(Question q) {

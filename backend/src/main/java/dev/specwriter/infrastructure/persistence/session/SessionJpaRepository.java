@@ -8,6 +8,8 @@ import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.QuestionState;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.question.Questionnaire;
+import dev.specwriter.domain.session.Implementation;
+import dev.specwriter.domain.session.ImplementationStatus;
 import dev.specwriter.domain.session.Language;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
@@ -124,7 +126,8 @@ public class SessionJpaRepository implements SessionRepository {
     @SuppressWarnings("unchecked")
     public List<SessionListing> list() {
         List<Object[]> rows = em.createNativeQuery(
-                "select id, name, need, language, origin, state, covered_themes, updated_at, project_id from session"
+                "select id, name, need, language, origin, state, covered_themes, updated_at, project_id, implementation_status"
+                        + " from session"
                         + " order by updated_at desc").getResultList();
         Set<String> damaged = new HashSet<>();
         List<Object[]> questions = em.createNativeQuery(
@@ -140,8 +143,9 @@ public class SessionJpaRepository implements SessionRepository {
             Instant updatedAt = parseInstant((String) r[7]);
             SessionState state = parseEnum(SessionState.class, (String) r[5]);
             boolean readable = !damaged.contains(id) && state != null && updatedAt != null && readableSession(r);
+            ImplementationStatus status = parseEnum(ImplementationStatus.class, (String) r[9]);
             out.add(new SessionListing(UUID.fromString(id), UUID.fromString((String) r[8]), (String) r[1], state, updatedAt,
-                    readable));
+                    readable, status == null ? ImplementationStatus.DRAFT : status));
         }
         return out;
     }
@@ -221,6 +225,30 @@ public class SessionJpaRepository implements SessionRepository {
         return new Question(id, e.ordinal, QuestionTheme.valueOf(e.theme), e.batch, e.label, e.rationale, e.suggestions,
                 e.defaultValue, e.dependsOn.stream().map(UUID::fromString).toList(), QuestionState.valueOf(e.state),
                 answer);
+    }
+
+    @Override
+    public Optional<Implementation> implementation(UUID sessionId) {
+        List<Object[]> rows = em.createNativeQuery(
+                "select implementation_status, implemented_at, evolved_from_session_id from session where id = ?1")
+                .setParameter(1, sessionId.toString()).getResultList();
+        return rows.stream().findFirst().map(r -> new Implementation(
+                Optional.ofNullable(parseEnum(ImplementationStatus.class, (String) r[0])).orElse(ImplementationStatus.DRAFT),
+                parseInstant((String) r[1]), r[2] == null ? null : UUID.fromString((String) r[2])));
+    }
+
+    @Override
+    @Transactional
+    public void saveImplementation(UUID sessionId, Implementation implementation) {
+        int updated = em.createNativeQuery("update session set implementation_status = ?1, implemented_at = ?2,"
+                + " evolved_from_session_id = ?3 where id = ?4")
+                .setParameter(1, implementation.status().name())
+                .setParameter(2, implementation.implementedAt() == null ? null : implementation.implementedAt().toString())
+                .setParameter(3, implementation.evolvedFrom() == null ? null : implementation.evolvedFrom().toString())
+                .setParameter(4, sessionId.toString()).executeUpdate();
+        if (updated == 0) {
+            throw new DomainException(ErrorCode.NOT_FOUND);
+        }
     }
 
     private static Session toDomain(SessionEntity e) {

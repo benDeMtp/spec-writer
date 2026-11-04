@@ -7,6 +7,7 @@ import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Language;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SpecificationLock;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,6 +32,7 @@ public class ConcludeQuestionnaire {
 
     public SessionSnapshot run(UUID sessionId) {
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationLock.requireEditable(sessions, sessionId);
         Questionnaire questionnaire = sessions.questionnaire(sessionId).orElseThrow().conclude(clock.now());
         session = session.readyToGenerate(clock.now());
         sessions.save(session, questionnaire);

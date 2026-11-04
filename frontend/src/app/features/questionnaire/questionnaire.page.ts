@@ -48,16 +48,22 @@ import { count } from '../../shared/text';
         @for (w of s.warnings; track w) {
           <p class="status warn" role="alert">{{ w }}</p>
         }
+        @if (locked()) {
+          <p class="status warn">
+            Cette spécification est implémentée : ses réponses ne peuvent plus changer, et aucune nouvelle version
+            n'est possible. Rétablissez un statut antérieur, ou créez une évolution, depuis la spécification.
+          </p>
+        }
 
         @if (awaiting(); as r) {
           <sw-related-issues [sessionId]="s.id" [related]="r" (decided)="onDecided($event)" />
         } @else if (s.currentBatch.length) {
           @for (q of s.currentBatch; track q.id) {
-            <sw-question-card [question]="q" [busy]="busy()" (answered)="answer(q.id, $event)" (skipped)="skip(q.id)" />
+            <sw-question-card [question]="q" [busy]="busy() || locked()" (answered)="answer(q.id, $event)" (skipped)="skip(q.id)" />
           }
           <div class="conclude">
             <p class="hint">Vous pouvez terminer à tout moment : les questions restantes seront passées.</p>
-            <button mat-stroked-button type="button" [disabled]="busy()" (click)="conclude()">Terminer le questionnaire</button>
+            <button mat-stroked-button type="button" [disabled]="busy() || locked()" (click)="conclude()">Terminer le questionnaire</button>
           </div>
         } @else {
           <section class="ready" aria-labelledby="ready-title">
@@ -68,7 +74,7 @@ import { count } from '../../shared/text';
               {{ s.progress.answered }} réponse{{ s.progress.answered > 1 ? 's' : '' }} et {{ s.progress.skipped }}
               hypothèse{{ s.progress.skipped > 1 ? 's' : '' }} serviront à rédiger la spécification.
             </p>
-            <button mat-flat-button type="button" [disabled]="busy()" (click)="generate()">
+            <button mat-flat-button type="button" [disabled]="busy() || locked()" (click)="generate()">
               {{ busy() ? 'Rédaction en cours…' : s.latestVersion ? 'Générer à nouveau' : 'Générer la spécification' }}
             </button>
             @if (s.latestVersion) {
@@ -95,7 +101,7 @@ import { count } from '../../shared/text';
                       <textarea matInput rows="3" maxlength="5000" [ngModel]="draft()" (ngModelChange)="draft.set($event)"></textarea>
                     </mat-form-field>
                     <div class="edit-actions">
-                      <button mat-flat-button type="button" [disabled]="busy() || !draft().trim()" (click)="revise(q.id)">
+                      <button mat-flat-button type="button" [disabled]="busy() || locked() || !draft().trim()" (click)="revise(q.id)">
                         Enregistrer la modification
                       </button>
                       <button mat-button type="button" (click)="editing.set(null)">Annuler</button>
@@ -107,7 +113,7 @@ import { count } from '../../shared/text';
                         <span class="badge">Hypothèse</span>
                       }
                     </p>
-                    <button mat-button type="button" [disabled]="busy()" (click)="startEdit(q.id, q.answer)"
+                    <button mat-button type="button" [disabled]="busy() || locked()" (click)="startEdit(q.id, q.answer)"
                       [attr.aria-label]="'Modifier la réponse à : ' + q.label">Modifier</button>
                   }
                 </li>
@@ -221,6 +227,8 @@ export class QuestionnairePage implements OnInit {
   readonly id = input.required<string>();
 
   protected readonly session = signal<SessionDetail | null>(null);
+  /** Implémentée : verrouillée, aucune écriture possible (FR-026a de 002). */
+  protected readonly locked = computed(() => this.session()?.implementation?.status === 'IMPLEMENTED');
   protected readonly busy = signal(false);
   protected readonly busyMessage = signal('');
   protected readonly editing = signal<string | null>(null);

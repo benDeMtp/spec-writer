@@ -2,6 +2,8 @@ package dev.specwriter.infrastructure.web;
 
 import dev.specwriter.application.project.MoveSession;
 import dev.specwriter.application.session.AnswerQuestion;
+import dev.specwriter.application.session.ChangeStatus;
+import dev.specwriter.application.session.EvolveSpecification;
 import dev.specwriter.application.session.ConcludeQuestionnaire;
 import dev.specwriter.application.session.ManageSessions;
 import dev.specwriter.application.session.SessionSnapshot;
@@ -12,6 +14,8 @@ import dev.specwriter.domain.jira.LinkedJiraTicket;
 import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
+import dev.specwriter.domain.session.Implementation;
+import dev.specwriter.domain.session.ImplementationStatus;
 import dev.specwriter.domain.session.Session;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -48,6 +52,9 @@ public class SessionResource {
     public record MoveRequest(String projectId) {
     }
 
+    public record StatusRequest(String status, Boolean confirmUnlock) {
+    }
+
     @Inject
     SessionRepository sessions;
     @Inject
@@ -64,6 +71,10 @@ public class SessionResource {
     ManageSessions manageSessions;
     @Inject
     MoveSession moveSession;
+    @Inject
+    ChangeStatus changeStatus;
+    @Inject
+    EvolveSpecification evolveSpecification;
 
     @GET
     public List<SessionViews.SessionSummary> list() {
@@ -78,7 +89,8 @@ public class SessionResource {
     public SessionViews.SessionSummary rename(@PathParam("id") String id, RenameRequest request) {
         UUID sessionId = Ids.parse(id);
         Session renamed = manageSessions.rename(sessionId, request == null ? null : request.name());
-        return SessionViews.summary(renamed, versions.lastNumber(sessionId), ticket(sessionId));
+        return SessionViews.summary(renamed, versions.lastNumber(sessionId), ticket(sessionId),
+                implementation(sessionId).status());
     }
 
     @DELETE
@@ -103,7 +115,7 @@ public class SessionResource {
         UUID sessionId = Ids.parse(id);
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         return SessionViews.detail(new SessionSnapshot(session, sessions.questionnaire(sessionId).orElseThrow(), List.of()),
-                versions.lastNumber(sessionId), ticket(sessionId));
+                versions.lastNumber(sessionId), ticket(sessionId), implementation(sessionId));
     }
 
     @PUT
@@ -117,7 +129,34 @@ public class SessionResource {
         }
         UUID sessionId = Ids.parse(id);
         SessionSnapshot snapshot = answerQuestion.run(sessionId, Ids.parse(questionId), request.value(), skip);
-        return SessionViews.detail(snapshot, versions.lastNumber(sessionId), ticket(sessionId));
+        return SessionViews.detail(snapshot, versions.lastNumber(sessionId), ticket(sessionId), implementation(sessionId));
+    }
+
+    /** Statut d'implémentation (FR-026) ; quitter « implémentée » exige {@code confirmUnlock}. */
+    @PUT
+    @Path("/{id}/status")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public SessionViews.ImplementationView status(@PathParam("id") String id, StatusRequest request) {
+        if (request == null || request.status() == null) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Le statut est obligatoire.");
+        }
+        ImplementationStatus target;
+        try {
+            target = ImplementationStatus.valueOf(request.status());
+        } catch (IllegalArgumentException e) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Statut inconnu.");
+        }
+        return SessionViews.ImplementationView.of(
+                changeStatus.run(Ids.parse(id), target, Boolean.TRUE.equals(request.confirmUnlock())));
+    }
+
+    /** Évolution d'une spécification : nouvelle session en brouillon, dans le même projet (FR-026b). */
+    @POST
+    @Path("/{id}/evolutions")
+    public Response evolve(@PathParam("id") String id) {
+        SessionSnapshot evolved = evolveSpecification.run(Ids.parse(id));
+        return Response.status(Response.Status.CREATED)
+                .entity(SessionViews.detail(evolved, 0, null, implementation(evolved.session().id()))).build();
     }
 
     /** Déplace la spécification vers un autre projet, avec ses versions (FR-004 de 002). */
@@ -138,7 +177,12 @@ public class SessionResource {
     @Path("/{id}/conclude")
     public SessionViews.SessionDetail conclude(@PathParam("id") String id) {
         UUID sessionId = Ids.parse(id);
-        return SessionViews.detail(concludeQuestionnaire.run(sessionId), versions.lastNumber(sessionId), ticket(sessionId));
+        return SessionViews.detail(concludeQuestionnaire.run(sessionId), versions.lastNumber(sessionId), ticket(sessionId),
+                implementation(sessionId));
+    }
+
+    private Implementation implementation(UUID sessionId) {
+        return sessions.implementation(sessionId).orElseGet(Implementation::initial);
     }
 
     private LinkedJiraTicket ticket(UUID sessionId) {

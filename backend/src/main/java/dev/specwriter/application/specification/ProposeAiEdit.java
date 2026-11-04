@@ -15,6 +15,7 @@ import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SpecificationLock;
 import dev.specwriter.domain.specification.SpecificationContent;
 import dev.specwriter.domain.specification.SpecificationVersion;
 import dev.specwriter.domain.specification.VersionOrigin;
@@ -74,6 +75,7 @@ public class ProposeAiEdit {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "L'instruction doit faire entre 1 et 2 000 caractères.");
         }
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationLock.requireEditable(sessions, sessionId);
         SpecificationVersion base = latest(versions, sessionId);
         consent.requireGranted(ConsentService.COPILOT);
         List<Question> treated = sessions.questionnaire(sessionId).map(Questionnaire::treated).orElse(List.of());

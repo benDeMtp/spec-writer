@@ -18,6 +18,7 @@ import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SpecificationLock;
 import dev.specwriter.domain.session.SessionRelation;
 import java.util.UUID;
 
@@ -79,6 +80,7 @@ public class ResolveRelatedIssue {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "Choisissez LINK_NEW, SAME, DIFFERENT ou NONE.");
         }
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationLock.requireEditable(sessions, sessionId);
         RelatedIssues current = related.find(sessionId)
                 .orElse(new RelatedIssues(RelatedIssues.Status.UNAVAILABLE, java.util.List.of(), null));
         RelatedIssues.Issue issue = decision == Decision.NONE ? null : current.issues().stream()

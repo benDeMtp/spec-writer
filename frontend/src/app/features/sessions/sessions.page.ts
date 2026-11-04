@@ -9,7 +9,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { SessionsApi } from '../../core/sessions/sessions.api';
-import { SessionState, SessionSummary } from '../../core/sessions/sessions.model';
+import { IMPLEMENTATION_LABELS, SessionState, SessionSummary } from '../../core/sessions/sessions.model';
 import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component';
 
 const STATES: Record<SessionState, string> = {
@@ -151,7 +151,11 @@ export class SessionsPage {
 
   protected meta(s: SessionSummary): string {
     const state = STATES[s.state] ?? '';
-    return s.latestVersion ? `${state}, version ${s.latestVersion}` : state;
+    const base = s.latestVersion ? `${state}, version ${s.latestVersion}` : state;
+    // le statut d'implémentation n'est dit qu'au-delà du brouillon (FR-026 de 002)
+    return s.implementationStatus && s.implementationStatus !== 'DRAFT'
+      ? `${base}, ${IMPLEMENTATION_LABELS[s.implementationStatus].toLowerCase()}`
+      : base;
   }
 
   protected startRename(s: SessionSummary): void {

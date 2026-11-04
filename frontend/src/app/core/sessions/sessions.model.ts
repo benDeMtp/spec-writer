@@ -14,6 +14,24 @@ export interface Question {
   answer: string | null;
 }
 
+/** Statut d'implémentation (FR-026 de 002). */
+export type ImplementationStatus = 'DRAFT' | 'READY' | 'IN_PROGRESS' | 'IMPLEMENTED';
+
+export const IMPLEMENTATION_LABELS: Record<ImplementationStatus, string> = {
+  DRAFT: 'Brouillon',
+  READY: 'Prête à implémenter',
+  IN_PROGRESS: 'En cours',
+  IMPLEMENTED: 'Implémentée',
+};
+
+export interface Implementation {
+  status: ImplementationStatus;
+  /** Date du passage à « implémentée ». */
+  implementedAt: string | null;
+  /** Spécification d'origine d'une évolution (FR-026b). */
+  evolvedFromSessionId: string | null;
+}
+
 export interface SessionSummary {
   id: string;
   name: string;
@@ -23,6 +41,8 @@ export interface SessionSummary {
   jiraKey: string | null;
   /** Faux si la sauvegarde est endommagée : la session ne peut plus être ouverte. */
   readable: boolean;
+  /** Absent du détail, qui porte `implementation`. */
+  implementationStatus?: ImplementationStatus;
 }
 
 export type SyncState = 'IN_SYNC' | 'LOCAL_AHEAD' | 'CONFLICT';
@@ -50,6 +70,7 @@ export interface SessionDetail extends SessionSummary {
   warnings: string[];
   /** Effet de la dernière réponse modifiée (FR-007). */
   revision?: { removed: string[]; added: string[] };
+  implementation: Implementation;
 }
 
 export interface VersionSummary {

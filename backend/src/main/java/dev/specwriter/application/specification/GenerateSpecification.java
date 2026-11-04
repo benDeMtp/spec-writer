@@ -17,6 +17,7 @@ import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SpecificationLock;
 import dev.specwriter.domain.specification.InputFingerprint;
 import dev.specwriter.domain.specification.MarkdownRenderer;
 import dev.specwriter.domain.specification.SpecificationContent;
@@ -82,6 +83,7 @@ public class GenerateSpecification {
 
     private Generated generate(UUID sessionId) {
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationLock.requireEditable(sessions, sessionId);
         Questionnaire questionnaire = sessions.questionnaire(sessionId).orElseThrow();
         if (questionnaire.hasPendingContradiction()) {
             throw new DomainException(ErrorCode.CONTRADICTION_UNRESOLVED);
@@ -104,6 +106,8 @@ public class GenerateSpecification {
         SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.nextNumber(sessionId),
                 content, fingerprint, VersionOrigin.GENERATED,
                 MarkdownRenderer.render(content, session.language(), used.selection()), clock.now()).withKnowledge(used);
+        // la feature a pu passer à « implémentée » pendant l'appel au LLM (research.md R7)
+        SpecificationLock.requireEditable(sessions, sessionId);
         versions.save(version);
         sessions.save(session.generated(clock.now()), questionnaire);
         return new Generated(version, false);

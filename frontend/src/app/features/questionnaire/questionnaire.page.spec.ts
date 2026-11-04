@@ -38,6 +38,7 @@ function session(over: Partial<SessionDetail> = {}): SessionDetail {
     currentBatch: [question('q2'), question('q3', { theme: 'CONTRADICTION', suggestions: [], defaultValue: null })],
     answeredQuestions: [question('q1', { state: 'ANSWERED', answer: 'Gagner du temps' })],
     warnings: [],
+    implementation: { status: 'DRAFT', implementedAt: null, evolvedFromSessionId: null },
     ...over,
   };
 }

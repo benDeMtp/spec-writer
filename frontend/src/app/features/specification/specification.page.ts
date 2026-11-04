@@ -1,6 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
 import { Router, RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
@@ -11,6 +13,8 @@ import { ProjectsStore } from '../../core/projects/projects.store';
 import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira.model';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import {
+  IMPLEMENTATION_LABELS,
+  ImplementationStatus,
   Language,
   LinkedTicket,
   SessionDetail,
@@ -57,7 +61,17 @@ const SYNC: Record<SyncState, string> = {
 @Component({
   selector: 'sw-specification-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AiEditPanelComponent, DatePipe, MarkdownComponent, MatButtonModule, RouterLink, ScenarioComponent, VersionsPanelComponent],
+  imports: [
+    AiEditPanelComponent,
+    DatePipe,
+    MarkdownComponent,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    RouterLink,
+    ScenarioComponent,
+    VersionsPanelComponent,
+  ],
   template: `
     @if (spec(); as v) {
       <header class="head">
@@ -75,24 +89,61 @@ const SYNC: Record<SyncState, string> = {
             <span [class]="'sync ' + t.syncState">{{ syncLabel(t.syncState) }}</span>.
           </p>
         }
+        @if (session()?.implementation?.evolvedFromSessionId; as origin) {
+          <p class="meta">Évolution d'une <a [routerLink]="['/sessions', origin]">spécification d'origine</a>.</p>
+        }
         @for (w of warnings(); track $index) {
           <p class="warning">{{ w }}</p>
         }
+        @if (session(); as s) {
+          <div class="implementation">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Statut d'implémentation</mat-label>
+              <mat-select [value]="s.implementation.status" (selectionChange)="changeStatus($event.value)">
+                @for (o of statusOptions; track o.value) {
+                  <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            @if (locked()) {
+              <p id="locked-reason" class="hint">
+                Implémentée le {{ s.implementation.implementedAt | date: 'd MMMM y' }} : cette spécification est
+                verrouillée. Rétablissez un statut antérieur, ou créez une évolution.
+              </p>
+              <button mat-flat-button type="button" (click)="evolve()">Créer une évolution</button>
+            }
+          </div>
+        }
         <div class="actions">
-          <button mat-flat-button type="button" [attr.aria-expanded]="editing()" (click)="toggleEdit()">
+          <button
+            mat-flat-button
+            type="button"
+            [attr.aria-expanded]="editing()"
+            [disabled]="locked()"
+            [attr.aria-describedby]="locked() ? 'locked-reason' : null"
+            (click)="toggleEdit()"
+          >
             Faire évoluer avec l'IA
           </button>
           <button mat-stroked-button type="button" [disabled]="exporting()" (click)="exportMarkdown(v.number)">
             Exporter en Markdown
           </button>
           @if (session()?.linkedTicket) {
-            <button mat-stroked-button type="button" [disabled]="pushing()" (click)="push(v.number)">Envoyer vers Jira</button>
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="pushing() || locked()"
+              [attr.aria-describedby]="locked() ? 'locked-reason' : null"
+              (click)="push(v.number)"
+            >
+              Envoyer vers Jira
+            </button>
           } @else if (session()) {
             <button
               mat-stroked-button
               type="button"
-              [disabled]="!jiraReady() || pushing()"
-              [attr.aria-describedby]="jiraReady() ? null : 'jira-missing'"
+              [disabled]="!jiraReady() || pushing() || locked()"
+              [attr.aria-describedby]="locked() ? 'locked-reason' : jiraReady() ? null : 'jira-missing'"
               (click)="createTicket(v.number)"
             >
               Créer un ticket Jira
@@ -105,7 +156,15 @@ const SYNC: Record<SyncState, string> = {
             <a mat-button [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
           }
           @if (session()) {
-            <button mat-button type="button" (click)="removeVersion(v.number)">Supprimer cette version</button>
+            <button
+              mat-button
+              type="button"
+              [disabled]="locked()"
+              [attr.aria-describedby]="locked() ? 'locked-reason' : null"
+              (click)="removeVersion(v.number)"
+            >
+              Supprimer cette version
+            </button>
             <button mat-button type="button" (click)="removeSpecification()">Supprimer la spécification</button>
           }
         </div>
@@ -116,7 +175,7 @@ const SYNC: Record<SyncState, string> = {
           </p>
         }
         <p role="status" aria-live="polite" class="announce">{{ status() }}</p>
-        @if (editing()) {
+        @if (editing() && !locked()) {
           <sw-ai-edit-panel
             [sessionId]="id()"
             [initialProposal]="mergeProposal()"
@@ -405,6 +464,17 @@ const SYNC: Record<SyncState, string> = {
     .assumptions {
       padding-left: 0;
     }
+    .implementation {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      align-items: center;
+      margin: 0.75rem 0;
+    }
+    .implementation .hint {
+      flex: 1 1 20rem;
+      margin: 0;
+    }
     @media (max-width: 36rem) {
       .facts {
         grid-template-columns: 1fr;
@@ -458,6 +528,12 @@ export class SpecificationPage {
     return this.projects.projects().filter((p) => p.id !== projectId);
   });
   protected readonly language = computed<Language>(() => this.session()?.language ?? 'fr');
+  protected readonly statusOptions = (Object.keys(IMPLEMENTATION_LABELS) as ImplementationStatus[]).map((value) => ({
+    value,
+    label: IMPLEMENTATION_LABELS[value],
+  }));
+  /** Implémentée : aucune nouvelle version, aucun envoi, aucune suppression de version (FR-026a de 002). */
+  protected readonly locked = computed(() => this.session()?.implementation?.status === 'IMPLEMENTED');
   protected readonly functional = computed(() => this.spec()?.requirements.filter((r) => r.category === 'FUNCTIONAL') ?? []);
   protected readonly technical = computed(() => this.spec()?.requirements.filter((r) => r.category === 'TECHNICAL') ?? []);
 
@@ -534,6 +610,45 @@ export class SpecificationPage {
     this.status.set(`Spécification déplacée vers le projet « ${name} ».`);
     this.session.set(await this.api.get(this.id()));
     await this.projects.load();
+  }
+
+  /** Statut d'implémentation ; quitter « implémentée » se confirme, en rappelant sa date (FR-026b de 002). */
+  protected async changeStatus(target: ImplementationStatus): Promise<void> {
+    const session = this.session();
+    if (!session || target === session.implementation.status) {
+      return;
+    }
+    const leaving = session.implementation.status === 'IMPLEMENTED';
+    if (leaving) {
+      const since = session.implementation.implementedAt
+        ? new Date(session.implementation.implementedAt).toLocaleDateString('fr-FR', { dateStyle: 'long' })
+        : '';
+      const confirmed = await this.confirm({
+        title: 'Rétablir un statut antérieur ?',
+        message:
+          `« ${session.name} » a été implémentée le ${since}. Elle redeviendra modifiable, ` +
+          `au statut « ${IMPLEMENTATION_LABELS[target]} ».`,
+        confirm: 'Rétablir',
+      });
+      if (!confirmed) {
+        // le sélecteur reprend la valeur enregistrée
+        this.session.set({ ...session, implementation: { ...session.implementation } });
+        return;
+      }
+    }
+    const implementation = await this.api.setStatus(session.id, target, leaving);
+    this.session.set({ ...session, implementation });
+    this.status.set(`Statut : ${IMPLEMENTATION_LABELS[implementation.status]}.`);
+  }
+
+  /** Évolution : une nouvelle spécification en brouillon, qui part de cette version (FR-026b de 002). */
+  protected async evolve(): Promise<void> {
+    const session = this.session();
+    if (!session || !(await this.consent.ensure('COPILOT'))) {
+      return;
+    }
+    const evolved = await this.api.evolve(session.id);
+    await this.router.navigate(['/sessions', evolved.id]);
   }
 
   /** Suppression d'une version, après une confirmation qui la nomme (FR-014 de 002). Jira n'est pas modifié. */

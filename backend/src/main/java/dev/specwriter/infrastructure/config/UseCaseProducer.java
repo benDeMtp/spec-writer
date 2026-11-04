@@ -12,6 +12,8 @@ import dev.specwriter.application.knowledge.Indexations;
 import dev.specwriter.application.knowledge.CompareWithIssue;
 import dev.specwriter.application.knowledge.FindRelatedIssues;
 import dev.specwriter.application.knowledge.RelatedIssuesStore;
+import dev.specwriter.application.session.ChangeStatus;
+import dev.specwriter.application.session.EvolveSpecification;
 import dev.specwriter.application.session.ResolveRelatedIssue;
 import dev.specwriter.application.jira.RetryRelatedLink;
 import dev.specwriter.domain.port.SessionRelationRepository;
@@ -320,6 +322,19 @@ public class UseCaseProducer {
     @ApplicationScoped
     GetJiraIssue getJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup) {
         return new GetJiraIssue(tracker, jira, markup);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ChangeStatus changeStatus(SessionRepository sessions, ClockPort clock) {
+        return new ChangeStatus(sessions, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    EvolveSpecification evolveSpecification(SessionRepository sessions, SpecificationRepository versions,
+            ProjectRepository projects, StartSession start) {
+        return new EvolveSpecification(sessions, versions, projects, start);
     }
 
     @Produces

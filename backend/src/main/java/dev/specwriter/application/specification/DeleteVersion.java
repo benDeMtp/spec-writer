@@ -8,6 +8,7 @@ import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SpecificationLock;
 import java.util.UUID;
 
 /**
@@ -36,6 +37,7 @@ public class DeleteVersion {
 
     public void run(UUID sessionId, int number) {
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationLock.requireEditable(sessions, sessionId);
         if (operations.running(sessionId)) {
             throw new DomainException(ErrorCode.OPERATION_IN_PROGRESS,
                     "L'IA travaille sur cette spécification. Attendez la fin de l'opération, puis supprimez la version.");

@@ -3,6 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { Proposal } from '../jira/jira.model';
 import {
+  Implementation,
+  ImplementationStatus,
   IssueComparison,
   RelatedDecision,
   RelatedIssues,
@@ -39,6 +41,18 @@ export class SessionsApi {
   /** Suppression locale d'une version ; Jira n'est pas modifié (FR-014 de 002). */
   deleteVersion(id: string, n: number): Promise<void> {
     return firstValueFrom(this.http.delete<void>(`/api/sessions/${encodeURIComponent(id)}/versions/${n}`));
+  }
+
+  /** Quitter « implémentée » demande `confirmUnlock` (FR-026b de 002). */
+  setStatus(id: string, status: ImplementationStatus, confirmUnlock = false): Promise<Implementation> {
+    return firstValueFrom(
+      this.http.put<Implementation>(`/api/sessions/${encodeURIComponent(id)}/status`, { status, confirmUnlock }),
+    );
+  }
+
+  /** Nouvelle spécification en brouillon, à partir de la dernière version (FR-026b de 002). */
+  evolve(id: string): Promise<SessionDetail> {
+    return firstValueFrom(this.http.post<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}/evolutions`, {}));
   }
 
   versions(id: string): Promise<VersionSummary[]> {

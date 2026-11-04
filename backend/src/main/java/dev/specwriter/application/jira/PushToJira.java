@@ -28,6 +28,7 @@ import dev.specwriter.domain.port.WikiMarkup;
 import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SpecificationLock;
 import dev.specwriter.domain.specification.MarkdownRenderer;
 import dev.specwriter.domain.specification.SpecificationContent;
 import dev.specwriter.domain.specification.SpecificationVersion;
@@ -126,6 +127,7 @@ public class PushToJira {
         }
         JiraAccess.Target target = jira.require();
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationLock.requireEditable(sessions, sessionId);
         LinkedJiraTicket ticket = tickets.findBySession(sessionId)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Cette session n'est liée à aucun ticket."));
         SpecificationVersion version = versions.find(sessionId, versionNumber)
@@ -170,6 +172,8 @@ public class PushToJira {
         SpecificationVersion taken = new SpecificationVersion(ids.next(), session.id(), number, content,
                 "jira-import:" + current.key() + ":" + current.updated(), VersionOrigin.JIRA_IMPORT,
                 MarkdownRenderer.render(content, session.language(), used.selection()), clock.now()).withKnowledge(used);
+        // la feature a pu passer à « implémentée » pendant l'appel au LLM (research.md R7)
+        SpecificationLock.requireEditable(sessions, session.id());
         versions.save(taken);
         sessions.save(session.generated(clock.now()), sessions.questionnaire(session.id()).orElseGet(Questionnaire::empty));
         LinkedJiraTicket reimported = ticket.reimported(number, current.updated(), ConflictDetector.hash(current.description()));

@@ -66,8 +66,12 @@ public class StartSession {
     }
 
     public SessionSnapshot run(String needText, String name) {
+        return run(needText, name, CurrentProject.resolve(projects));
+    }
+
+    /** Dans un projet donné : une évolution reste dans le projet de sa spécification d'origine. */
+    public SessionSnapshot run(String needText, String name, Project project) {
         Need need = Need.of(needText);
-        Project project = CurrentProject.resolve(projects);
         Session session = Session.start(ids.next(), project.id(), need, name, clock.now());
         consent.requireGranted(ConsentService.COPILOT);
         if (findRelated != null) {

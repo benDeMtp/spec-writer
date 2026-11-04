@@ -42,28 +42,30 @@ class HexagonalArchitectureTest {
 
     /** La passerelle MCP est un processus à part, sans Quarkus : elle ne parle à l'outil que par HTTP (research.md R1). */
     @ArchTest
-    @ArchIgnore(reason = "T047 : le paquet dev.specwriter.mcp n'existe pas encore")
+    @ArchIgnore(reason = "T056 : le paquet dev.specwriter.mcp n'existe pas encore")
     static final ArchRule passerelleMcpAutonome = noClasses().that().resideInAPackage("dev.specwriter.mcp..")
             .should().dependOnClassesThat().resideInAnyPackage(
                     "dev.specwriter.domain..", "dev.specwriter.application..", "dev.specwriter.infrastructure..");
 
-    /** Cas d'usage qui écrivent dans une session ou ses versions (research.md R7). */
+    /**
+     * Cas d'usage qui écrivent dans une session ou ses versions (research.md R7). {@code ReviseAnswer}
+     * est appelé par {@code AnswerQuestion}, qui garde ; {@code ImportJiraIssue} crée toujours une
+     * nouvelle session.
+     */
     static final Set<String> CAS_D_USAGE_D_ECRITURE = Set.of(
             "dev.specwriter.application.session.AnswerQuestion",
-            "dev.specwriter.application.session.ReviseAnswer",
+            "dev.specwriter.application.session.ResolveRelatedIssue",
             "dev.specwriter.application.session.ConcludeQuestionnaire",
             "dev.specwriter.application.specification.GenerateSpecification",
             "dev.specwriter.application.specification.ProposeAiEdit",
             "dev.specwriter.application.specification.AcceptAiEdit",
             "dev.specwriter.application.jira.PushToJira",
-            "dev.specwriter.application.jira.ImportJiraIssue",
             "dev.specwriter.application.specification.DeleteVersion");
 
     static final String VERROU = "dev.specwriter.domain.session.SpecificationLock";
 
     /** Une feature implémentée est verrouillée : aucun cas d'usage d'écriture ne contourne le garde (FR-026a). */
     @ArchTest
-    @ArchIgnore(reason = "T047 : SpecificationLock n'existe pas encore")
     static final ArchRule ecrituresGardeesParLeVerrou = classes()
             .that(DescribedPredicate.describe("sont des cas d'usage d'écriture",
                     (JavaClass c) -> CAS_D_USAGE_D_ECRITURE.contains(c.getName())))

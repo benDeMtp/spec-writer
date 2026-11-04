@@ -176,15 +176,22 @@ paths:
         '404': { description: 'Spécification (NOT_FOUND) ou projet (PROJECT_NOT_FOUND) introuvable' }
   /api/sessions/{id}/status:
     put:
-      summary: Change le statut d'implémentation (FR-026) ; quitter IMPLEMENTED exige confirmUnlock=true
+      summary: >-
+        Change le statut d'implémentation (FR-026) ; quitter IMPLEMENTED exige confirmUnlock=true.
+        Le détail d'une session (SessionDetail de 001) porte implementation {status, implementedAt,
+        evolvedFromSessionId} ; la liste (SessionSummary) porte implementationStatus. Toute écriture
+        sur une session IMPLEMENTED donne 409 SPECIFICATION_LOCKED.
       requestBody: { content: { application/json: { schema: { type: object, required: [status], properties: { status: { $ref: '#/components/schemas/ImplementationStatus' }, confirmUnlock: { type: boolean } } } } } }
       responses:
         '200': { description: Statut enregistré }
         '409': { description: 'Confirmation requise (UNLOCK_CONFIRMATION_REQUIRED)' }
+        '422': { description: 'Statut inconnu' }
   /api/sessions/{id}/evolutions:
     post:
       summary: Crée une évolution d'une spécification implémentée (FR-026b)
-      responses: { '201': { description: 'Nouvelle session, en DRAFT, qui cite son origine' } }
+      responses:
+        '201': { description: 'Nouvelle session (SessionDetail), en DRAFT, qui cite son origine' }
+        '422': { description: "Aucune version à faire évoluer" }
   /api/sessions/{id}/versions/{n}:
     get:
       summary: >-

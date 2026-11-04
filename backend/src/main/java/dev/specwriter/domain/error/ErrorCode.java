@@ -45,6 +45,11 @@ public enum ErrorCode {
     PROJECT_NOT_FOUND(404, "Ce projet n'existe plus.", ErrorAction.NONE),
     LAST_PROJECT(409, "Le dernier projet restant ne peut pas être supprimé.", ErrorAction.NONE),
     OPERATION_IN_PROGRESS(409, "Une opération de l'IA est en cours. Attendez sa fin, puis réessayez.", ErrorAction.RETRY),
+    SPECIFICATION_LOCKED(409,
+            "Cette spécification est implémentée : elle est verrouillée. Rétablissez un statut antérieur, ou créez une "
+                    + "évolution.", ErrorAction.NONE),
+    UNLOCK_CONFIRMATION_REQUIRED(409, "Confirmez la sortie du statut « implémentée ».", ErrorAction.NONE),
+    TRANSITION_NOT_ALLOWED(409, "Ce changement de statut n'est pas permis.", ErrorAction.NONE),
     CONTEXT_CHANGED(409, "Le contexte du projet a changé depuis cette proposition. Régénérez-la ou gardez la fiche actuelle.",
             ErrorAction.NONE),
 

@@ -437,19 +437,21 @@ stdio, avec le journal.
 
 ### Tests for User Story 5
 
-- [ ] T047 [P] [US5] `BT/domain/session/ImplementationStatusTest.java` et `SpecificationLockTest.java` :
+- [X] T047 [P] [US5] `BT/domain/session/ImplementationStatusTest.java` et `SpecificationLockTest.java` :
   - le tableau des transitions de data-model.md, par rôle (utilisateur ou agent) ;
   - `IMPLEMENTED` exige `confirmUnlock` pour l'utilisateur et est interdit à l'agent ;
   - `implementedAt` est renseigné puis effacé ;
   - `requireEditable` lève `SPECIFICATION_LOCKED`.
   
   Retirer le `@Disabled` des règles ArchUnit de T003.
-- [ ] T048 [P] [US5] `BT/application/specification/LockedSpecificationTest.java` :
+  - Fait : `ImplementationStatusTest` (tableau complet, 15 cas) et `SpecificationLockTest` ; la règle du verrou est active, celle de la passerelle MCP le sera avec T056.
+- [X] T048 [P] [US5] `BT/application/specification/LockedSpecificationTest.java` :
   - sur une session `IMPLEMENTED`, sont refusés avec `SPECIFICATION_LOCKED` : réponse, révision, conclusion, génération, proposition et acceptation IA, envoi, fusion, reprise et import Jira, suppression de version ;
   - la suppression de la session reste possible ;
   - une acceptation IA démarrée avant le passage à `IMPLEMENTED` n'est pas enregistrée ;
   - `EvolveSpecification` crée une session `DRAFT` dans le même projet, avec `evolvedFromSessionId` et le besoin = Markdown de la dernière version ;
   - une nouvelle version ne change jamais le statut (FR-026).
+  - Fait : `LockedSpecificationTest`, plus `ImplementationStatusIT` pour l'API. La reprise de Jira et la fusion passent par `PushToJira` et `AcceptAiEdit`, tous deux gardés.
 - [ ] T049 [P] [US5] `BT/infrastructure/platform/AgentEndpointFileTest.java` :
   - fichier `rw-------` (POSIX) avec `{port, secret}` et un secret de 256 bits ;
   - persistant d'un lancement à l'autre, réécrit à la régénération, supprimé à la désactivation ;
@@ -470,19 +472,21 @@ stdio, avec le journal.
 
 ### Implementation for User Story 5
 
-- [ ] T053 [US5] Écrire la migration (prochain numéro libre) `BR/db/migration/V<n>__implementation_status_agents.sql` :
+- [X] T053 [US5] Écrire la migration (prochain numéro libre) `BR/db/migration/V<n>__implementation_status_agents.sql` :
   - colonnes `session.implementation_status` (`DRAFT` par défaut, `READY`, `IN_PROGRESS`, `IMPLEMENTED`), `implemented_at` et `evolved_from_session_id` (`ON DELETE SET NULL`) ;
   - `settings.agent_access_enabled` (`false` par défaut) ;
   - table `agent_access_log` (`agent_name` de 80 caractères au plus, `operation` `LIST_PROJECTS`|`LIST_FEATURES`|`GET_FEATURE`|`SET_STATUS`|`SEARCH_KNOWLEDGE`, `project_id` et `session_id` en `ON DELETE SET NULL`, `old_status`, `new_status`).
   
   Purge des entrées de plus de 90 jours au démarrage.
-- [ ] T054 [US5] Domaine et application :
+  - Fait : `V13__implementation_status_agents.sql` (V11 n'existe pas, V12 est la dernière appliquée). La purge à 90 jours vient avec le journal (T055).
+- [X] T054 [US5] Domaine et application :
   - `B/domain/session/ImplementationStatus.java` et `SpecificationLock.java` ;
   - garde appelé par tous les cas d'usage d'écriture listés en research.md R7, avec revérification avant enregistrement dans `AcceptAiEdit` et `GenerateSpecification` ;
   - cas d'usage `ChangeStatus` (utilisateur) et `EvolveSpecification` ;
   - ressources `PUT /api/sessions/{id}/status` et `POST /api/sessions/{id}/evolutions`.
   
   Faire passer T047 et T048.
+  - Fait : le statut est rangé hors de l'entité `Session` (research.md R7) ; `ChangeStatus`, `EvolveSpecification`, `PUT /status` et `POST /evolutions`.
 - [ ] T055 [US5] Accès des agents :
   - `B/infrastructure/platform/AgentEndpointFile.java` (écriture au démarrage, régénération, suppression) ;
   - `B/infrastructure/web/AgentSecretFilter.java` (Bearer, refus de tout `Origin`, temps constant, chemin `/api/agent/**` seulement), et exclusion de `/api/agent/**` dans `LocalSecurityFilter` pour le cookie, sans affaiblir le contrôle `Host` ;

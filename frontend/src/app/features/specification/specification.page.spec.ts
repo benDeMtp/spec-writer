@@ -5,6 +5,7 @@ import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { Router, provideRouter } from '@angular/router';
 import { provideMarkdown } from 'ngx-markdown';
 import { SessionDetail, Specification } from '../../core/sessions/sessions.model';
+import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { SpecificationPage } from './specification.page';
 
 const SESSION = {
@@ -24,6 +25,7 @@ const SESSION = {
   currentBatch: [],
   answeredQuestions: [],
   warnings: [],
+  implementation: { status: 'DRAFT', implementedAt: null, evolvedFromSessionId: null },
 } as SessionDetail;
 
 const ADR = 'http://docs/facturation/adr/adr-005.html';
@@ -211,5 +213,50 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     ctrl.expectOne({ method: 'DELETE', url: '/api/sessions/s1' }).flush(null);
     await settle();
     expect(navigate).toHaveBeenCalledWith(['/sessions']);
+  });
+
+  const implemented = {
+    ...SESSION,
+    implementation: { status: 'IMPLEMENTED', implementedAt: '2026-11-02T10:00:00Z', evolvedFromSessionId: null },
+  } as SessionDetail;
+
+  it('implémentée : actions verrouillées avec leur raison, et « Créer une évolution »', async () => {
+    vi.spyOn(TestBed.inject(ConsentGate), 'ensure').mockResolvedValue(true);
+    await open(implemented, [{ number: 1 }]);
+    const reason = el.querySelector('#locked-reason')!;
+    // le mois dépend de la locale du test
+    expect(text(reason)).toMatch(/Implémentée le 2 \S+ 2026 : cette spécification est verrouillée\./);
+    for (const label of ["Faire évoluer avec l'IA", 'Créer un ticket Jira', 'Supprimer cette version']) {
+      expect(button(label).disabled).toBe(true);
+      expect(button(label).getAttribute('aria-describedby')).toBe('locked-reason');
+    }
+    expect(button('Supprimer la spécification').disabled).toBe(false);
+
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    button('Créer une évolution').click();
+    await settle();
+    ctrl.expectOne({ method: 'POST', url: '/api/sessions/s1/evolutions' }).flush({ ...SESSION, id: 's2' });
+    await settle();
+    expect(navigate).toHaveBeenCalledWith(['/sessions', 's2']);
+  });
+
+  it('quitter « implémentée » demande une confirmation qui rappelle la date', async () => {
+    await open(implemented, [{ number: 1 }]);
+    (el.querySelector('.mat-mdc-select-trigger') as HTMLElement).click();
+    await settle();
+    (Array.from(document.querySelectorAll('mat-option')).find((o) => o.textContent?.includes('En cours')) as HTMLElement).click();
+    await settle();
+    const dialog = document.querySelector('mat-dialog-container')!;
+    expect(dialog.textContent).toContain('Rétablir un statut antérieur ?');
+    expect(dialog.textContent).toContain('a été implémentée le 2 novembre 2026');
+    confirmButton('Rétablir').click();
+    await settle();
+    const req = ctrl.expectOne({ method: 'PUT', url: '/api/sessions/s1/status' });
+    expect(req.request.body).toEqual({ status: 'IN_PROGRESS', confirmUnlock: true });
+    req.flush({ status: 'IN_PROGRESS', implementedAt: null, evolvedFromSessionId: null });
+    await settle();
+    expect(el.querySelector('#locked-reason')).toBeNull();
+    expect(button("Faire évoluer avec l'IA").disabled).toBe(false);
+    expect(el.querySelector('.announce')?.textContent).toContain('Statut : En cours.');
   });
 });

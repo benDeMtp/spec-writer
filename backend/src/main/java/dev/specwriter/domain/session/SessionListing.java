@@ -8,5 +8,5 @@ import java.util.UUID;
  * listée, marquée illisible, sans empêcher l'accès aux autres (edge case « fichier corrompu »).
  */
 public record SessionListing(UUID id, UUID projectId, String name, SessionState state, Instant updatedAt,
-        boolean readable) {
+        boolean readable, ImplementationStatus implementationStatus) {
 }
