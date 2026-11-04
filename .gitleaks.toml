@@ -8,5 +8,5 @@ description = "Jeton GitHub (OAuth, App, PAT fine-grained)"
 regex = '''\b(gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}\b|\bgithub_pat_[A-Za-z0-9_]{40,}\b'''
 
 [allowlist]
-description = "Jetons factices des tests"
-regexes = ['''gho_TEST''', '''ghu_TEST''', '''TEST-JIRA-PAT''']
+description = "Jetons factices des tests, et nom de module du jeu fictif pris pour une clé d'API"
+regexes = ['''gho_TEST''', '''ghu_TEST''', '''TEST-JIRA-PAT''', '''^Facturation/API$''']
