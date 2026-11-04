@@ -56,6 +56,18 @@ architecture hexagonale, SQLite + FTS5, Copilot SDK, Jira Server/DC 8.14+, Angul
     agent, et inversement ;
   - désactiver l'accès supprime le fichier et invalide le secret en mémoire ; régénérer réécrit le
     fichier.
+- **Mise en œuvre (US5)** :
+  - le secret ne vit que dans `agent-endpoint.json`, écrit par un fichier temporaire `rw-------`
+    renommé. Au démarrage, l'outil réutilise le secret du fichier et réécrit le port ;
+  - `AgentSecretFilter` répond 401 `AGENT_ACCESS_DENIED` sans secret valide et 403 avec un
+    `Origin` ou un hôte étranger. `LocalSecurityFilter` laisse `/api/agent/**` à ce filtre après
+    son contrôle `Host` ;
+  - la passerelle parle en HTTP/1.1 : une montée en h2c du client Java remplacerait `Host` par
+    `:authority`, et l'outil refuserait la requête ;
+  - la commande affichée dans Configuration est le lanceur `spec-writer-mcp` de l'application
+    installée, sinon `java -cp` avec le jar (uber-jar) ou `quarkus-app/app/*` et `lib/main/*`
+    (fast-jar). L'E2E lance exactement cette commande ;
+  - un accès à une feature introuvable n'est pas consigné : il n'y a rien à nommer.
 - **Rationale** : la protection équivaut à celle de la base (même compte, même dossier). Aucun
   secret n'est recopié dans un `.mcp.json` versionnable. Un programme ou une page web qui joint
   `127.0.0.1` sans lire le fichier est refusé.

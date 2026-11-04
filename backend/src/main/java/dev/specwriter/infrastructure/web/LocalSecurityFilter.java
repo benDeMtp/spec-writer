@@ -42,6 +42,10 @@ public class LocalSecurityFilter implements ContainerRequestFilter {
             deny(ctx, ErrorCode.FORBIDDEN);
             return;
         }
+        if (AgentSecretFilter.isAgentPath(normalized)) {
+            // l'API des agents a son propre contrôle (AgentSecretFilter) : secret, jamais de cookie
+            return;
+        }
         String method = ctx.getMethod().toUpperCase(Locale.ROOT);
         String origin = ctx.getHeaderString("Origin");
         boolean unsafe = !SAFE_METHODS.contains(method);

@@ -67,6 +67,14 @@ describe('SettingsPage', () => {
     ctrl.match('/api/settings/embedding').forEach((r) =>
       r.flush({ state: 'READY', modelId: 'multilingual-e5-small', problem: null, defaultModel: true, folder: null, pooling: 'MEAN', queryPrefix: null, passagePrefix: null }),
     );
+    // la carte des agents charge son état ; elle est testée à part
+    ctrl.match('/api/settings/agent-access').forEach((r) =>
+      r.flush({ enabled: false, command: 'spec-writer-mcp', mcpJson: '{}' }),
+    );
+    await settle(fixture);
+    ctrl.match((r) => r.url === '/api/settings/agent-access/log').forEach((r) =>
+      r.flush({ startAt: 0, total: 0, entries: [] }),
+    );
     await settle(fixture);
   }
 

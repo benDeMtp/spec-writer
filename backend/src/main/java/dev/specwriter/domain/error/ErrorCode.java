@@ -7,6 +7,8 @@ package dev.specwriter.domain.error;
 public enum ErrorCode {
     // Sécurité locale
     FORBIDDEN(403, "Accès refusé. Rouvrez l'application depuis son lanceur.", ErrorAction.NONE),
+    AGENT_ACCESS_DENIED(401, "Accès des agents refusé : activez-le dans la configuration, ou relancez la passerelle.",
+            ErrorAction.NONE),
     UNSUPPORTED_MEDIA_TYPE(415, "Format de requête non pris en charge.", ErrorAction.NONE),
     NOT_FOUND(404, "Élément introuvable.", ErrorAction.NONE),
     VALIDATION_FAILED(422, "Certaines informations saisies ne sont pas valides.", ErrorAction.EDIT_INPUT),

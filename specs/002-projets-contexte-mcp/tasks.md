@@ -452,11 +452,12 @@ stdio, avec le journal.
   - `EvolveSpecification` crée une session `DRAFT` dans le même projet, avec `evolvedFromSessionId` et le besoin = Markdown de la dernière version ;
   - une nouvelle version ne change jamais le statut (FR-026).
   - Fait : `LockedSpecificationTest`, plus `ImplementationStatusIT` pour l'API. La reprise de Jira et la fusion passent par `PushToJira` et `AcceptAiEdit`, tous deux gardés.
-- [ ] T049 [P] [US5] `BT/infrastructure/platform/AgentEndpointFileTest.java` :
+- [X] T049 [P] [US5] `BT/infrastructure/platform/AgentEndpointFileTest.java` :
   - fichier `rw-------` (POSIX) avec `{port, secret}` et un secret de 256 bits ;
   - persistant d'un lancement à l'autre, réécrit à la régénération, supprimé à la désactivation ;
   - absent des journaux. Étendre `E/secrets-at-rest.spec.ts` pour qu'il ne le trouve ni dans la base ni dans les journaux.
-- [ ] T050 [P] [US5] `BT/infrastructure/web/AgentResourceIT.java` :
+  - Fait : `AgentEndpointFileTest` (droits, persistance, régénération, retrait, aucun fichier temporaire laissé) ; `secrets-at-rest.spec.ts` cherche le secret dans le dossier de données et le journal.
+- [X] T050 [P] [US5] `BT/infrastructure/web/AgentResourceIT.java` :
   - contrat `/api/agent/**` : la liste des features ne contient que `READY` et `IN_PROGRESS` avec au moins une version ;
   - `get_feature` renvoie un Markdown identique à l'export (SC-007) et `knowledge` (fiche générale, ADR et modules de la sélection enregistrée avec la version, research.md R26) ;
   - `GET /api/agent/projects/{id}/knowledge` : 10 éléments au plus, extraits de 600 caractères, aucune requête vers Jira ni vers le LLM, requête non consignée ;
@@ -464,11 +465,14 @@ stdio, avec le journal.
   - journal `agent_access_log`, sans contenu ;
   - **refus** : sans secret, avec l'ancien secret, avec un en-tête `Origin`, avec le cookie `sw_launch` seul, et secret présenté à `/api/**` (SC-008) ;
   - comparaison à temps constant (`MessageDigest.isEqual`).
-- [ ] T051 [P] [US5] `BT/mcp/McpBridgeTest.java` : échanges JSON-RPC enregistrés pour `initialize` (`protocolVersion` `2025-06-18`, `capabilities.tools`), `notifications/initialized` sans réponse, `ping`, `tools/list` (5 outils, dont `search_knowledge`, et leurs `inputSchema`), `tools/call` de chaque outil vers un serveur HTTP de test, et méthode inconnue (`-32601`). Il vérifie aussi :
+  - Fait : `AgentResourceIT` (contrat, journal, refus) et `AgentFeaturesTest` pour la connaissance remise (ADR, modules et relations, fiche générale) ; l'absence d'appel à Jira pendant la recherche est vérifiée en E2E.
+- [X] T051 [P] [US5] `BT/mcp/McpBridgeTest.java` : échanges JSON-RPC enregistrés pour `initialize` (`protocolVersion` `2025-06-18`, `capabilities.tools`), `notifications/initialized` sans réponse, `ping`, `tools/list` (5 outils, dont `search_knowledge`, et leurs `inputSchema`), `tools/call` de chaque outil vers un serveur HTTP de test, et méthode inconnue (`-32601`). Il vérifie aussi :
   - le fichier absent donne `SPEC_WRITER_UNAVAILABLE` ;
   - après un 401, le fichier est relu et la requête retentée une seule fois ;
   - stdout ne contient que du JSON-RPC, et stderr ne contient ni secret ni contenu.
-- [ ] T052 [P] [US5] E2E `E/us11-agents.spec.ts` et le client de test `e2e/mcp-client.ts`, qui lance `java -cp backend/target/spec-writer-runner.jar dev.specwriter.mcp.McpBridge` avec le dossier de données de l'E2E. Scénarios quickstart P11 et P12 avec axe : verrou et évolution, activation, appels MCP, journal, régénération, puis refus.
+  - Fait : `McpBridgeTest`, avec un `HttpServer` du JDK.
+- [X] T052 [P] [US5] E2E `E/us11-agents.spec.ts` et le client de test `e2e/mcp-client.ts`, qui lance `java -cp backend/target/spec-writer-runner.jar dev.specwriter.mcp.McpBridge` avec le dossier de données de l'E2E. Scénarios quickstart P11 et P12 avec axe : verrou et évolution, activation, appels MCP, journal, régénération, puis refus.
+  - Fait : `us11-agents.spec.ts` lance la commande de l'extrait affiché dans Configuration (P11, P12).
 
 ### Implementation for User Story 5
 
@@ -487,23 +491,26 @@ stdio, avec le journal.
   
   Faire passer T047 et T048.
   - Fait : le statut est rangé hors de l'entité `Session` (research.md R7) ; `ChangeStatus`, `EvolveSpecification`, `PUT /status` et `POST /evolutions`.
-- [ ] T055 [US5] Accès des agents :
+- [X] T055 [US5] Accès des agents :
   - `B/infrastructure/platform/AgentEndpointFile.java` (écriture au démarrage, régénération, suppression) ;
   - `B/infrastructure/web/AgentSecretFilter.java` (Bearer, refus de tout `Origin`, temps constant, chemin `/api/agent/**` seulement), et exclusion de `/api/agent/**` dans `LocalSecurityFilter` pour le cookie, sans affaiblir le contrôle `Host` ;
   - cas d'usage `B/application/agent/` `ListProjectsForAgent`, `ListFeatures`, `GetFeature` (avec la connaissance enregistrée), `SearchKnowledgeForAgent` (recherche locale, sans synchronisation) et `AgentChangeStatus`, avec un port `AgentAccessLog` ;
   - ressources `AgentResource` et `/api/settings/agent-access*` (état, commande et extrait `mcpJson` sans secret, activation, régénération, journal paginé).
   
   Faire passer T049 et T050.
-- [ ] T056 [US5] Passerelle `B/mcp/` :
+  - Fait : port `AgentAccessRepository` (réglage et journal) et `AgentEndpoint` ; code `AGENT_ACCESS_DENIED` (401) ; purge à 90 jours dans `ManageAgentAccess.startup`.
+- [X] T056 [US5] Passerelle `B/mcp/` :
   - `McpBridge.java` (`main`, sans Quarkus ni CDI) : lecture de `agent-endpoint.json` selon la résolution du dossier de données de `UserDirectories`, dupliquée sans dépendance pour respecter la règle ArchUnit de T003 ;
   - `JsonRpc.java` (lecture ligne à ligne de stdin, écriture sur stdout) ;
   - `Tools.java` (les 5 outils de `contracts/mcp-tools.md`, un client `java.net.http`) ;
   - le nom `clientInfo.name` est transmis dans l'en-tête `X-Agent-Name`, tronqué à 80 caractères.
   
   Faire passer T051. Ajouter le lanceur `spec-writer-mcp` dans `jreleaser.yml` (`jpackage` `--add-launcher`, main `dev.specwriter.mcp.McpBridge`).
-- [ ] T057 [P] [US5] Front :
+  - Fait : `McpBridge`, `JsonRpc` et `Tools` ; HTTP/1.1 imposé (research.md R2) ; lanceur déclaré par `dist/launchers/spec-writer-mcp.properties`. La règle ArchUnit de la passerelle est active.
+- [X] T057 [P] [US5] Front :
   - statut d'implémentation sur la page de spécification (sélecteur, confirmation pour quitter « implémentée », actions verrouillées avec leur raison, « Créer une évolution ») et dans la liste des sessions ;
   - carte « Accès des agents » dans `F/features/settings/` : activation, commande et extrait `mcpJson` à copier, « Régénérer le secret » avec confirmation, journal paginé avec `pager.component`.
+  - Fait : statut, verrou et évolution sur la spécification et le questionnaire ; carte « Accès des agents ».
 
 **Checkpoint** : les 5 stories sont utilisables.
 

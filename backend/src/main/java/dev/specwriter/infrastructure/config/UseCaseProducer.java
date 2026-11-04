@@ -1,7 +1,17 @@
 package dev.specwriter.infrastructure.config;
 
+import dev.specwriter.domain.port.AgentAccessRepository;
+import dev.specwriter.domain.port.AgentEndpoint;
 import dev.specwriter.domain.port.DocumentationReader;
 import dev.specwriter.domain.port.DocSourceRepository;
+import dev.specwriter.application.agent.AgentChangeStatus;
+import dev.specwriter.application.agent.AgentJournal;
+import dev.specwriter.application.agent.FeatureKnowledge;
+import dev.specwriter.application.agent.GetFeature;
+import dev.specwriter.application.agent.ListFeatures;
+import dev.specwriter.application.agent.ListProjectsForAgent;
+import dev.specwriter.application.agent.ManageAgentAccess;
+import dev.specwriter.application.agent.SearchKnowledgeForAgent;
 import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.knowledge.AnalyzeArchitecture;
@@ -322,6 +332,50 @@ public class UseCaseProducer {
     @ApplicationScoped
     GetJiraIssue getJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup) {
         return new GetJiraIssue(tracker, jira, markup);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AgentJournal agentJournal(AgentAccessRepository access, ClockPort clock, IdGenerator ids) {
+        return new AgentJournal(access, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageAgentAccess manageAgentAccess(AgentAccessRepository access, AgentEndpoint endpoint, ClockPort clock) {
+        return new ManageAgentAccess(access, endpoint, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ListProjectsForAgent listProjectsForAgent(ProjectRepository projects, AgentJournal journal) {
+        return new ListProjectsForAgent(projects, journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ListFeatures listFeatures(ProjectRepository projects, SessionRepository sessions, SpecificationRepository versions,
+            AgentJournal journal) {
+        return new ListFeatures(projects, sessions, versions, journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    GetFeature getFeature(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProjectRepository projects, KnowledgeIndex index, AgentJournal journal) {
+        return new GetFeature(sessions, versions, tickets, new FeatureKnowledge(projects, index), journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SearchKnowledgeForAgent searchKnowledgeForAgent(KnowledgeQueries queries) {
+        return new SearchKnowledgeForAgent(queries);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AgentChangeStatus agentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal) {
+        return new AgentChangeStatus(sessions, clock, journal);
     }
 
     @Produces

@@ -7,7 +7,6 @@ import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
-import com.tngtech.archunit.junit.ArchIgnore;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
@@ -42,7 +41,6 @@ class HexagonalArchitectureTest {
 
     /** La passerelle MCP est un processus à part, sans Quarkus : elle ne parle à l'outil que par HTTP (research.md R1). */
     @ArchTest
-    @ArchIgnore(reason = "T056 : le paquet dev.specwriter.mcp n'existe pas encore")
     static final ArchRule passerelleMcpAutonome = noClasses().that().resideInAPackage("dev.specwriter.mcp..")
             .should().dependOnClassesThat().resideInAnyPackage(
                     "dev.specwriter.domain..", "dev.specwriter.application..", "dev.specwriter.infrastructure..");
