@@ -13,7 +13,29 @@ public interface DocumentationReader {
     record Page(String ref, String title, String text) {
     }
 
-    enum UnreadReason { UNREACHABLE, NOT_ANTORA, HTTP_ERROR, TOO_LARGE, REDIRECT_OTHER_HOST, LIMIT_REACHED }
+    enum UnreadReason {
+        UNREACHABLE, NOT_ANTORA, HTTP_ERROR, TOO_LARGE, REDIRECT_OTHER_HOST, LIMIT_REACHED,
+        /** Dossier : il n'existe plus. */
+        FOLDER_NOT_FOUND,
+        /** Dossier : le chemin désigne un fichier. */
+        NOT_A_FOLDER,
+        /** Dossier, sous-dossier ou fichier que l'utilisateur n'a pas le droit de lire. */
+        ACCESS_DENIED,
+        /** Fichier qui n'a pas pu être lu pour une autre raison. */
+        UNREADABLE,
+        /** Dossier sans aucune page HTML. */
+        NO_HTML,
+        /** Dossier de sources AsciiDoc ({@code .adoc}) au lieu du site généré par Antora. */
+        ADOC_SOURCES
+    }
+
+    /** Pages annoncées par une source et, si elle n'en annonce aucune, pourquoi. */
+    record Availability(int pages, UnreadReason problem) {
+
+        public static Availability of(int pages) {
+            return new Availability(pages, null);
+        }
+    }
 
     /** Page ou source non lue, avec son motif et le code HTTP reçu ({@code null} sans réponse). */
     record Unread(String location, UnreadReason reason, Integer httpStatus) {
@@ -46,8 +68,8 @@ public interface DocumentationReader {
         }
     }
 
-    /** Nombre de pages annoncées par le sitemap ou le dossier, sans les lire (FR-013b). */
-    int count(DocSource source);
+    /** Pages annoncées par le sitemap ou le dossier, sans les lire (FR-013b), ou le motif de leur absence. */
+    Availability count(DocSource source);
 
     default Result read(DocSource source) {
         return read(source, Listener.NONE);

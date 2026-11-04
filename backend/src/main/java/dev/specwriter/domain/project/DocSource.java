@@ -70,15 +70,30 @@ public record DocSource(UUID id, UUID projectId, Kind kind, String location, Ins
                 "Le lien doit être une adresse http ou https complète, sans identifiant ni mot de passe.");
     }
 
+    /** Le refus dit ce qui ne va pas : chemin relatif, absent, fichier ou illisible. */
     private static String validFolder(String value) {
+        Path path;
         try {
-            Path path = Path.of(value);
-            if (!path.isAbsolute() || !Files.isDirectory(path)) {
-                throw new DomainException(ErrorCode.VALIDATION_FAILED, "Le dossier doit être un chemin absolu qui existe.");
-            }
-            return value;
+            path = Path.of(value);
         } catch (InvalidPathException e) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Le dossier doit être un chemin absolu qui existe.");
+            throw invalidFolder("Ce chemin n'est pas valide : " + value);
         }
+        if (!path.isAbsolute()) {
+            throw invalidFolder("Le dossier doit être un chemin absolu (par exemple /Users/moi/site).");
+        }
+        if (!Files.exists(path)) {
+            throw invalidFolder("Ce dossier n'existe pas : " + value);
+        }
+        if (!Files.isDirectory(path)) {
+            throw invalidFolder("Ce chemin désigne un fichier, pas un dossier : " + value);
+        }
+        if (!Files.isReadable(path) || !Files.isExecutable(path)) {
+            throw invalidFolder("Droits insuffisants pour lire ce dossier : " + value);
+        }
+        return value;
+    }
+
+    private static DomainException invalidFolder(String message) {
+        return new DomainException(ErrorCode.VALIDATION_FAILED, message);
     }
 }

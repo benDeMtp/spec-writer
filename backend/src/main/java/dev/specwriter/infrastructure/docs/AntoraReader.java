@@ -5,8 +5,11 @@ import dev.specwriter.domain.port.DocumentationReader;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.infrastructure.platform.ProxySettings;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
@@ -89,11 +92,12 @@ public class AntoraReader implements DocumentationReader {
     }
 
     @Override
-    public int count(DocSource source) {
+    public Availability count(DocSource source) {
         if (source.kind() == DocSource.Kind.FOLDER) {
-            return htmlFiles(Path.of(source.location())).size();
+            FolderScan scan = scan(Path.of(source.location()));
+            return scan.html().isEmpty() ? new Availability(0, scan.problem()) : Availability.of(scan.html().size());
         }
-        return sitemapPages(root(source)).map(List::size).orElse(0);
+        return Availability.of(sitemapPages(root(source)).map(List::size).orElse(0));
     }
 
     @Override
@@ -292,7 +296,12 @@ public class AntoraReader implements DocumentationReader {
         List<Page> pages = new ArrayList<>();
         List<Unread> unread = new ArrayList<>();
         boolean stopped = false;
-        List<Path> files = htmlFiles(folder);
+        FolderScan scan = scan(folder);
+        if (scan.html().isEmpty() && scan.problem() != UnreadReason.NO_HTML && scan.problem() != UnreadReason.ADOC_SOURCES) {
+            return new Result(List.of(), List.of(new Unread(folder.toString(), scan.problem())));
+        }
+        unread.addAll(scan.unreadable());
+        List<Path> files = scan.html();
         for (Path file : files) {
             String ref = folder.relativize(file).toString().replace('\\', '/');
             if (listener.cancelled()) {
@@ -311,21 +320,64 @@ public class AntoraReader implements DocumentationReader {
                 String body = Files.readString(file, StandardCharsets.UTF_8);
                 page(ref, body, file.toUri().toString()).ifPresentOrElse(pages::add,
                         () -> unread.add(new Unread(ref, UnreadReason.NOT_ANTORA)));
+            } catch (AccessDeniedException e) {
+                unread.add(new Unread(ref, UnreadReason.ACCESS_DENIED));
             } catch (IOException e) {
-                unread.add(new Unread(ref, UnreadReason.UNREACHABLE));
+                unread.add(new Unread(ref, UnreadReason.UNREADABLE));
             }
         }
         return result(pages, unread, stopped, null);
     }
 
-    private static List<Path> htmlFiles(Path folder) {
-        try (Stream<Path> files = Files.walk(folder)) {
-            return files.filter(Files::isRegularFile)
-                    .filter(f -> f.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".html"))
-                    .sorted().toList();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    /**
+     * Pages HTML du dossier, sous-dossiers illisibles (signalés sans arrêter le parcours) et, sans
+     * aucune page, le motif : dossier absent, fichier, illisible, sources AsciiDoc ou vide.
+     */
+    record FolderScan(List<Path> html, List<Unread> unreadable, UnreadReason problem) {
+    }
+
+    static FolderScan scan(Path folder) {
+        if (!Files.exists(folder)) {
+            return new FolderScan(List.of(), List.of(), UnreadReason.FOLDER_NOT_FOUND);
         }
+        if (!Files.isDirectory(folder)) {
+            return new FolderScan(List.of(), List.of(), UnreadReason.NOT_A_FOLDER);
+        }
+        List<Path> html = new ArrayList<>();
+        List<Unread> unreadable = new ArrayList<>();
+        boolean[] adoc = {false};
+        try {
+            Files.walkFileTree(folder, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    Path fileName = file.getFileName();
+                    String name = fileName == null ? "" : fileName.toString().toLowerCase(Locale.ROOT);
+                    if (attrs.isRegularFile() && name.endsWith(".html")) {
+                        html.add(file);
+                    } else if (name.endsWith(".adoc")) {
+                        adoc[0] = true;
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException e) {
+                    unreadable.add(new Unread(folder.relativize(file).toString().replace('\\', '/'),
+                            e instanceof AccessDeniedException ? UnreadReason.ACCESS_DENIED : UnreadReason.UNREADABLE));
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            return new FolderScan(List.of(), List.of(), e instanceof AccessDeniedException ? UnreadReason.ACCESS_DENIED
+                    : UnreadReason.UNREADABLE);
+        }
+        html.sort(null);
+        UnreadReason problem = null;
+        if (html.isEmpty()) {
+            boolean rootDenied = unreadable.stream().anyMatch(u -> u.location().isEmpty());
+            problem = rootDenied ? UnreadReason.ACCESS_DENIED : adoc[0] ? UnreadReason.ADOC_SOURCES : UnreadReason.NO_HTML;
+        }
+        return new FolderScan(List.copyOf(html), List.copyOf(unreadable), problem);
     }
 
     // ---------- Contenu ----------

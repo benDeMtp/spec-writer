@@ -83,6 +83,13 @@ class ContextSourcesTest {
     }
 
     @Test
+    void apercuDonneLeMotifDuLecteur() {
+        manage.add(project.id(), DocSource.Kind.URL, DOWN);
+        w.docs.problems.put(DOWN, UnreadReason.ADOC_SOURCES);
+        assertThat(preview.run(project.id()).unreadable()).containsExactly(new Unread(DOWN, UnreadReason.ADOC_SOURCES));
+    }
+
+    @Test
     void apercuSansJiraAutorise() {
         JiraWorld bare = new JiraWorld().configureJira();
         bare.projects.save(project);

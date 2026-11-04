@@ -106,7 +106,7 @@ class AntoraReaderTest {
     @Test
     void indexDeSitemapsPuisPagesArticleDocSeulement() {
         DocSource source = url(base() + "/antora/");
-        assertThat(reader.count(source)).isEqualTo(32);
+        assertThat(reader.count(source)).isEqualTo(DocumentationReader.Availability.of(32));
 
         Result r = reader.read(source);
         assertThat(r.pages()).hasSize(30).extracting(Page::ref).contains(base() + "/antora/billing/regle-tva.html");
@@ -179,11 +179,52 @@ class AntoraReaderTest {
     @Test
     void dossierLocalDuSiteGenere() {
         DocSource source = DocSource.create(UUID.randomUUID(), UUID.randomUUID(), DocSource.Kind.FOLDER, folder.toString());
-        assertThat(reader.count(source)).isEqualTo(31);
+        assertThat(reader.count(source)).isEqualTo(DocumentationReader.Availability.of(31));
         Result r = reader.read(source);
         assertThat(r.pages()).hasSize(30);
         assertThat(r.pages()).extracting(Page::ref).contains("billing/glossaire-avoir.html");
         assertThat(r.unread()).containsExactly(new Unread("billing/recherche.html", UnreadReason.NOT_ANTORA));
+    }
+
+    /** Un dossier sans site généré dit pourquoi : sources AsciiDoc, aucune page, absent ou illisible. */
+    @Test
+    void dossierSansSiteGenereMotifPrecis(@org.junit.jupiter.api.io.TempDir Path tmp) throws IOException {
+        Path sources = Files.createDirectories(tmp.resolve("docs/modules/ROOT/pages"));
+        Files.writeString(sources.resolve("index.adoc"), "= Accueil");
+        assertThat(reader.count(folderSource(tmp.resolve("docs"))))
+                .isEqualTo(new DocumentationReader.Availability(0, UnreadReason.ADOC_SOURCES));
+        Path empty = Files.createDirectories(tmp.resolve("vide"));
+        assertThat(reader.count(folderSource(empty))).isEqualTo(new DocumentationReader.Availability(0, UnreadReason.NO_HTML));
+
+        // dossier supprimé après son ajout : le motif est donné, sans exception
+        Path gone = Files.createDirectories(tmp.resolve("supprime"));
+        DocSource removed = folderSource(gone);
+        Files.delete(gone);
+        assertThat(reader.count(removed)).isEqualTo(new DocumentationReader.Availability(0, UnreadReason.FOLDER_NOT_FOUND));
+        assertThat(reader.read(removed).unread()).containsExactly(new Unread(gone.toString(), UnreadReason.FOLDER_NOT_FOUND));
+    }
+
+    @Test
+    void sousDossierIllisibleSignaleSansArreterLaLecture(@org.junit.jupiter.api.io.TempDir Path tmp) throws IOException {
+        Path site = Files.createDirectories(tmp.resolve("site"));
+        Files.writeString(site.resolve("index.html"), Files.readString(folder.resolve("billing/glossaire-avoir.html")));
+        Path locked = Files.createDirectories(site.resolve("prive"));
+        Files.writeString(locked.resolve("secret.html"), "<html></html>");
+        Files.setPosixFilePermissions(locked, java.util.Set.of());
+        try {
+            org.junit.jupiter.api.Assumptions.assumeFalse(Files.isReadable(locked), "lancé en root");
+            DocSource source = folderSource(site);
+            assertThat(reader.count(source)).isEqualTo(DocumentationReader.Availability.of(1));
+            Result r = reader.read(source);
+            assertThat(r.pages()).hasSize(1);
+            assertThat(r.unread()).containsExactly(new Unread("prive", UnreadReason.ACCESS_DENIED));
+        } finally {
+            Files.setPosixFilePermissions(locked, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
+    private static DocSource folderSource(Path path) {
+        return DocSource.create(UUID.randomUUID(), UUID.randomUUID(), DocSource.Kind.FOLDER, path.toString());
     }
 
     @Test

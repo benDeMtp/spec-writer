@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.UUID;
@@ -121,10 +123,42 @@ class ProjectContextTest {
         UUID project = UUID.randomUUID();
         assertThat(DocSource.create(UUID.randomUUID(), project, DocSource.Kind.FOLDER, site.toString()).location())
                 .isEqualTo(site.toString());
-        assertInvalid(() -> DocSource.create(UUID.randomUUID(), project, DocSource.Kind.FOLDER, "site/relatif"));
-        assertInvalid(() -> DocSource.create(UUID.randomUUID(), project, DocSource.Kind.FOLDER,
-                site.resolve("absent").toString()));
         assertInvalid(() -> DocSource.create(UUID.randomUUID(), project, DocSource.Kind.FOLDER, "  "));
+    }
+
+    /** Le motif du refus correspond au dossier : relatif, absent, fichier ou illisible. */
+    @Test
+    void sourceDossierRefuseeAvecSonMotif() throws IOException {
+        UUID project = UUID.randomUUID();
+        assertFolderRefused("site/relatif", "Le dossier doit être un chemin absolu (par exemple /Users/moi/site).");
+        assertFolderRefused(site.resolve("absent").toString(), "Ce dossier n'existe pas : " + site.resolve("absent"));
+        Path file = Files.createTempFile("page", ".html");
+        try {
+            assertFolderRefused(file.toString(), "Ce chemin désigne un fichier, pas un dossier : " + file);
+        } finally {
+            Files.delete(file);
+        }
+        Path locked = Files.createTempDirectory("verrouille");
+        try {
+            if (locked.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                Files.setPosixFilePermissions(locked, java.util.Set.of());
+                if (!Files.isReadable(locked)) {
+                    assertFolderRefused(locked.toString(), "Droits insuffisants pour lire ce dossier : " + locked);
+                }
+            }
+        } finally {
+            Files.setPosixFilePermissions(locked, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+            Files.delete(locked);
+        }
+        assertThat(DocSource.create(UUID.randomUUID(), project, DocSource.Kind.FOLDER, site.toString())).isNotNull();
+    }
+
+    static void assertFolderRefused(String location, String message) {
+        assertThatThrownBy(() -> DocSource.create(UUID.randomUUID(), UUID.randomUUID(), DocSource.Kind.FOLDER, location))
+                .isInstanceOfSatisfying(DomainException.class, e -> {
+                    assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED);
+                    assertThat(e.userMessage()).isEqualTo(message);
+                });
     }
 
     @Test

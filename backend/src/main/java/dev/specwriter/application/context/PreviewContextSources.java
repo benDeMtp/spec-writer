@@ -18,7 +18,7 @@ import java.util.UUID;
 /**
  * Ce qui sera envoyé à Copilot avant la génération de la fiche (FR-013b) : le nombre de pages
  * annoncées par chaque source et de tickets, sans lire le contenu d'aucune page. Une source qui
- * n'annonce aucune page est signalée comme injoignable.
+ * n'annonce aucune page est signalée avec le motif donné par le lecteur.
  */
 public class PreviewContextSources {
 
@@ -46,11 +46,12 @@ public class PreviewContextSources {
         int pages = 0;
         List<Unread> unreadable = new ArrayList<>();
         for (DocSource source : docSources.list(projectId)) {
-            int count = reader.count(source);
-            if (count == 0) {
-                unreadable.add(new Unread(source.location(), UnreadReason.UNREACHABLE));
+            DocumentationReader.Availability count = reader.count(source);
+            if (count.pages() == 0) {
+                unreadable.add(new Unread(source.location(),
+                        count.problem() == null ? UnreadReason.UNREACHABLE : count.problem()));
             }
-            pages += count;
+            pages += count.pages();
         }
         return new Preview(pages, ProjectTickets.count(jira, tracker, project), List.copyOf(unreadable));
     }

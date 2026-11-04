@@ -13,10 +13,15 @@ public class FakeDocumentationReader implements DocumentationReader {
     public final Map<String, Result> sites = new LinkedHashMap<>();
     public final List<String> reads = new ArrayList<>();
 
+    /** Motif renvoyé pour une source sans page ; {@code UNREACHABLE} par défaut. */
+    public final Map<String, UnreadReason> problems = new LinkedHashMap<>();
+
     @Override
-    public int count(DocSource source) {
+    public Availability count(DocSource source) {
         Result r = sites.get(source.location());
-        return r == null ? 0 : r.pages().size() + r.unread().size();
+        int pages = r == null ? 0 : r.pages().size() + r.unread().size();
+        return pages > 0 ? Availability.of(pages)
+                : new Availability(0, problems.getOrDefault(source.location(), UnreadReason.UNREACHABLE));
     }
 
     /** Appelé avant chaque page, après l'écouteur : un test peut y demander l'interruption. */
