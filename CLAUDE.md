@@ -58,6 +58,10 @@ gate.
 - L'IDE compile aussi dans `backend/target/` (ecj) : un test qui échoue sous Maven avec
   « Unresolved compilation problems » tourne sur une classe de l'IDE. Supprimer la classe de
   `target/test-classes` (ou toucher le fichier source) et relancer.
+- JaCoCo : `backend/target/jacoco.exec` cumule les lancements successifs, et les `@QuarkusTest`
+  n'apportent aucune couverture aux classes de l'application. Un `verify` local peut donc passer
+  sur des données anciennes alors que la CI échoue : supprimer `jacoco.exec` avant le `verify`
+  qui précède un commit, et couvrir `domain` et `application` par des tests unitaires.
 - E2E : `JAVA_HOME` 25 doit aussi être en tête du `PATH` (`export PATH=$JAVA_HOME/bin:$PATH`),
   sinon le jar s'arrête au démarrage.
 - Profil `live` (`-Dquarkus.profile=dev,live`) : vrai Copilot et vrai trousseau. Il est réservé
