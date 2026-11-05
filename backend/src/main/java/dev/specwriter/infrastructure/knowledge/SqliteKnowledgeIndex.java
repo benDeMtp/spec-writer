@@ -287,10 +287,11 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
                         (String) r[3], ((Number) r[4]).intValue(), ((Number) r[5]).intValue() == 1)).toList());
     }
 
+    /** Nombre d'éléments, et non de morceaux : chaque élément découpé garde un morceau 0 (004, R1). */
     @Override
     @Transactional
     public long count(UUID projectId, KnowledgeKind kind) {
-        return ((Number) em.createNativeQuery("select count(*) from knowledge_item where project_id = ?1 and kind = ?2")
+        return ((Number) em.createNativeQuery("select count(*) from knowledge_item where project_id = ?1 and kind = ?2 and chunk = 0")
                 .setParameter(1, projectId.toString()).setParameter(2, kind.name()).getSingleResult()).longValue();
     }
 

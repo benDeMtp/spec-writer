@@ -132,7 +132,7 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
 
     @Override
     public long count(UUID projectId, KnowledgeKind kind) {
-        return of(projectId).keySet().stream().filter(k -> k.kind() == kind).count();
+        return of(projectId).keySet().stream().filter(k -> k.kind() == kind && k.chunk() == 0).count();
     }
 
     @Override
