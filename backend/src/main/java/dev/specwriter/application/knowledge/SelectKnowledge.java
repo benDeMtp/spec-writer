@@ -91,23 +91,20 @@ public class SelectKnowledge implements SessionKnowledge {
         ProjectKnowledge sheet = SessionKnowledge.sheet(projects, session);
         String query = query(instruction, session.need().text(), answers);
         Set<Integer> cited = cited(session.need().text(), answers, instruction, currentMarkdown);
-        float[] vector = null;
-        if (embedding.state() == EmbeddingPort.State.READY) {
-            try {
-                vector = embedding.query(query);
-            } catch (RuntimeException e) {
-                // la recherche se rabat sur les termes (FR-043)
-                LOG.warnf("Connaissance : vecteur de la recherche indisponible (%s)", e.getClass().getSimpleName());
-            }
-        }
-        String model = vector == null ? null : embedding.modelId();
+        Search combined = search(query);
+        float[] vector = combined.vector();
+        String model = combined.model();
+        // en modification, l'instruction est aussi cherchée seule : noyée dans le besoin, elle ne
+        // ferait pas remonter le ticket ou l'ADR qu'elle désigne (004, US4)
+        List<Search> searches = instruction == null || instruction.isBlank() ? List.of(combined)
+                : List.of(search(query(instruction, "", List.of())), combined);
         StoryFamily.Family family = families.of(session);
         List<ProjectKnowledge.Entry> entries = new ArrayList<>(roles(session));
         // la fiche générale l'emporte : les ADR prennent ce qui reste sous le plafond (004, FR-017)
         int adrBudget = Math.min(MAX_ADR_TEXT, ProjectKnowledge.MAX_TOTAL - MAX_ARCHITECTURE
                 - sheet.generalSheet().length() - size(entries) - MAX_TICKET_TEXT - MAX_SUBTASK_TEXT);
-        entries.addAll(adrs(session, query, vector, model, cited, adrBudget));
-        entries.addAll(tickets(session, family, query, vector, model));
+        entries.addAll(adrs(session, searches, cited, adrBudget));
+        entries.addAll(tickets(session, family, searches));
         ProjectKnowledge selected = new ProjectKnowledge(sheet.generalSheet(), sheet.sheetUpdatedAt(), entries,
                 List.of(), List.of(), List.of(), subtasks(session, family));
         if (!architecture) {
@@ -122,6 +119,41 @@ public class SelectKnowledge implements SessionKnowledge {
             LOG.warnf("Connaissance : analyse d'architecture indisponible (%s)", e.code());
             return selected;
         }
+    }
+
+    /** Une recherche : son texte et, si le modèle local est prêt, son vecteur. */
+    private record Search(String query, float[] vector, String model) {
+    }
+
+    private Search search(String query) {
+        if (embedding.state() == EmbeddingPort.State.READY) {
+            try {
+                return new Search(query, embedding.query(query), embedding.modelId());
+            } catch (RuntimeException e) {
+                // la recherche se rabat sur les termes (FR-043)
+                LOG.warnf("Connaissance : vecteur de la recherche indisponible (%s)", e.getClass().getSimpleName());
+            }
+        }
+        return new Search(query, null, null);
+    }
+
+    /**
+     * Résultats des recherches entrelacés, sans doublon (même élément et même morceau) : le premier de
+     * chaque recherche, puis le deuxième, etc.
+     */
+    private List<KnowledgeItem> hits(Session session, List<Search> searches, KnowledgeKind kind, int max) {
+        List<List<KnowledgeItem>> lists = searches.stream().map(s -> index.search(session.projectId(), s.query(),
+                s.vector(), s.model(), List.of(kind), max).stream().map(KnowledgeIndex.Hit::item).toList()).toList();
+        Set<String> seen = new LinkedHashSet<>();
+        List<KnowledgeItem> out = new ArrayList<>();
+        for (int i = 0; i < max; i++) {
+            for (List<KnowledgeItem> list : lists) {
+                if (i < list.size() && seen.add(list.get(i).ref() + "#" + list.get(i).chunk())) {
+                    out.add(list.get(i));
+                }
+            }
+        }
+        return out;
     }
 
     /** Vocabulaire et vue d'ensemble, toujours transmis (FR-042), dans la limite de 3 000 caractères. */
@@ -146,10 +178,8 @@ public class SelectKnowledge implements SessionKnowledge {
      * l'ordre (004, research.md R4) : {@link #MAX_ADR_PART} au plus par ADR, {@link #MAX_ADR_TEXT} au
      * total ; le premier qui ne tient plus arrête la liste.
      */
-    private List<ProjectKnowledge.Entry> adrs(Session session, String query, float[] vector, String model,
-            Set<Integer> cited, int budget) {
-        List<KnowledgeIndex.Hit> hits = index.search(session.projectId(), query, vector, model, List.of(KnowledgeKind.ADR),
-                ADR_CANDIDATES);
+    private List<ProjectKnowledge.Entry> adrs(Session session, List<Search> searches, Set<Integer> cited, int budget) {
+        List<KnowledgeItem> hits = hits(session, searches, KnowledgeKind.ADR, ADR_CANDIDATES);
         if (hits.isEmpty() && cited.isEmpty()) {
             return List.of();
         }
@@ -159,7 +189,7 @@ public class SelectKnowledge implements SessionKnowledge {
             all.stream().filter(a -> a.chunk() == 0 && AdrNumber.of(a.ref(), a.title()).equals(OptionalInt.of(number)))
                     .sorted(java.util.Comparator.comparing(KnowledgeItem::ref)).forEach(candidates::add);
         }
-        hits.forEach(h -> candidates.add(h.item()));
+        candidates.addAll(hits);
         Set<String> seen = new LinkedHashSet<>();
         List<ProjectKnowledge.Entry> chosen = new ArrayList<>();
         int left = budget;
@@ -246,12 +276,10 @@ public class SelectKnowledge implements SessionKnowledge {
      * Tickets les plus proches, hors famille de la story liée : ses sous-tâches et son parent ne sont
      * pas des travaux concurrents (FR-045). Un ticket lié explicitement à la story porte ce lien.
      */
-    private List<ProjectKnowledge.Entry> tickets(Session session, StoryFamily.Family family, String query,
-            float[] vector, String model) {
+    private List<ProjectKnowledge.Entry> tickets(Session session, StoryFamily.Family family, List<Search> searches) {
         int excluded = family.isEmpty() ? 0 : 2 + family.subtasks().size();
-        List<KnowledgeItem> items = index.search(session.projectId(), query, vector, model, List.of(KnowledgeKind.TICKET),
-                MAX_TICKETS + excluded).stream().map(KnowledgeIndex.Hit::item).filter(i -> !family.contains(i.ref()))
-                .limit(MAX_TICKETS).toList();
+        List<KnowledgeItem> items = hits(session, searches, KnowledgeKind.TICKET, MAX_TICKETS + excluded).stream()
+                .filter(i -> !family.contains(i.ref())).limit(MAX_TICKETS).toList();
         return bounded(items, MAX_TICKET_TEXT / MAX_TICKETS).stream().map(e -> e.withLink(family.link(e.ref())))
                 .toList();
     }

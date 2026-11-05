@@ -339,6 +339,23 @@ class SelectKnowledgeTest {
                 .containsExactly("adr/0040-k8s.html");
     }
 
+    /**
+     * Essai de l'utilisateur : « vérifie s'il y a un ticket qui traite d'OIDC ». Le ticket OIDC, que
+     * seule l'instruction désigne, passe malgré les tickets plus proches du besoin.
+     */
+    @Test
+    void ticketDesigneParLInstructionSeule() {
+        index.save(KnowledgeItem.ticket(P, "AURORA-23", "Authentification OIDC avec GAIA", "Client OIDC.", "Créée",
+                "new", "Story", T, T), null, null);
+        List<String> plain = select.forSpecification(session, List.of()).entries().stream()
+                .filter(e -> e.kind() == KnowledgeKind.TICKET).map(ProjectKnowledge.Entry::ref).toList();
+        assertThat(plain).hasSize(3).doesNotContain("AURORA-23");
+        List<String> edited = select.forEdit(session, List.of(),
+                "Vérifie s'il y a un ticket qui traite d'OIDC et fais-y référence.", "").entries().stream()
+                .filter(e -> e.kind() == KnowledgeKind.TICKET).map(ProjectKnowledge.Entry::ref).toList();
+        assertThat(edited).hasSize(3).contains("AURORA-23");
+    }
+
     @Test
     void troisTicketsRetenus() {
         ProjectKnowledge k = select.forQuestions(session, List.of());
