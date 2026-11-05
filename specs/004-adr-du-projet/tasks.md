@@ -113,6 +113,7 @@ terme commun avec le besoin : il est transmis en premier, entier.
   *Le budget des ADR est aussi borné par ce qui reste sous le plafond de 35 000 (fiche générale d'abord) ; le premier ADR, cité en priorité, passe coupé plutôt que pas du tout (`ficheGeneraleMaximaleAdrCiteCoupe`). Les tests de budget de T016 ont été redimensionnés pour 12 000 / 8 000.*
 - [X] T027 [US4] Test de `ProposeAiEdit` (fichier de test existant) : l'instruction et la version de base sont transmises à `forEdit`
 - [X] T028 [US4] Relevé à l'essai (« vérifie s'il y a un ticket qui traite d'OIDC » : ticket non trouvé, 5e sur 3) : `BM/application/knowledge/SelectKnowledge.java` cherche aussi l'instruction seule et entrelace ses résultats avec ceux de la recherche combinée, pour les tickets et les ADR (après les ADR cités) ; test `ticketDesigneParLInstructionSeule`
+- [X] T029 [US4] Fusion par rangs réciproques (k = 60, comme l'index) au lieu de l'alternance de T028, sur 10 tickets par recherche : `SelectKnowledge.fuse`, test `fusionDesRecherchesParRangs`
   *Écrit après la modification de `ProposeAiEdit` : test de confirmation, pas vu échouer.*
 
 ---

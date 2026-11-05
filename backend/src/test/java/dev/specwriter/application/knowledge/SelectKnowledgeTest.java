@@ -356,6 +356,26 @@ class SelectKnowledgeTest {
         assertThat(edited).hasSize(3).contains("AURORA-23");
     }
 
+    /**
+     * Fusion par rangs réciproques (RRF) : un élément trouvé par les deux recherches passe devant le
+     * premier d'une seule ; à égalité, l'ordre des recherches départage.
+     */
+    @Test
+    void fusionDesRecherchesParRangs() {
+        KnowledgeItem a = ticket("A");
+        KnowledgeItem b = ticket("B");
+        KnowledgeItem c = ticket("C");
+        KnowledgeItem d = ticket("D");
+        KnowledgeItem e = ticket("E");
+        assertThat(SelectKnowledge.fuse(List.of(List.of(a, b, c), List.of(c, d, e))))
+                .extracting(KnowledgeItem::ref).containsExactly("C", "A", "B", "D", "E");
+        assertThat(SelectKnowledge.fuse(List.of(List.of(a, b)))).containsExactly(a, b);
+    }
+
+    private static KnowledgeItem ticket(String key) {
+        return KnowledgeItem.ticket(P, key, "Ticket " + key, "", "Créée", "new", "Story", T, T);
+    }
+
     @Test
     void troisTicketsRetenus() {
         ProjectKnowledge k = select.forQuestions(session, List.of());

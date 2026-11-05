@@ -209,8 +209,9 @@ aucun terme commun avec le besoin : l'ADR 0017 est transmis, entier, avant les a
   le besoin, les réponses, l'instruction d'une modification ou la version en cours DOIT être
   transmis d'office, avant les ADR trouvés par la recherche ; tous les ADR de ce numéro le sont.
 - **FR-016**: La recherche préparant une modification par l'IA DOIT utiliser l'instruction, puis le
-  besoin et les réponses. L'instruction est aussi cherchée seule ; ses résultats alternent avec ceux de
-  la recherche combinée, pour les tickets comme pour les ADR (après les ADR cités).
+  besoin et les réponses. L'instruction est aussi cherchée seule ; ses résultats sont fusionnés par
+  rangs (RRF) avec ceux de la recherche combinée, pour les tickets comme pour les ADR (après les
+  ADR cités) : ce que les deux recherches trouvent passe en premier.
 - **FR-017**: Le budget des ADR transmis est de 12 000 caractères au total et 8 000 par ADR (remplace
   les 6 000 et 4 000 de FR-011) ; quatre ADR au plus.
 

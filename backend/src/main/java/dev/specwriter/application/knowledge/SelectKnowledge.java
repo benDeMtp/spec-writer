@@ -15,8 +15,12 @@ import dev.specwriter.domain.port.KnowledgeIndex;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.session.Session;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -46,6 +50,9 @@ public class SelectKnowledge implements SessionKnowledge {
     /** Taille comptée pour un module, un échange ou un constat, en plus de ses noms. */
     private static final int ARCHITECTURE_MARKUP = 40;
     private static final int ADR_CANDIDATES = 12;
+    /** Tickets lus par recherche avant la fusion (hors famille de la story liée). */
+    private static final int TICKET_CANDIDATES = 10;
+    private static final int RRF_K = 60;
     private static final int SUCCESSION = 5;
 
     private static final Logger LOG = Logger.getLogger(SelectKnowledge.class);
@@ -137,23 +144,29 @@ public class SelectKnowledge implements SessionKnowledge {
         return new Search(query, null, null);
     }
 
-    /**
-     * Résultats des recherches entrelacés, sans doublon (même élément et même morceau) : le premier de
-     * chaque recherche, puis le deuxième, etc.
-     */
+    /** Résultats des recherches, fusionnés par rangs ({@link #fuse}). */
     private List<KnowledgeItem> hits(Session session, List<Search> searches, KnowledgeKind kind, int max) {
-        List<List<KnowledgeItem>> lists = searches.stream().map(s -> index.search(session.projectId(), s.query(),
-                s.vector(), s.model(), List.of(kind), max).stream().map(KnowledgeIndex.Hit::item).toList()).toList();
-        Set<String> seen = new LinkedHashSet<>();
-        List<KnowledgeItem> out = new ArrayList<>();
-        for (int i = 0; i < max; i++) {
-            for (List<KnowledgeItem> list : lists) {
-                if (i < list.size() && seen.add(list.get(i).ref() + "#" + list.get(i).chunk())) {
-                    out.add(list.get(i));
-                }
+        return fuse(searches.stream().map(s -> index.search(session.projectId(), s.query(), s.vector(), s.model(),
+                List.of(kind), max).stream().map(KnowledgeIndex.Hit::item).toList()).toList());
+    }
+
+    /**
+     * Fusion par rangs réciproques, comme l'index entre termes et sens : chaque liste apporte
+     * 1 / (60 + rang) à ses éléments (même élément, même morceau). Un élément trouvé par les deux
+     * recherches passe devant le premier d'une seule ; à égalité, l'ordre des listes départage.
+     */
+    static List<KnowledgeItem> fuse(List<List<KnowledgeItem>> lists) {
+        Map<String, KnowledgeItem> items = new LinkedHashMap<>();
+        Map<String, Double> scores = new HashMap<>();
+        for (List<KnowledgeItem> list : lists) {
+            for (int rank = 0; rank < list.size(); rank++) {
+                String key = list.get(rank).ref() + "#" + list.get(rank).chunk();
+                items.putIfAbsent(key, list.get(rank));
+                scores.merge(key, 1.0 / (RRF_K + rank + 1), Double::sum);
             }
         }
-        return out;
+        return items.keySet().stream().sorted(Comparator.comparing(scores::get, Comparator.reverseOrder()))
+                .map(items::get).toList();
     }
 
     /** Vocabulaire et vue d'ensemble, toujours transmis (FR-042), dans la limite de 3 000 caractères. */
@@ -187,7 +200,7 @@ public class SelectKnowledge implements SessionKnowledge {
         List<KnowledgeItem> candidates = new ArrayList<>();
         for (int number : cited) {
             all.stream().filter(a -> a.chunk() == 0 && AdrNumber.of(a.ref(), a.title()).equals(OptionalInt.of(number)))
-                    .sorted(java.util.Comparator.comparing(KnowledgeItem::ref)).forEach(candidates::add);
+                    .sorted(Comparator.comparing(KnowledgeItem::ref)).forEach(candidates::add);
         }
         candidates.addAll(hits);
         Set<String> seen = new LinkedHashSet<>();
@@ -278,7 +291,7 @@ public class SelectKnowledge implements SessionKnowledge {
      */
     private List<ProjectKnowledge.Entry> tickets(Session session, StoryFamily.Family family, List<Search> searches) {
         int excluded = family.isEmpty() ? 0 : 2 + family.subtasks().size();
-        List<KnowledgeItem> items = hits(session, searches, KnowledgeKind.TICKET, MAX_TICKETS + excluded).stream()
+        List<KnowledgeItem> items = hits(session, searches, KnowledgeKind.TICKET, TICKET_CANDIDATES + excluded).stream()
                 .filter(i -> !family.contains(i.ref())).limit(MAX_TICKETS).toList();
         return bounded(items, MAX_TICKET_TEXT / MAX_TICKETS).stream().map(e -> e.withLink(family.link(e.ref())))
                 .toList();
