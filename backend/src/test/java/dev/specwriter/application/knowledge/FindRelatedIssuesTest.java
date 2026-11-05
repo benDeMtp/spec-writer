@@ -88,12 +88,20 @@ class FindRelatedIssuesTest {
         assertThat(found.issues()).extracting(RelatedIssues.Issue::key).containsExactly("PROJ-7", "PROJ-9");
         assertThat(found.issues().getFirst()).satisfies(i -> {
             assertThat(i.reason()).isEqualTo("Même annulation par un avoir total.");
+            // 003, FR-006 : un ticket fermé est montré avec son statut indexé, comme à jour
             assertThat(i.closed()).isTrue();
             assertThat(i.statusFresh()).isTrue();
-            assertThat(i.status()).isEqualTo("Terminé");
-            assertThat(i.updatedAt()).isEqualTo(Instant.parse("2026-11-02T10:00:00Z"));
+            assertThat(i.status()).isEqualTo("Indexé");
+            assertThat(i.updatedAt()).isEqualTo(INDEXED);
             assertThat(i.url()).isEqualTo("https://jira.example.com/browse/PROJ-7");
         });
+        assertThat(found.issues().get(1)).satisfies(i -> {
+            assertThat(i.statusFresh()).isTrue();
+            assertThat(i.status()).isEqualTo("En cours");
+            assertThat(i.updatedAt()).isEqualTo(Instant.parse("2026-11-03T10:00:00Z"));
+        });
+        // US2-1 : seul le ticket ouvert est relu dans Jira
+        assertThat(w.tracker.calls).filteredOn(c -> c.startsWith("status ")).containsExactly("status PROJ-9");
         assertThat(found.awaitingDecision()).isTrue();
     }
 
@@ -122,15 +130,24 @@ class FindRelatedIssuesTest {
         assertThat(found.issues()).hasSize(3).allSatisfy(i -> assertThat(i.reason()).isNull());
     }
 
+    /** US2-2 : Jira injoignable, seuls les tickets ouverts portent la mention « Jira n'a pas pu être relu ». */
     @Test
     void statutIndexeAvecSaDateSiJiraNeRepondPas() {
-        w.llm.judgements.add(new RelatedIssuesJudgement(List.of(new RelatedIssuesJudgement.Related("PROJ-7", "Même"))));
+        w.llm.judgements.add(new RelatedIssuesJudgement(List.of(new RelatedIssuesJudgement.Related("PROJ-7", "Même"),
+                new RelatedIssuesJudgement.Related("PROJ-9", "Proche"))));
         w.tracker.failure = IssueTrackerException.Kind.UNREACHABLE;
-        RelatedIssues.Issue issue = find.find(session, project()).issues().getFirst();
-        assertThat(issue.statusFresh()).isFalse();
-        assertThat(issue.status()).isEqualTo("Indexé");
-        assertThat(issue.updatedAt()).isEqualTo(INDEXED);
-        assertThat(issue.closed()).isTrue();
+        List<RelatedIssues.Issue> issues = find.find(session, project()).issues();
+        assertThat(issues.get(0)).satisfies(closed -> {
+            assertThat(closed.statusFresh()).isTrue();
+            assertThat(closed.closed()).isTrue();
+        });
+        assertThat(issues.get(1)).satisfies(open -> {
+            assertThat(open.statusFresh()).isFalse();
+            assertThat(open.status()).isEqualTo("Indexé");
+            assertThat(open.updatedAt()).isEqualTo(INDEXED);
+            assertThat(open.closed()).isFalse();
+        });
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-7", 0))).isPresent();
     }
 
     @Test

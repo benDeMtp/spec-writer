@@ -227,8 +227,15 @@ public class ReportSubtasks {
     private record Status(String name, String category, boolean closed, boolean fresh, Instant date) {
     }
 
-    /** Statut relu dans Jira, sinon indexé ; vide si la sous-tâche a été supprimée. */
+    /**
+     * Statut relu dans Jira, sinon indexé ; vide si la sous-tâche a été supprimée. Une sous-tâche
+     * indexée fermée est montrée depuis l'index, comme à jour, sans requête (FR-006 de 003).
+     */
     private Optional<Status> status(String key, Optional<KnowledgeItem> indexed, Optional<JiraAccess.Target> target) {
+        if (indexed.filter(KnowledgeItem::closed).isPresent()) {
+            KnowledgeItem i = indexed.get();
+            return Optional.of(new Status(i.status(), i.statusCategory(), true, true, i.sourceUpdatedAt()));
+        }
         if (target.isPresent()) {
             try {
                 IssueStatus s = tracker.issueStatus(target.get().endpoint(), key);

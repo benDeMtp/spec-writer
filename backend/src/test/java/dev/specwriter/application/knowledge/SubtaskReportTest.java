@@ -229,12 +229,30 @@ class SubtaskReportTest {
         assertThat(report.run(session.id(), 2).orElseThrow().subtasks()).extracting(Item::key).doesNotContain("FACT-23");
     }
 
+    /** 003, US2-3 : une sous-tâche fermée dans l'index n'est pas relue dans Jira et reste à jour. */
+    @Test
+    void sousTacheFermeeIndexeeNonRelue() {
+        version(2, PAYER);
+        w.tracker.calls.clear();
+        Item ecran = item(report.run(session.id(), 2).orElseThrow(), "FACT-22");
+        assertThat(ecran.statusFresh()).isTrue();
+        assertThat(ecran.statusCategory()).isEqualTo("done");
+        assertThat(w.tracker.calls).contains("status FACT-21", "status FACT-23", "status FACT-24")
+                .doesNotContain("status FACT-22");
+
+        w.tracker.failure = IssueTrackerException.Kind.UNREACHABLE;
+        assertThat(item(report.run(session.id(), 2).orElseThrow(), "FACT-22").statusFresh()).isTrue();
+    }
+
     @Test
     void sousTacheHorsIndexNonRattachee() {
         version(2, PAYER);
         w.ticketLinks.replace(P, "FACT-20", List.of(TicketLink.subtask("AUTRE-1")));
         w.tracker.tracked.put("AUTRE-1", new TrackedIssue("AUTRE-1", "Ailleurs", "", "À faire", "new", "Sous-tâche", T));
+        w.tracker.calls.clear();
         Item ailleurs = report.run(session.id(), 2).orElseThrow().subtasks().getFirst();
+        // hors de l'index : toujours relue
+        assertThat(w.tracker.calls).contains("status AUTRE-1");
         assertThat(ailleurs.key()).isEqualTo("AUTRE-1");
         assertThat(ailleurs.title()).isEqualTo("AUTRE-1");
         assertThat(ailleurs.state()).isEqualTo(State.UNMATCHED);
