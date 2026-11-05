@@ -96,7 +96,7 @@ contient les trois, dans l'ordre.
   *`SelectKnowledgeTest.quatreAdrAuPlus…` de la 002 devient `adrEntiersEtUnAdrRemplaceParSonSuccesseur` : des ADR de 2 500 caractères passent entiers, deux tiennent dans les 6 000 (au lieu de quatre fragments).*
 - [X] T018 [US3] Vérifier les réponses rejouées (`e2e/fixtures/llm/*.json`, `backend/src/test/resources/golden/*/llm/*.json`) : aucun `userContains` ne dépend d'un fragment d'ADR coupé ; lancer `KnowledgeFictiveSetIT`, les tests golden et les E2E concernés
   *Les conditions `userContains` ne portent que sur `<adr ref=… statut=…>`, jamais sur un fragment de texte : rien à changer.*
-- [ ] T019 [US3] Évaluation réelle (SC-004, research.md R5), **avec l'accord de l'utilisateur** (environ 150 requêtes Copilot) : `env -u JAVA_TOOL_OPTIONS ./mvnw -B -pl backend verify -Peval -DskipDependencyCheck`, scores ≥ `baseline.json`, `bash ci/check-eval.sh`, commit de `backend/src/test/resources/eval/last-run.json`
+- [X] T019 [US3] Évaluation réelle (SC-004, research.md R5), **avec l'accord de l'utilisateur** (environ 150 requêtes Copilot) : `env -u JAVA_TOOL_OPTIONS ./mvnw -B -pl backend verify -Peval -DskipDependencyCheck`, scores ≥ `baseline.json`, `bash ci/check-eval.sh`, commit de `backend/src/test/resources/eval/last-run.json`
 
 ---
 
