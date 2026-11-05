@@ -1,80 +1,164 @@
 {
-  "date" : "2026-11-03T08:04:58Z",
-  "fingerprint" : "79801ec6b910748c5fca5dcb82078a9e89ee24d64dbbda701f43f50dc1e48eca",
+  "date" : "2026-11-05T08:09:54Z",
+  "fingerprint" : "ee3fe8c9c84f4b0cdd8eb995a20a1880a6bc6f03b3a677e0cdf8dc411faf614a",
   "model" : "défaut du compte",
   "copilotSdk" : "1.0.28-preview.0",
   "copilotCli" : "embarqué",
   "runs" : 3,
   "scores" : {
-    "questionRelevance" : 0.9778,
-    "scenarioStructure" : 1.0
+    "scenarioStructure" : 1.0,
+    "questionRelevance" : 0.9926
   },
   "details" : [ {
     "case" : "01-reservation-salle",
+    "run" : 1,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 8,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 1,
+    "questions" : 10,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 1,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "04-facturation-avec-contexte",
     "run" : 1,
     "questions" : 7,
     "irrelevant" : [ ],
     "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
-    "case" : "02-paiement-en-ligne",
-    "run" : 1,
-    "questions" : 9,
-    "irrelevant" : [ ],
-    "scenarios" : 5,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "03-export-comptable",
+    "case" : "05-conges-avec-contexte",
     "run" : 1,
     "questions" : 7,
     "irrelevant" : [ ],
-    "scenarios" : 4,
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "06-api-avec-contexte-technique",
+    "run" : 1,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "07-avoir-adr-architecture",
+    "run" : 1,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "01-reservation-salle",
+    "run" : 2,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 2,
+    "questions" : 10,
+    "irrelevant" : [ ],
+    "scenarios" : 10,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 2,
+    "questions" : 0,
+    "irrelevant" : [ ],
+    "scenarios" : 3,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "04-facturation-avec-contexte",
+    "run" : 2,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "05-conges-avec-contexte",
+    "run" : 2,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "06-api-avec-contexte-technique",
+    "run" : 2,
+    "questions" : 9,
+    "irrelevant" : [ ],
+    "scenarios" : 11,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "07-avoir-adr-architecture",
     "run" : 2,
     "questions" : 6,
     "irrelevant" : [ ],
     "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
-    "case" : "02-paiement-en-ligne",
-    "run" : 2,
-    "questions" : 7,
+    "case" : "01-reservation-salle",
+    "run" : 3,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 4,
+    "scenarios" : 8,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 3,
+    "questions" : 11,
+    "irrelevant" : [ {
+      "reason" : "Reformule la question 1, déjà posée et répondue : les frais ne sont pas facturés ; la marque de contradiction ne s'applique pas ici car la réponse existait déjà et la contradiction était déjà tranchée.",
+      "verdict" : "REDONDANTE",
+      "question" : "Les frais de traitement sont-ils facturés au client en plus du montant du panier, ou le montant débité est-il strictement celui du panier ?"
+    } ],
+    "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
-    "run" : 2,
-    "questions" : 6,
+    "run" : 3,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "04-facturation-avec-contexte",
+    "run" : 3,
+    "questions" : 9,
+    "irrelevant" : [ ],
+    "scenarios" : 11,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "05-conges-avec-contexte",
+    "run" : 3,
+    "questions" : 0,
     "irrelevant" : [ ],
     "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
-    "case" : "01-reservation-salle",
-    "run" : 3,
-    "questions" : 7,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "02-paiement-en-ligne",
+    "case" : "06-api-avec-contexte-technique",
     "run" : 3,
     "questions" : 8,
-    "irrelevant" : [ {
-      "question" : "Les frais de traitement sont-ils bien facturés au client, et si oui, comment sont-ils calculés (montant fixe, pourcentage) et affichés dans le panier ?",
-      "verdict" : "REDONDANTE",
-      "reason" : "Reformule la question 1 dont la réponse (aucun frais) était déjà donnée, sans nouvelle contradiction signalée."
-    } ],
-    "scenarios" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
-    "case" : "03-export-comptable",
+    "case" : "07-avoir-adr-architecture",
     "run" : 3,
-    "questions" : 0,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 3,
+    "scenarios" : 5,
     "structureViolations" : [ ]
   } ]
 }
