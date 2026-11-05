@@ -10,7 +10,7 @@ Indexation:
     tickets:
       type: object
       description: >
-        Bilan de l'étape Jira (FR-009 de 003). Absent si l'étape n'a pas tourné. Nombres seuls,
+        Bilan de l'étape Jira (FR-009 de 003). Nul si l'étape n'a pas tourné. Nombres seuls,
         sans clé ni contenu de ticket.
       properties:
         read: { type: integer, minimum: 0, description: Tickets lus dans Jira }

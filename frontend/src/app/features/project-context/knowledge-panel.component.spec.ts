@@ -30,6 +30,7 @@ function indexation(over: Partial<Indexation>): Indexation {
     stepStartedAt: null,
     finishedAt: null,
     errors: [],
+    tickets: null,
     ...over,
   };
 }
@@ -134,6 +135,31 @@ describe('KnowledgePanelComponent', () => {
     expect(el.textContent).not.toContain('avec des erreurs');
     expect(el.querySelector('summary')?.textContent?.trim()).toBe('Détail (2 avertissements)');
     expect(el.textContent).toContain('Avertissement : /c4/workspace.dsl:4 (SCRIPT_IGNORED, !script ignoré)');
+  });
+
+  it('bilan des tickets en fin d\'indexation : relus, fermés gardés, retirés (003, FR-009)', async () => {
+    const done = { status: 'SUCCEEDED' as const, finishedAt: '2026-11-04T10:01:00Z' };
+    await open(STATUS, indexation({ ...done, mode: 'FULL', tickets: { read: 20, keptClosed: 80, removed: 1 } }));
+    expect(el.querySelector('.tickets')?.textContent?.trim()).toBe(
+      '20 tickets relus, 80 tickets fermés gardés sans relecture, 1 retiré',
+    );
+  });
+
+  it('bilan incrémental sans fermés gardés, et rien sans étape Jira', async () => {
+    await open(STATUS, indexation({ status: 'FAILED', mode: 'INCREMENTAL', tickets: { read: 1, keptClosed: 0, removed: 0 } }));
+    expect(el.querySelector('.tickets')?.textContent?.trim()).toBe('1 ticket relu, 0 retiré');
+  });
+
+  it('pas de bilan des tickets sans étape Jira, ni pendant l\'indexation', async () => {
+    await open(STATUS, indexation({ status: 'SUCCEEDED', mode: 'FULL', finishedAt: '2026-11-04T10:01:00Z' }));
+    expect(el.querySelector('.tickets')).toBeNull();
+  });
+
+  it('bilan complet avec zéro fermé gardé (premier passage)', async () => {
+    await open(STATUS, indexation({ status: 'CANCELLED', mode: 'FULL', tickets: { read: 11, keptClosed: 0, removed: 0 } }));
+    expect(el.querySelector('.tickets')?.textContent?.trim()).toBe(
+      '11 tickets relus, 0 ticket fermé gardé sans relecture, 0 retiré',
+    );
   });
 
   it('interrompt une indexation reprise au retour sur la page', async () => {

@@ -129,7 +129,7 @@ test.describe.serial('US10 Jira paginé', () => {
         urlPath: '/rest/api/2/search',
         queryParameters: {
           jql: {
-            matches: 'project = PAGE( AND updated >= .*)? ORDER BY (updated|key) ASC',
+            matches: 'project = PAGE( AND .*)? ORDER BY (updated|key) ASC',
           },
         },
       },

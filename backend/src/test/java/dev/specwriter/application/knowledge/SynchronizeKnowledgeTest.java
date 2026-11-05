@@ -71,7 +71,13 @@ class SynchronizeKnowledgeTest {
     static class Recorder implements IndexationProgress {
         final List<Step> steps = new ArrayList<>();
         final List<IndexationError> errors = new ArrayList<>();
+        TicketSummary tickets;
         volatile boolean cancel;
+
+        @Override
+        public void tickets(TicketSummary summary) {
+            tickets = summary;
+        }
 
         @Override
         public void step(Step step, int total) {
@@ -367,6 +373,23 @@ class SynchronizeKnowledgeTest {
         assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::mode).isEqualTo(Mode.INCREMENTAL);
     }
 
+    /** 003, FR-009 : l'état de l'indexation garde le bilan de l'étape Jira, absent sans étape Jira. */
+    @Test
+    void bilanDesTicketsDansLEtatDeLIndexation() {
+        ManualExecutor executor = new ManualExecutor();
+        Indexations indexations = new Indexations(sync, world.projects, executor, world.clock);
+        indexations.start(P, Mode.FULL);
+        executor.runAll();
+        assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::tickets)
+                .isEqualTo(new TicketSummary(2, 0, 0));
+
+        world.clock.advance(Duration.ofMinutes(31));
+        world.consents.record(new dev.specwriter.domain.consent.ConsentRecord(ConsentService.JIRA, false, Instant.EPOCH));
+        indexations.start(P, Mode.INCREMENTAL);
+        executor.runAll();
+        assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::tickets).isNull();
+    }
+
     /**
      * Une source enregistrée pendant une indexation (déclenchement complet) est lue juste après, sans
      * nouvelle action ; l'ouverture d'un besoin (incrémentale) n'ajoute rien ; une interruption annule
@@ -492,5 +515,221 @@ class SynchronizeKnowledgeTest {
         assertThat(index.count(P, KnowledgeKind.ARCH_ELEMENT)).isZero();
         assertThat(index.architecture(P).relations()).isEmpty();
         assertThat(sources.find(P).workspace()).isNull();
+    }
+
+    // ---------- 003 : tickets fermés gardés sans relecture ----------
+
+    static final Instant OLD = Instant.parse("2026-09-01T10:00:00Z");
+    static final Instant MARK = Instant.parse("2026-10-28T08:30:00Z");
+
+    /** 8 tickets fermés anciens (PROJ-1 à PROJ-8), 2 ouverts (PROJ-9, PROJ-10) ; repère = MARK. */
+    void tenTicketsIndexed() {
+        world.tracker.tracked.clear();
+        for (int i = 1; i <= 8; i++) {
+            world.tracker.tracked.put("PROJ-" + i, issue("PROJ-" + i, "Fermé " + i, "done", OLD));
+        }
+        world.tracker.tracked.put("PROJ-9", issue("PROJ-9", "Ouvert 9", "new", MARK));
+        world.tracker.tracked.put("PROJ-10", issue("PROJ-10", "Ouvert 10", "indeterminate", OLD));
+        sync.run(P, Mode.FULL, new Recorder());
+        assertThat(sources.find(P).jiraMark()).isEqualTo(MARK);
+        world.tracker.calls.clear();
+        world.tracker.read.clear();
+        index.writes.clear();
+    }
+
+    /** US1-1 : seuls les tickets ouverts sont relus ; les fermés restent tels quels, vecteurs compris. */
+    @Test
+    void completeAvecRepereNeRelitQueLesOuverts() {
+        tenTicketsIndexed();
+        float[] vector = index.items.get(P).get(new Key(KnowledgeKind.TICKET, "PROJ-3", 0)).vector();
+
+        sync.run(P, Mode.FULL, progress);
+
+        assertThat(world.tracker.read).containsExactlyInAnyOrder("PROJ-9", "PROJ-10");
+        assertThat(world.tracker.calls).contains("openOrUpdatedSince PROJ " + MARK + " 0", "keys PROJ")
+                .noneMatch(c -> c.startsWith("updatedSince") || c.startsWith("byKeys"));
+        assertThat(index.writes).filteredOn(w -> w.startsWith("save PROJ-")).containsExactlyInAnyOrder("save PROJ-9",
+                "save PROJ-10");
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-3", 0))).get().satisfies(i -> {
+            assertThat(i.closed()).isTrue();
+            assertThat(i.body()).isEqualTo("Description de Fermé 3");
+        });
+        assertThat(index.items.get(P).get(new Key(KnowledgeKind.TICKET, "PROJ-3", 0)).vector()).isSameAs(vector);
+        assertThat(progress.tickets).isEqualTo(new TicketSummary(2, 8, 0));
+    }
+
+    /** US1-2 : un ticket fermé jamais indexé est lu une fois par clé, puis plus relu. */
+    @Test
+    void fermeAbsentDeLIndexLuUneFoisParCle() {
+        tenTicketsIndexed();
+        world.tracker.tracked.put("PROJ-11", issue("PROJ-11", "Fermé avant la synchronisation", "done", OLD));
+
+        sync.run(P, Mode.FULL, progress);
+        assertThat(world.tracker.calls).contains("byKeys PROJ 1");
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-11", 0))).get()
+                .satisfies(i -> assertThat(i.closed()).isTrue());
+        assertThat(progress.tickets).isEqualTo(new TicketSummary(3, 8, 0));
+
+        world.tracker.read.clear();
+        Recorder again = new Recorder();
+        sync.run(P, Mode.FULL, again);
+        assertThat(world.tracker.read).containsExactlyInAnyOrder("PROJ-9", "PROJ-10");
+        assertThat(again.tickets).isEqualTo(new TicketSummary(2, 9, 0));
+    }
+
+    /** Cas limite : indexé ouvert, fermé dans Jira sans date plus récente : lu par clé, l'index se corrige. */
+    @Test
+    void indexeOuvertNonRamenePuisLuParCle() {
+        tenTicketsIndexed();
+        world.tracker.tracked.put("PROJ-10", issue("PROJ-10", "Ouvert 10", "done", OLD));
+
+        sync.run(P, Mode.FULL, progress);
+        assertThat(world.tracker.calls).contains("byKeys PROJ 1");
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-10", 0))).get()
+                .satisfies(i -> assertThat(i.closed()).isTrue());
+    }
+
+    /** US1-5 : un ticket fermé supprimé ou déplacé est retiré, avec ses liens ; compté dans le bilan. */
+    @Test
+    void fermeSupprimeRetireEtCompte() {
+        tenTicketsIndexed();
+        world.tracker.tracked.remove("PROJ-4");
+        sync.run(P, Mode.FULL, progress);
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-4", 0))).isEmpty();
+        assertThat(progress.tickets).isEqualTo(new TicketSummary(2, 7, 1));
+    }
+
+    /** FR-008 : sans repère, tout est relu (relecture unique), puis la règle reprend. */
+    @Test
+    void sansRepereToutEstRelu() {
+        tenTicketsIndexed();
+        sources.save(sources.find(P).synced(null, world.clock.now()));
+
+        sync.run(P, Mode.FULL, progress);
+        assertThat(world.tracker.calls).contains("updatedSince PROJ null 0")
+                .noneMatch(c -> c.startsWith("openOrUpdatedSince"));
+        assertThat(world.tracker.read).hasSize(10);
+        assertThat(progress.tickets).isEqualTo(new TicketSummary(10, 0, 0));
+    }
+
+    /** Jira injoignable à l'étape des clés : rien n'est retiré, le repère suit la requête. */
+    @Test
+    void erreurALEtapeDesClesNeRetireRien() {
+        tenTicketsIndexed();
+        world.tracker.tracked.remove("PROJ-4");
+        world.tracker.tracked.put("PROJ-9", issue("PROJ-9", "Ouvert 9", "new", Instant.parse("2026-11-02T10:00:00Z")));
+        world.tracker.failingCall = "keys";
+
+        sync.run(P, Mode.FULL, progress);
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-4", 0))).isPresent();
+        assertThat(sources.find(P).jiraMark()).isEqualTo(Instant.parse("2026-11-02T10:00:00Z"));
+        assertThat(progress.errors).extracting(IndexationError::kind).contains(IndexationError.Kind.JIRA);
+        assertThat(progress.tickets).isEqualTo(new TicketSummary(2, 0, 0));
+    }
+
+    /** Lecture par clé en lots de 50 au plus. */
+    @Test
+    void lectureParCleParLotsDeCinquante() {
+        tenTicketsIndexed();
+        for (int i = 100; i < 220; i++) {
+            world.tracker.tracked.put("PROJ-" + i, issue("PROJ-" + i, "Fermé " + i, "done", OLD));
+        }
+        sync.run(P, Mode.FULL, progress);
+        assertThat(world.tracker.calls).filteredOn(c -> c.startsWith("byKeys"))
+                .containsExactly("byKeys PROJ 50", "byKeys PROJ 50", "byKeys PROJ 20");
+        assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(130);
+        assertThat(progress.tickets).isEqualTo(new TicketSummary(122, 8, 0));
+    }
+
+    /** En incrémental, la liste des clés n'est pas lue : aucun fermé n'est compté comme gardé. */
+    @Test
+    void bilanIncremental() {
+        tenTicketsIndexed();
+        sync.run(P, Mode.INCREMENTAL, progress);
+        assertThat(progress.tickets).isEqualTo(new TicketSummary(1, 0, 0));
+    }
+
+    /** US1-3 (FR-003, SC-003) : un ticket fermé rouvert est relu par l'incrémentale et redevient ouvert. */
+    @Test
+    void fermeRouvertReluEtOuvert() {
+        tenTicketsIndexed();
+        world.tracker.tracked.put("PROJ-2", issue("PROJ-2", "Fermé 2", "indeterminate",
+                Instant.parse("2026-11-02T10:00:00Z")));
+        sync.run(P, Mode.INCREMENTAL, progress);
+        assertThat(world.tracker.read).contains("PROJ-2");
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-2", 0))).get()
+                .satisfies(i -> assertThat(i.closed()).isFalse());
+    }
+
+    /** Cas limite : un ticket fermé corrigé sans réouverture est relu une fois par l'incrémentale. */
+    @Test
+    void fermeCorrigeSansReouvertureRelu() {
+        tenTicketsIndexed();
+        world.tracker.tracked.put("PROJ-2", new TrackedIssue("PROJ-2", "Fermé 2", "Texte corrigé.", "Terminé", "done",
+                "Story", Instant.parse("2026-11-02T10:00:00Z")));
+        sync.run(P, Mode.INCREMENTAL, progress);
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-2", 0))).get().satisfies(i -> {
+            assertThat(i.closed()).isTrue();
+            assertThat(i.body()).isEqualTo("Texte corrigé.");
+        });
+    }
+
+    /**
+     * SC-001 : 100 tickets dont 80 fermés indexés ; l'indexation complète suivante en lit au plus 20
+     * et son étape Jira est au moins deux fois plus courte (coût simulé par ticket lu).
+     */
+    @Test
+    void indexationCompleteAuMoinsDeuxFoisPlusRapide() {
+        world.tracker.tracked.clear();
+        for (int i = 1; i <= 100; i++) {
+            world.tracker.tracked.put("PROJ-" + i, issue("PROJ-" + i, "Ticket " + i, i <= 80 ? "done" : "new",
+                    i <= 80 ? OLD : MARK));
+        }
+        world.tracker.readDelayMillis = 3;
+        long first = jiraStepMillis();
+        assertThat(world.tracker.read).hasSize(100);
+
+        world.tracker.read.clear();
+        long second = jiraStepMillis();
+        assertThat(world.tracker.read).hasSize(20);
+        assertThat(progress.tickets).isEqualTo(new TicketSummary(20, 80, 0));
+        assertThat(second * 2).isLessThanOrEqualTo(first);
+    }
+
+    private long jiraStepMillis() {
+        progress = new Recorder();
+        long start = System.nanoTime();
+        sync.run(P, Mode.FULL, progress);
+        return (System.nanoTime() - start) / 1_000_000;
+    }
+
+    /** US3-1 (FR-007) : un an plus tard, sans modification dans Jira, aucun fermé n'est relu ni retiré. */
+    @Test
+    void unAnPlusTardAucunFermeReluNiRetire() {
+        tenTicketsIndexed();
+        Instant indexedAt = index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-3", 0)).orElseThrow().indexedAt();
+        world.clock.advance(Duration.ofDays(365));
+
+        sync.run(P, Mode.INCREMENTAL, new Recorder());
+        sync.run(P, Mode.FULL, progress);
+        assertThat(world.tracker.read).doesNotContain("PROJ-1", "PROJ-2", "PROJ-3", "PROJ-4", "PROJ-5", "PROJ-6",
+                "PROJ-7", "PROJ-8");
+        assertThat(index.closedTickets(P)).hasSize(8);
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-3", 0))).get()
+                .extracting(i -> i.indexedAt()).isEqualTo(indexedAt);
+    }
+
+    /** US3-2 (FR-005) : un autre modèle revectorise les fermés depuis le texte indexé, sans les relire. */
+    @Test
+    void changementDeModeleRevectoriseLesFermesSansJira() {
+        tenTicketsIndexed();
+        embedding.passages.clear();
+        embedding.modelId = "autre@2";
+
+        sync.run(P, Mode.FULL, progress);
+        assertThat(world.tracker.read).containsExactlyInAnyOrder("PROJ-9", "PROJ-10");
+        assertThat(embedding.passages).anyMatch(t -> t.startsWith("Fermé 3\nDescription de Fermé 3"));
+        assertThat(index.withoutVector(P, "autre@2", 100)).isEmpty();
+        assertThat(index.items.get(P).get(new Key(KnowledgeKind.TICKET, "PROJ-3", 0)).model()).isEqualTo("autre@2");
     }
 }

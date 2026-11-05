@@ -80,6 +80,16 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
 
     @Override
     @Transactional
+    public Set<String> closedTickets(UUID projectId) {
+        List<?> refs = em.createNativeQuery("""
+                select ref from knowledge_item
+                where project_id = ?1 and kind = 'TICKET' and status_category = ?2""")
+                .setParameter(1, projectId.toString()).setParameter(2, KnowledgeItem.DONE).getResultList();
+        return refs.stream().map(String.class::cast).collect(Collectors.toSet());
+    }
+
+    @Override
+    @Transactional
     public void save(KnowledgeItem item, float[] vector, String embeddingModel) {
         em.createNativeQuery("insert into knowledge_item (" + COLUMNS + ", embedding, embedding_model) " + """
                 values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)

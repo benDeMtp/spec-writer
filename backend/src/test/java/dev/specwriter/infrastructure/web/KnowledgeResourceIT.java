@@ -129,6 +129,9 @@ class KnowledgeResourceIT {
         assertThat(state.getString("status")).isEqualTo("SUCCEEDED");
         assertThat(state.getList("errors")).isEmpty();
         assertThat(state.getString("finishedAt")).isNotNull();
+        // 003, FR-009 : premier passage sans repère, tout est relu
+        assertThat(state.getMap("tickets")).containsEntry("read", 11).containsEntry("keptClosed", 0)
+                .containsEntry("removed", 0);
 
         api().get(base() + "/knowledge").then().statusCode(200)
                 .body("tickets", equalTo(11)).body("adrs", equalTo(3)).body("architectureElements", equalTo(10))

@@ -21,6 +21,7 @@ import {
   IndexationError,
   IndexationMode,
   IndexationStep,
+  IndexationTickets,
   KnowledgeHit,
   KnowledgeKind,
   KnowledgeStatus,
@@ -104,6 +105,9 @@ const KINDS: Record<KnowledgeKind, string> = {
         </div>
       } @else {
         <p class="outcome">{{ outcome(g) }}</p>
+        @if (g.tickets; as t) {
+          <p class="meta tickets">{{ ticketsLabel(g.mode, t) }}</p>
+        }
       }
       @if (g.errors.length) {
         <details class="errors-detail">
@@ -348,6 +352,15 @@ export class KnowledgePanelComponent {
       default:
         return 'Indexation en échec : ce qui était déjà indexé est gardé.';
     }
+  }
+
+  protected ticketsLabel(mode: IndexationMode, t: IndexationTickets): string {
+    const parts = [count(t.read, 'ticket relu', 'tickets relus')];
+    if (mode === 'FULL' || t.keptClosed > 0) {
+      parts.push(`${count(t.keptClosed, 'ticket fermé gardé', 'tickets fermés gardés')} sans relecture`);
+    }
+    parts.push(count(t.removed, 'retiré', 'retirés'));
+    return parts.join(', ');
   }
 
   protected detailLabel(g: Indexation): string {

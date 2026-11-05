@@ -34,7 +34,7 @@ Bilan de l'étape Jira d'une indexation (FR-009).
 | `keptClosed` | int ≥ 0 | tickets indexés fermés, encore dans le projet, non relus ; 0 en incrémental |
 | `removed` | int ≥ 0 | tickets retirés de l'index (supprimés ou déplacés) |
 
-Absent du `Snapshot` si l'étape Jira n'a pas tourné (Jira non configuré, pas de consentement,
+Nul dans le `Snapshot` si l'étape Jira n'a pas tourné (Jira non configuré, pas de consentement,
 pas de clé de projet). En cas d'erreur Jira, les nombres comptent ce qui a été fait avant
 l'erreur.
 

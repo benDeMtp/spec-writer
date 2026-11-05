@@ -33,6 +33,8 @@ public class FakeIssueTracker implements IssueTracker {
     public final List<String> calls = new ArrayList<>();
     public final List<String> writes = new ArrayList<>();
     public Kind failure;
+    /** Seuls les appels dont la trace commence ainsi échouent (Jira injoignable). */
+    public String failingCall;
     public final List<IssueType> types = new ArrayList<>(List.of(new IssueType("10002", "Bug"), new IssueType("10001", "Story")));
     public final Map<String, List<RequiredField>> required = new LinkedHashMap<>();
     public final List<Map<String, Object>> created = new ArrayList<>();
@@ -40,6 +42,10 @@ public class FakeIssueTracker implements IssueTracker {
     public long searchDelayMillis;
     /** Tickets de l'index de connaissance, par clé (research.md R20). */
     public final Map<String, TrackedIssue> tracked = new LinkedHashMap<>();
+    /** Clés des tickets suivis renvoyés par les lectures de l'index, dans l'ordre, doublons compris. */
+    public final List<String> read = new ArrayList<>();
+    /** Délai simulé par ticket suivi renvoyé : le coût d'une lecture Jira suit le contenu lu (SC-001 de 003). */
+    public long readDelayMillis;
     /** Liens créés : {@code type sortant -> entrant}. */
     public final List<String> links = new ArrayList<>();
     /** Panne de la seule création de lien. */
@@ -48,6 +54,9 @@ public class FakeIssueTracker implements IssueTracker {
     private void fail() {
         if (failure != null) {
             throw new IssueTrackerException(failure, "simulé");
+        }
+        if (failingCall != null && !calls.isEmpty() && calls.get(calls.size() - 1).startsWith(failingCall)) {
+            throw new IssueTrackerException(Kind.UNREACHABLE, "simulé");
         }
     }
 
@@ -164,7 +173,46 @@ public class FakeIssueTracker implements IssueTracker {
         List<TrackedIssue> all = tracked.values().stream().filter(i -> i.key().startsWith(projectKey + "-"))
                 .filter(i -> since == null || !i.updated().isBefore(since))
                 .sorted(java.util.Comparator.comparing(TrackedIssue::updated)).toList();
-        return new TrackedIssuePage(all.stream().skip(startAt).limit(maxResults).toList(), startAt, all.size());
+        List<TrackedIssue> page = all.stream().skip(startAt).limit(maxResults).toList();
+        page.forEach(this::readOne);
+        return new TrackedIssuePage(page, startAt, all.size());
+    }
+
+    @Override
+    public TrackedIssuePage searchOpenOrUpdatedSince(JiraEndpoint endpoint, String projectKey, Instant since,
+            int startAt, int maxResults) {
+        calls.add("openOrUpdatedSince " + projectKey + " " + since + " " + startAt);
+        fail();
+        List<TrackedIssue> all = tracked.values().stream().filter(i -> i.key().startsWith(projectKey + "-"))
+                .filter(i -> !"done".equals(i.statusCategory()) || !i.updated().isBefore(since))
+                .sorted(java.util.Comparator.comparing(TrackedIssue::updated)).toList();
+        List<TrackedIssue> page = all.stream().skip(startAt).limit(maxResults).toList();
+        page.forEach(this::readOne);
+        return new TrackedIssuePage(page, startAt, all.size());
+    }
+
+    @Override
+    public List<TrackedIssue> issuesByKeys(JiraEndpoint endpoint, String projectKey, List<String> keys) {
+        if (keys.isEmpty() || keys.size() > KEYS_PER_READ) {
+            throw new IllegalArgumentException("de 1 à " + KEYS_PER_READ + " clés");
+        }
+        calls.add("byKeys " + projectKey + " " + keys.size());
+        fail();
+        List<TrackedIssue> found = keys.stream().map(tracked::get).filter(java.util.Objects::nonNull)
+                .filter(i -> i.key().startsWith(projectKey + "-")).toList();
+        found.forEach(this::readOne);
+        return found;
+    }
+
+    private void readOne(TrackedIssue issue) {
+        read.add(issue.key());
+        if (readDelayMillis > 0) {
+            try {
+                Thread.sleep(readDelayMillis);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     @Override

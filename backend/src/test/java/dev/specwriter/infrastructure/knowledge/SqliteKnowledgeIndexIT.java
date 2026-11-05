@@ -145,6 +145,23 @@ class SqliteKnowledgeIndexIT {
     }
 
     @Test
+    void ticketsFermesDuProjet() {
+        index.save(KnowledgeItem.ticket(project, "FACT-1", "Fermé", "x", "Terminé", "done", "Story", T0, T0), null, null);
+        index.save(KnowledgeItem.ticket(project, "FACT-2", "Fermé aussi", "y", "Livré", "done", "Bug", T0, T0), null, null);
+        index.save(ticket("FACT-3", "Ouvert", "z"), null, null);
+        index.save(section("u#done", "done", "Section."), null, null);
+        UUID other = UUID.randomUUID();
+        projects.save(Project.create(other, ProjectName.of("Autre " + other.toString().substring(0, 8)), null, null, T0));
+        try {
+            index.save(KnowledgeItem.ticket(other, "AUTRE-1", "Fermé", "x", "Terminé", "done", "Story", T0, T0), null,
+                    null);
+            assertThat(index.closedTickets(project)).containsExactlyInAnyOrder("FACT-1", "FACT-2");
+        } finally {
+            projects.delete(other);
+        }
+    }
+
+    @Test
     void lesProjetsNeSeMelangentPas() {
         index.save(section("u#1", "Avoir", "Section sur l'avoir."), vector(1), MODEL);
         UUID other = UUID.randomUUID();

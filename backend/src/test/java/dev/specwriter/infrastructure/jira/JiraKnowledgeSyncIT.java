@@ -109,6 +109,43 @@ class JiraKnowledgeSyncIT {
         assertThat(issues.get(1).links()).containsExactly(TicketLink.parent("FACT-20"));
     }
 
+    /** 003, FR-002 : indexation complète, tickets ouverts ou modifiés depuis le repère. */
+    @Test
+    void ticketsOuvertsOuModifiesDepuisLeRepere() {
+        jira.stubFor(get(urlPathEqualTo("/rest/api/2/search")).willReturn(okJson("""
+                {"startAt":0,"maxResults":50,"total":1,"issues":[
+                 {"key":"FACT-20","fields":{"summary":"Payer en ligne","status":{"name":"En cours",
+                  "statusCategory":{"key":"indeterminate"}},"issuetype":{"name":"Story"},
+                  "updated":"2026-10-01T10:00:00.000+0000","subtasks":[{"key":"FACT-21"}],"issuelinks":[]}}]}""")));
+        TrackedIssuePage page = client.searchOpenOrUpdatedSince(endpoint(), "FACT",
+                Instant.parse("2026-10-20T08:30:00Z"), 0, 50);
+        assertThat(page.issues()).extracting(TrackedIssue::key).containsExactly("FACT-20");
+        assertThat(page.issues().get(0).links()).containsExactly(TicketLink.subtask("FACT-21"));
+        jira.verify(getRequestedFor(urlPathEqualTo("/rest/api/2/search"))
+                .withQueryParam("jql", equalTo("project = FACT AND (statusCategory != Done OR updated >= "
+                        + "\"2026/10/19 08:30\") ORDER BY updated ASC"))
+                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated,parent,subtasks,issuelinks")));
+    }
+
+    /** 003, FR-002 : tickets absents de l'index lus par clé ; une clé supprimée n'est qu'un avertissement. */
+    @Test
+    void ticketsLusParCleCleSupprimeeIgnoree() {
+        jira.stubFor(get(urlPathEqualTo("/rest/api/2/search")).willReturn(okJson("""
+                {"startAt":0,"maxResults":50,"total":1,"warningMessages":["La valeur 'FACT-99' n'existe pas pour le champ 'key'."],
+                 "issues":[{"key":"FACT-7","fields":{"summary":"Annuler une facture","description":"Par un avoir.",
+                  "status":{"name":"Terminé","statusCategory":{"key":"done"}},"issuetype":{"name":"Story"},
+                  "updated":"2026-09-12T10:00:00.000+0000"}}]}""")));
+        List<TrackedIssue> issues = client.issuesByKeys(endpoint(), "FACT", List.of("FACT-7", "FACT-99"));
+        assertThat(issues).extracting(TrackedIssue::key).containsExactly("FACT-7");
+        assertThat(issues.get(0).statusCategory()).isEqualTo("done");
+        jira.verify(getRequestedFor(urlPathEqualTo("/rest/api/2/search"))
+                .withQueryParam("jql", equalTo("project = FACT AND key in (FACT-7, FACT-99) ORDER BY key ASC"))
+                .withQueryParam("validateQuery", equalTo("warn")).withQueryParam("maxResults", equalTo("50"))
+                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated,parent,subtasks,issuelinks")));
+        assertThatThrownBy(() -> client.issuesByKeys(endpoint(), "FACT", List.of("FACT-1) OR (1=1")))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void premiereSynchronisationSansRepere() {
         jira.stubFor(get(urlPathEqualTo("/rest/api/2/search"))
