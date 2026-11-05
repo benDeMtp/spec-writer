@@ -87,6 +87,9 @@ assemble:
       launcher:
         javaOptions:
           - '-Xshare:auto'
+        # passerelle MCP pour les agents de code : lanceur spec-writer-mcp à côté de l'application
+        launchers:
+          - 'spec-writer-mcp=dist/launchers/spec-writer-mcp.properties'
       osx:
         types: [dmg]
         icon: 'dist/assets/spec-writer.icns'

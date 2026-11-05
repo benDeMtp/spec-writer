@@ -1,0 +1,1 @@
+{"operation": "propose-questions", "userContains": ["<connaissance-projet>", "<fiche-generale>", "hypothese=\"true\""], "response": {"questions": [], "contradictions": [], "coveredThemes": []}}

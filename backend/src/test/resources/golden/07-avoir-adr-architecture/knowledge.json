@@ -1,0 +1,35 @@
+{
+  "pages": [
+    {"ref": "facturation/glossaire.html", "title": "Glossaire", "role": "VOCABULARY",
+     "body": "Avoir : document qui annule tout ou partie d'une facture émise."},
+    {"ref": "facturation/architecture.html", "title": "Vue d'ensemble", "role": "ARCHITECTURE_OVERVIEW",
+     "body": "La facturation publie ses avoirs sur le topic des avoirs ; la comptabilité les consomme."}
+  ],
+  "adrs": [
+    {"ref": "facturation/adr/adr-002.html", "title": "ADR-002 Appel direct de la comptabilité", "status": "SUPERSEDED",
+     "supersededBy": "ADR-005", "body": "La facturation appelle la comptabilité pour chaque facture et chaque avoir."},
+    {"ref": "facturation/adr/adr-005.html", "title": "ADR-005 Notification asynchrone de la comptabilité", "status": "ACCEPTED",
+     "body": "La facturation notifie la comptabilité de chaque facture et de chaque avoir de façon asynchrone, par le topic des avoirs. Aucun appel synchrone."}
+  ],
+  "tickets": [
+    {"key": "FACT-7", "title": "Annuler une facture", "status": "Terminé", "statusCategory": "done",
+     "description": "Le gestionnaire annule une facture émise par un avoir total."},
+    {"key": "FACT-12", "title": "Plafonner l'avoir", "status": "À faire", "statusCategory": "new",
+     "description": "Un avoir ne dépasse pas le restant dû de la facture."}
+  ],
+  "elements": [
+    {"name": "Facturation", "type": "SOFTWARE_SYSTEM", "scope": "PROJECT", "description": "Factures et avoirs"},
+    {"name": "Facturation/Service Avoirs", "type": "CONTAINER", "scope": "PROJECT", "description": "Émet les avoirs", "technology": "Java"},
+    {"name": "Bus/Topic Avoirs", "type": "CONTAINER", "scope": "COMMON", "transport": true, "description": "Publie les avoirs", "technology": "Kafka"},
+    {"name": "Comptabilité", "type": "SOFTWARE_SYSTEM", "scope": "COMMON", "description": "Reçoit les factures et les avoirs"},
+    {"name": "Editique", "type": "SOFTWARE_SYSTEM", "scope": "COMMON", "description": "Envoie les factures et les avoirs au client"}
+  ],
+  "relations": [
+    {"source": "Facturation/Service Avoirs", "destination": "Bus/Topic Avoirs", "description": "Publie les avoirs"},
+    {"source": "Bus/Topic Avoirs", "destination": "Comptabilité", "description": "Transmet les avoirs"}
+  ],
+  "deployments": [
+    {"element": "Comptabilité", "environment": "Production", "rootNode": "ITaaS", "nodePath": "ITaaS/OpenShift", "instances": 1, "shared": true},
+    {"element": "Editique", "environment": "Production", "rootNode": "ITaaS", "nodePath": "ITaaS/OpenShift", "instances": 1, "shared": true}
+  ]
+}

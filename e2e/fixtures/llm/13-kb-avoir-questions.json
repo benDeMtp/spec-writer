@@ -1,0 +1,32 @@
+{
+  "operation": "propose-questions",
+  "userContains": [
+    "<connaissance-projet>",
+    "Saisir un avoir sur une facture émise",
+    "adr-005.html\" statut=\"ACCEPTED\""
+  ],
+  "response": {
+    "questions": [
+      {
+        "theme": "NOMINAL_FLOW",
+        "label": "Comment le client reçoit-il l'avoir ?",
+        "rationale": "Le client doit savoir que sa facture est corrigée",
+        "suggestions": [
+          "Par courriel, avec l'avoir en PDF",
+          "Par courrier"
+        ],
+        "defaultValue": "Par courriel, avec l'avoir en PDF",
+        "dependsOnQuestionIds": []
+      }
+    ],
+    "contradictions": [],
+    "coveredThemes": [
+      "ACTORS",
+      "GOAL",
+      "BUSINESS_RULES",
+      "ERRORS",
+      "EDGE_CASES",
+      "NON_FUNCTIONAL"
+    ]
+  }
+}

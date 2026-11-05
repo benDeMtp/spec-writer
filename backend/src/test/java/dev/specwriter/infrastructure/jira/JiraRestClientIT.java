@@ -4,8 +4,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.matching;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -16,7 +18,13 @@ import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.port.IssueTracker;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
@@ -101,5 +109,35 @@ class JiraRestClientIT {
         JiraEndpoint autreCa = new JiraEndpoint("https://127.0.0.1:" + jira.httpsPort(), "TEST-JIRA-PAT", certs.otherCaPem.toString());
         assertThatThrownBy(() -> client.serverVersion(autreCa))
                 .extracting(e -> ((IssueTrackerException) e).kind()).isEqualTo(IssueTrackerException.Kind.UNREACHABLE);
+    }
+
+    /** T063 : 20 recherches simultanées et une nouvelle tentative après 429, à 8 requêtes par seconde au plus (FR-022a). */
+    @Test
+    void auPlusHuitRequetesParSecondeMemeAvecUneNouvelleTentative() throws Exception {
+        String empty = "{\"startAt\":0,\"maxResults\":25,\"total\":0,\"issues\":[]}";
+        jira.stubFor(get(urlPathEqualTo("/rest/api/2/search")).withQueryParam("jql", matching("project = LIM .*"))
+                .inScenario("débit").whenScenarioStateIs(STARTED)
+                .willReturn(aResponse().withStatus(429).withHeader("Retry-After", "0")).willSetStateTo("servi"));
+        jira.stubFor(get(urlPathEqualTo("/rest/api/2/search")).withQueryParam("jql", matching("project = LIM .*"))
+                .inScenario("débit").whenScenarioStateIs("servi").willReturn(okJson(empty)));
+        jira.resetRequests();
+        try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<?>> all = new ArrayList<>();
+            for (int i = 0; i < 20; i++) {
+                int n = i;
+                all.add(pool.submit(() -> client.searchText(http("TEST-JIRA-PAT"), "LIM", "terme" + n, 0, 25)));
+            }
+            for (Future<?> f : all) {
+                f.get();
+            }
+        }
+        List<Long> at = jira.getAllServeEvents().stream().filter(e -> e.getRequest().getUrl().contains("LIM"))
+                .map(ServeEvent::getRequest).map(r -> r.getLoggedDate().getTime()).sorted().toList();
+        // 20 réponses servies, plus au moins un 429 suivi de sa nouvelle tentative
+        assertThat(at).hasSizeGreaterThan(20);
+        for (long start : at) {
+            assertThat(at.stream().filter(t -> t >= start && t < start + 1000).count()).as("requêtes reçues en une seconde")
+                    .isLessThanOrEqualTo(8);
+        }
     }
 }

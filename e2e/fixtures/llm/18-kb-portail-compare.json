@@ -1,0 +1,15 @@
+{
+  "operation": "compare-with-issue",
+  "userContains": [
+    "avoirs partiels dans le portail"
+  ],
+  "response": {
+    "common": [
+      "Des avoirs partiels sur une facture émise"
+    ],
+    "different": [
+      "Le besoin montre les avoirs au client dans le portail ; le ticket les fait émettre par le gestionnaire"
+    ],
+    "suggestion": "SAME"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "operation": "judge-related-issues",
+  "userContains": [
+    "Saisir un avoir sur une facture émise"
+  ],
+  "response": {
+    "related": [
+      {
+        "key": "FACT-7",
+        "reason": "Le ticket annule déjà une facture émise par un avoir total."
+      },
+      {
+        "key": "FACT-9",
+        "reason": "Le ticket émet des avoirs partiels sur une facture émise."
+      }
+    ]
+  }
+}

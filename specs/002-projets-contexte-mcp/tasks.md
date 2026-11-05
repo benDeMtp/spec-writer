@@ -1,0 +1,662 @@
+---
+
+description: "Liste des tâches d'implémentation de la feature 002"
+---
+
+# Tasks: Projets, connaissance du projet et accès des agents de code
+
+**Input**: Design documents from `specs/002-projets-contexte-mcp/`
+
+**Prerequisites**: [plan.md](plan.md), [spec.md](spec.md), [research.md](research.md),
+[data-model.md](data-model.md), [contracts/](contracts/), [quickstart.md](quickstart.md)
+
+**Tests**: obligatoires. La constitution v2.0.0 impose le TDD (principe III) et un E2E par
+parcours (principe IV). Dans chaque phase, les tâches de test passent **avant** l'implémentation :
+elles doivent échouer avant qu'on écrive le code.
+
+**Organization**: les tâches sont groupées par user story, dans l'ordre de priorité de la spec :
+- P1 : US1 (projets) et US2 (connaissance du projet, révisée le 2026-11-04) ;
+- P2 : US3 (suppression) et US4 (Jira paginé) ;
+- P3 : US5 (agents de code, statut, verrou).
+
+**Préalable de branche** : la feature part de `main`. Elle suppose que la PR #2 (évaluation LLM,
+cache NVD) et la PR du texte riche (`feature/003-texte-riche`, champ `details`, FR-012b de 001)
+sont fusionnées. Rebaser `feature/005-projets-mcp` sur `main` avant T001.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]** : parallélisable (fichiers différents, aucune dépendance sur une tâche non terminée)
+- **[Story]** : user story concernée (US1 à US5)
+
+## Path Conventions
+
+Les chemins sont relatifs à la racine du dépôt. Les abréviations sont celles de 001 :
+
+- `B/` = `backend/src/main/java/dev/specwriter/`
+- `BR/` = `backend/src/main/resources/`
+- `BT/` = `backend/src/test/java/dev/specwriter/`
+- `BTR/` = `backend/src/test/resources/`
+- `F/` = `frontend/src/app/`
+- `E/` = `e2e/tests/`
+
+Les règles transverses de 001 s'appliquent : domaine sans framework (ArchUnit), aucun contenu ni
+secret dans les journaux, erreurs au format `Problem`, axe sur chaque écran. S'y ajoutent :
+
+- **Dépendances** : Maven Central est joignable par le proxy du poste (vérifié le 2026-11-04).
+  Sont ajoutés jsoup 1.23.2 (T002), langchain4j-embeddings 1.21.0-beta31 et structurizr-dsl 6.2.4
+  (T088), chacune passée par Dependency-Check avant usage.
+- **Migrations** : chaque nouvelle migration prend le prochain numéro libre au moment de sa
+  livraison (V10, V11…) ; une migration appliquée ne change jamais.
+- **Prompts** : toute modification de prompt ou de `B/infrastructure/llm/**` impose de relancer
+  l'évaluation (`ci/check-eval.sh`, T058).
+- **Boucle de développement** : dev mode Quarkus piloté par le serveur MCP Quarkus, comme dans
+  `CLAUDE.md`. Avant chaque commit : `./mvnw -B verify -DskipDependencyCheck`, puis les E2E sur le
+  jar.
+
+---
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose** : dépendance, règles d'architecture, jeux d'essai partagés
+
+- [X] T001 Rebaser `feature/005-projets-mcp` sur `main` après la fusion de la PR #2 et de la PR du texte riche. Vérifier `./mvnw -B -o verify -DskipDependencyCheck` au vert avant toute modification.
+- [X] T002 Ajouter `org.jsoup:jsoup` 1.23.2 (MIT) à `backend/pom.xml`, avec la propriété `jsoup.version`. Déclarer la licence dans `NOTICE`. Vérifier qu'elle se résout hors ligne (`./mvnw -o`).
+- [X] T003 [P] Étendre `BT/architecture/HexagonalArchitectureTest.java` avec deux règles :
+  - le paquet `dev.specwriter.mcp..` ne dépend d'aucune classe de `domain`, `application` ou `infrastructure` ;
+  - tout cas d'usage d'écriture d'une session, dont la liste est tenue dans le test, appelle `SpecificationLock.requireEditable` (research.md R7).
+  
+  Les règles échouent tant que le paquet et le garde n'existent pas : les marquer `@Disabled("T047")` jusqu'à T047.
+- [X] T004 [P] Créer le site Antora de test `e2e/fixtures/jira/__files/antora/` (WireMock ne sert que les fichiers de `__files`) : un `sitemap.xml` de type index renvoyant vers `sitemap-billing.xml`, 30 pages HTML avec `<article class="doc">` (vocabulaire, acteurs, règles de facturation), une page qui répond 500, un lien vers un autre hôte et une page sans `article.doc`. Le servir par WireMock dans `e2e/fixtures/jira/mappings/antora.json` et le copier en dossier dans `BTR/antora-site/`.
+- [X] T005 [P] Créer le projet Jira simulé `FACT` dans `e2e/fixtures/jira/mappings/fact.json` : 120 tickets, `GET /rest/api/2/search` paginé (`startAt`, `maxResults=25`, `total=120`, tri `updated DESC`), le ticket `FACT-1` lié dans le scénario P9, et une réponse JQL avec mot-clé (60 tickets) pour P10.
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose** : l'entité Projet et le rattachement des sessions, dont toutes les stories dépendent.
+
+**⚠️ CRITICAL** : aucune story ne commence avant la fin de cette phase.
+
+- [X] T006 [P] Tests du domaine dans `BT/domain/project/ProjectTest.java`, cas par cas :
+  - nom « 1 à 80 caractères, sans espace en début ni en fin », unicité « sans tenir compte de la casse » via `nameKey` ;
+  - description « 1 000 caractères maximum, facultative » ;
+  - `jiraProjectKey` « facultative, format `[A-Z][A-Z0-9_]{1,9}` » ;
+  - projet Jira effectif = clé du projet, sinon projet par défaut des réglages.
+- [X] T007 Créer `B/domain/project/Project.java`, `ProjectName.java` et `JiraProjectKey.java` (records validés), ainsi que le port `B/domain/port/ProjectRepository.java` (`save`, `find`, `findByNameKey`, `list`, `delete`, `count`). Faire passer T006.
+- [X] T008 Écrire la migration `BR/db/migration/V7__projects.sql` :
+  - table `project` (`id`, `name`, `name_key` UNIQUE, `description`, `jira_project_key`, `created_at`, `updated_at`, avec des `CHECK` de longueur conformes à data-model.md) ;
+  - création du « Projet par défaut » ;
+  - `ALTER TABLE session` pour ajouter `project_id` `REFERENCES project`, valorisé par le projet par défaut pour toutes les sessions existantes. Pas de reconstruction de la table : sous `foreign_keys=ON`, dans la transaction de Flyway, son `DROP` supprimerait en cascade questions, versions et tickets liés. La colonne est ajoutée nullable (SQLite refuse une colonne `REFERENCES` avec une valeur par défaut non nulle), puis rendue obligatoire par deux triggers ;
+  - table `app_settings` à une ligne, avec `current_project_id` (`ON DELETE SET NULL`) : il n'existe pas de table `settings` commune.
+  
+  Test `BT/infrastructure/persistence/MigrationV7IT.java` : une base V6 avec 3 sessions et leurs versions migre sans perte, et toutes les sessions sont dans le projet par défaut (SC-001).
+- [X] T009 Ajouter `projectId` au record `B/domain/session/Session.java`, propagé par toutes ses méthodes de copie, à `SessionEntity` et `SessionJpaRepository`. Implémenter `ProjectJpaRepository` (`B/infrastructure/persistence/project/`). Adapter `StartSession` pour créer la session dans le projet courant, et les tests existants (`InMemorySessions`, `Specs`, `JiraWorld`, golden set) avec un projet par défaut.
+- [X] T010 Résoudre le projet Jira effectif en un point unique, `JiraAccess.effectiveProject(Session)` (`B/application/jira/JiraAccess.java`), et l'utiliser dans `PreviewJiraTicket`, `CreateJiraTicket` (`require(sessionId)`) et `UnifiedSearch` (partie Jira, `targetForCurrentProject()`). `ImportJiraIssue` lit un ticket par sa clé : il n'a pas besoin du projet Jira, et sa session va dans le projet courant (T009). Tests dans `BT/application/jira/JiraAccessTest.java` : clé du projet, ou défaut en son absence (FR-006).
+
+**Checkpoint** : toutes les sessions ont un projet ; le comportement de 001 est inchangé (suite complète au vert).
+
+---
+
+## Phase 3: User Story 1 - Ranger ses spécifications par projet (Priority: P1) 🎯 MVP
+
+**Goal** : créer, modifier, supprimer des projets, choisir le projet courant, déplacer une
+spécification ; les actions Jira utilisent la clé du projet.
+
+**Independent Test** : quickstart P1 à P4.
+
+### Tests for User Story 1
+
+- [X] T011 [P] [US1] `BT/application/project/ManageProjectsTest.java` :
+  - création, renommage, nom en double refusé (`PROJECT_NAME_TAKEN`) ;
+  - suppression avec `MOVE` ou `DELETE` ;
+  - « Le dernier projet restant ne peut pas être supprimé » (`LAST_PROJECT`) ;
+  - suppression refusée pendant une opération IA en cours ;
+  - projet courant conservé, et premier projet par nom si le projet courant est supprimé.
+- [X] T012 [P] [US1] `BT/application/project/MoveSessionTest.java` : la session et toutes ses versions changent de projet ; la recherche locale du projet cible la trouve, celle du projet source ne la trouve plus.
+- [X] T013 [P] [US1] `BT/infrastructure/web/ProjectResourceIT.java` :
+  - CRUD de `contracts/openapi.yaml` (`/api/projects`, `/api/projects/current`, `/api/sessions/{id}/project`) ;
+  - vérification de la clé Jira par WireMock : une clé introuvable donne `jiraKeyWarning`, sans bloquer l'enregistrement (FR-007) ;
+  - liste et recherche filtrées sur le projet courant (FR-005).
+- [X] T014 [P] [US1] E2E `E/us7-projects.spec.ts`, scénarios quickstart P1 à P4 avec axe ; l'aperçu de ticket indique `FACT` pour « Facturation » et `PROJ` sinon.
+
+### Implementation for User Story 1
+
+- [X] T015 [US1] Cas d'usage `B/application/project/` : `CreateProject`, `UpdateProject`, `DeleteProject`, `SelectCurrentProject` et `MoveSession`, câblés dans `B/infrastructure/config/UseCaseProducer.java`. Codes d'erreur `PROJECT_NAME_TAKEN`, `LAST_PROJECT` et `PROJECT_NOT_FOUND` dans `ErrorCode`.
+- [X] T016 [US1] Filtrer `ManageSessions` (liste) et `FtsLocalSearch` sur `project_id` du projet courant (`B/infrastructure/persistence/search/FtsLocalSearch.java`).
+- [X] T017 [US1] Créer `B/infrastructure/web/ProjectResource.java` (contrat `/api/projects*` et `/api/sessions/{id}/project`), avec la vérification de la clé Jira via `IssueTracker`.
+- [X] T018 [P] [US1] Front :
+  - `F/core/projects/projects.api.ts` et `projects.store.ts` (projet courant, signal) ;
+  - `F/features/projects/projects.page.ts` (liste, création, édition, suppression avec choix déplacer ou supprimer, et confirmation nommée) ;
+  - sélecteur de projet courant dans la barre d'en-tête (`F/app.ts`) ;
+  - action « Déplacer vers… » sur la page de spécification.
+
+**Checkpoint** : US1 utilisable seule.
+
+---
+
+## Phase 4: User Story 2 - spec-writer connaît le projet (Priority: P1)
+
+**Goal** (révisé le 2026-11-04) : un index local de Jira, d'Antora et du modèle Structurizr ; les
+tickets proches avant les questions ; une rédaction qui cite les ADR et les modules, signale les
+flux manquants et les efforts de déploiement ; une fiche générale à la main.
+
+**Independent Test** : quickstart P5 à P8.
+
+> **Historique** : T019 à T087 ont livré les fiches générées par l'IA, remplacées par la
+> connaissance du projet (research.md R28). Elles restent cochées : leur code réemployable
+> (sources, `AntoraReader`, suivi, journal, délais, `Citations`) est gardé ; le reste est retiré
+> par T114 et T115. Le travail restant de la story est la section « Connaissance du projet »
+> (T088 à T119).
+
+### Tests for User Story 2
+
+- [X] T019 [P] [US2] `BT/domain/project/ProjectContextTest.java` :
+  - contexte « 20 000 caractères maximum » ;
+  - `contextHash` recalculé ;
+  - origine `NONE` → `GENERATED` → `EDITED` ;
+  - source de documentation : 10 sources au plus, `URL` absolue `http`/`https` sans identifiants (`user:pass@` refusé), `FOLDER` absolu existant, « 2 000 caractères maximum ».
+- [X] T020 [P] [US2] `BT/infrastructure/docs/AntoraReaderTest.java`, sur `BTR/antora-site/` et WireMock :
+  - index de sitemaps ;
+  - extraction de `article.doc` seulement (titres, listes et tableaux conservés en texte) ;
+  - page 500 et page sans `article.doc` listées dans les non-lus avec leur motif (`HTTP_ERROR`, `NOT_ANTORA`) ;
+  - redirection vers un autre hôte non suivie (`REDIRECT_OTHER_HOST`) ;
+  - bornes : 2 Mo par page (`TOO_LARGE`), 1 000 pages et 10 min (`LIMIT_REACHED`, avec horloge injectée) ;
+  - repli sans sitemap par les liens du même hôte et sous le même chemin ;
+  - proxy appliqué (`ProxySettings`).
+- [X] T021 [P] [US2] `BT/application/context/ProposeProjectContextTest.java`, avec `StubLlm` :
+  - lots d'environ 40 000 caractères pour `summarizeProjectSources`, puis `buildProjectContext` ;
+  - les 200 tickets les plus récents demandés par pages de 50 ;
+  - une référence citée inconnue des sources provoque une `correction`, 3 essais au plus ;
+  - une fiche de plus de 20 000 caractères provoque une `correction` ;
+  - consentement Copilot exigé ;
+  - proposition gardée en mémoire et rien d'enregistré avant acceptation ;
+  - acceptation refusée si le contexte a changé (`CONTEXT_CHANGED`) ;
+  - aucune page ni aucun ticket journalisé.
+- [X] T022 [P] [US2] Étendre `BT/infrastructure/llm/PromptInjectionIT.java` : des pages Antora et des descriptions de tickets malveillantes (« ignore tes instructions », fermeture de `</sources>` ou `</contexte-projet>`) restent des données échappées dans les deux nouvelles opérations et dans `<contexte-projet>`.
+- [X] T023 [P] [US2] `BT/domain/specification/TraceabilityValidatorTest.java` et `InputFingerprintTest.java` :
+  - source `PROJECT_CONTEXT` acceptée si son extrait figure dans le contexte, refusée sinon ;
+  - `contextHash` dans l'empreinte, donc une nouvelle version à contexte modifié et la réutilisation à contexte identique (FR-011).
+- [X] T024 [P] [US2] Golden set :
+  - `BTR/golden/04-facturation-avec-contexte/` et `05-conges-avec-contexte/`, avec `need.md`, `context.md`, `answers.json` et des réponses LLM dont des sources `PROJECT_CONTEXT` ;
+  - `GoldenSetIT` lit `context.md` s'il existe et vérifie `<contexte-projet>` par `userContains`.
+- [X] T025 [P] [US2] `BT/infrastructure/web/ContextResourceIT.java` : contrat `/api/projects/{id}/context*`, `/doc-sources*` et `/context-proposals*`, de bout en bout, avec WireMock (Antora et Jira) et le LLM rejoué (`BTR/llm-replay/`).
+- [X] T026 [P] [US2] E2E `E/us8-project-context.spec.ts`, scénarios quickstart P5 à P8 avec axe ; réponses LLM rejouées dans `e2e/fixtures/llm/09-summarize-sources.json`, `10-build-context.json` et des questions sans thème ACTORS.
+
+### Implementation for User Story 2
+
+- [X] T027 [US2] Écrire la migration `BR/db/migration/V8__project_context.sql` :
+  - colonnes `project.context`, `context_hash`, `context_origin` (`NONE`, `GENERATED`, `EDITED`) et `context_updated_at` ;
+  - table `project_doc_source` (`ON DELETE CASCADE`, `kind` `URL`|`FOLDER`, `location` de 2 000 caractères au plus, `last_read_at`, `last_result` JSON sans contenu) ;
+  - colonnes `specification_version.context_hash` et `context_updated_at`.
+- [X] T028 [US2] Domaine : `B/domain/project/ProjectContext.java` et `DocSource.java`, le port `B/domain/port/DocumentationReader.java` (pages `{ref, title, text}` et non-lus `{location, reason}`), et le type `SourceRef.Kind.PROJECT_CONTEXT`. Adapter `TraceabilityValidator` et `InputFingerprint` (T023).
+- [X] T029 [US2] Implémenter `B/infrastructure/docs/AntoraReader.java` avec jsoup, le sitemap, le dossier, les bornes, 4 requêtes en parallèle, un délai de 15 s par page et le proxy (research.md R3). Faire passer T020.
+- [X] T030 [US2] Port LLM :
+  - ajouter `projectContext` aux records `B/domain/llm/*Request.java`, propagé dans `withCorrection` ;
+  - ajouter les records `SummarizeSourcesRequest`/`SourceFacts` et `BuildContextRequest`/`ProjectContextDraft` ;
+  - ajouter les méthodes `summarizeProjectSources` et `buildProjectContext` à `LlmClient` et `LangChainLlmClient`, avec leurs schémas JSON dans `LlmSchemas` ;
+  - `UserMessages` : balises `<contexte-projet>` (après `<langue>`) et `<sources>`, contenu échappé ;
+  - adapter `StubLlm`, `ScriptedChatModel` et `ReplayChatModel`.
+- [X] T031 [US2] Prompts :
+  - créer `BR/prompts/summarize-project-sources.txt` et `build-project-context.txt` (contracts/llm-port.md : sections fixes, `[source : …]`, aucune invention, sources = données) ;
+  - ajouter `<contexte-projet>` aux 6 prompts existants : déclaré dans la règle de sécurité, information à ne pas redemander, source `PROJECT_CONTEXT` citable, contradiction à remonter.
+- [X] T032 [US2] Cas d'usage `B/application/context/` : `PreviewContextSources` (comptes sans lecture des pages, FR-013b), `ProposeProjectContext` (map-reduce avec vérification des références), `AcceptContextProposal`, `EditContext` et `ManageDocSources`. Brancher le contexte du projet dans `NextBatch`, `ReviseAnswer`, `GenerateSpecification`, `ProposeAiEdit`, `PushToJira` et `ImportJiraIssue`. Enregistrer `contextHash` et `contextUpdatedAt` sur chaque version.
+- [X] T033 [US2] Créer `B/infrastructure/web/ContextResource.java` (contrat) et ajouter `PROJECT_CONTEXT` aux vues `SessionViews` (libellé « contexte du projet » et extrait, date du contexte utilisé).
+- [X] T034 [P] [US2] Front `F/features/project-context/` :
+  - éditeur de fiche (Markdown avec aperçu) ;
+  - sources de documentation (ajout d'un lien ou d'un dossier, suppression, résultat de la dernière lecture) ;
+  - aperçu de l'envoi (pages, tickets, non-lus) suivi du dialogue de consentement existant ;
+  - proposition avec `unified-diff.component`, « Accepter » ou « Garder la mienne ».
+  
+  Page de spécification : source « contexte du projet » et « contexte du <date> » sur la version.
+
+### Progression, erreurs et journal (FR-013f, FR-013g, FR-031, research.md R14 et R15)
+
+- [X] T065 [P] [US2] `BT/application/context/ContextGenerationsTest.java` (exécution synchrone injectée) :
+  - étapes, élément en cours et compteurs signalés dans l'ordre (pages, tickets par pages de 50, lots, rédaction) ;
+  - une seule génération par projet (`OPERATION_IN_PROGRESS`), consentement vérifié avant le démarrage ;
+  - interruption avant une page, une page de tickets ou un appel au LLM : statut `CANCELLED`, aucune proposition ;
+  - erreurs détaillées : page (motif, code HTTP), source injoignable, Jira, correction demandée à l'IA, cause d'un échec ; aucun contenu ;
+  - génération terminée consultable 30 minutes, puis oubliée.
+- [X] T066 [P] [US2] Étendre `BT/infrastructure/docs/AntoraReaderTest.java` : chaque page signalée à l'écouteur, `httpStatus` 500 sur `tarifs-2025.html`, avertissement journalisé avec l'adresse et le motif, sans texte de page.
+- [X] T067 [P] [US2] `BT/infrastructure/logging/JournalHandlerTest.java` et `LogJournalTest.java` : une entrée JSON par ligne, cause et pile expurgées (jeton `ghp_…`, en-tête `Authorization`), niveau WARN au moins, rotation à 2 Mo sur 5 fichiers, relecture des 500 dernières du plus récent au plus ancien, filtre par niveau, ligne illisible ignorée.
+- [X] T068 [US2] Backend de la génération suivie :
+  - port `GenerationProgress` et `DocumentationReader.read(source, listener)` ; `Unread.httpStatus` ;
+  - `ProposeProjectContext` informe la progression et lit le drapeau d'interruption ;
+  - `B/application/context/ContextGenerations.java` (une par projet, thread virtuel, 30 minutes) ;
+  - `ContextResource` : `POST /context-generations` (202), `GET` et `DELETE /context-generations/current`, à la place de `POST /context-proposals` ;
+  - erreurs journalisées en WARN sans contenu. Faire passer T065 et T066, adapter `ContextResourceIT`.
+- [X] T069 [US2] Journal : `B/infrastructure/logging/JournalHandler.java` (enregistré au démarrage, `logs/journal.jsonl`), `LogJournal.java` et `B/infrastructure/web/JournalResource.java` (`GET /api/journal`). Faire passer T067 et `JournalResourceIT`.
+- [X] T070 [P] [US2] Front :
+  - page du contexte : progression (étape, élément en cours, barre `role="progressbar"`, annonces `aria-live` limitées aux changements d'étape), « Interrompre », reprise au retour sur la page, détail des erreurs avec un lien vers le journal ;
+  - écran `F/features/journal/` (route `/journal`, lien dans la navigation) : filtre par niveau, cause et pile dépliables, « Copier », « Actualiser ».
+- [X] T071 [US2] E2E `E/us8-project-context.spec.ts` : scénarios quickstart P5a et P5b avec axe ; délai WireMock sur les pages pour observer la progression.
+
+### Deux fiches et questions de clarification (FR-008a, FR-013h, FR-013i, research.md R16)
+
+- [X] T072 [P] [US2] Tests du domaine et de la persistance :
+  - `ProjectContextTest` : deux fiches, hash combiné, date la plus récente ;
+  - `BT/domain/project/ContextQuestionTest.java` : numérotation `Q-n`, états, longueurs ;
+  - `ProjectPersistenceIT` : fiche technique et questions (V9), cascade à la suppression du projet.
+- [X] T073 [P] [US2] Étendre `ProposeProjectContextTest` et `ContextGenerationsTest` :
+  - deux fiches, références vérifiées dans chacune, `Q-n` connues ;
+  - 10 questions au plus, une question sur un point couvert par une réponse ou passée est refusée par une `correction` ;
+  - réponse et passage enregistrés aussitôt, avec un numéro ;
+  - révision sans relire les sources ni Jira, réponses citées ; génération expirée → `NOT_FOUND` ;
+  - acceptation par fiche, `CONTEXT_CHANGED` par fiche.
+- [X] T074 [P] [US2] `PromptInjectionIT` et `TraceabilityValidatorTest` : `<contexte-fonctionnel>`, `<contexte-technique>`, `<reponses>` et `<questions-passees>` échappés ; source `PROJECT_CONTEXT` acceptée si l'extrait figure dans l'une des deux fiches.
+- [X] T075 [P] [US2] Golden set `BTR/golden/06-api-avec-contexte-technique/` (`context.md`, `technical.md`, exigences techniques issues de la fiche technique) ; `GoldenSetIT` lit `technical.md`.
+- [X] T076 [US2] Migration `BR/db/migration/V9__context_sheets.sql` (colonnes `technical_context*`, table `project_context_question`), domaine (`ContextSheet`, `Project.technicalContext`, `ContextQuestion`, port `ContextQuestionRepository`) et persistance JPA. Faire passer T072.
+- [X] T077 [US2] Port LLM et prompts :
+  - `ProjectContextInput(functional, technical)` dans les 6 requêtes, avec les deux balises ;
+  - nouvelles catégories de faits ;
+  - `BuildContextRequest` avec les deux fiches actuelles, les réponses et les questions passées ; `ProjectContextDraft(functional, technical, questions)` ;
+  - `LlmSchemas`, `UserMessages` ;
+  - les 8 prompts. Faire passer T074.
+- [X] T078 [US2] Application :
+  - `ProposeProjectContext` (deux fiches, questions, faits gardés pour la révision) ;
+  - `ContextGenerations.revise` ;
+  - `AnswerContextQuestion` et `ManageContextQuestions` ;
+  - `AcceptContextProposal` par fiche, `EditContext` par fiche ;
+  - les opérations sur les spécifications reçoivent les deux fiches ;
+  - `InputFingerprint` et version avec le hash combiné. Faire passer T073 et T075.
+- [X] T079 [US2] `ContextResource` : `PUT /context/{sheet}`, réponses aux questions, `revise`, `accept` par fiche, `GET`/`PUT /context-questions`. Adapter `ContextResourceIT`.
+- [X] T080 [P] [US2] Front, page du contexte :
+  - deux onglets « Fonctionnel » et « Technique », chacun avec son éditeur, son aperçu et son origine ;
+  - proposition fiche par fiche, avec diff, « Accepter » ou « Garder la mienne » ;
+  - questions de clarification (suggestions, réponse libre, « Passer »), puis « Réviser la proposition » ;
+  - historique des réponses `Q-n`, modifiables ;
+  - spécification : l'extrait « contexte du projet » nomme sa fiche.
+- [X] T081 [US2] E2E `E/us8-project-context.spec.ts` : scénarios quickstart P5c et P5d avec axe ; réponses LLM rejouées (`10-build-context.json` avec questions, `09b-revise-context.json`, rangé avant `10-` pour être retenu en premier).
+
+- [X] T082 [US2] Journal exploitable pour un échec du LLM (R15) : la cause Copilot gardée sans contenu (`SafeThrowable`, phase, modèle, durée, délai), l'échec de chaque appel journalisé avec l'opération et la tentative, la pile de chaque cause dans le journal. Tests `SafeThrowableTest`, `JournalTest`, `CopilotRuntimeClassifyTest`, `CopilotSdkChatModelTest`, `LangChainLlmClientTest`.
+- [X] T083 [US2] « Interrompre » rend la main tout de suite (R14) : état `CANCELLED` immédiat, thread interrompu, requête Copilot abandonnée et session supprimée ; front : état relu aussitôt, une seule boucle d'interrogation. Tests `ContextGenerationsTest`, `project-context.page.spec.ts`.
+- [X] T084 [US2] Motifs propres aux dossiers (R3) : `FOLDER_NOT_FOUND`, `NOT_A_FOLDER`, `ACCESS_DENIED`, `UNREADABLE`, `NO_HTML`, `ADOC_SOURCES` à l'aperçu et à la lecture, messages distincts à l'ajout. Tests `AntoraReaderTest`, `ContextSourcesTest`, `ProjectContextTest`.
+- [X] T085 [US2] Délai d'un appel au LLM selon l'opération (R4) : 600 s pour la génération du contexte, 180 s sinon, réglables (`specwriter.llm.timeout.*`), passés au SDK, qui abandonnait sinon au bout de 60 s. Test `LangChainLlmClientTest`.
+- [X] T086 [US2] Minuteur de la génération (R14) : `stepStartedAt` dans l'état, temps écoulé total et de l'étape pendant la génération, durée finale ensuite. Tests `ContextGenerationsTest`, `ContextResourceIT`, `project-context.page.spec.ts`, E2E P5a.
+- [X] T087 [US2] Réparer plutôt que redemander (R4) : `Citations` ramène les références écrites autrement et retire les affirmations invérifiables, les faits hors du lot et les questions déjà posées sont écartés, signalés `REPAIRED` ; le LLM n'est rappelé que pour une fiche trop longue ou sans aucune affirmation vérifiable. Le journal donne le motif des corrections et des réparations. Tests `CitationsTest`, `ProposeProjectContextTest`, `ContextGenerationsTest`, `project-context.page.spec.ts`.
+
+### Connaissance du projet (révision du 2026-11-04, FR-008, FR-013 à FR-013g, FR-032 à FR-043, research.md R18 à R28)
+
+#### Mise en route
+
+- [X] T088 [US2] Ajouter à `backend/pom.xml` `dev.langchain4j:langchain4j-embeddings` 1.21.0-beta31 (aligné sur `langchain4j-core` 1.21.0 ; apporte onnxruntime 1.20.0 et les tokenizers DJL 0.36.0) et `com.structurizr:structurizr-dsl` 6.2.4, avec leurs propriétés de version ; exclure `structurizr-client` si l'analyse s'en passe. En test : `langchain4j-embeddings-all-minilm-l6-v2-q` (même version), décompressé par `maven-dependency-plugin` dans `backend/target/test-model/` (`model.onnx`, `tokenizer.json`) pour les IT et les E2E, sans binaire dans le dépôt. Lancer `./mvnw -B verify` **avec** Dependency-Check sur ces dépendances ; traiter toute CVE bloquante (exclusion ou version). Licences dans `NOTICE` (Apache 2.0, MIT pour onnxruntime). **Fait** : `structurizr-client` ne peut pas être exclu (le parseur l'exige), `structurizr-component` l'est. Dependency-Check (NVD complète, `-DautoUpdate=false -DretireJsAnalyzerEnabled=false -DossindexAnalyzerEnabled=false -DcentralAnalyzerEnabled=false -DassemblyAnalyzerEnabled=false`, RetireJS et OSS Index injoignables derrière le proxy) : aucune CVE ≥ 7 après trois suppressions datées et justifiées de faux positifs CPE (serveurs GlassFish et Payara, Angus Mail).
+- [X] T089 [P] [US2] Mise en route du moteur (research.md R19), test `BT/infrastructure/embedding/OnnxEmbeddingSmokeIT.java` sur le modèle de test : vecteur normalisé, deux phrases proches plus proches qu'une phrase lointaine, moins de 50 ms par vecteur ; `ai.djl.offline=true` posé au démarrage et aucun téléchargement à l'exécution. Vérifier dans le jar exécutable (`unzip -l`) les bibliothèques natives des tokenizers et d'onnxruntime pour macOS (x86_64, aarch64), Windows et Linux ; consigner le résultat dans research.md R19.
+- [X] T090 [P] [US2] Jeu de connaissance fictif (research.md R27), partagé backend et E2E :
+  - `BTR/knowledge/c4/model.dsl` (système commun `Comptabilite`, système `Suez` avec un cluster Kafka), `BTR/knowledge/c4/facturation/workspace.dsl` (`workspace extends ../model.dsl`, `!include "../infra/prod.dsl"`, `!element` qui ajoute des conteneurs à un système commun, archétype `topic` et topic `avoirs-emis`, une propriété `ownership`, `!impliedRelationships false`, des relations dont une par le topic, des déploiements de production sur deux nœuds racines, un conteneur sans instance de production), `BTR/knowledge/c4/infra/prod.dsl`, `BTR/knowledge/c4/broken/workspace.dsl` (un `!include` introuvable) et `BTR/knowledge/c4/scripted/workspace.dsl` (un `!script`, refusé) ; chargement vérifié par `BT/infrastructure/architecture/StructurizrFixtureSmokeIT.java` ;
+  - site Antora **distinct** du site existant, pour ne pas changer les compteurs de pages des tests en place : `BTR/knowledge/antora/` et `e2e/fixtures/jira/__files/antora-knowledge/` (servi sous `/antora-knowledge/` par `mappings/antora-knowledge.json`), avec les pages `facturation/adr/adr-002.html` (« Statut : Remplacé par ADR-005 »), `adr-004.html`, `adr-005.html` (accepté, impose un traitement asynchrone), `glossaire.html`, `architecture.html` et `regles/avoir.html`, et leur `sitemap.xml` ;
+  - `BTR/knowledge/jira/issues.json` et mappings WireMock `e2e/fixtures/jira/mappings/knowledge.json` : `FACT-7` fermé (catégorie `done`) « Annuler une facture », `FACT-9` « à faire », JQL incrémentale `updated >=`, `GET /rest/api/2/issue/{key}?fields=status,updated`, `GET /rest/api/2/issueLinkType` (type `Relates`, sortant « relates to »), `POST /rest/api/2/issueLink` ; mappings prioritaires sur ceux de la pagination (JQL `ORDER BY updated ASC`, ou `fields=key` pour la liste des clés) ;
+  - `BTR/knowledge/cases.json` : besoins types et attendus (tickets, ADR, modules, flux manquants, efforts de déploiement) ; copie du workspace dans `e2e/fixtures/c4/`.
+
+#### Domaine et index
+
+- [X] T091 [P] [US2] Tests du domaine :
+  - `BT/domain/knowledge/KnowledgeItemTest.java` : `kind` parmi `TICKET`, `DOC_SECTION`, `ADR`, `ARCH_ELEMENT` ; « `title` 500 caractères maximum » ; « `body` 8 000 caractères maximum » ; `contentHash` = SHA-256 du titre et du corps ; ticket fermé si `statusCategory` vaut `done` ; ADR `ACCEPTED`, `PROPOSED`, `SUPERSEDED` (avec `supersededBy`), `DEPRECATED`, `UNKNOWN` ;
+  - `BT/domain/knowledge/ArchitectureModelTest.java` : flux direct dans un sens ou dans l'autre, y compris entre descendants ; flux indirect par **un seul** intermédiaire de transport (tag ou archétype `topic`, `queue`, `bus`, ou technologie Kafka, AMQP, JMS, MQ) ; pas de flux par deux intermédiaires ; constats de production (environnement dont le nom contient `prod`) : sans instance, plusieurs instances, échange entre nœuds racines différents, module propre dans un système commun ou sur un nœud partagé.
+- [X] T092 [US2] Domaine `B/domain/knowledge/` : `KnowledgeItem`, `KnowledgeKind`, `AdrStatus`, `ArchitectureModel` (éléments, relations, déploiements, `exchange(a, b)` avec l'intermédiaire, `deploymentFacts(modules, exchanges)`), `KnowledgeSelection` ; ports `B/domain/port/KnowledgeIndex.java`, `EmbeddingPort.java` (vecteur de requête et de passage, identifiant du modèle, état `MISSING`|`DOWNLOADING`|`READY`|`ERROR`|`TERMS_ONLY`) et `ArchitectureReader.java`. Faire passer T091.
+- [X] T093 [P] [US2] `BT/infrastructure/knowledge/SqliteKnowledgeIndexIT.java` : écriture idempotente par `contentHash` ; recherche plein texte FTS5 ; recherche par vecteurs (cosinus) ; fusion par *reciprocal rank fusion* (k = 60) des 50 meilleurs de chaque ; filtre par `kind` ; suppression des éléments disparus ; cascade à la suppression du projet ; recherche sur 10 000 éléments × 384 dimensions en moins de 50 ms ; aucun contenu journalisé.
+- [X] T094 [US2] Migration (prochain numéro libre) `BR/db/migration/V<n>__knowledge_index.sql` : table `knowledge_item` (colonnes de data-model.md, `ref` unique avec `project_id`, `kind` et `chunk`, `ON DELETE CASCADE`), table FTS5 `knowledge_fts(title, body)` tenue par triggers, tables `arch_relation` et `arch_deployment`, colonnes `project.architecture_workspace`, `architecture_ownership`, `knowledge_synced_at`, `jira_sync_mark`, `session.relates_to`, `specification_version.knowledge` (JSON) et `app_settings.embedding_model_folder`, `embedding_pooling`, `embedding_query_prefix`, `embedding_passage_prefix`. Implémenter `B/infrastructure/knowledge/SqliteKnowledgeIndex.java` (vecteurs `float32` en BLOB, gardés en mémoire par projet et invalidés à l'écriture). Faire passer T093.
+
+#### Embeddings, sources et synchronisation
+
+- [X] T095 [P] [US2] Tests du modèle :
+  - `BT/infrastructure/embedding/ModelDownloaderTest.java` (WireMock) : téléchargement par le proxy dans `${data}/models/<nom>/`, SHA-256 vérifiés, fichier altéré supprimé et erreur `MODEL`, reprise après un téléchargement incomplet, dossier de modèle déclaré qui évite tout téléchargement ;
+  - `BT/infrastructure/embedding/OnnxEmbeddingAdapterIT.java` (modèle de test) : préfixes `query: ` et `passage: ` appliqués, *mean pooling*, vecteurs normalisés ; modèle absent ou illisible → état `TERMS_ONLY`, sans exception.
+- [X] T096 [US2] `B/infrastructure/embedding/ModelDownloader.java` et `OnnxEmbeddingAdapter.java` : modèle par défaut `Xenova/multilingual-e5-small`, `onnx/model_quantized.onnx` et `tokenizer.json` à une révision épinglée avec leurs SHA-256 (propriétés `specwriter.embedding.*`, valeurs relevées par l'API Hugging Face au moment de l'implémentation) ; remplacement par le dossier et les réglages de `app_settings`. Faire passer T089 et T095.
+- [X] T097 [P] [US2] Étendre `BT/infrastructure/docs/AntoraReaderTest.java` : une section par `.sect1` (titre `h2`), morceaux d'environ 1 500 caractères au-delà ; page d'ADR reconnue par son chemin ou son titre (`adr`, `ADR-<n>`, « Architecture Decision Record »), statut lu dans la ligne « Statut » ou « Status » (accepté, proposé, remplacé par ADR-<n>, obsolète) ; rôles `VOCABULARY` (glossaire, vocabulaire) et `ARCHITECTURE_OVERVIEW`.
+- [X] T098 [US2] `AntoraReader` : sections, morceaux, ADR et rôles (`DocumentationReader.Section`), avec un `AdrParser` (`B/infrastructure/docs/AdrParser.java`). Faire passer T097.
+- [X] T099 [P] [US2] `BT/infrastructure/architecture/StructurizrReaderTest.java` sur `BTR/knowledge/c4/` : `extends` et `!include` résolus ; noms canoniques `Système/Conteneur/Composant` ; transport reconnu par l'archétype `topic` ; `ownership` prioritaire ; propre ou commun par l'analyse seule du modèle étendu ; nœuds d'un fichier `infra/` inclus marqués partagés ; mode restreint (un `!script` ignoré avec un avertissement, `!docs` et `!adrs` acceptés, après l'essai sur les workspaces réels) ; `broken/` donne une erreur avec fichier et ligne.
+- [X] T100 [US2] `B/infrastructure/architecture/StructurizrReader.java` (`StructurizrDslParser` restreint, research.md R21). Faire passer T099.
+- [X] T101 [P] [US2] `BT/infrastructure/jira/JiraKnowledgeSyncIT.java` (WireMock) : JQL `project = KEY AND updated >= "<repère - 1 jour>" ORDER BY updated ASC` (fuseau de l'utilisateur Jira) par pages de 50 ; description convertie en Markdown ; synchronisation complète par la liste des clés seule (`fields=key`) qui retire les tickets supprimés ; statut relu par `fields=status,updated` et 404 → retiré ; types de liens et création du lien « relates to » ; au plus 8 requêtes par seconde (FR-022a).
+- [X] T102 [US2] `IssueTracker` et `JiraRestClient` : `searchUpdatedSince`, `listKeys`, `issueStatus`, `linkTypes`, `createLink`. Faire passer T101.
+- [X] T103 [P] [US2] `BT/application/knowledge/SynchronizeKnowledgeTest.java` (faux index, faux modèle déterministe, `JiraWorld`) : complète puis incrémentale ; seuls les éléments au `contentHash` changé sont revectorisés ; interruption qui garde ce qui est indexé ; erreurs `PAGE`, `JIRA`, `ARCHITECTURE` (fichier et ligne, modèle précédent gardé) et `MODEL`, sans contenu ; une indexation par projet ; déclenchement complet à l'enregistrement d'une source, incrémental et non bloquant à l'ouverture d'un besoin ; changement de modèle → revectorisation complète.
+- [X] T104 [US2] `B/application/knowledge/SynchronizeKnowledge.java` ; `B/application/knowledge/Indexations.java` (calqué sur `ContextGenerations`, retiré en T113) (suivi, minuteur, interruption, étapes `MODEL`, `JIRA`, `DOCUMENTATION`, `ARCHITECTURE`, `EMBEDDING`, mode `FULL`|`INCREMENTAL`) ; `ManageArchitectureSource` (chemin absolu d'un `workspace.dsl` existant et lisible, motif précis sinon, « 2 000 caractères maximum »). Câblage dans `UseCaseProducer`. Faire passer T103.
+- [X] T105 [US2] `B/infrastructure/web/KnowledgeResource.java` (contrat : `/architecture-source`, `/indexations`, `/indexations/current`, `/knowledge`, `/knowledge/search`) et `ProjectView` (fiche générale, workspace, état de la connaissance). Test `BT/infrastructure/web/KnowledgeResourceIT.java` de bout en bout sur le jeu fictif (WireMock Antora et Jira, modèle de test).
+
+#### Tickets proches
+
+- [X] T106 [P] [US2] Tests :
+  - `BT/application/knowledge/FindRelatedIssuesTest.java` : 20 candidats par la recherche, `judgeRelatedIssues` en garde 5 au plus avec leur raison ; sans consentement Copilot ou en cas d'échec, les 3 meilleurs sans raison ; statut relu, ou statut indexé avec sa date et `statusFresh=false` ; index partiel signalé ;
+  - `BT/application/knowledge/ResolveRelatedIssueTest.java` : `LINK_NEW` enregistre `relatesTo` ; `SAME` remplace la session par l'import du ticket puis propose le besoin en modification assistée ; `DIFFERENT` et `NONE` laissent la rédaction continuer ; les questions ne sont demandées qu'après le choix ;
+  - `BT/application/knowledge/CompareWithIssueTest.java` : « commun » et « différent », 8 points au plus chacun, suggestion `SAME`|`DIFFERENT` ;
+  - `BT/application/jira/CreateJiraTicketTest.java` : avec `relatesTo`, l'aperçu annonce le lien, le lien est créé après la story ; un échec du lien laisse la story créée et propose de réessayer.
+- [X] T107 [US2] Port LLM : opérations `judgeRelatedIssues`, `compareWithIssue` et `identifyImpact` (contracts/llm-port.md) : records de requête et de résultat, `LlmClient`, `LangChainLlmClient` (délai interactif), `LlmSchemas`, `UserMessages` (`<candidats>`, `<ticket>`, `<elements>`), prompts `BR/prompts/judge-related-issues.txt`, `compare-with-issue.txt`, `identify-impact.txt` ; `StubLlm`, `ScriptedChatModel`, rejeux. Étendre `PromptInjectionIT` à ces balises.
+- [X] T108 [US2] Application et web : `FindRelatedIssues`, `CompareWithIssue`, `ResolveRelatedIssue`, lien dans `CreateJiraTicket`, attente du choix avant `NextBatch` ; ressource `/api/sessions/{id}/related-issues`, `/comparison` et `/decision`. Faire passer T106. Test `BT/infrastructure/web/RelatedIssuesIT.java` (WireMock : statut, type de lien, création du lien).
+
+#### Rédaction avec la connaissance
+
+- [X] T109 [P] [US2] Tests :
+  - `BT/application/knowledge/SelectKnowledgeTest.java` : fiche générale toujours ; vocabulaire et vue d'architecture ≤ 3 000 caractères ; 4 ADR au plus (≤ 6 000), un ADR remplacé remplacé par son successeur ; 3 tickets retenus (≤ 3 000) ; faits d'architecture (≤ 3 000) ; 35 000 caractères au plus en tout ; recalcul quand le besoin ou les réponses changent ;
+  - `BT/application/knowledge/AnalyzeArchitectureTest.java` : 15 candidats au plus ; `identifyImpact` limité aux candidats (nom inconnu ramené ou retiré par `Citations`) ; existence des échanges et constats de déploiement calculés par `ArchitectureModel` ;
+  - `TraceabilityValidatorTest` et `InputFingerprintTest` : sources `JIRA_ISSUE`, `DOC_PAGE` et `ARCH_ELEMENT` limitées à la sélection ; la sélection (référence et `contentHash`) dans l'empreinte ;
+  - `MarkdownRendererTest` : rubriques « Architecture » (modules et portée, flux manquants), « Écarts aux ADR » et « Efforts supplémentaires (déploiement) », les deux rubriques calculées n'étant jamais rédigées par l'IA.
+- [X] T110 [US2] Implémentation : `SelectKnowledge`, `AnalyzeArchitecture` ; `<connaissance-projet>` dans `UserMessages` à la place de `<contexte-fonctionnel>` et `<contexte-technique>`, et dans les 6 prompts (règle de sécurité, information à ne pas redemander, sources citables, écart à un ADR remonté dans `contradictions`) ; `SourceRef.Kind` `JIRA_ISSUE`, `DOC_PAGE`, `ARCH_ELEMENT` ; `DraftSpecification.adrDeviations` ; `MarkdownRenderer` ; `specification_version.knowledge` enregistré. Faire passer T109.
+- [X] T111 [P] [US2] Golden set : adapter `BTR/golden/04-*`, `05-*` et `06-*` (fiche générale à la place des deux fiches) et ajouter `BTR/golden/07-avoir-adr-architecture/` (ADR cité, écart, modules, flux manquant, efforts) avec `knowledge.json` ; `GoldenSetIT` le lit et vérifie `<connaissance-projet>`.
+  - *Note (T109 à T111)* : `SessionKnowledge` (interface) et `SelectKnowledge` ; `AnalyzeArchitecture` garde le choix de l'IA par session ; `Citations` déplacé dans `application/knowledge` ; `KnowledgeIndex.all` pour retrouver le successeur d'un ADR. Les cas d'usage gardent leur ancien constructeur (fiche seule, `SessionKnowledge.sheetOnly`) pour les tests de 001. Golden set : `general.md` remplace `context.md` et `technical.md` ; `07-avoir-adr-architecture` couvre l'ADR cité et remplacé, l'écart (ADR inconnu retiré), le flux indirect et le flux manquant, et le constat « à déployer » ; lu par `golden/KnowledgeFixture`.
+
+#### Fiche générale et retrait des fiches générées
+
+- [X] T112 [P] [US2] `BT/infrastructure/persistence/MigrationGeneralContextIT.java` : une base V9 avec deux fiches et des réponses Q-n migre vers une fiche générale (« ## Fonctionnel », « ## Technique », « ## Réponses de clarification »), tronquée à 20 000 caractères avec un avertissement journalisé ; colonnes `technical_context*` et table `project_context_question` supprimées ; rien d'autre ne change.
+- [X] T113 [US2] Migration (prochain numéro libre) `V<n>__general_context.sql` ; domaine ramené à une fiche (`ProjectContext` sans origine, suppression de `ContextSheet`, `ContextSheets`, `ContextQuestion` et de leurs dépôts) ; `EditContext` et `PUT /api/projects/{id}/context`. Faire passer T112.
+- [X] T114 [US2] Retrait (research.md R28) : `ProposeProjectContext`, `ContextProposalStore`, `AcceptContextProposal`, `AnswerContextQuestion`, `ManageContextQuestions`, `PreviewContextSources`, opérations `summarize-project-sources` et `build-project-context` (prompts, schémas, records, `BTR/llm-replay/11b-*` et `12-*`, `e2e/fixtures/llm/09-*`, `09b-*`, `10-*`), endpoints `context-proposals`, `context-questions`, `context/{sheet}` et `context-generations`, et leurs tests. `Citations` reste. `./mvnw -B verify` vert.
+  - *Note (T112 à T114)* : `V11__general_context` est une migration Java (`db.migration`), pour journaliser la troncature sans contenu ; une fiche seule, sans réponse, est gardée telle quelle, et l'empreinte de chaque fiche est recalculée. `ProjectView` expose `context` et `contextUpdatedAt` (contrat). Le délai long des opérations retirées disparaît : `LangChainLlmClient` n'a plus qu'un délai (`specwriter.llm.timeout.interactive`). Une version antérieure dont une source porte `sheet` se relit (champ ignoré). Le front est réduit dans ce lot à la fiche générale et aux sources (première partie de T115), et l'E2E US8 à P6 à P8 sur la fiche générale (réécrit en T117).
+
+#### Front, E2E et jeu de référence
+
+- [X] T115 [P] [US2] Front `F/features/project-context/` : une fiche générale (éditeur Markdown avec aperçu) ; sources Antora, clé Jira et workspace, avec leur motif d'erreur ; panneau d'indexation (étape, élément en cours, compteurs, minuteur, « Interrompre », « Resynchroniser » incrémental ou complet, détail des erreurs, lien vers le journal) ; état de la connaissance (compteurs, « résultats partiels », état du modèle) ; recherche d'essai. Configuration : carte « Modèle de recherche » (état, dossier de remplacement, *pooling*, préfixes). Retirer les composants de proposition et de questions.
+  - *Note (T115)* : la carte « Modèle de recherche » n'avait pas d'endpoint : ajout de `GET` et `PUT /api/settings/embedding` (`ManageEmbeddingSettings`, contrat mis à jour). Un dossier de remplacement est validé comme le chargement du modèle (`model.onnx` et `tokenizer.json`, ou un seul fichier de chaque suffixe) puis chargé aussitôt ; le modèle par défaut est téléchargé à l'indexation suivante. Le panneau de la connaissance (`knowledge-panel.component.ts`) relit l'état quand une source ou le workspace change (l'indexation est lancée par le serveur).
+- [X] T116 [P] [US2] Front session et spécification : panneau « Tickets proches » avant les questions (clé, titre, statut et fraîcheur, raison, « Lier une nouvelle story », « Comparer », « C'est la même », « C'est différent », « Aucun ne correspond ») ; comparaison côte à côte ; aperçu de création Jira qui annonce « relates to » et propose de réessayer le lien ; page de spécification : rubriques « Architecture », « Écarts aux ADR » et « Efforts supplémentaires (déploiement) », sources ticket, page, ADR et élément d'architecture avec leur lien. *Fait : la vue de spécification porte `adrDeviations`, `architecture` et `links` (`SourceLinks` : ticket vers Jira, page et ADR vers leur adresse) ; les tickets proches s'affichent quand la session n'a encore aucune question ; « C'est la même » ouvre la version importée avec la proposition passée par l'état du routeur ; E2E US5-3 stabilisé (attente de la fermeture de la liste).*
+- [X] T117 [US2] E2E `E/us8-project-context.spec.ts` réécrit : scénarios quickstart P5 à P8 avec axe, sur le jeu fictif (Antora et Jira WireMock, workspace `e2e/fixtures/c4/`, modèle de test de `backend/target/test-model/` déclaré comme dossier), réponses LLM rejouées pour les trois nouvelles opérations et pour les opérations de 001 avec `<connaissance-projet>`. *Fait : P5, P5b (workspace cassé), P5c, P5d, P6, P7, P8 ; rejeux `fixtures/llm/11` à `25` ; le modèle de test est donné par `-Dspecwriter.embedding.folder`. P5a (interruption) reste couvert par `SynchronizeKnowledgeTest` et le panneau : avec six tickets, l'indexation finit avant le clic. Défauts trouvés et corrigés : `slf4j-api` absent du classloader de DJL dans le jar ; une `LinkageError` laissait l'indexation « en cours » ; un workspace déclaré pendant une indexation était effacé, puis jamais lu ; `SQLITE_BUSY_SNAPSHOT` à la création d'une session pendant une synchronisation (`transaction_mode=IMMEDIATE`). Stub Jira : la synchronisation de PROJ ne trouve aucun ticket, pour garder les parcours de la 001 sans tickets proches.*
+- [X] T118 [P] [US2] `BT/knowledge/KnowledgeFictiveSetIT.java` (dans `verify`, sans LLM) : sur `BTR/knowledge/cases.json`, tickets attendus parmi les candidats, ADR, modules (parmi les candidats), flux manquants et efforts exacts. `BT/knowledge/KnowledgeReferenceSetIT.java` tagué `reference` (exclu par défaut dans `backend/pom.xml`, comme `eval`) : lit `specwriter.reference-set`, s'arrête proprement s'il est absent, mesure SC-002 à SC-004b et compare les modèles déclarés. `BT/knowledge/ReferenceSetPreparer.java` (`main`) : écrit pour chaque besoin les candidats retrouvés, pour que l'utilisateur valide les attendus. *Fait : `BT/knowledge/ReferenceSet` indexe un jeu par l'API (Jira simulé, documentation en dossier, workspace et ownership lus dans `set.json`) et le mesure sans LLM. Un oracle tient lieu d'IA d'analyse (il choisit les modules et échanges attendus) ; l'outil calcule les flux et les efforts. Les tickets sont mesurés parmi les cinq premiers candidats de `FindRelatedIssues.candidates`. `ReferenceSetPreparer` est un test tagué `reference` plutôt qu'un `main` : il lui faut l'application démarrée. Profil Maven `-Preference` (l'exclusion par défaut du tag empêche `-Dgroups`). Vérifié sur une copie du jeu fictif hors dépôt : rapport et `candidates.json` écrits. SC-003 et SC-004b demandent le vrai Copilot (`-Peval`).*
+- [X] T119 [US2] Vérifier le parcours complet en dev mode sur le jeu fictif, puis `./mvnw -B verify -DskipDependencyCheck` et les E2E sur le jar ; cocher T088 à T119. *Fait (dev mode par Maven, le serveur MCP Quarkus étant déconnecté) : indexation du jeu fictif (6 tickets, 7 sections, 3 ADR, 10 éléments), tickets proches avec statut relu et raison, « relates to », rédaction avec ADR-005 et son lien, modules dont un commun, flux par `avoirs-emis` non signalé, flux manquant et cinq efforts. Deux défauts trouvés et corrigés : les tickets proches étaient « partiels » à chaque besoin (la mise à jour incrémentale suffisait) ; le modèle n'était chargé qu'à la première indexation, si bien que le premier besoin après le lancement était cherché par les termes (`EmbeddingWarmUp`).*
+
+### Liens entre tickets et sous-tâches de la story (FR-044 à FR-047, SC-004c, research.md R29)
+
+Ajout du 2026-11-04 après un essai réel : en modification assistée, les sous-tâches de la story
+étaient annoncées comme des travaux concurrents. Tests d'abord (T120 à T127), qui doivent échouer.
+
+#### Tests
+
+- [X] T120 [P] [US2] `BT/domain/specification/UseCaseChangesTest.java` : comparaison de deux versions par code de cas d'usage ; code absent → `REMOVED` ; titre, acteur, objectif, préconditions, scénario nominal ou alternatives différents → `CHANGED` ; espaces et casse ignorés ; un code absent dont le contenu exact réapparaît sous un autre code est un renumérotage, pas un changement ; sans version précédente, aucun changement.
+- [X] T121 [P] [US2] `BT/infrastructure/jira/JiraKnowledgeSyncIT.java` (WireMock) : `searchUpdatedSince` demande `parent,subtasks,issuelinks` en plus des champs actuels ; un `TrackedIssue` porte son parent, ses sous-tâches et ses liens `{linkType, direction OUTWARD|INWARD, label, targetKey}` (libellé « blocks » ou « is blocked by » selon le sens) ; un lien vers un ticket d'un autre projet est gardé ; champs absents → listes vides.
+- [X] T122 [P] [US2] `BT/infrastructure/knowledge/TicketLinkRepositoryIT.java` (`@QuarkusTest`) : table `ticket_link` (data-model `TicketLink` : clé primaire `(projectId, sourceKey, kind, targetKey, linkType)`, `kind` parmi `PARENT`, `SUBTASK`, `LINK`, `direction` `OUTWARD`/`INWARD` pour `LINK` seulement, `label` 100 caractères au plus) ; remplacement en bloc des liens d'un ticket ; liens supprimés avec le ticket et avec le projet (`ON DELETE CASCADE`) ; famille d'une clé (parent, sous-tâches, liens entrants par l'index `(projectId, targetKey)`) ; après `V14`, `project.jira_sync_mark` est nul.
+- [X] T123 [P] [US2] `BT/application/knowledge/SynchronizeKnowledgeTest.java` : les liens d'un ticket relu sont réécrits même si son `content_hash` est inchangé, sans revectorisation ; un ticket retiré à la synchronisation complète perd ses liens ; la synchronisation qui suit `V14` relit tous les tickets une fois.
+- [X] T124 [P] [US2] `BT/application/knowledge/SelectKnowledgeTest.java` et `FindRelatedIssuesTest.java` : pour une session liée à PAY-10 (sous-tâches PAY-11 et PAY-12, parent éventuel), la famille n'entre jamais dans les tickets de la sélection ni dans les tickets proches ; on garde 3 tickets hors famille ; la sélection porte `subtasks` (15 au plus, titres, 1 500 caractères en tout) ; un ticket lié explicitement porte son `label` (« bloque PAY-10 ») ; un ticket proche ordinaire qui est une sous-tâche porte `parentKey` ; si la story liée est elle-même une sous-tâche, son parent est dans la famille mais pas les autres sous-tâches du parent ; l'empreinte (FR-011) change quand le statut d'une sous-tâche change.
+- [X] T125 [P] [US2] `BT/application/knowledge/SubtaskReportTest.java` (port d'embedding simulé à vecteurs choisis, tracker simulé) : rattachement au meilleur cas d'usage au-delà du seuil (`specwriter.knowledge.subtask-threshold`, 0,82 par défaut), `UNMATCHED` en dessous ; second cas d'usage à moins de 0,02 → `alternative` ; `VERY_CLOSE` au-delà de 0,88, `CLOSE` sinon, jamais de score exposé ; états `TO_REVIEW` (ouverte, cas d'usage changé ou supprimé), `DELIVERED_TO_REWORK` (fermée), `CONSISTENT`, `UNMATCHED` ; tri `TO_REVIEW`, `DELIVERED_TO_REWORK`, puis les autres ; sous-tâche absente de l'index → `UNMATCHED` ; modèle absent → `matching UNAVAILABLE` avec la raison ; statut relu (15 au plus), sinon statut indexé avec `statusFresh=false` et sa date ; sous-tâche supprimée dans Jira (404) → retirée ; aucune écriture vers le tracker ; la version précédente est la plus récente des versions antérieures encore présentes.
+- [X] T126 [P] [US2] `BT/infrastructure/web/SubtaskResourceIT.java` : `GET /api/sessions/{id}/versions/{n}/subtasks` (contrat `openapi.yaml`) → 200 `SubtaskReport`, 204 sans ticket lié ou sans sous-tâche ni parent, 404 session ou version inconnue ; aucune requête d'écriture vers WireMock Jira ; `RelatedIssues` expose `parentKey`.
+- [X] T127 [P] [US2] `BT/infrastructure/llm/LangChainLlmClientTest.java` et `PromptInjectionIT.java` : `<sous-taches story="PAY-10">` avec `<sous-tache ref statut ferme>titre</sous-tache>` et `lien="…"` sur un `<ticket>` (contrat `llm-port.md`), contenu échappé par `data()`, balise listée parmi les données dans la règle de sécurité ; un titre de sous-tâche qui contient une consigne reste une donnée.
+
+#### Implémentation
+
+- [X] T128 [US2] Migration `BR/db/migration/V14__ticket_links.sql` (table `ticket_link` du data-model, index `(project_id, target_key)`, `UPDATE project SET jira_sync_mark = NULL`) ; `B/domain/knowledge/TicketLink.java`, port `B/domain/port/TicketLinkRepository.java`, adaptateur `B/infrastructure/persistence/`. Faire passer T122.
+- [X] T129 [US2] `B/infrastructure/jira/JiraRestClient.java` et `B/domain/jira/TrackedIssue.java` : champs `parent,subtasks,issuelinks`, liens avec type, sens et libellé. Faire passer T121.
+- [X] T130 [US2] `B/application/knowledge/SynchronizeKnowledge.java` : écriture des liens à chaque ticket relu, retrait avec le ticket. Faire passer T123.
+- [X] T131 [US2] `B/domain/specification/UseCaseChanges.java` (pur, sans framework). Faire passer T120.
+- [X] T132 [US2] `B/application/knowledge/StoryFamily.java` (famille de la story liée par `LinkedTicketRepository` et `TicketLinkRepository`) ; `SelectKnowledge` et `FindRelatedIssues` l'excluent ; `ProjectKnowledge` gagne `subtasks` et le `label` des tickets ; rendu `<sous-taches>` et `lien` dans `B/infrastructure/llm/` ; règle « les sous-tâches font partie de la story, jamais des travaux concurrents » dans les 6 prompts qui reçoivent `<connaissance-projet>` (`BR/prompts/`). Faire passer T124 et T127.
+- [X] T133 [US2] `B/application/knowledge/MatchSubtasks.java` et `SubtaskReport.java` (cas d'usage `ReportSubtasks`), câblés dans `B/infrastructure/config/UseCaseProducer.java`, seuil `specwriter.knowledge.subtask-threshold=0.82` dans `BR/application.properties` ; endpoint dans `B/infrastructure/web/` ; `parentKey` dans la vue des tickets proches. Faire passer T125 et T126.
+  - *Note (T120 à T133)* : `TicketLink` est dans `domain/jira` (un concept Jira, porté par `TrackedIssue`), pas dans `domain/knowledge`. Le test du renumérotage a fixé une règle : un code repris par un autre cas d'usage renuméroté vaut suppression de l'ancien. La phrase d'un lien suit le libellé Jira du sens, lu du ticket qui porte le lien (« FACT-20 blocks FACT-30 »). Les sous-tâches sont vectorisées au calcul de la rubrique (15 au plus, titre et description) plutôt que relues dans l'index, qui n'expose pas ses vecteurs. Les cas d'usage candidats sont ceux de la version précédente, contre lesquels les sous-tâches ont été écrites, puis les nouveaux. La sélection enregistrée avec la version (`KnowledgeSelection`) ne garde pas les sous-tâches : elles entrent dans l'empreinte (FR-011) seulement. Le test de `V14` (repère Jira remis à nul) est retiré : la base de test persiste et les synchronisations remettent un repère ; la requête SQL est triviale. `SelectKnowledge` et `FindRelatedIssues` gardent un constructeur sans famille pour le golden set et le jeu de référence.
+- [X] T134 [P] [US2] Front `F/features/specification/subtasks-panel.component.ts` (+ `.spec.ts`), dans `specification.page.ts` : rubrique « Sous-tâches de <clé> » chargée à part ; groupes « À revoir » et « Livrées, à reprendre » ouverts (clé avec lien, titre, statut et fraîcheur, cas d'usage, changement, « probable » et raison) ; « Cohérentes » et « Non rattachées » repliées (`details`) ; message quand le rattachement est indisponible ; rien sans sous-tâche (204). Panneau des tickets proches : « sous-tâche de <parent> ». Modèle `F/core/` et axe.
+- [X] T135 [US2] Jeu fictif : `BTR/knowledge/jira/issues.json` gagne une story avec trois sous-tâches (deux proches de cas d'usage distincts, une sans rapport) et un ticket « blocks » ; `BTR/knowledge/cases.json` et `BT/knowledge/KnowledgeFictiveSetIT.java` mesurent SC-004c (0 sous-tâche ni parent parmi les tickets proches ou la sélection ; au moins 80 % des sous-tâches touchées signalées) ; calibrer le seuil sur ce jeu et noter la valeur retenue dans research.md R29. `KnowledgeReferenceSetIT` mesure aussi SC-004c quand le jeu réel décrit des sous-tâches.
+  - *Note (T134, T135)* : la rubrique est `F/features/specification/subtasks-panel.component.ts`, sous les efforts de déploiement ; un ticket proche qui est une sous-tâche affiche « Sous-tâche de <parent> ». **Seuil révisé** : avec le vrai multilingual-e5-small, les similarités sont trop resserrées (une sous-tâche sans rapport obtient 0,87, une vraie correspondance 0,89 à 0,94), un seuil absolu rattacherait tout. Le rattachement se fait sur le score z de la similarité rapporté au fond du projet (20 autres tickets, 5 au moins), minimum `specwriter.knowledge.subtask-min-z=1.5`, « très proche » à 3 (research.md R29, mesures notées). Le jeu fictif gagne la story `FACT-20`, ses sous-tâches `FACT-21` à `FACT-23` et `FACT-30` (« blocks ») dans `BTR/knowledge/jira/issues.json` (champs `parent`, `subtasks`, `links`), et `BTR/knowledge/subtasks.json` (cas d'usage avant et après, états attendus) ; `ReferenceSet` sert parent, sous-tâches, liens et statuts relus par WireMock. Les descriptions évitent le mot « client », qui faisait sortir `FACT-9` des cinq premiers pour le besoin du portail. `KnowledgeReferenceSetIT` mesure SC-004c quand le jeu réel a un `subtasks.json` ; vérifié sur une copie du jeu fictif.
+- [X] T136 [US2] E2E `E/us8-project-context.spec.ts`, scénario quickstart P8a : `FACT-20` et ses sous-tâches dans `e2e/fixtures/jira/` (recherche de synchronisation, ticket, statuts), rejeu LLM de la modification assistée dans `e2e/fixtures/llm/` (sans « travaux en cours » sur `FACT-21` à `FACT-23`, `FACT-30` cité « bloque FACT-20 »), rubrique attendue, axe, aucune écriture vers WireMock.
+  - *Note (T136)* : les clés sont `FACT-40` à `FACT-43` et `FACT-50` (`FACT-20` est déjà le ticket créé en P6). Le scénario ajoute ses tickets par des correspondances WireMock temporaires (la liste des clés du fichier est en priorité 0, la sienne aussi) et attend que l'index compte les 11 tickets : l'état courant reste celui de l'indexation précédente tant que la nouvelle n'a pas démarré. Les rejeux `e2e/fixtures/llm/00-sub-fact40-*` passent en premier (ordre alphabétique) et exigent `<sous-taches story="FACT-40">` dans le message de la modification : le test échoue si les sous-tâches ne sont pas transmises.
+- [X] T137 [US2] Vérifier en dev mode sur le jeu fictif, puis `./mvnw -B verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests` et les E2E sur le jar ; README (rubrique des sous-tâches, resynchronisation complète une fois après la mise à jour). Les prompts changent : l'évaluation réelle (T058) est à relancer, avec l'accord de l'utilisateur. *Fait : `verify` (684 tests), `package` et E2E (55) verts. Deux tests corrigés en route : `KnowledgeResourceIT` compte 11 tickets dans le jeu fictif ; `TicketLinkRepositoryIT` supprime ses projets, qui passaient avant le projet par défaut (premier par nom) quand aucun projet courant n'est enregistré. Dev mode non utilisé (serveur MCP Quarkus déconnecté) : boucle par tests ciblés sous Maven. L'évaluation réelle (T058) reste à relancer avec l'accord de l'utilisateur.*
+
+**Checkpoint** : US1 et US2 utilisables ; le jeu fictif et le golden set avec connaissance passent.
+
+---
+
+## Phase 5: User Story 3 - Supprimer une version ou une spécification locale (Priority: P2)
+
+**Goal** : suppression définitive d'une version ou d'une spécification, sans toucher à Jira.
+
+**Independent Test** : quickstart P9.
+
+### Tests for User Story 3
+
+- [X] T035 [P] [US3] `BT/application/specification/DeleteVersionTest.java` :
+  - les numéros des autres versions sont inchangés, et un numéro supprimé n'est pas réattribué (`nextVersionNumber`) ;
+  - le lien Jira est reporté sur la dernière version restante et l'état de synchronisation est recalculé ;
+  - après suppression de la dernière version, la session repasse à l'état prêt à générer avec son besoin et ses réponses (FR-015) ;
+  - la suppression est refusée pendant une opération IA en cours (`OPERATION_IN_PROGRESS`) ;
+  - les propositions en mémoire de la session sont purgées. *Fait : sept cas, dont l'ouverture d'une opération par la rédaction et la proposition.*
+- [X] T036 [P] [US3] `BT/infrastructure/web/DeletionIT.java` :
+  - `DELETE /api/sessions/{id}/versions/{n}` et `DELETE /api/sessions/{id}` ;
+  - l'élément disparaît de la liste, de l'historique, de la comparaison, de la recherche FTS et de l'export ;
+  - **aucune requête WireMock Jira** n'est faite (SC-005). *Fait : les recherches de vérification du test interrogent Jira (« text ~ ») et sont écartées de la vérification. Aucune autre requête.*
+- [X] T037 [P] [US3] E2E `E/us9-deletion.spec.ts`, scénario quickstart P9 : confirmation nommée, annulation sans effet, avertissement « Jira n'est pas modifié » pour une spec liée, axe. *Fait : `us9-deletion.spec.ts` ; FACT-1 importé avec le rejeu `fixtures/llm/26`.*
+
+### Implementation for User Story 3
+
+- [X] T038 [US3] Écrire la migration (prochain numéro libre) `BR/db/migration/V<n>__version_numbering.sql` : colonne `session.next_version_number`, valorisée à `max(number)+1`. Adapter `GenerateSpecification`, `AcceptAiEdit`, `ImportJiraIssue` et `PushToJira` pour numéroter par ce compteur. *Fait : `V12__version_numbering.sql`, avec en plus le déclencheur `spec_search_version_delete` : V6 ne mettait pas la recherche à jour à la suppression d'une version, contrairement à ce qu'annonçait R8 (FR-018). Le compteur est tenu par `SpecificationRepository.nextNumber`. Test : `MigrationVersionNumberingIT`.*
+- [X] T039 [US3] Créer `B/application/specification/OperationRegistry.java` (opérations IA en cours par session, ouvertes et fermées par les cas d'usage IA) et le cas d'usage `DeleteVersion`. Ajouter à `ManageSessions.delete` le refus pendant une opération et la purge des propositions. Port `SpecificationRepository.delete(sessionId, number)`. *Fait : la rédaction, la proposition et l'envoi Jira (reprise et fusion) ouvrent une opération. Lien Jira (`LinkedJiraTicket.afterVersionDeleted`) : si la version liée est supprimée, le lien passe à la dernière restante, en LOCAL_AHEAD ; sinon le ticket redevient IN_SYNC dès qu'aucune version ne dépasse la version liée ; un conflit le reste.*
+- [X] T040 [US3] `B/infrastructure/web/VersionResource.java` : `DELETE /api/sessions/{id}/versions/{n}`. Codes `OPERATION_IN_PROGRESS`, puis `SPECIFICATION_LOCKED`, ajouté en T047. *Fait.*
+- [X] T041 [P] [US3] Front : action « Supprimer cette version » dans `F/features/specification/versions-panel.component.ts`, et « Supprimer la spécification » sur la page de spécification et dans la liste des sessions. Utiliser `F/shared/ui/confirm-dialog.component.ts` avec le nom, le numéro et l'avertissement Jira. Après suppression, rediriger vers la dernière version restante ou vers la liste. *Fait : « Supprimer cette version » et « Supprimer la spécification » sont dans les actions de la page de spécification, et non dans le panneau des versions : celui-ci n'est pas affiché quand il n'y a qu'une version. La liste des sessions annonce « Jira n'est pas modifié » pour une spécification liée.*
+
+**Checkpoint** : US3 utilisable seule.
+
+---
+
+## Phase 6: User Story 4 - Parcourir les tickets Jira page par page (Priority: P2)
+
+**Goal** : la liste paginée des tickets du projet Jira et la liste unique de recherche paginée par
+25.
+
+**Independent Test** : quickstart P10.
+
+### Tests for User Story 4
+
+- [X] T042 [P] [US4] `BT/application/search/PagedUnifiedSearchTest.java` :
+  - fusion par date décroissante de deux sources simulées ;
+  - curseur `{localOffset, jiraOffset}` stable : la page 2 continue l'ordre, sans doublon ni élément sauté ;
+  - un élément « les deux » apparaît une seule fois ;
+  - 25 tickets Jira demandés au plus par page ;
+  - position « 26 à 50 sur N » et total approximatif ;
+  - en cas d'erreur Jira, la page locale est rendue avec `jiraError` et le curseur Jira est inchangé (FR-022).
+  - Fait : `PagedUnifiedSearchTest` (6 cas, dont le curseur falsifié et la liste sans Jira) ; `UnifiedSearchTest` adapté.
+- [X] T043 [P] [US4] `BT/infrastructure/jira/JiraIssuePagingIT.java` (WireMock `FACT`) : `startAt`, `maxResults=25`, JQL `project = FACT ORDER BY updated DESC` nettoyée, `total` lu ; mot-clé échappé dans la JQL.
+  - Fait : `JiraIssuePagingIT` sur un WireMock dédié (le mapping `FACT` des E2E sert à la connaissance).
+- [X] T063 [P] [US4] `BT/infrastructure/jira/JiraRateLimiterTest.java` (horloge et attente simulées, research.md R13) :
+  - les 8 premières requêtes n'attendent pas, la 9ᵉ attend jusqu'à « plus ancienne + 1 s » ;
+  - sur une rafale de 50 requêtes, aucune fenêtre d'une seconde n'en contient plus de 8 ;
+  - une attente au-delà de 10 s échoue en `RATE_LIMITED`, une interruption en `UNREACHABLE` ;
+  - dans `JiraRestClientIT` (WireMock), 20 recherches et une nouvelle tentative après 429 : au plus 8 requêtes reçues par seconde (FR-022a). Le limiteur `JiraThrottle` existe depuis T102 (testé dans `JiraKnowledgeSyncIT`) ; reste ce test des recherches et du 429.
+  - Fait : `JiraThrottleTest` (nom du limiteur existant) et `JiraRestClientIT` : 20 recherches simultanées, plusieurs 429, au plus 8 requêtes reçues par seconde.
+- [X] T044 [P] [US4] E2E `E/us10-jira-paging.spec.ts`, scénario quickstart P10 : pages suivante et précédente, position affichée, recherche de 70 résultats triée par date, Jira coupé avec la page conservée et un message, axe.
+  - Fait : projet Jira `PAGE` simulé par le test (120 tickets, 60 résultats servis à tout décalage), plutôt que `FACT`, déjà pris par la connaissance ; 10 sessions locales.
+
+### Implementation for User Story 4
+
+- [X] T045 [US4] Ajouter `IssueTracker.searchPage(endpoint, jql, startAt, max)` et `JiraSearchPage.total` (`B/domain/jira/`). Créer le cas d'usage `B/application/jira/ListProjectIssues.java` et la ressource `GET /api/jira/projects/{key}/issues`. Réécrire `UnifiedSearch` avec un curseur opaque, encodé en base64url d'un JSON signé par HMAC avec une clé de processus, pour qu'un curseur modifié soit refusé. `GET /api/search?cursor=` suit le contrat.
+  - Fait : `IssueTracker.projectIssues(endpoint, clé, startAt, max)` au lieu d'un `searchPage(jql)` générique (research.md R9) ; `SearchCursor` ; `ListProjectIssues` et `JiraProjectIssuesResource`.
+- [X] T064 [US4] Créer `B/infrastructure/jira/JiraRateLimiter.java` (fenêtre glissante, file équitable, attente plafonnée à 10 s, seuil `specwriter.jira.max-requests-per-second=8`) et l'appeler au début de `JiraRestClient.once()`. Faire passer T063. Indépendante du reste d'US4.
+  - Fait : `JiraThrottle` (T102) garde son nom ; horloge et attente injectables, interruption en `UNREACHABLE`, verrou équitable (research.md R13).
+- [X] T046 [P] [US4] Front :
+  - `F/features/jira-issues/jira-issues.page.ts` (liste paginée des tickets du projet courant, lien vers le détail et l'import) ;
+  - pagination de `F/features/search/` avec une pile de curseurs pour la page précédente, la position et le message d'erreur Jira sans perdre la page ;
+  - un composant partagé `F/shared/ui/pager.component.ts`, accessible au clavier, avec annonce `aria-live` de la position.
+  - Fait : page `/jira` (menu « Tickets Jira »), pile de curseurs dans la recherche, `PagerComponent`.
+
+**Checkpoint** : US4 utilisable seule.
+
+---
+
+## Phase 7: User Story 5 - Un agent de code récupère les features à implémenter (Priority: P3)
+
+**Goal** : le statut d'implémentation et le verrou, puis l'accès des agents par la passerelle MCP
+stdio, avec le journal.
+
+**Independent Test** : quickstart P11 et P12.
+
+### Tests for User Story 5
+
+- [X] T047 [P] [US5] `BT/domain/session/ImplementationStatusTest.java` et `SpecificationLockTest.java` :
+  - le tableau des transitions de data-model.md, par rôle (utilisateur ou agent) ;
+  - `IMPLEMENTED` exige `confirmUnlock` pour l'utilisateur et est interdit à l'agent ;
+  - `implementedAt` est renseigné puis effacé ;
+  - `requireEditable` lève `SPECIFICATION_LOCKED`.
+  
+  Retirer le `@Disabled` des règles ArchUnit de T003.
+  - Fait : `ImplementationStatusTest` (tableau complet, 15 cas) et `SpecificationLockTest` ; la règle du verrou est active, celle de la passerelle MCP le sera avec T056.
+- [X] T048 [P] [US5] `BT/application/specification/LockedSpecificationTest.java` :
+  - sur une session `IMPLEMENTED`, sont refusés avec `SPECIFICATION_LOCKED` : réponse, révision, conclusion, génération, proposition et acceptation IA, envoi, fusion, reprise et import Jira, suppression de version ;
+  - la suppression de la session reste possible ;
+  - une acceptation IA démarrée avant le passage à `IMPLEMENTED` n'est pas enregistrée ;
+  - `EvolveSpecification` crée une session `DRAFT` dans le même projet, avec `evolvedFromSessionId` et le besoin = Markdown de la dernière version ;
+  - une nouvelle version ne change jamais le statut (FR-026).
+  - Fait : `LockedSpecificationTest`, plus `ImplementationStatusIT` pour l'API. La reprise de Jira et la fusion passent par `PushToJira` et `AcceptAiEdit`, tous deux gardés.
+- [X] T049 [P] [US5] `BT/infrastructure/platform/AgentEndpointFileTest.java` :
+  - fichier `rw-------` (POSIX) avec `{port, secret}` et un secret de 256 bits ;
+  - persistant d'un lancement à l'autre, réécrit à la régénération, supprimé à la désactivation ;
+  - absent des journaux. Étendre `E/secrets-at-rest.spec.ts` pour qu'il ne le trouve ni dans la base ni dans les journaux.
+  - Fait : `AgentEndpointFileTest` (droits, persistance, régénération, retrait, aucun fichier temporaire laissé) ; `secrets-at-rest.spec.ts` cherche le secret dans le dossier de données et le journal.
+- [X] T050 [P] [US5] `BT/infrastructure/web/AgentResourceIT.java` :
+  - contrat `/api/agent/**` : la liste des features ne contient que `READY` et `IN_PROGRESS` avec au moins une version ;
+  - `get_feature` renvoie un Markdown identique à l'export (SC-007) et `knowledge` (fiche générale, ADR et modules de la sélection enregistrée avec la version, research.md R26) ;
+  - `GET /api/agent/projects/{id}/knowledge` : 10 éléments au plus, extraits de 600 caractères, aucune requête vers Jira ni vers le LLM, requête non consignée ;
+  - transitions de l'agent, `TRANSITION_NOT_ALLOWED` sinon ;
+  - journal `agent_access_log`, sans contenu ;
+  - **refus** : sans secret, avec l'ancien secret, avec un en-tête `Origin`, avec le cookie `sw_launch` seul, et secret présenté à `/api/**` (SC-008) ;
+  - comparaison à temps constant (`MessageDigest.isEqual`).
+  - Fait : `AgentResourceIT` (contrat, journal, refus) et `AgentFeaturesTest` pour la connaissance remise (ADR, modules et relations, fiche générale) ; l'absence d'appel à Jira pendant la recherche est vérifiée en E2E.
+- [X] T051 [P] [US5] `BT/mcp/McpBridgeTest.java` : échanges JSON-RPC enregistrés pour `initialize` (`protocolVersion` `2025-06-18`, `capabilities.tools`), `notifications/initialized` sans réponse, `ping`, `tools/list` (5 outils, dont `search_knowledge`, et leurs `inputSchema`), `tools/call` de chaque outil vers un serveur HTTP de test, et méthode inconnue (`-32601`). Il vérifie aussi :
+  - le fichier absent donne `SPEC_WRITER_UNAVAILABLE` ;
+  - après un 401, le fichier est relu et la requête retentée une seule fois ;
+  - stdout ne contient que du JSON-RPC, et stderr ne contient ni secret ni contenu.
+  - Fait : `McpBridgeTest`, avec un `HttpServer` du JDK.
+- [X] T052 [P] [US5] E2E `E/us11-agents.spec.ts` et le client de test `e2e/mcp-client.ts`, qui lance `java -cp backend/target/spec-writer-runner.jar dev.specwriter.mcp.McpBridge` avec le dossier de données de l'E2E. Scénarios quickstart P11 et P12 avec axe : verrou et évolution, activation, appels MCP, journal, régénération, puis refus.
+  - Fait : `us11-agents.spec.ts` lance la commande de l'extrait affiché dans Configuration (P11, P12).
+
+### Implementation for User Story 5
+
+- [X] T053 [US5] Écrire la migration (prochain numéro libre) `BR/db/migration/V<n>__implementation_status_agents.sql` :
+  - colonnes `session.implementation_status` (`DRAFT` par défaut, `READY`, `IN_PROGRESS`, `IMPLEMENTED`), `implemented_at` et `evolved_from_session_id` (`ON DELETE SET NULL`) ;
+  - `settings.agent_access_enabled` (`false` par défaut) ;
+  - table `agent_access_log` (`agent_name` de 80 caractères au plus, `operation` `LIST_PROJECTS`|`LIST_FEATURES`|`GET_FEATURE`|`SET_STATUS`|`SEARCH_KNOWLEDGE`, `project_id` et `session_id` en `ON DELETE SET NULL`, `old_status`, `new_status`).
+  
+  Purge des entrées de plus de 90 jours au démarrage.
+  - Fait : `V13__implementation_status_agents.sql` (V11 n'existe pas, V12 est la dernière appliquée). La purge à 90 jours vient avec le journal (T055).
+- [X] T054 [US5] Domaine et application :
+  - `B/domain/session/ImplementationStatus.java` et `SpecificationLock.java` ;
+  - garde appelé par tous les cas d'usage d'écriture listés en research.md R7, avec revérification avant enregistrement dans `AcceptAiEdit` et `GenerateSpecification` ;
+  - cas d'usage `ChangeStatus` (utilisateur) et `EvolveSpecification` ;
+  - ressources `PUT /api/sessions/{id}/status` et `POST /api/sessions/{id}/evolutions`.
+  
+  Faire passer T047 et T048.
+  - Fait : le statut est rangé hors de l'entité `Session` (research.md R7) ; `ChangeStatus`, `EvolveSpecification`, `PUT /status` et `POST /evolutions`.
+- [X] T055 [US5] Accès des agents :
+  - `B/infrastructure/platform/AgentEndpointFile.java` (écriture au démarrage, régénération, suppression) ;
+  - `B/infrastructure/web/AgentSecretFilter.java` (Bearer, refus de tout `Origin`, temps constant, chemin `/api/agent/**` seulement), et exclusion de `/api/agent/**` dans `LocalSecurityFilter` pour le cookie, sans affaiblir le contrôle `Host` ;
+  - cas d'usage `B/application/agent/` `ListProjectsForAgent`, `ListFeatures`, `GetFeature` (avec la connaissance enregistrée), `SearchKnowledgeForAgent` (recherche locale, sans synchronisation) et `AgentChangeStatus`, avec un port `AgentAccessLog` ;
+  - ressources `AgentResource` et `/api/settings/agent-access*` (état, commande et extrait `mcpJson` sans secret, activation, régénération, journal paginé).
+  
+  Faire passer T049 et T050.
+  - Fait : port `AgentAccessRepository` (réglage et journal) et `AgentEndpoint` ; code `AGENT_ACCESS_DENIED` (401) ; purge à 90 jours dans `ManageAgentAccess.startup`.
+- [X] T056 [US5] Passerelle `B/mcp/` :
+  - `McpBridge.java` (`main`, sans Quarkus ni CDI) : lecture de `agent-endpoint.json` selon la résolution du dossier de données de `UserDirectories`, dupliquée sans dépendance pour respecter la règle ArchUnit de T003 ;
+  - `JsonRpc.java` (lecture ligne à ligne de stdin, écriture sur stdout) ;
+  - `Tools.java` (les 5 outils de `contracts/mcp-tools.md`, un client `java.net.http`) ;
+  - le nom `clientInfo.name` est transmis dans l'en-tête `X-Agent-Name`, tronqué à 80 caractères.
+  
+  Faire passer T051. Ajouter le lanceur `spec-writer-mcp` dans `jreleaser.yml` (`jpackage` `--add-launcher`, main `dev.specwriter.mcp.McpBridge`).
+  - Fait : `McpBridge`, `JsonRpc` et `Tools` ; HTTP/1.1 imposé (research.md R2) ; lanceur déclaré par `dist/launchers/spec-writer-mcp.properties`. La règle ArchUnit de la passerelle est active.
+- [X] T057 [P] [US5] Front :
+  - statut d'implémentation sur la page de spécification (sélecteur, confirmation pour quitter « implémentée », actions verrouillées avec leur raison, « Créer une évolution ») et dans la liste des sessions ;
+  - carte « Accès des agents » dans `F/features/settings/` : activation, commande et extrait `mcpJson` à copier, « Régénérer le secret » avec confirmation, journal paginé avec `pager.component`.
+  - Fait : statut, verrou et évolution sur la spécification et le questionnaire ; carte « Accès des agents ».
+
+**Checkpoint** : les 5 stories sont utilisables.
+
+---
+
+## Phase 8: Polish & Cross-Cutting Concerns
+
+- [ ] T058 Étendre la suite d'évaluation (`BT/eval/`, research.md R10) :
+  - le juge reçoit la connaissance transmise et un verdict `DEJA_DANS_LA_CONNAISSANCE` (`BTR/eval/prompts/judge-questions.txt`) ;
+  - chaque cas avec `context.md` ou `knowledge.json` est joué avec et sans connaissance ;
+  - nouvelles métriques `contextQuestionRate` (minimum : 5 % au plus) et `questionReduction` (au moins 20 %) dans `EvalRuns`, `EvalBaseline`, `baseline.json` et `ci/check-eval.sh`, avec un test d'empreinte identique.
+  
+  Relancer `./mvnw -pl backend verify -Peval`, avec l'accord de l'utilisateur car cela consomme des requêtes Copilot, et committer `last-run.json` (SC-002, SC-003).
+- [X] T059 [P] Documentation : README (projets, connaissance du projet : sources Jira, Antora et Structurizr, modèle téléchargé une fois et remplaçable, tickets proches ; statut ; agents MCP avec l'extrait de configuration pour Claude Code, Copilot et Cursor) et CONTRIBUTING (passerelle et tests MCP). Dans 001, renvoyer vers les amendements 002 depuis FR-017 et FR-031.
+  - Fait : README (projets et connaissance, statut, agents MCP avec Claude Code, Copilot et Cursor), CONTRIBUTING (passerelle et tests MCP), renvois de FR-017 et FR-031 de 001.
+- [X] T060 [P] Performance : `BT/performance/PagingPerformanceIT.java` (page de recherche et page Jira en moins de 3 s au 95ᵉ centile avec WireMock et 2 000 tickets, SC-006), `AgentLatencyIT` (liste puis contenu en moins de 5 s, SC-007) et `KnowledgeLatencyIT` (synchronisation sans changement en moins de 30 s, tickets proches en moins de 5 s avec le LLM rejoué, SC-004a).
+  - Fait : `PagingPerformanceIT`, `AgentLatencyIT` et `KnowledgeLatencyIT` tournent dans `verify` (moins de 15 s à eux trois).
+- [ ] T061 Essais manuels, consignés dans `specs/002-projets-contexte-mcp/checklists/validation.md` :
+  - SC-004a sur un vrai projet (300 pages, 200 tickets, workspace de 2 000 lignes) : première indexation, hors téléchargement du modèle ;
+  - jeu de référence réel hors dépôt (T118, `-Dgroups=reference`) : SC-002 à SC-004b, et comparaison de multilingual-e5-small avec un modèle sentence-camembert déclaré par dossier ;
+  - modèle sur macOS, Windows et Linux depuis l'application installée (téléchargement par le proxy, puis sans réseau) ;
+  - `spec-writer-mcp` avec Claude Code : features, contenu, `search_knowledge`.
+- [X] T062 Exécuter les scénarios quickstart P1 à P12 et la suite complète (`./mvnw -B verify`, E2E, `ci/check-eval.sh`), puis cocher les tâches et ouvrir la PR.
+  - *Note (T062, 2026-11-04)* : scénarios quickstart P1 à P12 couverts par les E2E sur le jar (55 verts), `./mvnw -B verify` vert (684 tests). L'utilisateur valide la feature et demande la PR et sa fusion une fois le pipeline vert. Reportés après la fusion, à sa demande : T058 (évaluation réelle avec Copilot, donc `ci/check-eval.sh`) et les essais de T061 encore ouverts (SC-004a au volume visé, jeu de référence réel, modèle sous Windows et Linux, `spec-writer-mcp` avec Claude Code ; voir `checklists/validation.md`).
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup** (Phase 1) : T001 d'abord, qui suppose les PR #2 et texte riche fusionnées.
+- **Foundational** (Phase 2) : dépend de Setup et bloque toutes les stories.
+- **US1** (Phase 3) : dépend de Foundational.
+- **US2** (Phase 4) : dépend de Foundational, et d'US1 pour l'écran de projet. Dans la révision : T088 et T089 d'abord (dépendances et mise en route), puis domaine et index (T091 à T094), sources et synchronisation (T095 à T105), tickets proches (T106 à T108), rédaction (T109 à T111), fiche générale et retrait (T112 à T114), front, E2E et jeu de référence (T115 à T119), puis liens entre tickets et sous-tâches (T120 à T127 tests, T128 à T137 : migration, Jira et synchronisation avant `StoryFamily`, rapport et endpoint avant le front et l'E2E).
+- **US3** (Phase 5) : dépend de Foundational seulement.
+- **US4** (Phase 6) : dépend de Foundational (projet Jira effectif, T010).
+- **US5** (Phase 7) : dépend de Foundational. Le verrou (T054) complète la suppression de version d'US3 (T040) ; l'accès des agents a besoin des projets (US1) ; `knowledge` et `search_knowledge` ont besoin de l'index et de la sélection d'US2 (T094, T110).
+- **Polish** (Phase 8) : T058 après US2 ; le reste après toutes les stories.
+
+### User Story Dependencies
+
+```text
+Setup ─► Foundational ─┬─► US1 ─┬─► US2 ─────────────► Polish (T058…)
+                       │        └─► US5 (agents) ─────►
+                       ├─► US3 ──► (verrou US5 T054) ─►
+                       └─► US4 ──────────────────────►
+```
+
+### Within Each User Story
+
+- Les tests d'abord : ils doivent échouer.
+- Ensuite domaine, migration, application, infrastructure, web, puis front.
+- Un commit par groupe logique, avec la tâche cochée `[X]` (`CLAUDE.md`).
+
+### Parallel Opportunities
+
+- Setup : T003, T004 et T005 en parallèle.
+- Dans chaque story, toutes les tâches de test marquées [P] en parallèle, puis le front [P] en parallèle du backend dès que le contrat est fixé.
+- Après Foundational, US3 et US4 peuvent avancer en parallèle d'US1 et US2.
+
+---
+
+## Parallel Example: User Story 2 (révision)
+
+```bash
+# Après T088, en parallèle :
+Task: "T089 OnnxEmbeddingSmokeIT et bibliothèques natives"
+Task: "T090 jeu de connaissance fictif (c4, ADR, glossaire, Jira)"
+Task: "T091 KnowledgeItemTest et ArchitectureModelTest"
+
+# Tests des sources, en parallèle :
+Task: "T095 ModelDownloaderTest et OnnxEmbeddingAdapterIT"
+Task: "T097 AntoraReaderTest (sections, ADR, rôles)"
+Task: "T099 StructurizrReaderTest"
+Task: "T101 JiraKnowledgeSyncIT"
+
+# Front en parallèle du backend une fois le contrat fixé :
+Task: "T115 front connaissance du projet"
+Task: "T116 front tickets proches et rubriques"
+
+# Liens entre tickets : tous les tests ensemble, puis le front en parallèle du backend
+Task: "T120 UseCaseChangesTest"  Task: "T121 JiraKnowledgeSyncIT liens"  Task: "T122 TicketLinkRepositoryIT"
+Task: "T124 SelectKnowledge et FindRelatedIssues"  Task: "T125 SubtaskReportTest"  Task: "T127 prompts"
+Task: "T134 front rubrique des sous-tâches" (dès que le contrat SubtaskReport est fixé)
+```
+
+## Parallel Example: User Story 5
+
+```bash
+Task: "T047 ImplementationStatusTest et SpecificationLockTest"
+Task: "T049 AgentEndpointFileTest"
+Task: "T050 AgentResourceIT (refus SC-008)"
+Task: "T051 McpBridgeTest (échanges JSON-RPC)"
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (User Story 1)
+
+1. Setup, puis Foundational : migration V7 et projet Jira effectif.
+2. US1 : projets, projet courant, déplacement, clé Jira.
+3. **S'arrêter et valider** : quickstart P1 à P4, puis PR.
+
+### Incremental Delivery
+
+1. US1, puis la PR « projets ».
+2. US2, puis la PR « connaissance du projet ». L'évaluation est à relancer (T058), car les prompts changent.
+3. US3 et US4, ensemble ou séparément : deux PR courtes.
+4. US5, puis la PR « agents MCP », et T061 sur l'installeur.
+
+### Notes
+
+- Une PR par story garde la CI (job `nvd` puis `verify`) et la relecture courtes.
+- L'évaluation LLM n'est obligatoire qu'aux PR qui touchent aux prompts ou au code LLM (US2, et T058).

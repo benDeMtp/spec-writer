@@ -1,5 +1,9 @@
 package dev.specwriter.domain.specification;
 
+import dev.specwriter.domain.knowledge.ArchScope;
+import dev.specwriter.domain.knowledge.ArchitectureModel.DeploymentFact;
+import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
+import dev.specwriter.domain.knowledge.KnowledgeSelection;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.session.Language;
 import java.util.List;
@@ -25,23 +29,45 @@ public final class MarkdownRenderer {
 
     private record Labels(String summary, String details, String useCases, String scenarios, String assumptions, String functional,
             String technical, String actor, String goal, String preconditions, String flow, String alternatives,
-            String source, String needExcerpt, String answer, String assumption, String asA, String given,
-            String when, String then, String and, String none, String colon) {
+            String source, String needExcerpt, String answer, String assumption, String projectContext, String asA,
+            String given,
+            String when, String then, String and, String none, String colon, String ticket, String page, String element, String architecture, String modules,
+            String exchanges, String own, String common, String missing, String existing, String via,
+            String deviations, String decision, String deviation, String efforts, String notDeployed,
+            String multiple, String cross, String shared) {
     }
 
     private static final Labels FR = new Labels("Résumé", "Détails", "Use cases", "Scénarios d'acceptation", "Hypothèses",
             "Exigences fonctionnelles", "Exigences techniques", "Acteur", "Objectif", "Préconditions",
-            "Déroulement nominal", "Alternatives", "Source", "extrait du besoin", "réponse", "Hypothèse",
-            "En tant que", "Étant donné", "Quand", "Alors", "Et", "Aucune.", " : ");
+            "Déroulement nominal", "Alternatives", "Source", "extrait du besoin", "réponse", "Hypothèse", "contexte du projet",
+            "En tant que", "Étant donné", "Quand", "Alors", "Et", "Aucune.", " : ",
+            "ticket", "page", "élément d'architecture", "Architecture", "Modules impactés", "Flux", "propre au projet",
+            "commun", "flux manquant, à créer", "flux existant", "via", "Écarts aux ADR", "Décision", "Écart",
+            "Efforts supplémentaires (déploiement)", "aucune instance en production, à déployer",
+            "plusieurs instances en production", "traverse des infrastructures (ouverture réseau ou exposition à prévoir)",
+            "dépend d'une infrastructure partagée");
     private static final Labels EN = new Labels("Summary", "Details", "Use cases", "Acceptance scenarios", "Assumptions",
             "Functional requirements", "Technical requirements", "Actor", "Goal", "Preconditions", "Main flow",
-            "Alternatives", "Source", "need excerpt", "answer", "Assumption", "As a", "Given", "When", "Then", "And",
-            "None.", ": ");
+            "Alternatives", "Source", "need excerpt", "answer", "Assumption", "project context", "As a", "Given", "When", "Then", "And",
+            "None.", ": ", "ticket", "page", "architecture element", "Architecture",
+            "Impacted modules", "Flows", "project-specific", "shared", "missing flow, to be created", "existing flow", "via",
+            "ADR deviations", "Decision", "Deviation", "Additional effort (deployment)",
+            "no production instance, to be deployed", "several production instances",
+            "crosses infrastructures (network opening or exposure to plan)", "depends on a shared infrastructure");
 
     private MarkdownRenderer() {
     }
 
     public static String render(SpecificationContent spec, Language language) {
+        return render(spec, language, KnowledgeSelection.EMPTY);
+    }
+
+    /**
+     * Rendu avec les faits d'architecture calculés : les rubriques « Architecture » et « Efforts
+     * supplémentaires (déploiement) » viennent de {@code knowledge}, jamais du LLM (FR-039 à FR-041).
+     * Une rubrique vide est omise : sans connaissance, le rendu est celui de 001.
+     */
+    public static String render(SpecificationContent spec, Language language, KnowledgeSelection knowledge) {
         Labels l = language == Language.EN ? EN : FR;
         StringBuilder md = new StringBuilder();
         md.append("# ").append(inline(spec.title())).append("\n\n");
@@ -91,7 +117,78 @@ public final class MarkdownRenderer {
         }
         requirements(md, l.functional(), spec.requirements(), Requirement.Category.FUNCTIONAL, l);
         requirements(md, l.technical(), spec.requirements(), Requirement.Category.TECHNICAL, l);
+        KnowledgeSelection k = knowledge == null ? KnowledgeSelection.EMPTY : knowledge;
+        architecture(md, k, l);
+        deviations(md, spec.adrDeviations(), l);
+        efforts(md, k.deploymentFacts(), l);
         return md.toString().stripTrailing() + "\n";
+    }
+
+    private static void architecture(StringBuilder md, KnowledgeSelection k, Labels l) {
+        if (k.modules().isEmpty() && k.exchanges().isEmpty()) {
+            return;
+        }
+        md.append("## ").append(l.architecture()).append("\n\n");
+        if (!k.modules().isEmpty()) {
+            md.append("### ").append(l.modules()).append("\n\n");
+            k.modules().forEach(m -> md.append("- ").append(escape(m.name())).append(" *(")
+                    .append(m.scope() == ArchScope.PROJECT ? l.own() : l.common()).append(")*\n"));
+            md.append('\n');
+        }
+        if (!k.exchanges().isEmpty()) {
+            md.append("### ").append(l.exchanges()).append("\n\n");
+            for (Exchange x : k.exchanges()) {
+                md.append("- ").append(escape(x.source())).append(" → ").append(escape(x.destination()))
+                        .append(l.colon());
+                if (x.kind() == Exchange.Kind.MISSING) {
+                    md.append("**").append(l.missing()).append("**");
+                } else {
+                    md.append(l.existing());
+                    if (x.via() != null) {
+                        md.append(", ").append(l.via()).append(' ').append(escape(x.via()));
+                    }
+                }
+                md.append('\n');
+            }
+            md.append('\n');
+        }
+    }
+
+    private static void deviations(StringBuilder md, List<SpecificationContent.AdrDeviation> deviations, Labels l) {
+        if (deviations.isEmpty()) {
+            return;
+        }
+        md.append("## ").append(l.deviations()).append("\n\n");
+        for (SpecificationContent.AdrDeviation d : deviations) {
+            md.append("- **").append(escape(d.adrRef())).append("**\n");
+            if (d.decision() != null && !d.decision().isBlank()) {
+                md.append("  - ").append(l.decision()).append(l.colon()).append(escape(d.decision(), "    "))
+                        .append('\n');
+            }
+            md.append("  - ").append(l.deviation()).append(l.colon()).append(escape(d.deviation(), "    "))
+                    .append('\n');
+        }
+        md.append('\n');
+    }
+
+    private static void efforts(StringBuilder md, List<DeploymentFact> facts, Labels l) {
+        if (facts.isEmpty()) {
+            return;
+        }
+        md.append("## ").append(l.efforts()).append("\n\n");
+        for (DeploymentFact f : facts) {
+            md.append("- ").append(escape(f.element()));
+            if (f.other() != null) {
+                md.append(" → ").append(escape(f.other()));
+            }
+            md.append(l.colon()).append(switch (f.kind()) {
+                case NOT_DEPLOYED -> l.notDeployed();
+                case MULTIPLE_INSTANCES -> l.multiple();
+                case CROSS_INFRASTRUCTURE -> l.cross();
+                case SHARED_INFRASTRUCTURE -> l.shared();
+            }).append('\n');
+        }
+        md.append('\n');
     }
 
     /** Rendu d'un scénario, conforme à l'exemple de contracts/scenario-format.md. */
@@ -142,6 +239,10 @@ public final class MarkdownRenderer {
             case NEED_EXCERPT -> l.needExcerpt();
             case ANSWER -> l.answer();
             case ASSUMPTION -> l.assumption().toLowerCase(java.util.Locale.ROOT);
+            case PROJECT_CONTEXT -> l.projectContext();
+            case JIRA_ISSUE -> l.ticket() + " " + escape(source.ref());
+            case DOC_PAGE -> l.page() + " " + escape(source.ref());
+            case ARCH_ELEMENT -> l.element() + " " + escape(source.ref());
         };
     }
 

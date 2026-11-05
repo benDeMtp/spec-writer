@@ -13,7 +13,8 @@ public record DraftSpecification(
         List<DraftUseCase> useCases,
         List<DraftScenario> scenarios,
         List<DraftAssumption> assumptions,
-        List<DraftRequirement> requirements) {
+        List<DraftRequirement> requirements,
+        List<DraftAdrDeviation> adrDeviations) {
 
     public DraftSpecification {
         details = details == null ? "" : details;
@@ -21,12 +22,19 @@ public record DraftSpecification(
         scenarios = List.copyOf(scenarios);
         assumptions = List.copyOf(assumptions);
         requirements = List.copyOf(requirements);
+        adrDeviations = adrDeviations == null ? List.of() : List.copyOf(adrDeviations);
+    }
+
+    /** Sans écart aux ADR. */
+    public DraftSpecification(String title, String summary, String details, List<DraftUseCase> useCases,
+            List<DraftScenario> scenarios, List<DraftAssumption> assumptions, List<DraftRequirement> requirements) {
+        this(title, summary, details, useCases, scenarios, assumptions, requirements, List.of());
     }
 
     /** Sans détails. */
     public DraftSpecification(String title, String summary, List<DraftUseCase> useCases, List<DraftScenario> scenarios,
             List<DraftAssumption> assumptions, List<DraftRequirement> requirements) {
-        this(title, summary, "", useCases, scenarios, assumptions, requirements);
+        this(title, summary, "", useCases, scenarios, assumptions, requirements, List.of());
     }
 
     public record DraftUseCase(
@@ -45,8 +53,19 @@ public record DraftSpecification(
         }
     }
 
-    /** {@code kind} : NEED_EXCERPT, ANSWER ou ASSUMPTION ; {@code questionId} vide si sans objet. */
-    public record DraftSource(String kind, String questionId, String excerpt) {
+    /**
+     * {@code kind} : NEED_EXCERPT, ANSWER, ASSUMPTION, PROJECT_CONTEXT, JIRA_ISSUE, DOC_PAGE ou
+     * ARCH_ELEMENT ; {@code questionId} et {@code ref} vides si sans objet.
+     */
+    public record DraftSource(String kind, String questionId, String excerpt, String ref) {
+
+        public DraftSource(String kind, String questionId, String excerpt) {
+            this(kind, questionId, excerpt, "");
+        }
+    }
+
+    /** Écart du besoin à un ADR de la connaissance : référence, décision de l'ADR, écart (FR-037). */
+    public record DraftAdrDeviation(String adrRef, String decision, String deviation) {
     }
 
     /** {@code kind} : NOMINAL, ERROR ou EDGE. */

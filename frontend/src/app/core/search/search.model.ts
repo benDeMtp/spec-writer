@@ -15,11 +15,15 @@ export interface SearchItem {
   excerpt: string | null;
 }
 
+/** Une page de 25 éléments au plus, des deux sources fusionnées par date (research.md R9). */
 export interface SearchResult {
   items: SearchItem[];
+  /** « 26 à 50 sur 120 », ou « sur environ 120 ». */
+  position: string;
+  approximateTotal: boolean;
+  /** Curseur opaque de la page suivante ; absent en fin de liste. */
+  nextCursor: string | null;
   jiraStatus: JiraStatus;
-  /** Tickets Jira trouvés ; 20 par page. */
-  jiraTotal: number;
+  /** Présent si Jira n'a pas répondu : la page ne porte que sur spec-writer. */
+  jiraError: string | null;
 }
-
-export const PAGE_SIZE = 20;

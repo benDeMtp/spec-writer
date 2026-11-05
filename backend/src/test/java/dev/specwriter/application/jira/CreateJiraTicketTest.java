@@ -10,6 +10,11 @@ import dev.specwriter.domain.jira.ConflictDetector;
 import dev.specwriter.domain.jira.IssueTrackerException;
 import dev.specwriter.domain.jira.IssueType;
 import dev.specwriter.domain.jira.LinkedJiraTicket;
+import dev.specwriter.domain.jira.IssueTrackerException;
+import dev.specwriter.domain.port.SessionRelationRepository;
+import dev.specwriter.domain.session.SessionRelation;
+import java.util.Optional;
+import java.util.UUID;
 import dev.specwriter.domain.jira.RequiredField;
 import dev.specwriter.domain.jira.RequiredField.Kind;
 import dev.specwriter.domain.session.Session;
@@ -32,7 +37,7 @@ class CreateJiraTicketTest {
     @BeforeEach
     void setUp() {
         preview = new PreviewJiraTicket(w.versions, w.tickets, w.markup, w.tracker, w.jira);
-        create = new CreateJiraTicket(w.tracker, w.jira, w.markup, w.sessions, w.versions, w.tickets, w.clock);
+        create = new CreateJiraTicket(w.tracker, w.jira, w.markup, w.versions, w.tickets, w.clock);
         session = w.generatedSession();
         markdown = w.versions.find(session.id(), 1).orElseThrow().markdown();
         w.tracker.required.put("10001", List.of(
@@ -84,6 +89,58 @@ class CreateJiraTicketTest {
                 .containsEntry("customfield_1", Map.of("id", "2"));
     }
 
+    /** Relations « relates to » en mémoire (FR-035 de 002). */
+    static final class Relations implements SessionRelationRepository {
+        final Map<UUID, SessionRelation> saved = new java.util.HashMap<>();
+
+        @Override
+        public Optional<SessionRelation> find(UUID sessionId) {
+            return Optional.ofNullable(saved.get(sessionId));
+        }
+
+        @Override
+        public void save(SessionRelation relation) {
+            saved.put(relation.sessionId(), relation);
+        }
+    }
+
+    @Test
+    void storyLieeAuTicketFermeApresSaCreation() {
+        Relations relations = new Relations();
+        relations.save(new SessionRelation(session.id(), "PROJ-7", SessionRelation.Link.PENDING));
+        PreviewJiraTicket withLink = new PreviewJiraTicket(w.versions, w.tickets, w.markup, w.tracker, w.jira, relations);
+        assertThat(withLink.run(session.id(), 1, null).relatesTo()).isEqualTo("PROJ-7");
+        assertThat(preview.run(session.id(), 1, null).relatesTo()).isNull();
+
+        CreateJiraTicket linking = new CreateJiraTicket(w.tracker, w.jira, w.markup, w.versions, w.tickets, w.clock,
+                relations);
+        LinkedJiraTicket t = linking.run(session.id(), 1, true, "10001", Map.of("customfield_1", "2"));
+        assertThat(w.tracker.calls).containsSubsequence("create PROJ 10001", "linkTypes", "link PROJ-101 PROJ-7");
+        assertThat(w.tracker.links).containsExactly("Relates PROJ-101 -> PROJ-7");
+        assertThat(relations.saved.get(session.id()).link()).isEqualTo(SessionRelation.Link.LINKED);
+        assertThat(t.issueKey()).isEqualTo("PROJ-101");
+    }
+
+    @Test
+    void echecDuLienLaStoryResteCreeeEtLeLienSeReessaie() {
+        Relations relations = new Relations();
+        relations.save(new SessionRelation(session.id(), "PROJ-7", SessionRelation.Link.PENDING));
+        CreateJiraTicket linking = new CreateJiraTicket(w.tracker, w.jira, w.markup, w.versions, w.tickets, w.clock,
+                relations);
+        w.tracker.linkFailure = IssueTrackerException.Kind.FORBIDDEN;
+        LinkedJiraTicket t = linking.run(session.id(), 1, true, "10001", Map.of("customfield_1", "2"));
+        assertThat(w.tickets.findBySession(session.id())).contains(t);
+        assertThat(relations.saved.get(session.id()).link()).isEqualTo(SessionRelation.Link.FAILED);
+
+        w.tracker.linkFailure = null;
+        RetryRelatedLink retry = new RetryRelatedLink(w.tracker, w.jira, w.tickets, relations);
+        assertThat(retry.run(session.id()).link()).isEqualTo(SessionRelation.Link.LINKED);
+        assertThat(w.tracker.links).containsExactly("Relates PROJ-101 -> PROJ-7");
+        // un lien déjà créé n'est pas recréé
+        retry.run(session.id());
+        assertThat(w.tracker.links).hasSize(1);
+    }
+
     @Test
     void sansConfirmationRienNestCree() {
         assertThatThrownBy(() -> create.run(session.id(), 1, false, "10001", Map.of("customfield_1", "2")))
@@ -129,7 +186,7 @@ class CreateJiraTicketTest {
     void sansConsentementRienNestAppele() {
         JiraWorld bare = new JiraWorld().configureJira();
         Session s = bare.generatedSession();
-        CreateJiraTicket c = new CreateJiraTicket(bare.tracker, bare.jira, bare.markup, bare.sessions, bare.versions,
+        CreateJiraTicket c = new CreateJiraTicket(bare.tracker, bare.jira, bare.markup, bare.versions,
                 bare.tickets, bare.clock);
         PreviewJiraTicket p = new PreviewJiraTicket(bare.versions, bare.tickets, bare.markup, bare.tracker, bare.jira);
         assertThatThrownBy(() -> c.run(s.id(), 1, true, "10001", Map.of())).isInstanceOfSatisfying(DomainException.class,

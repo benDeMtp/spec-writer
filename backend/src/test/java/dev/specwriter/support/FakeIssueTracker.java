@@ -2,7 +2,12 @@ package dev.specwriter.support;
 
 import dev.specwriter.domain.jira.CreatedIssue;
 import dev.specwriter.domain.jira.IssueTrackerException;
+import dev.specwriter.domain.jira.IssueLinkType;
+import dev.specwriter.domain.jira.IssueStatus;
 import dev.specwriter.domain.jira.IssueType;
+import dev.specwriter.domain.jira.TrackedIssue;
+import dev.specwriter.domain.jira.TrackedIssuePage;
+import java.time.Instant;
 import dev.specwriter.domain.jira.IssueTrackerException.Kind;
 import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
@@ -21,6 +26,10 @@ public class FakeIssueTracker implements IssueTracker {
 
     public final Map<String, JiraIssue> issues = new LinkedHashMap<>();
     public final List<JiraIssueSummary> searchResults = new ArrayList<>();
+    /** Pages demandées à la recherche, {@code startAt+maxResults}. */
+    public final List<String> searchPages = new ArrayList<>();
+    /** Tickets du projet, du plus récent au plus ancien. */
+    public final List<JiraIssueSummary> projectResults = new ArrayList<>();
     public final List<String> calls = new ArrayList<>();
     public final List<String> writes = new ArrayList<>();
     public Kind failure;
@@ -29,6 +38,12 @@ public class FakeIssueTracker implements IssueTracker {
     public final List<Map<String, Object>> created = new ArrayList<>();
     public IssueTrackerException createFailure;
     public long searchDelayMillis;
+    /** Tickets de l'index de connaissance, par clé (research.md R20). */
+    public final Map<String, TrackedIssue> tracked = new LinkedHashMap<>();
+    /** Liens créés : {@code type sortant -> entrant}. */
+    public final List<String> links = new ArrayList<>();
+    /** Panne de la seule création de lien. */
+    public Kind linkFailure;
 
     private void fail() {
         if (failure != null) {
@@ -74,7 +89,18 @@ public class FakeIssueTracker implements IssueTracker {
             }
         }
         fail();
-        return new JiraSearchPage(searchResults, startAt, searchResults.size());
+        searchPages.add(startAt + "+" + maxResults);
+        return new JiraSearchPage(searchResults.stream().skip(startAt).limit(maxResults).toList(), startAt,
+                searchResults.size());
+    }
+
+    /** Les tickets de {@link #projectResults}, page par page. */
+    @Override
+    public JiraSearchPage projectIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults) {
+        calls.add("project " + projectKey + " " + startAt + " " + maxResults);
+        fail();
+        return new JiraSearchPage(projectResults.stream().skip(startAt).limit(maxResults).toList(), startAt,
+                projectResults.size());
     }
 
     @Override
@@ -128,5 +154,53 @@ public class FakeIssueTracker implements IssueTracker {
         writes.add(key);
         issues.put(key, new JiraIssue(key, summary, wikiDescription, java.time.Instant.parse("2026-10-30T12:00:00Z")));
         return new CreatedIssue(String.valueOf(20000 + created.size()), key);
+    }
+
+    @Override
+    public TrackedIssuePage searchUpdatedSince(JiraEndpoint endpoint, String projectKey, Instant since, int startAt,
+            int maxResults) {
+        calls.add("updatedSince " + projectKey + " " + since + " " + startAt);
+        fail();
+        List<TrackedIssue> all = tracked.values().stream().filter(i -> i.key().startsWith(projectKey + "-"))
+                .filter(i -> since == null || !i.updated().isBefore(since))
+                .sorted(java.util.Comparator.comparing(TrackedIssue::updated)).toList();
+        return new TrackedIssuePage(all.stream().skip(startAt).limit(maxResults).toList(), startAt, all.size());
+    }
+
+    @Override
+    public List<String> listKeys(JiraEndpoint endpoint, String projectKey) {
+        calls.add("keys " + projectKey);
+        fail();
+        return tracked.keySet().stream().filter(k -> k.startsWith(projectKey + "-")).toList();
+    }
+
+    @Override
+    public IssueStatus issueStatus(JiraEndpoint endpoint, String issueKey) {
+        calls.add("status " + issueKey);
+        fail();
+        TrackedIssue issue = tracked.get(issueKey);
+        if (issue == null) {
+            throw new IssueTrackerException(Kind.NOT_FOUND, "simulé");
+        }
+        return new IssueStatus(issueKey, issue.status(), issue.statusCategory(), issue.updated());
+    }
+
+    @Override
+    public List<IssueLinkType> linkTypes(JiraEndpoint endpoint) {
+        calls.add("linkTypes");
+        fail();
+        return List.of(new IssueLinkType("10000", "Blocks", "is blocked by", "blocks"),
+                new IssueLinkType("10003", "Relates", "relates to", "relates to"));
+    }
+
+    @Override
+    public void createLink(JiraEndpoint endpoint, String typeName, String outwardKey, String inwardKey) {
+        calls.add("link " + outwardKey + " " + inwardKey);
+        fail();
+        if (linkFailure != null) {
+            throw new IssueTrackerException(linkFailure, "simulé");
+        }
+        links.add(typeName + " " + outwardKey + " -> " + inwardKey);
+        writes.add("link " + outwardKey);
     }
 }

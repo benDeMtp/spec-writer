@@ -1,0 +1,84 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "/rest/api/2/project/FACT"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "FACT",
+          "name": "Facturation"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/issue/FACT-1"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "key": "FACT-1",
+          "fields": {
+            "summary": "Facture 1 : contrôle des lignes",
+            "description": "h2. Besoin\nLe gestionnaire de facturation doit contrôler chaque ligne d'une facture avant sa validation.",
+            "updated": "2026-10-21T12:00:00.000+0000"
+          }
+        }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/search",
+        "queryParameters": {
+          "jql": {
+            "matches": "project = FACT AND text ~ .*"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"startAt\":{{request.query.startAt}},\"maxResults\":{{request.query.maxResults}},\"total\":60,\"issues\":[{{#each (range (math request.query.startAt '+' 0) (math (math request.query.startAt '+' request.query.maxResults) '-' 1)) as |j|}}{{#if (lt j 60)}}{{#unless @first}},{{/unless}}{\"key\":\"FACT-{{math 120 '-' (math j '*' 2)}}\",\"fields\":{\"summary\":\"Facture {{math 120 '-' (math j '*' 2)}} : contrôle des lignes\",\"status\":{\"name\":\"À faire\"},\"issuetype\":{\"name\":\"Story\"},\"updated\":\"2026-10-{{math 30 '-' (math (math (math j '*' 2) '-' (math (math j '*' 2) '%' 12)) '/' 12)}}T{{math 23 '-' (math (math j '*' 2) '%' 12)}}:00:00.000+0000\"}}{{/if}}{{/each}}]}",
+        "transformers": [
+          "response-template"
+        ]
+      }
+    },
+    {
+      "priority": 2,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/search",
+        "queryParameters": {
+          "jql": {
+            "matches": "project = FACT( .*)?"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"startAt\":{{request.query.startAt}},\"maxResults\":{{request.query.maxResults}},\"total\":120,\"issues\":[{{#each (range (math request.query.startAt '+' 0) (math (math request.query.startAt '+' request.query.maxResults) '-' 1)) as |j|}}{{#if (lt j 120)}}{{#unless @first}},{{/unless}}{\"key\":\"FACT-{{math 120 '-' j}}\",\"fields\":{\"summary\":\"Facture {{math 120 '-' j}} : contrôle des lignes\",\"status\":{\"name\":\"À faire\"},\"issuetype\":{\"name\":\"Story\"},\"updated\":\"2026-10-{{math 30 '-' (math (math j '-' (math j '%' 12)) '/' 12)}}T{{math 23 '-' (math j '%' 12)}}:00:00.000+0000\"}}{{/if}}{{/each}}]}",
+        "transformers": [
+          "response-template"
+        ]
+      }
+    }
+  ]
+}

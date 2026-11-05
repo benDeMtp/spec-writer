@@ -12,8 +12,12 @@ import dev.specwriter.domain.jira.RequiredField;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.LinkedTicketRepository;
-import dev.specwriter.domain.port.SessionRepository;
+import dev.specwriter.domain.jira.IssueLinkType;
+import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
+import dev.specwriter.domain.session.SessionRelation;
+import java.util.Optional;
+import org.jboss.logging.Logger;
 import dev.specwriter.domain.port.WikiMarkup;
 import dev.specwriter.domain.specification.SpecificationVersion;
 import java.time.Instant;
@@ -27,20 +31,40 @@ import java.util.UUID;
  */
 public class CreateJiraTicket {
 
+    static final String RELATES = "Relates";
+    static final SessionRelationRepository NO_RELATIONS = new SessionRelationRepository() {
+        @Override
+        public Optional<SessionRelation> find(UUID sessionId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public void save(SessionRelation relation) {
+            // aucune relation sans dépôt
+        }
+    };
+    private static final Logger LOG = Logger.getLogger(CreateJiraTicket.class);
+
     private final IssueTracker tracker;
     private final JiraAccess jira;
     private final WikiMarkup markup;
-    private final SessionRepository sessions;
     private final SpecificationRepository versions;
     private final LinkedTicketRepository tickets;
     private final ClockPort clock;
+    private final SessionRelationRepository relations;
 
-    public CreateJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SessionRepository sessions,
-            SpecificationRepository versions, LinkedTicketRepository tickets, ClockPort clock) {
+    public CreateJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ClockPort clock) {
+        this(tracker, jira, markup, versions, tickets, clock, NO_RELATIONS);
+    }
+
+    /** Avec le lien « relates to » vers un ticket fermé, créé après la story (FR-035 de 002). */
+    public CreateJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ClockPort clock, SessionRelationRepository relations) {
+        this.relations = relations;
         this.tracker = tracker;
         this.jira = jira;
         this.markup = markup;
-        this.sessions = sessions;
         this.versions = versions;
         this.tickets = tickets;
         this.clock = clock;
@@ -52,10 +76,7 @@ public class CreateJiraTicket {
         if (!confirm) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "La création du ticket doit être confirmée.");
         }
-        JiraAccess.Target target = jira.require();
-        if (sessions.find(sessionId).isEmpty()) {
-            throw new DomainException(ErrorCode.NOT_FOUND);
-        }
+        JiraAccess.Target target = jira.require(sessionId);
         SpecificationVersion version = versions.find(sessionId, versionNumber)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         if (tickets.findBySession(sessionId).isPresent()) {
@@ -82,7 +103,29 @@ public class CreateJiraTicket {
                 ConflictDetector.hash(written == null ? wiki : written.description()), now, now,
                 LinkedJiraTicket.SyncState.IN_SYNC);
         tickets.save(ticket);
+        relations.find(sessionId).filter(r -> r.link() != SessionRelation.Link.LINKED)
+                .ifPresent(r -> link(tracker, relations, target, created.key(), r));
         return ticket;
+    }
+
+    /**
+     * Lien de la story vers le ticket fermé, du type dont le sens sortant est « relates to ». Un
+     * échec laisse la story créée ; le lien peut être réessayé.
+     */
+    static SessionRelation link(IssueTracker tracker, SessionRelationRepository relations, JiraAccess.Target target,
+            String storyKey, SessionRelation relation) {
+        SessionRelation result;
+        try {
+            String type = tracker.linkTypes(target.endpoint()).stream().filter(IssueLinkType::relates).findFirst()
+                    .map(IssueLinkType::name).orElse(RELATES);
+            tracker.createLink(target.endpoint(), type, storyKey, relation.relatesTo());
+            result = relation.with(SessionRelation.Link.LINKED);
+        } catch (IssueTrackerException e) {
+            LOG.warnf("Lien « relates to » de %s vers %s non créé (%s)", storyKey, relation.relatesTo(), e.kind());
+            result = relation.with(SessionRelation.Link.FAILED);
+        }
+        relations.save(result);
+        return result;
     }
 
     /**

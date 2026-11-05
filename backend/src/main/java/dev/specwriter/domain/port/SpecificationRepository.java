@@ -20,6 +20,14 @@ public interface SpecificationRepository {
 
     void deleteAll(UUID sessionId);
 
+    /** Supprime une version ; les numéros des autres ne changent pas (FR-014). */
+    void delete(UUID sessionId, int number);
+
     /** 0 si la session n'a pas encore de version. */
     int lastNumber(UUID sessionId);
+
+    /**
+     * Numéro de la prochaine version : jamais un numéro déjà attribué, même supprimé (research.md R8).
+     */
+    int nextNumber(UUID sessionId);
 }

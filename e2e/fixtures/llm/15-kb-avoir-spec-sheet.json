@@ -1,0 +1,53 @@
+{
+  "operation": "generate-specification",
+  "userContains": [
+    "Saisir un avoir sur une facture émise",
+    "n'est plus appliqué"
+  ],
+  "response": {
+    "title": "Saisie d'un avoir, comptabilité appelée directement",
+    "summary": "Le gestionnaire de facturation saisit un avoir sur une facture émise ; la comptabilité est appelée directement.",
+    "useCases": [
+      {
+        "title": "Saisir un avoir",
+        "actor": "gestionnaire de facturation",
+        "goal": "Corriger une facture émise",
+        "preconditions": [
+          "La facture est émise"
+        ],
+        "nominalFlow": [
+          "Ouvrir la facture",
+          "Saisir l'avoir",
+          "Appeler la comptabilité"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "PROJECT_CONTEXT",
+          "questionId": "",
+          "excerpt": "L'ADR-005 n'est plus appliqué."
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "useCaseIndex": 0,
+        "title": "Avoir saisi",
+        "kind": "NOMINAL",
+        "asA": "gestionnaire de facturation",
+        "given": [
+          "la facture F-001 de 120 € TTC est émise"
+        ],
+        "when": [
+          "je saisis un avoir de 20 € TTC"
+        ],
+        "then": [
+          "la comptabilité enregistre l'avoir"
+        ],
+        "assumption": false
+      }
+    ],
+    "assumptions": [],
+    "requirements": [],
+    "adrDeviations": []
+  }
+}

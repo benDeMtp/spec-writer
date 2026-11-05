@@ -1,8 +1,11 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est décrite dans `specs/001-local-spec-assistant/` (spec, plan, research,
-tasks). La constitution est dans `.specify/memory/constitution.md`.
+La feature en cours est `specs/002-projets-contexte-mcp/` (projets, connaissance du projet par
+index local de Jira, Antora et Structurizr, suppression locale, Jira paginé, passerelle MCP pour
+les agents de code). La conception de la connaissance du projet est dans
+`docs/superpowers/specs/2026-11-04-connaissance-du-projet-design.md`. Elle prolonge `specs/001-local-spec-assistant/`, dont les décisions restent valables.
+La constitution est dans `.specify/memory/constitution.md`.
 
 ## Boucle de développement (research.md R17)
 
@@ -19,6 +22,13 @@ Pendant le développement, travailler en **dev mode Quarkus piloté par le serve
    Exception : les IT qui appellent WireMock (`Jira*IT`, `JiraLinkResourceIT`…) échouent en dev
    mode (« Internal Privoxy Error ») car la JVM de dev reçoit le proxy Maven de `settings.xml`.
    Les lancer sous Maven : `./mvnw -B test -DskipDependencyCheck -Dtest=… -Dsurefire.failIfNoSpecifiedTests=false`.
+   Pour joindre un Jira simulé sur la boucle locale depuis le dev mode, le démarrer avec
+   `"-Djvm.args=-Dhttp.nonProxyHosts=127.0.0.1|localhost"` ; le jeton Jira (trousseau simulé) est
+   perdu à chaque redémarrage du dev mode.
+   Même chose pour les règles ArchUnit (`HexagonalArchitectureTest`) : le runner du dev mode ne les
+   voit pas (0 test lancé). Préférer `devui-testing_runTest` à `runTests` : la suite complète dépasse
+   le délai d'un appel MCP. Les tags `spike` et `eval` sont exclus en dev mode
+   (`quarkus.test.exclude-tags`) : l'évaluation appelle le vrai Copilot.
 4. Erreurs : `quarkus_logs` et `devui-exceptions_getLastException`. Base : `quarkus-agroal_executeSQL`.
 5. Appels d'API : cookie obtenu en échangeant le jeton de l'URL de lancement du journal
    (`POST /api/session-auth`, en-tête `Origin: http://127.0.0.1:47625`). Le cookie survit aux
@@ -45,6 +55,15 @@ gate.
   `NO_PROXY` / `http.nonProxyHosts`. Le proxy retenu est écrit au démarrage (`Proxy d'entreprise : …`).
 - Ports : 47615 pour l'outil installé, 47625 pour le dev mode, 47699 et 47698 pour les E2E (jar
   et WireMock).
+- L'IDE compile aussi dans `backend/target/` (ecj) : un test qui échoue sous Maven avec
+  « Unresolved compilation problems » tourne sur une classe de l'IDE. Supprimer la classe de
+  `target/test-classes` (ou toucher le fichier source) et relancer.
+- JaCoCo : `backend/target/jacoco.exec` cumule les lancements successifs, et les `@QuarkusTest`
+  n'apportent aucune couverture aux classes de l'application. Un `verify` local peut donc passer
+  sur des données anciennes alors que la CI échoue : supprimer `jacoco.exec` avant le `verify`
+  qui précède un commit, et couvrir `domain` et `application` par des tests unitaires.
+- E2E : `JAVA_HOME` 25 doit aussi être en tête du `PATH` (`export PATH=$JAVA_HOME/bin:$PATH`),
+  sinon le jar s'arrête au démarrage.
 - Profil `live` (`-Dquarkus.profile=dev,live`) : vrai Copilot et vrai trousseau. Il est réservé
   aux essais manuels du mainteneur.
 

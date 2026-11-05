@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.persistence.specification;
 
+import dev.specwriter.domain.knowledge.KnowledgeSelection;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.specification.SpecificationContent;
 import dev.specwriter.domain.specification.SpecificationVersion;
@@ -34,8 +35,14 @@ public class SpecificationJpaRepository implements SpecificationRepository {
         e.content = JSON.writeValueAsString(v.content());
         e.markdown = v.markdown();
         e.createdAt = v.createdAt();
+        e.contextHash = v.contextHash() == null ? "" : v.contextHash();
+        e.contextUpdatedAt = v.contextUpdatedAt();
+        e.knowledge = v.knowledge().equals(KnowledgeSelection.EMPTY) ? null : JSON.writeValueAsString(v.knowledge());
         // persist et non merge : une version existante n'est jamais réécrite
         em.persist(e);
+        // le compteur de la session n'est jamais décrémenté : un numéro supprimé n'est pas réattribué
+        em.createNativeQuery("update session set next_version_number = max(next_version_number, ?1) where id = ?2")
+                .setParameter(1, v.number() + 1).setParameter(2, v.sessionId().toString()).executeUpdate();
     }
 
     @Override
@@ -70,6 +77,22 @@ public class SpecificationJpaRepository implements SpecificationRepository {
 
     @Override
     @Transactional
+    public void delete(UUID sessionId, int number) {
+        em.createQuery("delete from SpecificationVersionEntity v where v.sessionId = :s and v.number = :n")
+                .setParameter("s", sessionId.toString()).setParameter("n", number).executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public int nextNumber(UUID sessionId) {
+        List<?> next = em.createNativeQuery("select next_version_number from session where id = ?1")
+                .setParameter(1, sessionId.toString()).getResultList();
+        int counter = next.isEmpty() ? 1 : ((Number) next.get(0)).intValue();
+        return Math.max(counter, lastNumber(sessionId) + 1);
+    }
+
+    @Override
+    @Transactional
     public int lastNumber(UUID sessionId) {
         Integer max = em.createQuery("select max(v.number) from SpecificationVersionEntity v where v.sessionId = :s",
                 Integer.class).setParameter("s", sessionId.toString()).getSingleResult();
@@ -83,6 +106,7 @@ public class SpecificationJpaRepository implements SpecificationRepository {
     private static SpecificationVersion toDomain(SpecificationVersionEntity e) {
         return new SpecificationVersion(UUID.fromString(e.id), UUID.fromString(e.sessionId), e.number,
                 JSON.readValue(e.content, SpecificationContent.class), e.inputFingerprint, VersionOrigin.valueOf(e.origin),
-                e.markdown, e.createdAt);
+                e.markdown, e.createdAt, e.contextHash, e.contextUpdatedAt,
+                e.knowledge == null ? KnowledgeSelection.EMPTY : JSON.readValue(e.knowledge, KnowledgeSelection.class));
     }
 }

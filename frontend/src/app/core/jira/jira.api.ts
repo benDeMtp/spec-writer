@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { ProblemStore } from '../http/problem.store';
 import { isProblem } from '../http/problem';
 import { LinkedTicket, SessionDetail, Specification } from '../sessions/sessions.model';
-import { ConflictResolution, JiraConflict, JiraIssueView, Proposal, PushPreview } from './jira.model';
+import { ConflictResolution, IssuePage, JiraConflict, JiraIssueView, Proposal, PushPreview } from './jira.model';
 
 /** Issue d'un envoi vers Jira. */
 export type PushOutcome =
@@ -20,6 +20,16 @@ export class JiraApi {
 
   issue(key: string): Promise<JiraIssueView> {
     return firstValueFrom(this.http.get<JiraIssueView>(`/api/jira/issues/${encodeURIComponent(key)}`));
+  }
+
+  /** Page de tickets du projet Jira ; l'appelant traite lui-même une erreur, pour garder sa page. */
+  projectIssues(projectKey: string, startAt: number): Promise<IssuePage> {
+    return firstValueFrom(
+      this.http.get<IssuePage>(`/api/jira/projects/${encodeURIComponent(projectKey)}/issues`, {
+        params: { startAt },
+        headers: new HttpHeaders({ 'X-Sw-Silent': '1' }),
+      }),
+    );
   }
 
   /** Crée une session liée au ticket ; Jira n'est pas modifié. */
@@ -53,6 +63,11 @@ export class JiraApi {
     return firstValueFrom(
       this.http.post<LinkedTicket>(`${session(sessionId)}/jira`, { confirm: true, versionNumber, issueTypeId, extraFields }),
     );
+  }
+
+  /** Réessaie le lien « relates to » de la story créée vers le ticket fermé (FR-035 de 002). */
+  retryRelation(sessionId: string): Promise<LinkedTicket> {
+    return firstValueFrom(this.http.post<LinkedTicket>(`${session(sessionId)}/jira/relation/retry`, {}));
   }
 
   /** Le conflit (409) est un résultat attendu : lui seul ne passe pas par le bandeau d'erreur. */

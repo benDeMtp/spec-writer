@@ -3,6 +3,12 @@ package dev.specwriter.infrastructure.web;
 import dev.specwriter.application.jira.CreateJiraTicket;
 import dev.specwriter.application.jira.PreviewJiraTicket;
 import dev.specwriter.application.jira.PushToJira;
+import dev.specwriter.application.jira.RetryRelatedLink;
+import dev.specwriter.domain.jira.LinkedJiraTicket;
+import dev.specwriter.domain.port.LinkedTicketRepository;
+import dev.specwriter.domain.port.SessionRelationRepository;
+import dev.specwriter.domain.session.SessionRelation;
+import java.util.UUID;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorAction;
 import dev.specwriter.domain.error.ErrorCode;
@@ -28,6 +34,9 @@ import java.util.Map;
 @Path("/api/sessions/{id}/jira")
 @Produces(MediaType.APPLICATION_JSON)
 public class JiraLinkResource {
+
+    @Inject
+    SourceLinks sourceLinks;
 
     public record PushRequest(Boolean confirm, Integer versionNumber, String conflictResolution) {
     }
@@ -56,6 +65,12 @@ public class JiraLinkResource {
     PreviewJiraTicket previewJiraTicket;
     @Inject
     CreateJiraTicket createJiraTicket;
+    @Inject
+    RetryRelatedLink retryRelatedLink;
+    @Inject
+    SessionRelationRepository relations;
+    @Inject
+    LinkedTicketRepository tickets;
 
     /** 201 et le ticket lié ; 409 si la session est déjà liée ; 502 si Jira refuse, avec la cause. */
     @POST
@@ -68,8 +83,20 @@ public class JiraLinkResource {
         if (request.extraFields() != null) {
             request.extraFields().forEach((field, value) -> extra.put(field, value == null ? null : String.valueOf(value)));
         }
-        return Response.status(Response.Status.CREATED).entity(SessionViews.ticket(createJiraTicket.run(Ids.parse(id),
-                request.versionNumber(), Boolean.TRUE.equals(request.confirm()), request.issueTypeId(), extra))).build();
+        UUID sessionId = Ids.parse(id);
+        LinkedJiraTicket created = createJiraTicket.run(sessionId, request.versionNumber(),
+                Boolean.TRUE.equals(request.confirm()), request.issueTypeId(), extra);
+        return Response.status(Response.Status.CREATED)
+                .entity(SessionViews.ticket(created, relations.find(sessionId).orElse(null))).build();
+    }
+
+    /** Réessaie le lien « relates to » de la story créée vers le ticket fermé (FR-035 de 002). */
+    @POST
+    @Path("/relation/retry")
+    public SessionViews.LinkedTicketView retryRelation(@PathParam("id") String id) {
+        UUID sessionId = Ids.parse(id);
+        SessionRelation relation = retryRelatedLink.run(sessionId);
+        return SessionViews.ticket(tickets.findBySession(sessionId).orElse(null), relation);
     }
 
     /** Ce que Jira recevra ; rien n'est envoyé. */
@@ -98,7 +125,7 @@ public class JiraLinkResource {
         return switch (outcome) {
             case PushToJira.Pushed p -> Response.ok(SessionViews.ticket(p.ticket())).build();
             case PushToJira.TakenFromJira t -> Response.ok(SessionViews.ticket(t.ticket())).build();
-            case PushToJira.MergeProposed m -> Response.accepted(SessionViews.proposal(m.proposal())).build();
+            case PushToJira.MergeProposed m -> Response.accepted(sourceLinks.complete(SessionViews.proposal(m.proposal()))).build();
             case PushToJira.Conflict c -> Response.status(Response.Status.CONFLICT).type(Problem.MEDIA_TYPE)
                     .entity(ConflictProblem.of(c)).build();
         };

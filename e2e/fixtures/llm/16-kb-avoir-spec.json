@@ -1,0 +1,128 @@
+{
+  "operation": "generate-specification",
+  "userContains": [
+    "Saisir un avoir sur une facture émise",
+    "<architecture>",
+    "adr-005.html"
+  ],
+  "response": {
+    "title": "Saisie d'un avoir sur une facture émise",
+    "summary": "Le gestionnaire de facturation saisit un avoir sur une facture émise ; la comptabilité en est notifiée par le topic des avoirs.",
+    "useCases": [
+      {
+        "title": "Saisir un avoir",
+        "actor": "gestionnaire de facturation",
+        "goal": "Corriger une facture émise",
+        "preconditions": [
+          "La facture est émise"
+        ],
+        "nominalFlow": [
+          "Ouvrir la facture",
+          "Saisir l'avoir",
+          "Valider l'avoir"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "JIRA_ISSUE",
+          "questionId": "",
+          "excerpt": "",
+          "ref": "fact-7"
+        }
+      },
+      {
+        "title": "Notifier la comptabilité",
+        "actor": "gestionnaire de facturation",
+        "goal": "Tenir la comptabilité à jour",
+        "preconditions": [
+          "La facture est émise"
+        ],
+        "nominalFlow": [
+          "Publier l'avoir émis sur le topic des avoirs"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "DOC_PAGE",
+          "questionId": "",
+          "excerpt": "",
+          "ref": "adr-005.html"
+        }
+      },
+      {
+        "title": "Calculer l'avoir",
+        "actor": "gestionnaire de facturation",
+        "goal": "Plafonner l'avoir au restant dû",
+        "preconditions": [
+          "La facture est émise"
+        ],
+        "nominalFlow": [
+          "Le service Avoirs calcule le montant"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "ARCH_ELEMENT",
+          "questionId": "",
+          "excerpt": "",
+          "ref": "Facturation/Service Avoirs"
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "useCaseIndex": 0,
+        "title": "Avoir saisi",
+        "kind": "NOMINAL",
+        "asA": "gestionnaire de facturation",
+        "given": [
+          "la facture F-001 de 120 € TTC est émise"
+        ],
+        "when": [
+          "je saisis un avoir de 20 € TTC"
+        ],
+        "then": [
+          "l'avoir AV-001 est créé"
+        ],
+        "assumption": false
+      },
+      {
+        "useCaseIndex": 1,
+        "title": "Comptabilité notifiée",
+        "kind": "NOMINAL",
+        "asA": "gestionnaire de facturation",
+        "given": [
+          "l'avoir AV-001 est émis"
+        ],
+        "when": [
+          "l'avoir est publié"
+        ],
+        "then": [
+          "la comptabilité reçoit l'avoir"
+        ],
+        "assumption": false
+      },
+      {
+        "useCaseIndex": 2,
+        "title": "Avoir plafonné",
+        "kind": "NOMINAL",
+        "asA": "gestionnaire de facturation",
+        "given": [
+          "la facture F-001 a 30 € TTC restant dû"
+        ],
+        "when": [
+          "je saisis un avoir de 50 € TTC"
+        ],
+        "then": [
+          "l'avoir est refusé"
+        ],
+        "assumption": false
+      }
+    ],
+    "assumptions": [],
+    "requirements": [
+      {
+        "category": "FUNCTIONAL",
+        "statement": "Un avoir ne dépasse jamais le restant dû de la facture."
+      }
+    ],
+    "adrDeviations": []
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "operation": "propose-questions",
+  "userContains": [
+    "appeler la comptabilité en synchrone",
+    "<valeur>J'assume l'écart"
+  ],
+  "response": {
+    "questions": [],
+    "contradictions": [],
+    "coveredThemes": []
+  }
+}

@@ -7,8 +7,12 @@ import { SearchResult } from './search.model';
 export class SearchApi {
   private readonly http = inject(HttpClient);
 
-  search(q: string, page = 0): Promise<SearchResult> {
-    const params = new HttpParams().set('q', q).set('page', page);
+  /** Première page sans curseur, puis le curseur rendu par la page précédente. */
+  search(q: string, cursor: string | null = null): Promise<SearchResult> {
+    let params = new HttpParams().set('q', q);
+    if (cursor) {
+      params = params.set('cursor', cursor);
+    }
     return firstValueFrom(this.http.get<SearchResult>('/api/search', { params }));
   }
 }

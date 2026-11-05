@@ -323,6 +323,8 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
 
 - **FR-016**: Le système DOIT sauvegarder automatiquement la session après chaque réponse.
 - **FR-017**: L'utilisateur DOIT pouvoir lister, reprendre, renommer et supprimer ses sessions.
+  *Amendé par la feature 002 : sessions rangées par projet, suppression d'une version
+  (`specs/002-projets-contexte-mcp/spec.md`, FR-001 à FR-005 et FR-014 à FR-019).*
 - **FR-018**: Chaque génération dont les entrées (besoin, réponses, langue) ont changé depuis la
   dernière version DOIT créer une nouvelle version de la spécification. À entrées identiques, la
   version existante DOIT être renvoyée sans nouvelle génération. Les versions précédentes d'une
@@ -374,6 +376,9 @@ liste, la colonne de provenance, l'ouverture du détail et la modification assis
   DOIT l'indiquer avec l'action à mener, sans perdre le travail en cours.
 - **FR-031**: Pour Jira, l'utilisateur DOIT pouvoir renseigner l'adresse du serveur, un jeton
   utilisateur personnel et un projet par défaut.
+  *Amendé par la feature 002 : la clé du projet Jira peut être propre à chaque projet, le projet
+  par défaut de la configuration restant la valeur de repli (`specs/002-projets-contexte-mcp/spec.md`,
+  FR-006 et FR-007).*
 - **FR-032**: Le système DOIT proposer un test de connexion pour chaque service et afficher l'état
   de chaque accès (configuré et valide, invalide, non configuré).
 - **FR-033**: Une fois enregistré, un jeton NE DOIT plus jamais être affiché en clair ; il peut

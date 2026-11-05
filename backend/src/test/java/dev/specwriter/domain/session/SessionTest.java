@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.specwriter.domain.error.DomainException;
+import dev.specwriter.domain.project.Project;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -15,7 +16,7 @@ class SessionTest {
 
     @Test
     void creationAvecNomParDefautEtLangueDetectee() {
-        Session s = Session.start(UUID.randomUUID(), NEED, null, T0);
+        Session s = Session.start(UUID.randomUUID(), Project.DEFAULT_ID, NEED, null, T0);
         assertThat(s.name()).isEqualTo(NEED.defaultName());
         assertThat(s.language()).isEqualTo(Language.FR);
         assertThat(s.origin()).isEqualTo(SessionOrigin.LOCAL);
@@ -25,17 +26,18 @@ class SessionTest {
 
     @Test
     void nomDeUnACentVingtCaracteres() {
-        assertThat(Session.start(UUID.randomUUID(), NEED, "  Salles  ", T0).name()).isEqualTo("Salles");
-        assertThatThrownBy(() -> Session.start(UUID.randomUUID(), NEED, "x".repeat(121), T0))
+        assertThat(Session.start(UUID.randomUUID(), Project.DEFAULT_ID, NEED, "  Salles  ", T0).name())
+                .isEqualTo("Salles");
+        assertThatThrownBy(() -> Session.start(UUID.randomUUID(), Project.DEFAULT_ID, NEED, "x".repeat(121), T0))
                 .isInstanceOf(DomainException.class);
-        Session s = Session.start(UUID.randomUUID(), NEED, null, T0);
+        Session s = Session.start(UUID.randomUUID(), Project.DEFAULT_ID, NEED, null, T0);
         assertThatThrownBy(() -> s.rename(" ", T0)).isInstanceOf(DomainException.class);
         assertThat(s.rename("Réservations", T0.plusSeconds(1)).updatedAt()).isEqualTo(T0.plusSeconds(1));
     }
 
     @Test
     void cycleDeVie() {
-        Session s = Session.start(UUID.randomUUID(), NEED, null, T0);
+        Session s = Session.start(UUID.randomUUID(), Project.DEFAULT_ID, NEED, null, T0);
         Session ready = s.readyToGenerate(T0);
         assertThat(ready.state()).isEqualTo(SessionState.READY_TO_GENERATE);
         Session generated = ready.generated(T0);
@@ -46,7 +48,7 @@ class SessionTest {
 
     @Test
     void langueModifiableAvantLaGenerationSeulement() {
-        Session s = Session.start(UUID.randomUUID(), NEED, null, T0);
+        Session s = Session.start(UUID.randomUUID(), Project.DEFAULT_ID, NEED, null, T0);
         assertThat(s.withLanguage(Language.EN, T0).language()).isEqualTo(Language.EN);
         assertThatThrownBy(() -> s.readyToGenerate(T0).generated(T0).withLanguage(Language.EN, T0))
                 .isInstanceOf(DomainException.class);

@@ -1,6 +1,7 @@
 package dev.specwriter.application.search;
 
 import dev.specwriter.application.jira.JiraAccess;
+import dev.specwriter.application.project.CurrentProject;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.jira.IssueTrackerException;
@@ -10,13 +11,12 @@ import dev.specwriter.domain.jira.LinkedJiraTicket;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.LocalSearch;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,8 +37,8 @@ public class UnifiedSearch {
 
     public static final int MIN_LENGTH = 2;
     public static final int MAX_LENGTH = 200;
-    public static final int PAGE_SIZE = 20;
-    static final int LOCAL_LIMIT = 50;
+    /** Éléments par page, toutes sources confondues (FR-021a de 002). */
+    public static final int PAGE_SIZE = 25;
 
     public enum Provenance { SPEC_WRITER, JIRA, BOTH }
 
@@ -52,10 +52,15 @@ public class UnifiedSearch {
             Integer latestVersion, Instant updatedAt, String excerpt) {
     }
 
-    /** {@code jiraTotal} : nombre de tickets Jira trouvés, pour paginer (0 si Jira n'a pas répondu). */
-    public record Result(List<Item> items, JiraStatus jiraStatus, int jiraTotal) {
+    /**
+     * Une page de la liste unique (research.md R9) : {@code position} « 26 à 50 sur 120 » ;
+     * {@code nextCursor} nul en fin de liste ; {@code jiraError} présent si Jira n'a pas répondu, la
+     * page ne portant alors que sur spec-writer et le curseur Jira n'avançant pas (FR-022).
+     */
+    public record Page(List<Item> items, String position, boolean approximateTotal, String nextCursor,
+            JiraStatus jiraStatus, String jiraError) {
 
-        public Result {
+        public Page {
             items = List.copyOf(items);
         }
     }
@@ -65,27 +70,33 @@ public class UnifiedSearch {
     private final LinkedTicketRepository tickets;
     private final IssueTracker tracker;
     private final JiraAccess jira;
+    private final ProjectRepository projects;
     private final Duration jiraTimeout;
+    private final SearchCursor cursors = new SearchCursor();
 
     public UnifiedSearch(LocalSearch local, SpecificationRepository versions, LinkedTicketRepository tickets,
-            IssueTracker tracker, JiraAccess jira, Duration jiraTimeout) {
+            IssueTracker tracker, JiraAccess jira, ProjectRepository projects, Duration jiraTimeout) {
         this.local = local;
         this.versions = versions;
         this.tickets = tickets;
         this.tracker = tracker;
         this.jira = jira;
+        this.projects = projects;
         this.jiraTimeout = jiraTimeout;
     }
 
     /**
-     * La page 0 contient les résultats locaux (50 au plus) et la première page Jira ; les pages
-     * suivantes ne portent que sur Jira.
+     * Page suivant {@code cursor} (la première s'il est nul) : au plus 25 éléments de chaque source
+     * sont lus à partir de leurs décalages, fusionnés par date de modification décroissante, et
+     * coupés à 25. Un ticket lié à une session qui correspond n'est montré qu'une fois, côté local.
      */
-    public Result run(String query, int page) {
+    public Page run(String query, String cursor) {
         String q = query == null ? "" : query.strip();
-        if (q.length() < MIN_LENGTH || q.length() > MAX_LENGTH || page < 0) {
+        if (q.length() < MIN_LENGTH || q.length() > MAX_LENGTH) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "La recherche doit faire entre 2 et 200 caractères.");
         }
+        SearchCursor.State state = cursors.decode(cursor, q);
+        UUID project = CurrentProject.resolve(projects).id();
         Map<String, LinkedJiraTicket> byKey = new HashMap<>();
         Map<UUID, LinkedJiraTicket> bySession = new HashMap<>();
         tickets.all().forEach(t -> {
@@ -93,33 +104,76 @@ public class UnifiedSearch {
             bySession.put(t.sessionId(), t);
         });
 
-        Map<String, Item> items = new LinkedHashMap<>();
-        if (page == 0) {
-            for (LocalSearch.Hit hit : local.search(q, LOCAL_LIMIT)) {
-                LinkedJiraTicket t = bySession.get(hit.sessionId());
-                items.put(hit.sessionId().toString(), new Item(hit.sessionId().toString(), hit.title(),
-                        t == null ? Provenance.SPEC_WRITER : Provenance.BOTH, t == null ? null : t.issueKey(),
-                        hit.sessionId(), latest(hit.sessionId()), hit.updatedAt(), hit.excerpt()));
+        List<LocalSearch.Hit> hits = local.byDate(project, q, state.localOffset(), PAGE_SIZE);
+        int localTotal = local.count(project, q);
+        JiraOutcome outcome = searchJira(q, state.jiraOffset());
+        boolean jiraOk = outcome.status() == JiraStatus.OK;
+
+        List<Item> items = new ArrayList<>();
+        int li = 0;
+        int ji = 0;
+        while (items.size() < PAGE_SIZE && (li < hits.size() || ji < outcome.issues().size())) {
+            LocalSearch.Hit hit = li < hits.size() ? hits.get(li) : null;
+            JiraIssueSummary issue = ji < outcome.issues().size() ? outcome.issues().get(ji) : null;
+            if (issue == null || hit != null && !hit.updatedAt().isBefore(dateOf(issue))) {
+                items.add(localItem(hit, bySession.get(hit.sessionId())));
+                li++;
+                continue;
             }
+            ji++;
+            LinkedJiraTicket t = byKey.get(issue.key());
+            if (t != null && local.matches(project, q, t.sessionId())) {
+                // déjà dans la liste, ou à venir, côté local
+                continue;
+            }
+            items.add(jiraItem(issue, t));
         }
 
-        JiraOutcome outcome = searchJira(q, page);
-        for (JiraIssueSummary issue : outcome.issues()) {
-            LinkedJiraTicket t = byKey.get(issue.key());
-            if (t == null) {
-                items.put(issue.key(), new Item(issue.key(), issue.summary(), Provenance.JIRA, issue.key(), null, null,
-                        issue.updated(), null));
-            } else {
-                Item known = items.get(t.sessionId().toString());
-                Instant updated = latest(known == null ? null : known.updatedAt(), issue.updated());
-                items.put(t.sessionId().toString(), new Item(t.sessionId().toString(),
-                        known == null ? issue.summary() : known.title(), Provenance.BOTH, issue.key(), t.sessionId(),
-                        latest(t.sessionId()), updated, known == null ? null : known.excerpt()));
-            }
+        int localNext = state.localOffset() + li;
+        int jiraNext = state.jiraOffset() + ji;
+        boolean jiraFailed = outcome.status() == JiraStatus.UNAVAILABLE || outcome.status() == JiraStatus.TOKEN_REJECTED;
+        boolean more = localNext < localTotal || jiraOk && jiraNext < outcome.total() || jiraFailed;
+        int shown = state.shown() + items.size();
+        int total = Math.max(localTotal + (jiraOk ? outcome.total() : 0), shown);
+        boolean approximate = jiraFailed || jiraOk && outcome.total() > 0 && localTotal > 0 && !byKey.isEmpty();
+        String next = more ? cursors.encode(new SearchCursor.State(localNext, jiraOk ? jiraNext : state.jiraOffset(), shown), q)
+                : null;
+        return new Page(items, position(state.shown(), items.size(), total, approximate), approximate, next,
+                outcome.status(), jiraError(outcome.status()));
+    }
+
+    private Item localItem(LocalSearch.Hit hit, LinkedJiraTicket t) {
+        return new Item(hit.sessionId().toString(), hit.title(), t == null ? Provenance.SPEC_WRITER : Provenance.BOTH,
+                t == null ? null : t.issueKey(), hit.sessionId(), latest(hit.sessionId()), hit.updatedAt(), hit.excerpt());
+    }
+
+    private Item jiraItem(JiraIssueSummary issue, LinkedJiraTicket t) {
+        if (t == null) {
+            return new Item(issue.key(), issue.summary(), Provenance.JIRA, issue.key(), null, null, issue.updated(), null);
         }
-        List<Item> sorted = new ArrayList<>(items.values());
-        sorted.sort(Comparator.comparing(Item::updatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
-        return new Result(sorted, outcome.status(), outcome.total());
+        return new Item(t.sessionId().toString(), issue.summary(), Provenance.BOTH, issue.key(), t.sessionId(),
+                latest(t.sessionId()), issue.updated(), null);
+    }
+
+    /** Un ticket sans date passe après les éléments datés. */
+    private static Instant dateOf(JiraIssueSummary issue) {
+        return issue.updated() == null ? Instant.MIN : issue.updated();
+    }
+
+    /** « 26 à 50 sur 120 » ; « sur environ 120 » si le total est approché. */
+    static String position(int before, int count, int total, boolean approximate) {
+        if (count == 0) {
+            return before == 0 ? "Aucun résultat" : "Aucun autre résultat";
+        }
+        return (before + 1) + " à " + (before + count) + " sur " + (approximate ? "environ " : "") + total;
+    }
+
+    private static String jiraError(JiraStatus status) {
+        return switch (status) {
+            case UNAVAILABLE -> "Jira n'a pas répondu : seuls les résultats spec-writer sont affichés.";
+            case TOKEN_REJECTED -> "Jira a refusé le jeton : seuls les résultats spec-writer sont affichés.";
+            default -> null;
+        };
     }
 
     private record JiraOutcome(JiraStatus status, List<JiraIssueSummary> issues, int total) {
@@ -129,21 +183,21 @@ public class UnifiedSearch {
         }
     }
 
-    private JiraOutcome searchJira(String q, int page) {
+    private JiraOutcome searchJira(String q, int startAt) {
         if (!jira.configured()) {
             return JiraOutcome.of(JiraStatus.NOT_CONFIGURED);
         }
         if (!jira.consented()) {
             return JiraOutcome.of(JiraStatus.CONSENT_REQUIRED);
         }
-        Optional<JiraAccess.Target> target = jira.target();
+        Optional<JiraAccess.Target> target = jira.targetForCurrentProject();
         if (target.isEmpty()) {
             return JiraOutcome.of(JiraStatus.TOKEN_REJECTED);
         }
         JiraAccess.Target t = target.get();
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         Future<JiraSearchPage> future = executor.submit(
-                () -> tracker.searchText(t.endpoint(), t.projectKey(), q, page * PAGE_SIZE, PAGE_SIZE));
+                () -> tracker.searchText(t.endpoint(), t.projectKey(), q, startAt, PAGE_SIZE));
         try {
             JiraSearchPage result = future.get(jiraTimeout.toMillis(), TimeUnit.MILLISECONDS);
             return new JiraOutcome(JiraStatus.OK, result.issues(), result.total());
@@ -165,12 +219,5 @@ public class UnifiedSearch {
     private Integer latest(UUID sessionId) {
         int n = versions.lastNumber(sessionId);
         return n == 0 ? null : n;
-    }
-
-    private static Instant latest(Instant a, Instant b) {
-        if (a == null) {
-            return b;
-        }
-        return b == null || a.isAfter(b) ? a : b;
     }
 }

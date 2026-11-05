@@ -1,0 +1,7 @@
+{
+  "operation": "compare-with-issue",
+  "userContains": ["IT-PROCHES"],
+  "response": {"common": ["Émettre un avoir sur une facture émise"],
+    "different": ["Le besoin annule toute la facture ; le ticket ne traite qu'une ligne"],
+    "suggestion": "DIFFERENT"}
+}

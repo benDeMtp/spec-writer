@@ -38,4 +38,15 @@ public class SpecificationVersionEntity {
     @Convert(converter = InstantTextConverter.class)
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;
+
+    @Column(name = "context_hash")
+    public String contextHash;
+
+    @Convert(converter = InstantTextConverter.class)
+    @Column(name = "context_updated_at")
+    public Instant contextUpdatedAt;
+
+    /** Sélection de connaissance (JSON, références et empreintes, sans contenu), {@code null} sans connaissance. */
+    @Column(name = "knowledge")
+    public String knowledge;
 }

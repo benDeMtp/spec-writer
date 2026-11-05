@@ -1,5 +1,7 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.application.knowledge.SessionKnowledge;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
@@ -12,6 +14,7 @@ import dev.specwriter.domain.question.Answer;
 import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SpecificationLock;
 import dev.specwriter.domain.session.SessionState;
 import java.util.List;
 import java.util.UUID;
@@ -24,15 +27,22 @@ import java.util.UUID;
 public class AnswerQuestion {
 
     private final SessionRepository sessions;
+    private final SessionKnowledge knowledge;
     private final LlmClient llm;
     private final ConsentPolicy consent;
     private final ClockPort clock;
     private final IdGenerator ids;
     private final ReviseAnswer revise;
 
+    public AnswerQuestion(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
+            ClockPort clock, IdGenerator ids) {
+        this(sessions, llm, consent, clock, ids, SessionKnowledge.sheetOnly(projects));
+    }
+
     public AnswerQuestion(SessionRepository sessions, LlmClient llm, ConsentPolicy consent, ClockPort clock,
-            IdGenerator ids) {
+            IdGenerator ids, SessionKnowledge knowledge) {
         this.sessions = sessions;
+        this.knowledge = knowledge;
         this.llm = llm;
         this.consent = consent;
         this.clock = clock;
@@ -43,6 +53,7 @@ public class AnswerQuestion {
     /** {@code value} vide et {@code skip} vrai pour passer la question. */
     public SessionSnapshot run(UUID sessionId, UUID questionId, String value, boolean skip) {
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationLock.requireEditable(sessions, sessionId);
         Questionnaire before = sessions.questionnaire(sessionId).orElseThrow();
         Answer previous = before.question(questionId).map(Question::answer).orElse(null);
         Questionnaire questionnaire = skip ? before.skip(questionId, clock.now()) : before.answer(questionId, value, clock.now());
@@ -60,7 +71,8 @@ public class AnswerQuestion {
         Revision revision = Revision.NONE;
         if (revised) {
             consent.requireGranted(ConsentService.COPILOT);
-            ReviseAnswer.Result result = revise.reassess(session, questionnaire, questionId);
+            ReviseAnswer.Result result = revise.reassess(session, questionnaire, questionId,
+                    knowledge.forQuestions(session, NextBatch.known(questionnaire)));
             questionnaire = result.questionnaire();
             revision = result.revision();
             if (questionnaire.pending().isEmpty()) {
@@ -69,7 +81,7 @@ public class AnswerQuestion {
             sessions.save(session, questionnaire);
         } else if (questionnaire.pending().isEmpty() && session.state() == SessionState.QUESTIONING) {
             consent.requireGranted(ConsentService.COPILOT);
-            questionnaire = NextBatch.ask(llm, ids, session, questionnaire);
+            questionnaire = NextBatch.ask(llm, ids, session, questionnaire, knowledge);
             if (questionnaire.pending().isEmpty()) {
                 session = session.readyToGenerate(clock.now());
             }

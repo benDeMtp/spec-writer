@@ -1,0 +1,8 @@
+{"operation": "propose-questions", "userContains": ["<connaissance-projet>", "<fiche-generale>", "ne peut pas dépasser le montant restant dû"], "response": {
+  "questions": [
+    {"theme": "NOMINAL_FLOW", "label": "Comment le client est-il informé de l'avoir ?", "rationale": "Le client doit savoir que sa facture est corrigée",
+     "suggestions": ["Un courriel avec l'avoir en PDF", "Aucune information"], "defaultValue": "Un courriel avec l'avoir en PDF", "dependsOnQuestionIds": []},
+    {"theme": "EDGE_CASES", "label": "Peut-on émettre plusieurs avoirs sur une même facture ?", "rationale": "Plusieurs corrections successives sont possibles",
+     "suggestions": ["Oui, dans la limite du restant dû", "Non, un seul"], "defaultValue": "Oui, dans la limite du restant dû", "dependsOnQuestionIds": []}
+  ],
+  "contradictions": [], "coveredThemes": ["ACTORS", "GOAL", "BUSINESS_RULES", "ERRORS"]}}

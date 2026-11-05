@@ -32,12 +32,26 @@ export interface CreateTicketDialogData {
           <a [href]="t.issueUrl" target="_blank" rel="noopener noreferrer">{{ t.issueKey }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a>
           a été créé et la session lui est liée.
         </p>
+        @if (t.relatesTo) {
+          @if (t.relatesToLink === 'FAILED') {
+            <p class="unsupported" role="alert">
+              Le lien « relates to » vers {{ t.relatesTo }} n'a pas pu être créé.
+              <button mat-button type="button" [disabled]="busy()" (click)="retryRelation()">Réessayer le lien</button>
+            </p>
+          } @else if (t.relatesToLink === 'LINKED') {
+            <p>La story est liée à {{ t.relatesTo }} par « relates to ».</p>
+          }
+        }
       } @else if (preview(); as p) {
         <dl class="facts">
           <dt>Projet</dt>
           <dd>{{ p.projectKey }}</dd>
           <dt>Titre</dt>
           <dd>{{ p.summary }}</dd>
+          @if (p.relatesTo) {
+            <dt>Lien</dt>
+            <dd>La story sera liée à {{ p.relatesTo }} par « relates to ».</dd>
+          }
         </dl>
         <mat-form-field appearance="outline" class="type">
           <mat-label>Type de ticket</mat-label>
@@ -187,6 +201,18 @@ export class CreateTicketDialogComponent {
       this.created.set(await this.api.create(this.data.sessionId, this.data.versionNumber, p.issueTypeId, this.values()));
     } catch {
       // le bandeau d'erreur affiche la cause renvoyée par Jira ; le formulaire reste modifiable
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** Le ticket est créé : seul le lien « relates to » est réessayé. */
+  protected async retryRelation(): Promise<void> {
+    this.busy.set(true);
+    try {
+      this.created.set(await this.api.retryRelation(this.data.sessionId));
+    } catch {
+      // le bandeau d'erreur affiche la cause ; le bouton reste disponible
     } finally {
       this.busy.set(false);
     }

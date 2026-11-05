@@ -9,6 +9,7 @@ import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.llm.ProposedQuestion;
 import dev.specwriter.domain.port.SessionRepository;
+import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
@@ -41,7 +42,7 @@ class CorruptedSessionIT {
     }
 
     Session saved() {
-        Session s = Session.start(UUID.randomUUID(),
+        Session s = Session.start(UUID.randomUUID(), Project.DEFAULT_ID,
                 Need.of("Les employés doivent pouvoir réserver une salle de réunion pour une durée donnée."), null,
                 Instant.parse("2026-10-30T09:00:00Z"));
         sessions.save(s, Questionnaire.empty().addBatch(List.of(new ProposedQuestion(QuestionTheme.GOAL, "Objectif ?",

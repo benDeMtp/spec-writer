@@ -87,7 +87,10 @@ class SearchAndJiraResourceIT {
 
     @Test
     void importPuisRechercheUnifiee() {
-        JsonPath imported = importIssue();
+        // marque propre à ce lancement : la base de test garde les sessions des lancements précédents
+        String marker = "itimport" + key.substring("PAY-".length());
+        stubIssue(DESCRIPTION + " " + marker, "2026-10-30T09:00:00.000+0000");
+        JsonPath imported = api().post("/api/jira/issues/" + key + "/import").then().statusCode(201).extract().jsonPath();
         String id = imported.getString("id");
         org.assertj.core.api.Assertions.assertThat(imported.getString("origin")).isEqualTo("JIRA_IMPORT");
         org.assertj.core.api.Assertions.assertThat(imported.getString("jiraKey")).isEqualTo(key);
@@ -103,7 +106,7 @@ class SearchAndJiraResourceIT {
                  {"key":"%s","fields":{"summary":"Paiement en ligne","updated":"2026-10-30T09:00:00.000+0000"}},
                  {"key":"PAY-0","fields":{"summary":"Remboursement","updated":"2026-10-29T09:00:00.000+0000"}}]}"""
                 .formatted(key))));
-        api().queryParam("q", "IT-IMPORT").get("/api/search").then().statusCode(200)
+        api().queryParam("q", marker).get("/api/search").then().statusCode(200)
                 .body("jiraStatus", equalTo("OK"))
                 .body("items.findAll { it.id == '" + id + "' }", hasSize(1))
                 .body("items.find { it.id == '" + id + "' }.provenance", equalTo("BOTH"))

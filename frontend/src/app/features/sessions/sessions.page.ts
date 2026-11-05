@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -7,8 +7,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { ProjectsStore } from '../../core/projects/projects.store';
 import { SessionsApi } from '../../core/sessions/sessions.api';
-import { SessionState, SessionSummary } from '../../core/sessions/sessions.model';
+import { IMPLEMENTATION_LABELS, SessionState, SessionSummary } from '../../core/sessions/sessions.model';
 import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component';
 
 const STATES: Record<SessionState, string> = {
@@ -17,7 +18,7 @@ const STATES: Record<SessionState, string> = {
   GENERATED: 'Spécification générée',
 };
 
-/** Sessions : reprendre, renommer, supprimer (FR-017). */
+/** Sessions du projet courant : reprendre, renommer, supprimer (FR-017, FR-005 de 002). */
 @Component({
   selector: 'sw-sessions-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -130,7 +131,7 @@ const STATES: Record<SessionState, string> = {
     }
   `,
 })
-export class SessionsPage implements OnInit {
+export class SessionsPage {
   private readonly api = inject(SessionsApi);
   private readonly dialog = inject(MatDialog);
 
@@ -139,13 +140,22 @@ export class SessionsPage implements OnInit {
   protected readonly draftName = signal('');
   protected readonly announce = signal('');
 
-  async ngOnInit(): Promise<void> {
-    await this.reload();
+  constructor() {
+    // la liste ne montre que le projet courant : elle est relue quand il change
+    const projects = inject(ProjectsStore);
+    effect(() => {
+      projects.currentId();
+      void this.reload();
+    });
   }
 
   protected meta(s: SessionSummary): string {
     const state = STATES[s.state] ?? '';
-    return s.latestVersion ? `${state}, version ${s.latestVersion}` : state;
+    const base = s.latestVersion ? `${state}, version ${s.latestVersion}` : state;
+    // le statut d'implémentation n'est dit qu'au-delà du brouillon (FR-026 de 002)
+    return s.implementationStatus && s.implementationStatus !== 'DRAFT'
+      ? `${base}, ${IMPLEMENTATION_LABELS[s.implementationStatus].toLowerCase()}`
+      : base;
   }
 
   protected startRename(s: SessionSummary): void {
@@ -174,7 +184,9 @@ export class SessionsPage implements OnInit {
         .open(ConfirmDialogComponent, {
           data: {
             title: 'Supprimer cette session ?',
-            message: `« ${s.name} » et toutes ses versions seront supprimées définitivement.`,
+            message:
+              `« ${s.name} » et toutes ses versions seront supprimées définitivement.` +
+              (s.jiraKey ? ` Elle est liée au ticket ${s.jiraKey} : Jira n'est pas modifié.` : ''),
             confirm: 'Supprimer définitivement',
           },
         })

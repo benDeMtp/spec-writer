@@ -57,6 +57,15 @@ public interface JiraApi extends AutoCloseable {
     Map<String, Object> createMetaFields(@PathParam("project") String project, @PathParam("issueTypeId") String issueTypeId,
             @QueryParam("startAt") int startAt, @QueryParam("maxResults") int maxResults);
 
+    @GET
+    @Path("/issueLinkType")
+    Map<String, Object> issueLinkTypes();
+
+    @POST
+    @Path("/issueLink")
+    @Consumes(MediaType.APPLICATION_JSON)
+    void createIssueLink(Map<String, Object> body);
+
     @POST
     @Path("/issue")
     @Consumes(MediaType.APPLICATION_JSON)

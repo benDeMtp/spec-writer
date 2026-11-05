@@ -23,6 +23,7 @@ import dev.specwriter.domain.session.SessionState;
 import dev.specwriter.domain.specification.Assumption;
 import dev.specwriter.support.FixedClock;
 import dev.specwriter.support.InMemoryConsents;
+import dev.specwriter.support.InMemoryProjects;
 import dev.specwriter.support.InMemorySessions;
 import dev.specwriter.support.InMemorySpecifications;
 import dev.specwriter.support.SequentialIdGenerator;
@@ -70,12 +71,12 @@ class GenerateSpecificationTest {
         consents.record(new ConsentRecord(ConsentService.COPILOT, true, Instant.EPOCH));
         llm.questions.add(new ProposeQuestionsResult(List.of(new ProposedQuestion(QuestionTheme.GOAL, "Objectif ?",
                 "Pour cadrer", List.of(), "Gagner du temps", List.of())), List.of(), Set.of()));
-        SessionSnapshot s = new StartSession(sessions, llm, policy, clock, ids).run(NEED, null);
+        SessionSnapshot s = new StartSession(sessions, new InMemoryProjects(), llm, policy, clock, ids).run(NEED, null);
         sessionId = s.session().id();
         llm.questions.add(StubLlm.none());
-        new AnswerQuestion(sessions, llm, policy, clock, ids).run(sessionId, s.questionnaire().currentBatch().getFirst().id(),
+        new AnswerQuestion(sessions, new InMemoryProjects(), llm, policy, clock, ids).run(sessionId, s.questionnaire().currentBatch().getFirst().id(),
                 "", true);
-        generate = new GenerateSpecification(sessions, versions, llm, policy, clock, ids, "0.1.0");
+        generate = new GenerateSpecification(sessions, new InMemoryProjects(), versions, llm, policy, clock, ids, "0.1.0");
     }
 
     @Test
@@ -130,7 +131,7 @@ class GenerateSpecificationTest {
     void numerosDeVersionSuccessifsQuandLesEntreesChangent() {
         llm.drafts.add(valid("V1"));
         generate.run(sessionId);
-        GenerateSpecification otherTool = new GenerateSpecification(sessions, versions, llm, policy, clock, ids, "0.2.0");
+        GenerateSpecification otherTool = new GenerateSpecification(sessions, new InMemoryProjects(), versions, llm, policy, clock, ids, "0.2.0");
         llm.drafts.add(valid("V2"));
         assertThat(otherTool.run(sessionId).version().number()).isEqualTo(2);
         assertThat(versions.list(sessionId)).hasSize(2);

@@ -8,6 +8,7 @@ import { QuestionnairePage, summarize } from './questionnaire.page';
 
 const READY: SessionDetail = {
   id: 's1',
+  projectId: 'p0',
   name: 'Salles',
   state: 'GENERATED',
   updatedAt: '2026-10-30T09:00:00Z',
@@ -25,6 +26,7 @@ const READY: SessionDetail = {
     { id: 'q2', theme: 'ERRORS', label: 'Salle prise ?', rationale: 'r', suggestions: [], defaultValue: null, state: 'ANSWERED', answer: 'Proposer une autre' },
   ],
   warnings: [],
+  implementation: { status: 'DRAFT', implementedAt: null, evolvedFromSessionId: null },
 };
 
 async function settle(fixture: ComponentFixture<unknown>): Promise<void> {

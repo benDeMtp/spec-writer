@@ -9,6 +9,7 @@ import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.session.SpecificationLock;
 import dev.specwriter.domain.specification.SpecificationVersion;
 import dev.specwriter.domain.specification.VersionOrigin;
 import java.util.UUID;
@@ -38,10 +39,12 @@ public class AcceptAiEdit {
 
     public SpecificationVersion run(UUID sessionId, UUID proposalId) {
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        SpecificationLock.requireEditable(sessions, sessionId);
         ProposalStore.Proposal p = proposals.take(sessionId, proposalId)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Cette proposition n'existe plus."));
-        SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.lastNumber(sessionId) + 1,
-                p.content(), "proposal:" + p.id(), p.origin(), p.markdown(), clock.now());
+        SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.nextNumber(sessionId),
+                p.content(), "proposal:" + p.id(), p.origin(), p.markdown(), clock.now())
+                .withKnowledge(p.knowledge());
         versions.save(version);
         Questionnaire questionnaire = sessions.questionnaire(sessionId).orElseGet(Questionnaire::empty);
         sessions.save(session.generated(clock.now()), questionnaire);

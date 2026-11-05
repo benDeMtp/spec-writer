@@ -1,0 +1,8 @@
+{
+  "operation": "judge-related-issues",
+  "userContains": ["IT-PROCHES"],
+  "response": {"related": [
+    {"key": "FACT-7", "reason": "Le ticket annule déjà une facture par un avoir total."},
+    {"key": "FACT-9", "reason": "Le ticket émet des avoirs sur des factures émises."}
+  ]}
+}

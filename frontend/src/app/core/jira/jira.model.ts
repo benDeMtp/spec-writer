@@ -42,6 +42,8 @@ export interface PushPreview {
   summary: string;
   descriptionWiki: string;
   requiredFields: RequiredField[] | null;
+  /** Ticket fermé auquel la nouvelle story sera liée par « relates to » (FR-035 de 002). */
+  relatesTo?: string | null;
 }
 
 export type ConflictResolution = 'OVERWRITE' | 'TAKE_JIRA' | 'AI_MERGE';
@@ -53,4 +55,20 @@ export interface JiraConflict {
   jiraDescriptionMarkdown: string;
   localMarkdown: string;
   jiraUpdated: string;
+}
+
+/** Ticket d'une page de la liste du projet Jira (FR-020 de 002). */
+export interface ProjectIssue {
+  key: string;
+  summary: string;
+  updated: string | null;
+  /** Session déjà liée à ce ticket, s'il y en a une. */
+  linkedSessionId: string | null;
+}
+
+/** Page de 25 tickets au plus, les plus récemment modifiés d'abord. */
+export interface IssuePage {
+  startAt: number;
+  total: number;
+  issues: ProjectIssue[];
 }

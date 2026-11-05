@@ -1,13 +1,15 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, input } from '@angular/core';
 import { SettingsStore } from '../../core/settings/settings.store';
+import { AgentAccessCardComponent } from './agent-access-card.component';
 import { CopilotCardComponent } from './copilot-card.component';
+import { EmbeddingCardComponent } from './embedding-card.component';
 import { JiraCardComponent } from './jira-card.component';
 
-/** Configuration des services : GitHub Copilot, puis Jira (US1). */
+/** Configuration des services : GitHub Copilot, Jira (US1) et le modèle de recherche (US2 de 002). */
 @Component({
   selector: 'sw-settings-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CopilotCardComponent, JiraCardComponent],
+  imports: [AgentAccessCardComponent, CopilotCardComponent, EmbeddingCardComponent, JiraCardComponent],
   template: `
     <h1>Configuration</h1>
     @if (raison() === 'copilot' && !store.copilotConnected()) {
@@ -17,6 +19,8 @@ import { JiraCardComponent } from './jira-card.component';
       <div class="cards">
         <sw-copilot-card />
         <sw-jira-card />
+        <sw-embedding-card />
+        <sw-agent-access-card />
       </div>
     } @else {
       <p role="status" aria-live="polite">Chargement de la configuration…</p>

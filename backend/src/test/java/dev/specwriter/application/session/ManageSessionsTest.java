@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
@@ -12,6 +13,7 @@ import dev.specwriter.domain.specification.SpecificationVersion;
 import dev.specwriter.domain.specification.Specs;
 import dev.specwriter.domain.specification.VersionOrigin;
 import dev.specwriter.support.FixedClock;
+import dev.specwriter.support.InMemoryProjects;
 import dev.specwriter.support.InMemorySessions;
 import dev.specwriter.support.InMemorySpecifications;
 import java.time.Duration;
@@ -24,10 +26,11 @@ class ManageSessionsTest {
     final InMemorySessions sessions = new InMemorySessions();
     final InMemorySpecifications versions = new InMemorySpecifications();
     final FixedClock clock = new FixedClock();
-    final ManageSessions manage = new ManageSessions(sessions, versions, clock);
+    final ManageSessions manage = new ManageSessions(sessions, versions, new InMemoryProjects(), clock);
 
     Session add(String name) {
-        Session s = Session.start(UUID.randomUUID(), Need.of(SessionUseCasesTest.NEED), name, clock.now());
+        Session s = Session.start(UUID.randomUUID(), Project.DEFAULT_ID, Need.of(SessionUseCasesTest.NEED), name,
+                clock.now());
         sessions.save(s, Questionnaire.empty());
         clock.advance(Duration.ofMinutes(1));
         return s;

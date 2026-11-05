@@ -1,0 +1,21 @@
+{
+  "operation": "generate-specification",
+  "userContains": ["IT-PROCHES"],
+  "response": {
+    "title": "Annulation d'une facture par un avoir",
+    "summary": "Le gestionnaire annule une facture émise par un avoir total.",
+    "useCases": [
+      {"title": "Annuler une facture", "actor": "gestionnaire", "goal": "Annuler une facture émise",
+       "preconditions": ["La facture est émise"], "nominalFlow": ["Choisir la facture", "Émettre l'avoir total", "Confirmer"],
+       "alternatives": [],
+       "source": {"kind": "JIRA_ISSUE", "questionId": "", "excerpt": "", "ref": "fact-7"}}
+    ],
+    "scenarios": [
+      {"useCaseIndex": 0, "title": "Avoir total émis", "kind": "NOMINAL", "asA": "gestionnaire",
+       "given": ["une facture émise de 120 €"], "when": ["j'annule la facture"],
+       "then": ["un avoir de 120 € est émis"], "assumption": false}
+    ],
+    "assumptions": [],
+    "requirements": []
+  }
+}

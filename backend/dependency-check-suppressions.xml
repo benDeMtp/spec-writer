@@ -1,4 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
   <!-- Toute suppression doit être justifiée et datée (constitution, Exigences de sécurité). -->
+
+  <suppress until="2027-05-04Z">
+    <notes><![CDATA[
+      2026-11-04 (T088) : faux positif de correspondance CPE. Les bibliothèques JAXB d'org.glassfish.jaxb
+      (jaxb-core, jaxb-runtime, txw2), apportées par structurizr-client, sont rattachées au CPE du serveur Eclipse
+      GlassFish. Les CVE visées (CVE-2026-2586, CVE-2026-2587, CVE-2024-9329) touchent la console
+      d'administration, le gadget handler et /management/domain du serveur, absents de ces bibliothèques.
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/org\.glassfish\.jaxb/[^@]+@.*$</packageUrl>
+    <cpe>cpe:/a:eclipse:glassfish</cpe>
+  </suppress>
+
+  <suppress until="2027-05-04Z">
+    <notes><![CDATA[
+      2026-11-04 (T088) : faux positif de correspondance CPE. Les API jakarta.resource-api et
+      microprofile-config-api (apportées par Quarkus) sont rattachées au CPE du serveur Payara. Les CVE
+      visées (CVE-2022-37422, CVE-2022-45129) touchent Payara Server et Payara Micro, absents du projet.
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/(jakarta\.resource/jakarta\.resource-api|org\.eclipse\.microprofile\.config/microprofile-config-api)@.*$</packageUrl>
+    <cpe>cpe:/a:payara:payara</cpe>
+  </suppress>
+
+  <suppress until="2027-05-04Z">
+    <notes><![CDATA[
+      2026-11-04 (T088) : faux positif de correspondance CPE. angus-activation (implémentation de Jakarta
+      Activation, apportée par jaxb-runtime puis structurizr-client) est rattachée au CPE d'Angus Mail.
+      CVE-2025-7962 est une injection SMTP de Jakarta Mail ; angus-activation n'envoie pas de courrier.
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/org\.eclipse\.angus/angus-activation@.*$</packageUrl>
+    <cpe>cpe:/a:eclipse:angus_mail</cpe>
+  </suppress>
 </suppressions>

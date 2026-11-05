@@ -47,3 +47,34 @@ test('V16 : aucun jeton au repos dans les données, le journal et les exports', 
   expect(exported).toBeGreaterThan(0);
   expect(found).toEqual([]);
 });
+
+/**
+ * T049 : le secret des agents ne vit que dans agent-endpoint.json (rw-------), ni dans la base ni
+ * dans le journal, même après des appels de l'API des agents.
+ */
+test('secret des agents : seulement dans son fichier', async () => {
+  const dataDir = readFileSync(join(stateDir, 'data-dir'), 'utf8').trim();
+  const api = await request.newContext({ baseURL, storageState: storageStatePath });
+  const headers = { Origin: baseURL };
+  expect((await api.put('/api/settings/agent-access', { headers, data: { enabled: true } })).status()).toBe(204);
+  try {
+    const file = join(dataDir, 'agent-endpoint.json');
+    expect((statSync(file).mode & 0o777).toString(8)).toBe('600');
+    const secret = JSON.parse(readFileSync(file, 'utf8')).secret as string;
+    expect(secret.length).toBeGreaterThanOrEqual(43);
+    const agent = await request.newContext({ baseURL, extraHTTPHeaders: { Authorization: `Bearer ${secret}` } });
+    expect((await agent.get('/api/agent/projects')).status()).toBe(200);
+    await agent.dispose();
+
+    const found = files(dataDir)
+      .filter((f) => !f.endsWith('agent-endpoint.json'))
+      .filter((f) => readFileSync(f).toString('latin1').includes(secret));
+    if (readFileSync(join(stateDir, 'app.log'), 'utf8').includes(secret)) {
+      found.push('app.log');
+    }
+    expect(found).toEqual([]);
+  } finally {
+    await api.put('/api/settings/agent-access', { headers, data: { enabled: false } });
+    await api.dispose();
+  }
+});

@@ -1,5 +1,6 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.application.knowledge.SessionKnowledge;
 import dev.specwriter.domain.llm.ProposeQuestionsRequest;
 import dev.specwriter.domain.llm.ProposeQuestionsResult;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
@@ -19,7 +20,8 @@ final class NextBatch {
     private NextBatch() {
     }
 
-    static Questionnaire ask(LlmClient llm, IdGenerator ids, Session session, Questionnaire questionnaire) {
+    static Questionnaire ask(LlmClient llm, IdGenerator ids, Session session, Questionnaire questionnaire,
+            SessionKnowledge knowledge) {
         int batches = questionnaire.questions().stream().mapToInt(Question::batch).max().orElse(0);
         // Même quand tous les thèmes sont couverts, le LLM est consulté : il détecte les
         // contradictions entre le besoin et les réponses (FR-008).
@@ -27,7 +29,8 @@ final class NextBatch {
             return questionnaire;
         }
         ProposeQuestionsResult result = llm.proposeQuestions(new ProposeQuestionsRequest(session.need().text(),
-                session.language(), known(questionnaire), questionnaire.remainingThemes()));
+                session.language(), known(questionnaire), questionnaire.remainingThemes(),
+                knowledge.forQuestions(session, known(questionnaire))));
         return questionnaire.addBatch(result.questions(), result.contradictions(), result.coveredThemes(), ids::next);
     }
 

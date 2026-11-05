@@ -3,6 +3,7 @@ package dev.specwriter.infrastructure.llm;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.specwriter.infrastructure.llm.CopilotSdkGateway.GatewayException.Kind;
+import dev.specwriter.infrastructure.logging.SafeThrowable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,18 @@ class CopilotRuntimeClassifyTest {
 
     @Test
     void leMessageDOrigineNEstPasRepris() {
-        assertThat(CopilotRuntime.classify(new RuntimeException("besoin confidentiel")).getMessage()).isEqualTo("UNAVAILABLE");
+        var e = CopilotRuntime.classify(new RuntimeException("besoin confidentiel"));
+        assertThat(e.getMessage()).isEqualTo("UNAVAILABLE");
+        assertThat(e.getCause()).isInstanceOf(SafeThrowable.class).hasMessage("java.lang.RuntimeException");
+    }
+
+    @Test
+    void laPhaseLeModeleEtLaDureeSontDecrits() {
+        var e = CopilotRuntime.classify(new ExecutionException(new TimeoutException()),
+                "l'envoi du message, modèle claude-sonnet-5.5, après 180012 ms (délai 180 s)");
+        assertThat(e.kind()).isEqualTo(Kind.UNAVAILABLE);
+        assertThat(e.getMessage()).isEqualTo(
+                "UNAVAILABLE pendant l'envoi du message, modèle claude-sonnet-5.5, après 180012 ms (délai 180 s)");
+        assertThat(e.getCause()).hasMessage("java.util.concurrent.TimeoutException");
     }
 }

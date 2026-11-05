@@ -18,6 +18,12 @@ import dev.specwriter.domain.llm.ProposedQuestion;
 import dev.specwriter.domain.llm.ReassessRequest;
 import dev.specwriter.domain.llm.ReassessResult;
 import dev.specwriter.domain.llm.StructureImportRequest;
+import dev.specwriter.domain.llm.CompareIssueRequest;
+import dev.specwriter.domain.llm.ImpactRequest;
+import dev.specwriter.domain.llm.ImpactResult;
+import dev.specwriter.domain.llm.IssueComparison;
+import dev.specwriter.domain.llm.RelatedIssuesJudgement;
+import dev.specwriter.domain.llm.RelatedIssuesRequest;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.port.WikiMarkup;
 import dev.specwriter.domain.question.QuestionTheme;
@@ -34,6 +40,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.time.Duration;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
@@ -68,51 +76,77 @@ public class LangChainLlmClient implements LlmClient {
     }
 
     private final ChatModel model;
+    /** Délai d'un appel : toutes les opérations sont interactives (180 s par défaut). */
+    private final Duration timeout;
+
+    public LangChainLlmClient(ChatModel model) {
+        this(model, CallTimeout.DEFAULT);
+    }
 
     @Inject
-    public LangChainLlmClient(ChatModel model) {
+    public LangChainLlmClient(ChatModel model,
+            @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s") Duration timeout) {
         this.model = model;
+        this.timeout = timeout;
     }
 
     @Override
     public ProposeQuestionsResult proposeQuestions(ProposeQuestionsRequest request) {
         String user = UserMessages.questions(request.need(), request.language(), request.known(),
-                request.remainingThemes());
+                request.remainingThemes(), request.knowledge());
         return call("propose-questions", user, LlmSchemas.QUESTIONS, LangChainLlmClient::toQuestions);
     }
 
     @Override
     public DraftSpecification generateSpecification(GenerationRequest request) {
         String user = UserMessages.generation(request.need(), request.language(), request.answers(),
-                request.correction());
+                request.correction(), request.knowledge());
         return call("generate-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public ReassessResult reassessAfterChange(ReassessRequest request) {
         String user = UserMessages.reassess(request.need(), request.language(), request.known(),
-                request.changedQuestionId());
+                request.changedQuestionId(), request.knowledge());
         return call("reassess-after-change", user, LlmSchemas.REASSESS, LangChainLlmClient::toReassess);
     }
 
     @Override
     public DraftSpecification editSpecification(EditRequest request) {
         String user = UserMessages.edit(request.need(), request.language(), request.answers(), request.currentMarkdown(),
-                request.instruction(), request.correction());
+                request.instruction(), request.correction(), request.knowledge());
         return call("edit-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public DraftSpecification mergeConflict(MergeRequest request) {
         String user = UserMessages.merge(request.need(), request.language(), request.answers(), request.localMarkdown(),
-                request.jiraMarkdown(), request.correction());
+                request.jiraMarkdown(), request.correction(), request.knowledge());
         return call("merge-conflict", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
     }
 
     @Override
     public DraftSpecification structureImportedText(StructureImportRequest request) {
-        String user = UserMessages.structure(request.text(), request.language(), request.correction());
+        String user = UserMessages.structure(request.text(), request.language(), request.correction(),
+                request.knowledge());
         return call("structure-imported-text", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
+    }
+
+    @Override
+    public RelatedIssuesJudgement judgeRelatedIssues(RelatedIssuesRequest request) {
+        return call("judge-related-issues", UserMessages.relatedIssues(request), LlmSchemas.RELATED_ISSUES,
+                LangChainLlmClient::toRelated);
+    }
+
+    @Override
+    public IssueComparison compareWithIssue(CompareIssueRequest request) {
+        return call("compare-with-issue", UserMessages.compareIssue(request), LlmSchemas.ISSUE_COMPARISON,
+                LangChainLlmClient::toComparison);
+    }
+
+    @Override
+    public ImpactResult identifyImpact(ImpactRequest request) {
+        return call("identify-impact", UserMessages.impact(request), LlmSchemas.IMPACT, LangChainLlmClient::toImpact);
     }
 
     private <T> T call(String operation, String user, ResponseFormat format, Function<String, T> parse) {
@@ -124,7 +158,20 @@ public class LangChainLlmClient implements LlmClient {
                     .messages(SystemMessage.from(system), UserMessage.from(user + feedback))
                     .responseFormat(format)
                     .build();
-            String text = model.chat(request).aiMessage().text();
+            String text;
+            try {
+                text = ScopedValue.where(CallTimeout.CURRENT, timeout)
+                        .call(() -> model.chat(request).aiMessage().text());
+            } catch (DomainException e) {
+                if (Thread.currentThread().isInterrupted()) {
+                    LOG.infof("LLM %s : appel interrompu à la tentative %d", operation, attempt);
+                    throw e;
+                }
+                // ni le besoin ni la réponse : l'opération, la tentative, la durée et la cause sans contenu
+                LOG.warnf(e, "LLM %s : échec à la tentative %d après %d ms (%s)", operation, attempt,
+                        (System.nanoTime() - start) / 1_000_000, e.code());
+                throw e;
+            }
             try {
                 T result = parse.apply(text);
                 LOG.infof("LLM %s : %d ms, %d tentative(s)", operation, (System.nanoTime() - start) / 1_000_000, attempt);
@@ -145,7 +192,31 @@ public class LangChainLlmClient implements LlmClient {
         }
         return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
                 TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
-                draft.requirements());
+                draft.requirements(), draft.adrDeviations());
+    }
+
+    private static RelatedIssuesJudgement toRelated(String json) {
+        RelatedIssuesJudgement judgement = JSON.readValue(json, RelatedIssuesJudgement.class);
+        if (judgement == null || judgement.related().stream().anyMatch(r -> blank(r.key()))) {
+            throw new IllegalArgumentException("ticket proche sans clé");
+        }
+        return judgement;
+    }
+
+    private static IssueComparison toComparison(String json) {
+        IssueComparison comparison = JSON.readValue(json, IssueComparison.class);
+        if (comparison == null || comparison.suggestion() == null) {
+            throw new IllegalArgumentException("comparaison sans suggestion");
+        }
+        return comparison;
+    }
+
+    private static ImpactResult toImpact(String json) {
+        ImpactResult impact = JSON.readValue(json, ImpactResult.class);
+        if (impact == null || impact.exchanges().stream().anyMatch(e -> blank(e.from()) || blank(e.to()))) {
+            throw new IllegalArgumentException("échange sans émetteur ou sans destinataire");
+        }
+        return impact;
     }
 
     private static ProposeQuestionsResult toQuestions(String json) {

@@ -66,6 +66,22 @@ public record LinkedJiraTicket(
         return with(version, updated, descriptionHash, lastPushedAt, SyncState.IN_SYNC);
     }
 
+    /**
+     * Après la suppression locale d'une version (FR-017 de 002, research.md R8) : si c'était la
+     * version liée, le lien passe à la dernière restante ({@code 0} s'il n'en reste aucune), qui
+     * n'est pas celle de Jira ; sinon le ticket redevient à jour quand plus aucune version locale ne
+     * dépasse la version liée. Un conflit en cours le reste.
+     */
+    public LinkedJiraTicket afterVersionDeleted(int deleted, int latestRemaining) {
+        if (deleted == linkedVersionNumber) {
+            SyncState next = syncState == SyncState.CONFLICT ? SyncState.CONFLICT : SyncState.LOCAL_AHEAD;
+            return with(latestRemaining, lastKnownUpdated, lastKnownDescriptionHash, lastPushedAt, next);
+        }
+        SyncState next = syncState == SyncState.LOCAL_AHEAD && latestRemaining <= linkedVersionNumber
+                ? SyncState.IN_SYNC : syncState;
+        return with(linkedVersionNumber, lastKnownUpdated, lastKnownDescriptionHash, lastPushedAt, next);
+    }
+
     private LinkedJiraTicket with(int version, Instant updated, String hash, Instant pushedAt, SyncState state) {
         return new LinkedJiraTicket(sessionId, issueKey, issueUrl, issueType, version, updated, hash,
                 createdOrImportedAt, pushedAt, state);

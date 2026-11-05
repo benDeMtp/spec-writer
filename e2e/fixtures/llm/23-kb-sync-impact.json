@@ -1,0 +1,19 @@
+{
+  "operation": "identify-impact",
+  "userContains": [
+    "appeler la comptabilité en synchrone"
+  ],
+  "response": {
+    "modules": [
+      "Facturation/Service Avoirs",
+      "Comptabilite/Ecritures"
+    ],
+    "exchanges": [
+      {
+        "from": "Facturation/Service Avoirs",
+        "to": "Comptabilite/Ecritures",
+        "reason": "Appeler la comptabilité"
+      }
+    ]
+  }
+}

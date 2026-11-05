@@ -1,0 +1,25 @@
+{
+  "operation": "propose-questions",
+  "userContains": [
+    "appeler la comptabilité en synchrone",
+    "adr-005.html\" statut=\"ACCEPTED\""
+  ],
+  "response": {
+    "questions": [],
+    "contradictions": [
+      {
+        "description": "Le besoin appelle la comptabilité en synchrone, alors que l'ADR-005 impose une notification asynchrone par le topic des avoirs.",
+        "questionLabel": "Adaptez-vous le besoin à l'ADR-005, ou assumez-vous l'écart ?"
+      }
+    ],
+    "coveredThemes": [
+      "ACTORS",
+      "GOAL",
+      "BUSINESS_RULES",
+      "ERRORS",
+      "EDGE_CASES",
+      "NON_FUNCTIONAL",
+      "NOMINAL_FLOW"
+    ]
+  }
+}

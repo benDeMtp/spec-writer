@@ -1,5 +1,6 @@
 package dev.specwriter.application.specification;
 
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.TextDiff;
@@ -25,10 +26,16 @@ public class ProposalStore {
 
     /**
      * {@code jiraUpdated} et {@code jiraDescriptionHash} : état Jira lu pour une fusion de conflit,
-     * qui devient la référence à l'acceptation ; nuls pour une modification simple.
+     * qui devient la référence à l'acceptation ; nuls pour une modification simple. La connaissance
+     * utilisée est retenue sur la version acceptée (FR-013d, research.md R24 de 002).
      */
     public record Proposal(UUID id, UUID sessionId, int baseVersion, SpecificationContent content, String markdown,
-            String unifiedDiff, VersionOrigin origin, Instant createdAt, Instant jiraUpdated, String jiraDescriptionHash) {
+            String unifiedDiff, VersionOrigin origin, Instant createdAt, Instant jiraUpdated, String jiraDescriptionHash,
+            ProjectKnowledge knowledge) {
+
+        public Instant contextUpdatedAt() {
+            return knowledge.sheetUpdatedAt();
+        }
     }
 
     private final Map<UUID, Proposal> proposals = new ConcurrentHashMap<>();
@@ -43,12 +50,12 @@ public class ProposalStore {
     }
 
     public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
-            Instant jiraUpdated, String jiraDescriptionHash) {
+            Instant jiraUpdated, String jiraDescriptionHash, ProjectKnowledge knowledge) {
         purge();
-        String markdown = MarkdownRenderer.render(content, session.language());
+        String markdown = MarkdownRenderer.render(content, session.language(), knowledge.selection());
         String unified = diff.unified(base.markdown(), markdown, "v" + base.number(), "proposition");
         Proposal p = new Proposal(ids.next(), session.id(), base.number(), content, markdown, unified, origin, clock.now(),
-                jiraUpdated, jiraDescriptionHash);
+                jiraUpdated, jiraDescriptionHash, knowledge);
         proposals.put(p.id(), p);
         return p;
     }
@@ -61,6 +68,11 @@ public class ProposalStore {
             return Optional.empty();
         }
         return Optional.ofNullable(proposals.remove(proposalId));
+    }
+
+    /** Retire les propositions de la session : sa version ou la session elle-même est supprimée (research.md R8). */
+    public void discard(UUID sessionId) {
+        proposals.values().removeIf(p -> p.sessionId().equals(sessionId));
     }
 
     private void purge() {

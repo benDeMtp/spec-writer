@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url>
+<loc>http://127.0.0.1:47698/antora-knowledge/facturation/architecture.html</loc>
+<lastmod>2026-10-20T09:00:00.000Z</lastmod>
+</url>
+<url>
+<loc>http://127.0.0.1:47698/antora-knowledge/facturation/glossaire.html</loc>
+<lastmod>2026-10-20T09:00:00.000Z</lastmod>
+</url>
+<url>
+<loc>http://127.0.0.1:47698/antora-knowledge/facturation/adr/adr-002.html</loc>
+<lastmod>2026-10-20T09:00:00.000Z</lastmod>
+</url>
+<url>
+<loc>http://127.0.0.1:47698/antora-knowledge/facturation/adr/adr-004.html</loc>
+<lastmod>2026-10-20T09:00:00.000Z</lastmod>
+</url>
+<url>
+<loc>http://127.0.0.1:47698/antora-knowledge/facturation/adr/adr-005.html</loc>
+<lastmod>2026-10-20T09:00:00.000Z</lastmod>
+</url>
+<url>
+<loc>http://127.0.0.1:47698/antora-knowledge/facturation/regles/avoir.html</loc>
+<lastmod>2026-10-20T09:00:00.000Z</lastmod>
+</url>
+</urlset>

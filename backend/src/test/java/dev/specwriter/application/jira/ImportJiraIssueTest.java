@@ -27,8 +27,8 @@ class ImportJiraIssueTest {
 
     @BeforeEach
     void setUp() {
-        importer = new ImportJiraIssue(w.tracker, w.jira, w.markup, w.llm, w.policy, w.sessions, w.versions, w.tickets,
-                w.clock, w.ids);
+        importer = new ImportJiraIssue(w.tracker, w.jira, w.markup, w.llm, w.policy, w.sessions, w.projects, w.versions,
+                w.tickets, w.clock, w.ids);
         w.tracker.issues.put("PAY-4", new JiraIssue("PAY-4", "Paiement en ligne", DESCRIPTION, JiraWorld.JIRA_T0));
     }
 
@@ -104,15 +104,15 @@ class ImportJiraIssueTest {
     void consentementsConfigurationEtTicket() {
         JiraWorld noJira = new JiraWorld().configureJira().grant(ConsentService.COPILOT);
         ImportJiraIssue i = new ImportJiraIssue(noJira.tracker, noJira.jira, noJira.markup, noJira.llm, noJira.policy,
-                noJira.sessions, noJira.versions, noJira.tickets, noJira.clock, noJira.ids);
+                noJira.sessions, noJira.projects, noJira.versions, noJira.tickets, noJira.clock, noJira.ids);
         assertThatThrownBy(() -> i.run("PAY-4")).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.CONSENT_REQUIRED));
         assertThat(noJira.tracker.calls).isEmpty();
 
         JiraWorld unconfigured = new JiraWorld().grant(ConsentService.JIRA);
         ImportJiraIssue u = new ImportJiraIssue(unconfigured.tracker, unconfigured.jira, unconfigured.markup,
-                unconfigured.llm, unconfigured.policy, unconfigured.sessions, unconfigured.versions, unconfigured.tickets,
-                unconfigured.clock, unconfigured.ids);
+                unconfigured.llm, unconfigured.policy, unconfigured.sessions, unconfigured.projects,
+                unconfigured.versions, unconfigured.tickets, unconfigured.clock, unconfigured.ids);
         assertThatThrownBy(() -> u.run("PAY-4")).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.JIRA_NOT_CONFIGURED));
 

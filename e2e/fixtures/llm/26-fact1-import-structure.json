@@ -1,0 +1,21 @@
+{
+  "operation": "structure-imported-text",
+  "userContains": ["contrôler chaque ligne d'une facture"],
+  "response": {
+    "title": "Contrôle des lignes de facture",
+    "summary": "Le gestionnaire de facturation contrôle chaque ligne d'une facture avant sa validation.",
+    "details": "",
+    "useCases": [
+      {"title": "Contrôler une ligne", "actor": "gestionnaire de facturation", "goal": "Valider une facture juste",
+       "preconditions": ["La facture est en brouillon"], "nominalFlow": ["Ouvrir la facture", "Contrôler chaque ligne"],
+       "alternatives": [], "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "contrôler chaque ligne"}}
+    ],
+    "scenarios": [
+      {"useCaseIndex": 0, "title": "Ligne contrôlée", "kind": "NOMINAL", "asA": "gestionnaire de facturation",
+       "given": ["une facture en brouillon de 3 lignes"], "when": ["je contrôle la ligne 1"], "then": ["la ligne 1 est marquée contrôlée"],
+       "assumption": false}
+    ],
+    "assumptions": [],
+    "requirements": []
+  }
+}

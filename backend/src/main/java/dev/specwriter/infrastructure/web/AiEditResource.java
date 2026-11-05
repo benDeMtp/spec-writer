@@ -16,6 +16,9 @@ import jakarta.ws.rs.core.Response;
 @Produces(MediaType.APPLICATION_JSON)
 public class AiEditResource {
 
+    @Inject
+    SourceLinks sourceLinks;
+
     public record EditRequest(String instruction) {
     }
 
@@ -27,13 +30,15 @@ public class AiEditResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     public SessionViews.ProposalView propose(@PathParam("id") String id, EditRequest request) {
-        return SessionViews.proposal(proposeAiEdit.run(Ids.parse(id), request == null ? null : request.instruction()));
+        return sourceLinks.complete(SessionViews.proposal(proposeAiEdit.run(Ids.parse(id),
+                request == null ? null : request.instruction())));
     }
 
     @POST
     @Path("/{proposalId}/accept")
     public Response accept(@PathParam("id") String id, @PathParam("proposalId") String proposalId) {
         return Response.status(Response.Status.CREATED)
-                .entity(SessionViews.specification(acceptAiEdit.run(Ids.parse(id), Ids.parse(proposalId)))).build();
+                .entity(sourceLinks.complete(SessionViews.specification(acceptAiEdit.run(Ids.parse(id),
+                        Ids.parse(proposalId))))).build();
     }
 }

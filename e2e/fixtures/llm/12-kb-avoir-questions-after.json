@@ -1,0 +1,12 @@
+{
+  "operation": "propose-questions",
+  "userContains": [
+    "Saisir un avoir sur une facture émise",
+    "<valeur>Par courriel"
+  ],
+  "response": {
+    "questions": [],
+    "contradictions": [],
+    "coveredThemes": []
+  }
+}

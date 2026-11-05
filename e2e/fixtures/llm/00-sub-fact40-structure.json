@@ -1,0 +1,86 @@
+{
+  "operation": "structure-imported-text",
+  "userContains": [
+    "(E2E-SUB)"
+  ],
+  "response": {
+    "title": "Payer une facture en ligne",
+    "summary": "L'acheteur règle une facture émise par carte bancaire et reçoit un reçu.",
+    "details": "",
+    "useCases": [
+      {
+        "title": "Payer la facture par carte bancaire",
+        "actor": "acheteur",
+        "goal": "Régler la facture en ligne",
+        "preconditions": [
+          "La facture est émise"
+        ],
+        "nominalFlow": [
+          "L'acheteur choisit la facture à payer",
+          "Il saisit sa carte bancaire",
+          "Le prestataire de paiement débite la carte"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "NEED_EXCERPT",
+          "questionId": "",
+          "excerpt": "régler une facture émise par carte bancaire"
+        }
+      },
+      {
+        "title": "Recevoir le reçu de paiement",
+        "actor": "acheteur",
+        "goal": "Garder une preuve du paiement",
+        "preconditions": [
+          "La facture est émise"
+        ],
+        "nominalFlow": [
+          "Le paiement est accepté",
+          "L'acheteur reçoit un reçu par courriel"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "NEED_EXCERPT",
+          "questionId": "",
+          "excerpt": "recevoir un reçu"
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "useCaseIndex": 0,
+        "title": "Paiement accepté",
+        "kind": "NOMINAL",
+        "asA": "acheteur",
+        "given": [
+          "une facture émise de 120 € TTC"
+        ],
+        "when": [
+          "je paie par carte"
+        ],
+        "then": [
+          "la facture est réglée"
+        ],
+        "assumption": false
+      },
+      {
+        "useCaseIndex": 1,
+        "title": "Reçu envoyé",
+        "kind": "NOMINAL",
+        "asA": "acheteur",
+        "given": [
+          "une facture émise de 120 € TTC"
+        ],
+        "when": [
+          "le paiement est accepté"
+        ],
+        "then": [
+          "je reçois un reçu par courriel"
+        ],
+        "assumption": false
+      }
+    ],
+    "assumptions": [],
+    "requirements": []
+  }
+}

@@ -1,0 +1,64 @@
+[
+  {
+    "need": "Le gestionnaire de facturation veut annuler une facture émise et que la comptabilité en soit informée.",
+    "expectedIssues": [
+      "FACT-7"
+    ],
+    "expectedAdrs": [
+      "ADR-005"
+    ],
+    "expectedModules": [
+      "Facturation/API Facturation",
+      "Facturation/Service Avoirs",
+      "Comptabilite/Ecritures"
+    ],
+    "exchanges": [
+      [
+        "Facturation/Service Avoirs",
+        "Comptabilite/Ecritures"
+      ],
+      [
+        "Facturation/API Facturation",
+        "Comptabilite/Ecritures"
+      ]
+    ],
+    "expectedMissingFlows": [
+      [
+        "Facturation/API Facturation",
+        "Comptabilite/Ecritures"
+      ]
+    ],
+    "expectedEfforts": [
+      "MULTIPLE_INSTANCES:Facturation/API Facturation",
+      "CROSS_INFRASTRUCTURE:Facturation/Service Avoirs>Comptabilite/Ecritures",
+      "SHARED_INFRASTRUCTURE:Comptabilite/Ecritures",
+      "SHARED_INFRASTRUCTURE:Facturation/API Facturation"
+    ]
+  },
+  {
+    "need": "Le client veut voir ses avoirs dans le portail client.",
+    "expectedIssues": [
+      "FACT-9"
+    ],
+    "expectedAdrs": [],
+    "expectedModules": [
+      "Facturation/Portail Client",
+      "Facturation/Service Avoirs"
+    ],
+    "exchanges": [
+      [
+        "Facturation/Portail Client",
+        "Facturation/Service Avoirs"
+      ]
+    ],
+    "expectedMissingFlows": [
+      [
+        "Facturation/Portail Client",
+        "Facturation/Service Avoirs"
+      ]
+    ],
+    "expectedEfforts": [
+      "NOT_DEPLOYED:Facturation/Portail Client"
+    ]
+  }
+]

@@ -1,0 +1,6 @@
+{"operation": "propose-questions", "userContains": ["<connaissance-projet>", "<fiche-generale>", "<vocabulaire ref=\"facturation/glossaire.html\">", "<adr ref=\"facturation/adr/adr-005.html\" statut=\"ACCEPTED\">", "<ticket ref=\"FACT-7\" statut=\"Terminé\" ferme=\"oui\">"], "response": {
+  "questions": [
+    {"theme": "NOMINAL_FLOW", "label": "Comment le client reçoit-il l'avoir ?", "rationale": "L'éditique envoie l'avoir au client",
+     "suggestions": ["Par courriel, avec l'avoir en PDF", "Par courrier"], "defaultValue": "Par courriel, avec l'avoir en PDF", "dependsOnQuestionIds": []}
+  ],
+  "contradictions": [], "coveredThemes": ["ACTORS", "GOAL", "BUSINESS_RULES", "ERRORS", "EDGE_CASES"]}}

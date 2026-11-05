@@ -7,6 +7,8 @@ package dev.specwriter.domain.error;
 public enum ErrorCode {
     // Sécurité locale
     FORBIDDEN(403, "Accès refusé. Rouvrez l'application depuis son lanceur.", ErrorAction.NONE),
+    AGENT_ACCESS_DENIED(401, "Accès des agents refusé : activez-le dans la configuration, ou relancez la passerelle.",
+            ErrorAction.NONE),
     UNSUPPORTED_MEDIA_TYPE(415, "Format de requête non pris en charge.", ErrorAction.NONE),
     NOT_FOUND(404, "Élément introuvable.", ErrorAction.NONE),
     VALIDATION_FAILED(422, "Certaines informations saisies ne sont pas valides.", ErrorAction.EDIT_INPUT),
@@ -39,6 +41,19 @@ public enum ErrorCode {
     MODEL_UNAVAILABLE(422, "Le modèle choisi n'est plus disponible pour votre compte. Choisissez-en un autre.",
             ErrorAction.OPEN_SETTINGS),
     QUOTA_EXHAUSTED(429, "Le quota GitHub Copilot de votre compte est épuisé.", ErrorAction.NONE),
+
+    // Projets (feature 002)
+    PROJECT_NAME_TAKEN(409, "Un projet porte déjà ce nom.", ErrorAction.EDIT_INPUT),
+    PROJECT_NOT_FOUND(404, "Ce projet n'existe plus.", ErrorAction.NONE),
+    LAST_PROJECT(409, "Le dernier projet restant ne peut pas être supprimé.", ErrorAction.NONE),
+    OPERATION_IN_PROGRESS(409, "Une opération de l'IA est en cours. Attendez sa fin, puis réessayez.", ErrorAction.RETRY),
+    SPECIFICATION_LOCKED(409,
+            "Cette spécification est implémentée : elle est verrouillée. Rétablissez un statut antérieur, ou créez une "
+                    + "évolution.", ErrorAction.NONE),
+    UNLOCK_CONFIRMATION_REQUIRED(409, "Confirmez la sortie du statut « implémentée ».", ErrorAction.NONE),
+    TRANSITION_NOT_ALLOWED(409, "Ce changement de statut n'est pas permis.", ErrorAction.NONE),
+    CONTEXT_CHANGED(409, "Le contexte du projet a changé depuis cette proposition. Régénérez-la ou gardez la fiche actuelle.",
+            ErrorAction.NONE),
 
     // Jira
     JIRA_NOT_CONFIGURED(409, "Jira n'est pas configuré.", ErrorAction.OPEN_SETTINGS),

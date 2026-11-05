@@ -58,9 +58,11 @@ final class LlmSchemas {
                     .addProperty("nominalFlow", array(string()))
                     .addProperty("alternatives", array(string()))
                     .addProperty("source", JsonObjectSchema.builder()
-                            .addEnumProperty("kind", List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION"))
+                            .addEnumProperty("kind", List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION", "PROJECT_CONTEXT",
+                                    "JIRA_ISSUE", "DOC_PAGE", "ARCH_ELEMENT"))
                             .addStringProperty("questionId")
                             .addStringProperty("excerpt")
+                            .addStringProperty("ref")
                             .build())
                     .build()))
             .addProperty("scenarios", array(JsonObjectSchema.builder()
@@ -81,6 +83,36 @@ final class LlmSchemas {
             .addProperty("requirements", array(JsonObjectSchema.builder()
                     .addEnumProperty("category", List.of("FUNCTIONAL", "TECHNICAL"))
                     .addStringProperty("statement")
+                    .build()))
+            .addProperty("adrDeviations", array(JsonObjectSchema.builder()
+                    .addStringProperty("adrRef")
+                    .addStringProperty("decision")
+                    .addStringProperty("deviation")
+                    .build()))
+            .build());
+
+    /** Tickets proches retenus (feature 002, research.md R23). */
+    static final ResponseFormat RELATED_ISSUES = format("related_issues", JsonObjectSchema.builder()
+            .addProperty("related", array(JsonObjectSchema.builder()
+                    .addStringProperty("key")
+                    .addStringProperty("reason")
+                    .build()))
+            .build());
+
+    /** Comparaison du besoin et d'un ticket (feature 002, research.md R23). */
+    static final ResponseFormat ISSUE_COMPARISON = format("issue_comparison", JsonObjectSchema.builder()
+            .addProperty("common", array(string()))
+            .addProperty("different", array(string()))
+            .addEnumProperty("suggestion", List.of("SAME", "DIFFERENT"))
+            .build());
+
+    /** Modules impactés et échanges supposés (feature 002, research.md R22). */
+    static final ResponseFormat IMPACT = format("impact", JsonObjectSchema.builder()
+            .addProperty("modules", array(string()))
+            .addProperty("exchanges", array(JsonObjectSchema.builder()
+                    .addStringProperty("from")
+                    .addStringProperty("to")
+                    .addStringProperty("reason")
                     .build()))
             .build());
 

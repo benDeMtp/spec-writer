@@ -1,0 +1,6 @@
+{"operation": "identify-impact", "userContains": ["<element nom=\"Facturation/Service Avoirs\"", "<element nom=\"Editique\""], "response": {
+  "modules": ["Facturation/Service Avoirs", "comptabilité", "Editique", "Module inconnu"],
+  "exchanges": [
+    {"from": "Facturation/Service Avoirs", "to": "Comptabilité", "reason": "Transmettre l'avoir à la comptabilité"},
+    {"from": "Facturation/Service Avoirs", "to": "Editique", "reason": "Faire envoyer l'avoir au client"}
+  ]}}

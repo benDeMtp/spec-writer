@@ -1,6 +1,30 @@
 {
   "mappings": [
     {
+      "priority": 1,
+      "request": {
+        "method": "GET",
+        "urlPath": "/rest/api/2/search",
+        "queryParameters": {
+          "jql": {
+            "matches": "project = PROJ( AND updated >= .*)? ORDER BY (updated|key) ASC"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "startAt": 0,
+          "maxResults": 50,
+          "total": 0,
+          "issues": []
+        }
+      }
+    },
+    {
       "request": {
         "method": "GET",
         "url": "/rest/api/2/serverInfo"

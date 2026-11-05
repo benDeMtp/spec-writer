@@ -14,6 +14,24 @@ export interface Question {
   answer: string | null;
 }
 
+/** Statut d'implémentation (FR-026 de 002). */
+export type ImplementationStatus = 'DRAFT' | 'READY' | 'IN_PROGRESS' | 'IMPLEMENTED';
+
+export const IMPLEMENTATION_LABELS: Record<ImplementationStatus, string> = {
+  DRAFT: 'Brouillon',
+  READY: 'Prête à implémenter',
+  IN_PROGRESS: 'En cours',
+  IMPLEMENTED: 'Implémentée',
+};
+
+export interface Implementation {
+  status: ImplementationStatus;
+  /** Date du passage à « implémentée ». */
+  implementedAt: string | null;
+  /** Spécification d'origine d'une évolution (FR-026b). */
+  evolvedFromSessionId: string | null;
+}
+
 export interface SessionSummary {
   id: string;
   name: string;
@@ -23,6 +41,8 @@ export interface SessionSummary {
   jiraKey: string | null;
   /** Faux si la sauvegarde est endommagée : la session ne peut plus être ouverte. */
   readable: boolean;
+  /** Absent du détail, qui porte `implementation`. */
+  implementationStatus?: ImplementationStatus;
 }
 
 export type SyncState = 'IN_SYNC' | 'LOCAL_AHEAD' | 'CONFLICT';
@@ -32,9 +52,14 @@ export interface LinkedTicket {
   issueUrl: string;
   syncState: SyncState;
   linkedVersionNumber: number;
+  /** Ticket fermé lié par « relates to » et état du lien (FR-035 de 002). */
+  relatesTo?: string | null;
+  relatesToLink?: 'PENDING' | 'LINKED' | 'FAILED' | null;
 }
 
 export interface SessionDetail extends SessionSummary {
+  /** Projet de la spécification (feature 002). */
+  projectId: string;
   linkedTicket: LinkedTicket | null;
   origin: 'LOCAL' | 'JIRA_IMPORT';
   need: string;
@@ -45,6 +70,7 @@ export interface SessionDetail extends SessionSummary {
   warnings: string[];
   /** Effet de la dernière réponse modifiée (FR-007). */
   revision?: { removed: string[]; added: string[] };
+  implementation: Implementation;
 }
 
 export interface VersionSummary {
@@ -55,9 +81,11 @@ export interface VersionSummary {
 }
 
 export interface SourceRef {
-  kind: 'NEED_EXCERPT' | 'ANSWER' | 'ASSUMPTION';
+  kind: 'NEED_EXCERPT' | 'ANSWER' | 'ASSUMPTION' | 'PROJECT_CONTEXT' | 'JIRA_ISSUE' | 'DOC_PAGE' | 'ARCH_ELEMENT';
   questionId: string | null;
   excerpt: string;
+  /** Clé du ticket, page ou ADR, nom de l'élément d'architecture cité (research.md R24 de 002). */
+  ref?: string | null;
 }
 
 export interface UseCase {
@@ -110,4 +138,86 @@ export interface Specification {
   assumptions: Assumption[];
   requirements: Requirement[];
   markdown: string;
+  /** Date du contexte de projet utilisé, absente sans contexte (FR-013d de 002). */
+  contextUpdatedAt?: string | null;
+  /** Écarts aux ADR cités (FR-037 de 002). */
+  adrDeviations?: AdrDeviation[];
+  /** Faits d'architecture calculés par l'outil (FR-039 à FR-041 de 002). */
+  architecture?: Architecture | null;
+  /** Adresse de chaque référence citée : ticket, page ou ADR. */
+  links?: Record<string, string>;
+}
+
+export interface AdrDeviation {
+  adrRef: string;
+  decision: string | null;
+  deviation: string;
+}
+
+export interface Architecture {
+  modules: { name: string; scope: 'PROJECT' | 'COMMON' }[];
+  exchanges: { source: string; destination: string; kind: 'DIRECT' | 'INDIRECT' | 'MISSING'; via: string | null }[];
+  deploymentFacts: {
+    kind: 'NOT_DEPLOYED' | 'MULTIPLE_INSTANCES' | 'CROSS_INFRASTRUCTURE' | 'SHARED_INFRASTRUCTURE';
+    element: string;
+    other: string | null;
+  }[];
+}
+
+export type RelatedDecision = 'LINK_NEW' | 'SAME' | 'DIFFERENT' | 'NONE';
+
+/** Tickets proches du besoin, montrés avant les questions (FR-034 de 002). */
+export interface RelatedIssues {
+  status: 'PENDING' | 'READY' | 'PARTIAL' | 'UNAVAILABLE';
+  issues: RelatedIssue[];
+  decision: RelatedDecision | null;
+}
+
+export interface RelatedIssue {
+  key: string;
+  title: string;
+  status: string;
+  closed: boolean;
+  /** Faux si Jira n'a pas pu être relu : statut indexé, daté de updatedAt. */
+  statusFresh: boolean;
+  updatedAt: string | null;
+  reason: string | null;
+  url: string | null;
+  /** Ticket parent quand le ticket proche est une sous-tâche (research.md R29 de 002). */
+  parentKey?: string | null;
+}
+
+export type SubtaskState = 'TO_REVIEW' | 'DELIVERED_TO_REWORK' | 'CONSISTENT' | 'UNMATCHED';
+
+/** Sous-tâche de la story liée, face à une version (FR-046, FR-047 de 002). */
+export interface Subtask {
+  key: string;
+  title: string;
+  url: string | null;
+  status: string | null;
+  statusCategory: string | null;
+  /** Faux si Jira n'a pas pu être relu : statut indexé, daté de statusDate. */
+  statusFresh: boolean;
+  statusDate: string | null;
+  useCase: { code: string; title: string } | null;
+  alternative: { code: string; title: string } | null;
+  closeness: 'VERY_CLOSE' | 'CLOSE' | null;
+  change: 'CHANGED' | 'REMOVED' | null;
+  state: SubtaskState;
+}
+
+/** Rubrique « Sous-tâches de <clé> » d'une version, calculée à la demande. */
+export interface SubtaskReport {
+  storyKey: string;
+  parentKey: string | null;
+  matching: 'SEMANTIC' | 'UNAVAILABLE';
+  matchingProblem: string | null;
+  subtasks: Subtask[];
+}
+
+export interface IssueComparison {
+  key: string;
+  common: string[];
+  different: string[];
+  suggestion: 'SAME' | 'DIFFERENT';
 }

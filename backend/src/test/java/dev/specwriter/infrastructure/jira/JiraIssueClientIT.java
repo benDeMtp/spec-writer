@@ -73,7 +73,7 @@ class JiraIssueClientIT {
         assertThat(page.issues().get(0).updated()).isEqualTo(Instant.parse("2026-10-30T09:15:00Z"));
         assertThat(page.issues().get(1).status()).isNull();
         jira.verify(getRequestedFor(urlPathEqualTo("/rest/api/2/search"))
-                .withQueryParam("jql", equalTo("project = PROJ AND text ~ \"x\""))
+                .withQueryParam("jql", equalTo("project = PROJ AND text ~ \"x\" ORDER BY updated DESC"))
                 .withQueryParam("startAt", equalTo("20")).withQueryParam("maxResults", equalTo("2"))
                 .withQueryParam("fields", equalTo("summary,status,issuetype,updated"))
                 .withHeader("Authorization", equalTo("Bearer TEST-JIRA-PAT")));

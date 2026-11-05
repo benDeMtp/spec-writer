@@ -3,16 +3,20 @@ package dev.specwriter.support;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.specification.SpecificationVersion;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 public class InMemorySpecifications implements SpecificationRepository {
     private final List<SpecificationVersion> versions = new ArrayList<>();
+    private final Map<UUID, Integer> next = new HashMap<>();
 
     @Override
     public void save(SpecificationVersion version) {
         versions.add(version);
+        next.merge(version.sessionId(), version.number() + 1, Math::max);
     }
 
     @Override
@@ -33,6 +37,16 @@ public class InMemorySpecifications implements SpecificationRepository {
     @Override
     public void deleteAll(UUID sessionId) {
         versions.removeIf(v -> v.sessionId().equals(sessionId));
+    }
+
+    @Override
+    public void delete(UUID sessionId, int number) {
+        versions.removeIf(v -> v.sessionId().equals(sessionId) && v.number() == number);
+    }
+
+    @Override
+    public int nextNumber(UUID sessionId) {
+        return Math.max(next.getOrDefault(sessionId, 1), lastNumber(sessionId) + 1);
     }
 
     @Override

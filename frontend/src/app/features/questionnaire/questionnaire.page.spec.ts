@@ -23,6 +23,7 @@ function question(id: string, over: Partial<Question> = {}): Question {
 function session(over: Partial<SessionDetail> = {}): SessionDetail {
   return {
     id: 's1',
+    projectId: 'p0',
     name: 'Réservation de salles',
     state: 'QUESTIONING',
     updatedAt: '2026-10-30T09:00:00Z',
@@ -37,6 +38,7 @@ function session(over: Partial<SessionDetail> = {}): SessionDetail {
     currentBatch: [question('q2'), question('q3', { theme: 'CONTRADICTION', suggestions: [], defaultValue: null })],
     answeredQuestions: [question('q1', { state: 'ANSWERED', answer: 'Gagner du temps' })],
     warnings: [],
+    implementation: { status: 'DRAFT', implementedAt: null, evolvedFromSessionId: null },
     ...over,
   };
 }
@@ -171,4 +173,120 @@ describe('QuestionnairePage', () => {
     await settle(fixture);
     expect(el.textContent).toContain('Une réponse');
   });
+
+  describe('tickets proches (FR-034 de 002)', () => {
+    const empty = () => session({ currentBatch: [], answeredQuestions: [], progress: { answered: 0, skipped: 0, total: 0 } });
+    const related = {
+      status: 'READY',
+      decision: null,
+      issues: [
+        {
+          key: 'FACT-7',
+          title: 'Saisir un avoir',
+          status: 'Terminé',
+          closed: true,
+          statusFresh: true,
+          updatedAt: '2026-10-01T08:00:00Z',
+          reason: 'Même avoir sur facture émise',
+          url: 'http://jira/browse/FACT-7',
+        },
+        {
+          key: 'FACT-9',
+          title: 'Annuler une facture',
+          status: 'En cours',
+          closed: false,
+          statusFresh: false,
+          updatedAt: '2026-10-02T08:00:00Z',
+          reason: null,
+          url: 'http://jira/browse/FACT-9',
+          parentKey: 'FACT-3',
+        },
+      ],
+    };
+
+    async function openRelated(): Promise<void> {
+      await open(empty());
+      ctrl.expectOne('/api/sessions/s1/related-issues').flush(related);
+      await settle(fixture);
+    }
+
+    it('montre les tickets avant les questions, avec statut, fraîcheur et raison', async () => {
+      await openRelated();
+      expect(el.querySelector('#related-title')?.textContent).toBe('Tickets proches');
+      expect(document.activeElement?.id).toBe('related-title');
+      expect(el.textContent).not.toContain('Questionnaire terminé');
+      const items = el.querySelectorAll('sw-related-issues li');
+      expect(items[0].textContent).toContain('FACT-7');
+      expect(items[0].textContent).toContain('Terminé');
+      expect(items[0].textContent).toContain('Même avoir sur facture émise');
+      expect(button(items[0] as HTMLElement, 'Lier une nouvelle story')).toBeTruthy();
+      expect(button(items[0] as HTMLElement, 'Comparer')).toBeUndefined();
+      expect(items[1].textContent).toMatch(/statut indexé\s+le 2 \S+ 2026/);
+      expect(items[1].textContent).toContain('Sous-tâche de FACT-3');
+      expect(items[0].textContent).not.toContain('Sous-tâche de');
+      expect(button(items[1] as HTMLElement, 'Comparer')).toBeTruthy();
+      expect(button(items[1] as HTMLElement, 'Lier une nouvelle story')).toBeUndefined();
+    });
+
+    it('un ticket fermé : nouvelle story liée, puis les questions', async () => {
+      await openRelated();
+      button(el, 'Lier une nouvelle story')!.click();
+      const put = ctrl.expectOne({ method: 'PUT', url: '/api/sessions/s1/related-issues/decision' });
+      expect(put.request.body).toEqual({ decision: 'LINK_NEW', key: 'FACT-7' });
+      put.flush({ sessionId: 's1', relatesTo: 'FACT-7', proposal: null });
+      await settle(fixture);
+      ctrl.expectOne('/api/sessions/s1').flush(session());
+      await settle(fixture);
+      expect(el.querySelector('sw-related-issues')).toBeNull();
+      expect(el.querySelectorAll('sw-question-card')).toHaveLength(2);
+      expect(el.textContent).toContain('liée à FACT-7 par « relates to »');
+    });
+
+    it('un ticket ouvert : comparaison côte à côte, puis « C\'est la même » ouvre le ticket importé', async () => {
+      await openRelated();
+      button(el, 'Comparer')!.click();
+      ctrl.expectOne({ method: 'POST', url: '/api/sessions/s1/related-issues/FACT-9/comparison' }).flush({
+        key: 'FACT-9',
+        common: ['Facture émise'],
+        different: ['Annulation totale'],
+        suggestion: 'SAME',
+      });
+      await settle(fixture);
+      const comparison = el.querySelector('.comparison')!;
+      expect(comparison.querySelectorAll('h3')[0].textContent).toBe('En commun');
+      expect(comparison.textContent).toContain('Facture émise');
+      expect(comparison.textContent).toContain('Annulation totale');
+      expect(el.textContent).toContain('Suggestion : la même story');
+
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      button(el, "C'est la même")!.click();
+      const put = ctrl.expectOne({ method: 'PUT', url: '/api/sessions/s1/related-issues/decision' });
+      expect(put.request.body).toEqual({ decision: 'SAME', key: 'FACT-9' });
+      const proposal = { proposalId: 'p1', baseVersion: 1, proposed: {}, unifiedDiff: '' };
+      put.flush({ sessionId: 's2', relatesTo: null, proposal });
+      await settle(fixture);
+      expect(navigate).toHaveBeenCalledWith(['/sessions', 's2', 'versions', 1], { state: { proposal } });
+    });
+
+    it('« Aucun ne correspond » continue normalement', async () => {
+      await openRelated();
+      button(el, 'Aucun ne correspond')!.click();
+      const put = ctrl.expectOne({ method: 'PUT', url: '/api/sessions/s1/related-issues/decision' });
+      expect(put.request.body).toEqual({ decision: 'NONE' });
+      put.flush({ sessionId: 's1', relatesTo: null, proposal: null });
+      await settle(fixture);
+      ctrl.expectOne('/api/sessions/s1').flush(session());
+      await settle(fixture);
+      expect(el.querySelectorAll('sw-question-card')).toHaveLength(2);
+    });
+
+    it('sans ticket proche, la session sans question affiche la suite habituelle', async () => {
+      await open(empty());
+      ctrl.expectOne('/api/sessions/s1/related-issues').flush({ status: 'UNAVAILABLE', issues: [], decision: null });
+      await settle(fixture);
+      expect(el.querySelector('sw-related-issues')).toBeNull();
+      expect(el.querySelector('#ready-title')).toBeTruthy();
+    });
+  });
 });
+
