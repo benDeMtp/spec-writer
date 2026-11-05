@@ -165,7 +165,9 @@ public class CopilotRuntime implements CopilotSdkGateway {
         String phase = "la création de la session";
         long start = System.nanoTime();
         Duration timeout = CallTimeout.current();
-        try (CopilotSession session = c.createSession(toolLessSession(model, systemPrompt)).get(60, TimeUnit.SECONDS)) {
+        CopilotSession session = null;
+        try {
+            session = c.createSession(toolLessSession(model, systemPrompt)).get(60, TimeUnit.SECONDS);
             sessionId = session.getSessionId();
             MessageOptions message = new MessageOptions().setPrompt(userPrompt);
             if (responseSchema != null) {
@@ -188,7 +190,28 @@ public class CopilotRuntime implements CopilotSdkGateway {
             throw classify(e, phase + ", modèle " + (model == null ? "par défaut" : model) + ", après " + elapsedMs(start)
                     + " ms (délai " + (sessionId == null ? 60 : timeout.toSeconds()) + " s)");
         } finally {
+            closeQuietly(session);
             deleteQuietly(c, sessionId);
+        }
+    }
+
+    /**
+     * La fermeture de session expire parfois alors que la réponse est arrivée : elle ne doit pas
+     * changer un appel réussi en échec (la session est de toute façon supprimée ensuite).
+     */
+    private static void closeQuietly(CopilotSession session) {
+        if (session == null) {
+            return;
+        }
+        boolean interrupted = Thread.interrupted();
+        try {
+            session.close();
+        } catch (Exception e) {
+            LOG.debugf("Session Copilot non fermée (%s)", e.getClass().getSimpleName());
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
