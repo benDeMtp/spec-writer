@@ -273,6 +273,12 @@ final class ReferenceSet implements AutoCloseable {
         return "/api/projects/" + projectId;
     }
 
+    /** Requêtes JQL reçues par le Jira simulé, dans l'ordre. */
+    List<String> jqlReceived() {
+        return jira.getAllServeEvents().stream().map(e -> e.getRequest().queryParameter("jql"))
+                .filter(q -> q.isPresent()).map(q -> q.firstValue()).toList().reversed();
+    }
+
     /** Mesure un besoin : tickets candidats, ADR transmis, modules et faits calculés par l'outil. */
     Measure measure(Case c, ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
             FindRelatedIssues related) {

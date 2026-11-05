@@ -121,6 +121,13 @@ par le sens), et celles dont le cas d'usage a changé ou disparu sont signalées
 apporte cette rubrique, la première synchronisation relit tous les tickets une fois, pour lire
 leurs liens.
 
+Un ticket fermé ne change plus : une fois indexé, il n'est plus relu dans Jira. « Tout réindexer »
+ne relit que les tickets ouverts, ceux modifiés depuis la dernière synchronisation et ceux absents
+de l'index ; un ticket rouvert est repris à la synchronisation suivante, et un ticket supprimé ou
+déplacé est retiré. Les tickets proches et les sous-tâches fermés sont montrés avec leur statut
+indexé, même quand Jira ne répond pas. La fin d'une indexation indique combien de tickets ont été
+relus, gardés sans relecture et retirés.
+
 ## Statut d'implémentation
 
 Une spécification est « brouillon », « prête à implémenter », « en cours » ou « implémentée ».
