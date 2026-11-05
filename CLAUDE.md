@@ -1,10 +1,11 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/002-projets-contexte-mcp/` (projets, connaissance du projet par
+La feature en cours est `specs/003-tickets-fermes-cache/` (tickets Jira fermés gardés dans l'index
+sans relecture ni requête de statut, bilan de l'indexation). Elle prolonge `specs/002-projets-contexte-mcp/` (projets, connaissance du projet par
 index local de Jira, Antora et Structurizr, suppression locale, Jira paginé, passerelle MCP pour
 les agents de code). La conception de la connaissance du projet est dans
-`docs/superpowers/specs/2026-11-04-connaissance-du-projet-design.md`. Elle prolonge `specs/001-local-spec-assistant/`, dont les décisions restent valables.
+`docs/superpowers/specs/2026-11-04-connaissance-du-projet-design.md`. La 002 prolonge `specs/001-local-spec-assistant/`, dont les décisions restent valables.
 La constitution est dans `.specify/memory/constitution.md`.
 
 ## Boucle de développement (research.md R17)
