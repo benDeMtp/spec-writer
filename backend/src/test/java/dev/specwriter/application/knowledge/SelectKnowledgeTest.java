@@ -131,13 +131,13 @@ class SelectKnowledgeTest {
         assertThat(roles.getFirst().ref()).isIn("facturation/glossaire.html", "facturation/architecture.html");
     }
 
-    /** Des ADR de 2 500 caractères passent entiers : deux tiennent dans les 6 000 (004, research.md R4). */
+    /** Des ADR de 2 500 caractères passent entiers : quatre tiennent dans les 12 000 (004, R4 et FR-017). */
     @Test
     void adrEntiersEtUnAdrRemplaceParSonSuccesseur() {
         ProjectKnowledge k = select.forQuestions(session, List.of());
         List<ProjectKnowledge.Entry> adrs = k.entries().stream().filter(e -> e.kind() == KnowledgeKind.ADR).toList();
-        assertThat(adrs).hasSize(2).allSatisfy(e -> assertThat(e.text()).hasSize(2_500));
-        assertThat(size(k, KnowledgeKind.ADR)).isLessThanOrEqualTo(6_000);
+        assertThat(adrs).hasSize(4).allSatisfy(e -> assertThat(e.text()).hasSize(2_500));
+        assertThat(size(k, KnowledgeKind.ADR)).isLessThanOrEqualTo(12_000);
         assertThat(adrs).extracting(ProjectKnowledge.Entry::ref)
                 .doesNotContain("facturation/adr/adr-002.html", "facturation/adr/adr-003.html")
                 .contains("facturation/adr/adr-005.html").doesNotHaveDuplicates();
@@ -197,30 +197,33 @@ class SelectKnowledgeTest {
     @Test
     void adrEntiersDansLeBudget() {
         onlyAdrs();
-        adrChunk("adr/0001-a.html", 0, "1. A", text("Avoir et facture A.", 3_000), AdrStatus.ACCEPTED, null);
-        adrChunk("adr/0002-b.html", 0, "2. B", text("Avoir et facture B.", 2_500), AdrStatus.ACCEPTED, null);
-        adrChunk("adr/0003-c.html", 0, "3. C", text("Avoir et facture C.", 2_000), AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0001-a.html", 0, "1. A", text("Avoir et facture A.", 6_000), AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0002-b.html", 0, "2. B", text("Avoir et facture B.", 5_000), AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0003-c.html", 0, "3. C", text("Avoir et facture C.", 4_000), AdrStatus.ACCEPTED, null);
         List<ProjectKnowledge.Entry> adrs = adrEntries();
         assertThat(adrs).extracting(ProjectKnowledge.Entry::ref).containsExactly("adr/0001-a.html", "adr/0002-b.html");
         assertThat(adrs).allSatisfy(e -> assertThat(e.text()).doesNotContain("…").doesNotContain("[ADR tronqué]"));
-        assertThat(adrs.get(0).text()).hasSize(3_000);
+        assertThat(adrs.get(0).text()).hasSize(6_000);
     }
 
     /** US3-3 : un ADR plus long que sa part est coupé à la dernière section complète, et le dit. */
     @Test
     void adrTropLongCoupeAUneSection() {
         onlyAdrs();
-        String body = "## Contexte\n\n" + text("Avoir et facture.", 1_500) + "\n\n## Décision\n\n" + "d".repeat(1_500)
-                + "\n\n## Conséquences\n\n" + "c".repeat(1_500);
-        adrChunk("adr/0004-long.html", 0, "4. Long", body, AdrStatus.ACCEPTED, null);
+        // un élément indexé fait 8 000 caractères au plus : l'ADR long est en deux morceaux
+        adrChunk("adr/0004-long.html", 0, "4. Long", "## Contexte\n\n" + text("Avoir et facture.", 3_000)
+                + "\n\n## Décision\n\n" + "d".repeat(3_000), AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0004-long.html", 1, "4. Long", "## Conséquences\n\n" + "c".repeat(3_000), AdrStatus.ACCEPTED,
+                null);
         String sent = adrEntries().getFirst().text();
-        assertThat(sent).endsWith("d".repeat(1_500) + "\n\n[ADR tronqué]").doesNotContain("Conséquences");
+        assertThat(sent).endsWith("d".repeat(3_000) + "\n\n[ADR tronqué]").doesNotContain("Conséquences");
         assertThat(sent.length()).isLessThanOrEqualTo(SelectKnowledge.MAX_ADR_PART);
 
         onlyAdrs();
-        String paragraphs = text("Avoir et facture.", 1_900) + "\n\n" + "e".repeat(1_900) + "\n\n" + "f".repeat(1_900);
-        adrChunk("adr/0005-plat.html", 0, "5. Plat", paragraphs, AdrStatus.ACCEPTED, null);
-        assertThat(adrEntries().getFirst().text()).endsWith("e".repeat(1_900) + "\n\n[ADR tronqué]");
+        adrChunk("adr/0005-plat.html", 0, "5. Plat", text("Avoir et facture.", 3_900), AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0005-plat.html", 1, "5. Plat", "e".repeat(3_900), AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0005-plat.html", 2, "5. Plat", "f".repeat(3_900), AdrStatus.ACCEPTED, null);
+        assertThat(adrEntries().getFirst().text()).endsWith("e".repeat(3_900) + "\n\n[ADR tronqué]");
     }
 
     /** US3-4 : un ADR remplacé retenu cède la place à son successeur, transmis entier. */
@@ -247,6 +250,93 @@ class SelectKnowledgeTest {
         List<ProjectKnowledge.Entry> first = adrEntries();
         assertThat(first).hasSize(4);
         assertThat(adrEntries()).isEqualTo(first);
+    }
+
+    // ---------- 004, US4 : les ADR cités ----------
+
+    List<ProjectKnowledge.Entry> editAdrs(String instruction, String markdown) {
+        return select.forEdit(session, List.of(), instruction, markdown).entries().stream()
+                .filter(e -> e.kind() == KnowledgeKind.ADR).toList();
+    }
+
+    /** US4-1 : un ADR cité dans l'instruction, sans terme commun avec le besoin, passe en premier. */
+    @Test
+    void adrCiteDansLInstructionTransmisEnPremier() {
+        adrChunk("adr/0017-zz.html", 0, "17. Zz", "Qq.", AdrStatus.PROPOSED, null);
+        List<ProjectKnowledge.Entry> adrs = editAdrs("Ajoute la configuration nginx demandée par l'ADR 0017.", "");
+        assertThat(adrs.getFirst().ref()).isEqualTo("adr/0017-zz.html");
+        assertThat(adrs.getFirst().text()).isEqualTo("Qq.");
+        assertThat(select.forQuestions(session, List.of()).entries()).extracting(ProjectKnowledge.Entry::ref)
+                .doesNotContain("adr/0017-zz.html");
+    }
+
+    /** US4-2 : deux ADR de même numéro, l'un cité : les deux passent. */
+    @Test
+    void deuxAdrDeMemeNumeroCitesTousLesDeux() {
+        onlyAdrs();
+        adrChunk("adr/0017-bff.html", 0, "17. BFF", "Rr.", AdrStatus.PROPOSED, null);
+        adrChunk("adr/0017-nginx.html", 0, "17. Nginx", "Ss.", AdrStatus.PROPOSED, null);
+        assertThat(editAdrs("Voir l'ADR-17.", "")).extracting(ProjectKnowledge.Entry::ref)
+                .containsExactlyInAnyOrder("adr/0017-bff.html", "adr/0017-nginx.html");
+    }
+
+    /** US4-3 : citation dans la version en cours, dans une réponse, dans le besoin. */
+    @Test
+    void citationDansLaVersionLesReponsesOuLeBesoin() {
+        onlyAdrs();
+        adrChunk("adr/0021-yy.html", 0, "21. Yy", "Tt.", AdrStatus.ACCEPTED, null);
+        assertThat(editAdrs("Reformule.", "Conformément à l'ADR n°21, …")).extracting(ProjectKnowledge.Entry::ref)
+                .containsExactly("adr/0021-yy.html");
+        assertThat(select.forQuestions(session, List.of(answer("q1", "Comme le dit l'ADR 21.")))
+                .entries()).extracting(ProjectKnowledge.Entry::ref).contains("adr/0021-yy.html");
+        Session citing = Session.start(UUID.randomUUID(), P, Need.of(NEED + " Voir ADR-21."), null, w.clock.now());
+        assertThat(select.forQuestions(citing, List.of()).entries()).extracting(ProjectKnowledge.Entry::ref)
+                .contains("adr/0021-yy.html");
+    }
+
+    /** US4-4 : un ADR cité remplacé cède la place à son successeur. */
+    @Test
+    void adrCiteRemplaceParSonSuccesseur() {
+        onlyAdrs();
+        adrChunk("adr/0030-vieux.html", 0, "30. Vieux", "Uu.", AdrStatus.SUPERSEDED, "ADR-0031");
+        adrChunk("adr/0031-neuf.html", 0, "31. Neuf", "Vv.", AdrStatus.ACCEPTED, null);
+        assertThat(editAdrs("Selon l'ADR 30.", "")).extracting(ProjectKnowledge.Entry::ref)
+                .containsExactly("adr/0031-neuf.html");
+    }
+
+    /** Fiche générale au maximum : les ADR prennent ce qui reste, et l'ADR cité passe coupé plutôt que pas du tout. */
+    @Test
+    void ficheGeneraleMaximaleAdrCiteCoupe() {
+        sheet(text("## Fiche générale", 20_000));
+        onlyAdrs();
+        adrChunk("adr/0017-nginx.html", 0, "17. Nginx", "## Contexte\n\n" + "x".repeat(3_700)
+                + "\n\n## Décision\n\n" + "y".repeat(3_850), AdrStatus.PROPOSED, null);
+        ProjectKnowledge k = select.forEdit(session, List.of(), "Configuration nginx de l'ADR 0017.", "");
+        ProjectKnowledge.Entry adr = k.entries().stream().filter(e -> e.kind() == KnowledgeKind.ADR).findFirst()
+                .orElseThrow();
+        assertThat(adr.text()).startsWith("## Contexte").endsWith("[ADR tronqué]");
+        assertThat(total(k)).isLessThanOrEqualTo(ProjectKnowledge.MAX_TOTAL - SelectKnowledge.MAX_ARCHITECTURE);
+    }
+
+    /** FR-017 : un ADR de 7 600 caractères passe entier (8 000 par ADR, 12 000 au total). */
+    @Test
+    void adrLongCiteTransmisEntier() {
+        onlyAdrs();
+        String body = "## Contexte\n\n" + "x".repeat(3_700) + "\n\n## Décision\n\n" + "y".repeat(3_850);
+        adrChunk("adr/0017-nginx.html", 0, "17. Nginx", body, AdrStatus.PROPOSED, null);
+        assertThat(editAdrs("Configuration nginx de l'ADR 0017.", "").getFirst().text()).isEqualTo(body);
+    }
+
+    /** US4-5 : la recherche d'une modification porte aussi sur l'instruction. */
+    @Test
+    void laRechercheDUneModificationPorteSurLInstruction() {
+        onlyAdrs();
+        adrChunk("adr/0040-k8s.html", 0, "40. Kubernetes", "Déploiement kubernetes des services.", AdrStatus.ACCEPTED,
+                null);
+        assertThat(select.forQuestions(session, List.of()).entries()).extracting(ProjectKnowledge.Entry::ref)
+                .doesNotContain("adr/0040-k8s.html");
+        assertThat(editAdrs("Précise le déploiement kubernetes.", "")).extracting(ProjectKnowledge.Entry::ref)
+                .containsExactly("adr/0040-k8s.html");
     }
 
     @Test

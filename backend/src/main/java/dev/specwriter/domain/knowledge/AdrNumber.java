@@ -1,6 +1,8 @@
 package dev.specwriter.domain.knowledge;
 
+import java.util.LinkedHashSet;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,6 +15,8 @@ public final class AdrNumber {
 
     private static final Pattern ADR = Pattern.compile("adr[-_ ]?0*(\\d+)", Pattern.CASE_INSENSITIVE);
     private static final Pattern FILE = Pattern.compile("^0*(\\d+)[-_]");
+    private static final Pattern CITED = Pattern.compile("\\badr(?:\\s*n°\\s*|[-_ ]?)0*(\\d{1,9})\\b",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern TITLE = Pattern.compile("^\\s*0*(\\d+)\\.\\s");
 
     private AdrNumber() {
@@ -28,6 +32,22 @@ public final class AdrNumber {
             found = first(FILE, file);
         }
         return found.isPresent() ? found : first(TITLE, title);
+    }
+
+    /**
+     * Numéros des ADR cités dans un texte (004, US4) : « ADR-17 », « ADR 0017 », « l'ADR 17 »,
+     * « ADR n°17 ». Un numéro seul n'est pas une citation.
+     */
+    public static Set<Integer> cited(String text) {
+        Set<Integer> out = new LinkedHashSet<>();
+        if (text == null) {
+            return out;
+        }
+        Matcher m = CITED.matcher(text);
+        while (m.find()) {
+            out.add(Integer.parseInt(m.group(1)));
+        }
+        return out;
     }
 
     /** Numéro du successeur cité par un ADR remplacé (« ADR-0005 »). */

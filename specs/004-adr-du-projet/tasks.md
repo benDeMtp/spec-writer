@@ -92,11 +92,27 @@ ouvre un nouvel onglet.
 contient les trois, dans l'ordre.
 
 - [X] T016 [US3] Tests d'abord dans `BT/application/knowledge/SelectKnowledgeTest.java` : (a) US3-1, ADR en 3 morceaux, seul le 3e correspond au besoin → une entrée, `chunk = 0`, texte = morceaux 0, 1, 2 joints dans l'ordre ; (b) US3-2, deux morceaux retenus → une seule entrée ; (c) US3-3, ADR de 3 000, 2 500 et 2 000 caractères → les deux premiers passent entiers (5 500 ≤ 6 000), le troisième non ; (d) ADR de 5 000 caractères → coupé à la dernière ligne `#` avant 4 000, suivi de « [ADR tronqué] », et sans ligne de titre au dernier paragraphe ; (e) US3-4, ADR remplacé retenu → successeur entier ; (f) US3-5, deux préparations identiques ; (g) 4 ADR au plus
-- [X] T017 [US3] `BM/application/knowledge/SelectKnowledge.java` : `adrs(...)` selon research.md R4 (rang des ADR = meilleur rang de leurs morceaux ; texte = morceaux de `index.all(ADR)` triés ; budget `MAX_ADR_TEXT = 6_000`, nouveau `MAX_ADR_PART = 4_000` ; arrêt au premier ADR qui ne tient pas ; coupe à une ligne de titre, sinon au paragraphe, « [ADR tronqué] »)
+- [X] T017 [US3] `BM/application/knowledge/SelectKnowledge.java` : `adrs(...)` selon research.md R4 (rang des ADR = meilleur rang de leurs morceaux ; texte = morceaux de `index.all(ADR)` triés ; budget `MAX_ADR_TEXT = 6_000`, nouveau `MAX_ADR_PART = 4_000` (portés à 12 000 / 8 000 par T026) ; arrêt au premier ADR qui ne tient pas ; coupe à une ligne de titre, sinon au paragraphe, « [ADR tronqué] »)
   *`SelectKnowledgeTest.quatreAdrAuPlus…` de la 002 devient `adrEntiersEtUnAdrRemplaceParSonSuccesseur` : des ADR de 2 500 caractères passent entiers, deux tiennent dans les 6 000 (au lieu de quatre fragments).*
 - [X] T018 [US3] Vérifier les réponses rejouées (`e2e/fixtures/llm/*.json`, `backend/src/test/resources/golden/*/llm/*.json`) : aucun `userContains` ne dépend d'un fragment d'ADR coupé ; lancer `KnowledgeFictiveSetIT`, les tests golden et les E2E concernés
   *Les conditions `userContains` ne portent que sur `<adr ref=… statut=…>`, jamais sur un fragment de texte : rien à changer.*
 - [ ] T019 [US3] Évaluation réelle (SC-004, research.md R5), **avec l'accord de l'utilisateur** (environ 150 requêtes Copilot) : `env -u JAVA_TOOL_OPTIONS ./mvnw -B -pl backend verify -Peval -DskipDependencyCheck`, scores ≥ `baseline.json`, `bash ci/check-eval.sh`, commit de `backend/src/test/resources/eval/last-run.json`
+
+---
+
+## Phase 5b: User Story 4 - Un ADR cité est transmis d'office (Priority: P1)
+
+**Goal**: FR-015 à FR-017 (relevé à l'essai : « l'ADR 0017 ne figure pas dans les éléments fournis »).
+
+**Independent Test**: instruction « ajoute la configuration nginx de l'ADR 0017 », ADR 0017 sans
+terme commun avec le besoin : il est transmis en premier, entier.
+
+- [X] T024 [P] [US4] Test d'abord `BT/domain/knowledge/AdrNumberTest.java`, puis `AdrNumber.cited(String text)` dans `BM/domain/knowledge/AdrNumber.java` : ensemble des numéros cités (« ADR-17 », « ADR 0017 », « l'ADR 17 », « ADR n°17 », « ADR n° 17 », casse indifférente) ; « 0017 » seul, « ADRESSE 17 » : rien
+- [X] T025 [US4] Tests d'abord dans `BT/application/knowledge/SelectKnowledgeTest.java` : (a) ADR cité dans l'instruction, sans terme commun, transmis en premier ; (b) deux ADR de même numéro cités → les deux ; (c) citation dans le besoin, une réponse, la version en cours ; (d) ADR cité remplacé → successeur ; (e) budget 12 000 / 8 000 : un ADR de 7 600 caractères passe entier ; (f) l'instruction est en tête de la requête de recherche (ticket trouvé par un terme de l'instruction seulement)
+- [X] T026 [US4] `BM/application/knowledge/SessionKnowledge.java` : `forEdit(Session, List<QuestionAndAnswer>, String instruction, String currentMarkdown)` (par défaut `forSpecification`) ; `BM/application/knowledge/SelectKnowledge.java` : citations, requête « instruction puis besoin et réponses », `MAX_ADR_TEXT = 12_000`, `MAX_ADR_PART = 8_000` ; `BM/application/specification/ProposeAiEdit.java` appelle `forEdit` avec l'instruction et la version de base
+  *Le budget des ADR est aussi borné par ce qui reste sous le plafond de 35 000 (fiche générale d'abord) ; le premier ADR, cité en priorité, passe coupé plutôt que pas du tout (`ficheGeneraleMaximaleAdrCiteCoupe`). Les tests de budget de T016 ont été redimensionnés pour 12 000 / 8 000.*
+- [X] T027 [US4] Test de `ProposeAiEdit` (fichier de test existant) : l'instruction et la version de base sont transmises à `forEdit`
+  *Écrit après la modification de `ProposeAiEdit` : test de confirmation, pas vu échouer.*
 
 ---
 

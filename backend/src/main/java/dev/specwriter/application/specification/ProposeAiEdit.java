@@ -80,7 +80,7 @@ public class ProposeAiEdit {
         consent.requireGranted(ConsentService.COPILOT);
         List<Question> treated = sessions.questionnaire(sessionId).map(Questionnaire::treated).orElse(List.of());
         List<QuestionAndAnswer> answers = DraftValidation.answers(treated);
-        ProjectKnowledge knowledge = this.knowledge.forSpecification(session, answers);
+        ProjectKnowledge knowledge = this.knowledge.forEdit(session, answers, text, base.markdown());
         EditRequest request = new EditRequest(session.need().text(), session.language(), answers, base.markdown(), text,
                 null, knowledge);
         SpecificationContent content = DraftValidation.produce(c -> llm.editSpecification(request.withCorrection(c)),

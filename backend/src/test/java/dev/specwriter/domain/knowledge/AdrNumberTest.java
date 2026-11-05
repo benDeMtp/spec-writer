@@ -31,4 +31,15 @@ class AdrNumberTest {
         assertThat(AdrNumber.ofCited(null)).isEmpty();
         assertThat(AdrNumber.ofCited("ailleurs")).isEmpty();
     }
+
+    /** 004, US4 : numéros des ADR cités dans un texte. */
+    @Test
+    void adrCitesDansUnTexte() {
+        assertThat(AdrNumber.cited("Ajoute la configuration nginx demandée par l'ADR 0017 et le C4."))
+                .containsExactly(17);
+        assertThat(AdrNumber.cited("Voir ADR-5, adr 012, ADR n°17 et ADR n° 3 ; l'adr 5 encore."))
+                .containsExactlyInAnyOrder(5, 12, 17, 3);
+        assertThat(AdrNumber.cited("La version 0017 et l'ADRESSE 17 ne sont pas des ADR.")).isEmpty();
+        assertThat(AdrNumber.cited(null)).isEmpty();
+    }
 }

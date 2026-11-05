@@ -91,6 +91,22 @@ morceau) et coupe chacun à `6 000 / 4` caractères : l'IA reçoit un fragment.
 - *Outil « lire le document » donné à l'IA* : contraire aux sessions sans outil (contracts/llm-port.md,
   règle 6a) et à la reproductibilité.
 
+## R4b. ADR cités et budget révisé (US4, FR-015 à FR-017)
+
+**Constat** (essai de l'utilisateur) : une modification dont l'instruction cite l'ADR 0017 et nginx
+ne reçoit pas l'ADR : la recherche n'utilise que le besoin et les réponses, et l'ADR 0017
+(7 600 caractères) dépasse 4 000.
+
+**Decision** :
+- `AdrNumber.cited` lit « ADR-17 », « ADR 0017 », « l'ADR 17 », « ADR n°17 » ; les ADR cités dans
+  l'instruction, le besoin, les réponses et la version en cours passent d'office, en premier, tous
+  ceux du numéro, règle de succession comprise.
+- `SessionKnowledge.forEdit` : la requête de recherche d'une modification commence par
+  l'instruction.
+- Budget : 12 000 au total et 8 000 par ADR (accord de l'utilisateur), dans la limite de ce qui reste
+  sous le plafond de 35 000 une fois la fiche générale, le vocabulaire, les tickets et les
+  sous-tâches réservés ; le premier ADR passe coupé à une section plutôt que pas du tout.
+
 ## R5. Évaluation (SC-004)
 
 **Constat** : l'empreinte vérifiée par `ci/check-eval.sh` ne couvre pas `application/knowledge` ; la

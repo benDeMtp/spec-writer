@@ -18,6 +18,15 @@ public interface SessionKnowledge {
 
     ProjectKnowledge forSpecification(Session session, List<QuestionAndAnswer> answers);
 
+    /**
+     * Pour une modification demandée à l'IA (004, US4) : la recherche porte aussi sur l'instruction,
+     * et les ADR cités dans l'instruction ou la version en cours sont transmis d'office.
+     */
+    default ProjectKnowledge forEdit(Session session, List<QuestionAndAnswer> answers, String instruction,
+            String currentMarkdown) {
+        return forSpecification(session, answers);
+    }
+
     /** Fiche générale seule, sans index : pour les cas d'usage construits sans la connaissance. */
     static SessionKnowledge sheetOnly(ProjectRepository projects) {
         return new SessionKnowledge() {

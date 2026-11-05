@@ -20,6 +20,12 @@ R20, R24) et la reconnaissance des ADR de la convention adr-tools (003, T030).
 - Q : Le contenu de la page (numéro, titre, statut, successeur, résumé par statut, filtre, grisé
   des ADR non transmis, statut inconnu, doublons signalés) convient-il ? → R : Oui.
 
+- Q : Une modification demandée à l'IA qui cite l'ADR 0017 et nginx reçoit-elle l'ADR ? → R : Non
+  (constaté) : la recherche n'utilise que le besoin et les réponses, un ADR cité n'est pas ajouté
+  d'office, et l'ADR 0017 (7 600 caractères) dépasse la part d'un ADR. Décision : ADR cités transmis
+  d'office (US4), instruction utilisée par la recherche, budget porté à 12 000 caractères au total et
+  8 000 par ADR (accord de l'utilisateur).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Les compteurs disent combien d'ADR et de sections le projet a (Priority: P1)
@@ -118,6 +124,37 @@ décision.
 
 ---
 
+### User Story 4 - Un ADR cité est transmis d'office (Priority: P1)
+
+L'utilisateur demande à l'IA de modifier une spécification : « ajoute la configuration nginx
+demandée par l'ADR 0017 ». Aujourd'hui la recherche ne voit pas l'instruction, et un ADR cité par
+son numéro n'est transmis que si la recherche le juge proche : l'IA répond que l'ADR 0017 « ne
+figure pas dans les éléments fournis ». Un ADR cité par son numéro dans le besoin, les réponses,
+l'instruction ou la version en cours est transmis d'office, en premier ; l'instruction d'une
+modification sert aussi à chercher les autres ADR et les tickets.
+
+**Why this priority**: c'est le cas rencontré ; citer un ADR est la façon la plus directe de dire à
+l'outil ce qui compte.
+
+**Independent Test**: une modification dont l'instruction cite « ADR 0017 », l'ADR 0017 n'ayant
+aucun terme commun avec le besoin : l'ADR 0017 est transmis, entier, avant les autres.
+
+**Acceptance Scenarios**:
+
+1. **Given** une instruction de modification qui cite « l'ADR 0017 », **When** la modification est
+   préparée, **Then** l'ADR 0017 est transmis en premier, entier dans la limite de sa part.
+2. **Given** deux ADR qui portent le numéro 17, **When** l'un est cité, **Then** les deux sont
+   transmis (dans la limite du budget).
+3. **Given** un ADR cité « ADR-17 », « ADR 0017 », « l'ADR 17 » ou « ADR n°17 », dans le besoin, une
+   réponse, l'instruction ou la version en cours, **When** la connaissance est préparée, **Then**
+   l'ADR est reconnu comme cité.
+4. **Given** un ADR cité remplacé, **When** la connaissance est préparée, **Then** c'est son
+   successeur qui est transmis (règle de la 002).
+5. **Given** une instruction de modification, **When** la recherche des ADR et des tickets est
+   faite, **Then** elle porte sur l'instruction puis sur le besoin et les réponses.
+
+---
+
 ### Edge Cases
 
 - Un ADR sans numéro reconnaissable (reconnu par son titre « Architecture Decision Record : … ») :
@@ -168,6 +205,14 @@ décision.
 - **FR-014**: La page DOIT respecter le niveau WCAG 2.1 AA (tableau navigable au clavier, statut non
   porté par la seule couleur, liens annonçant l'ouverture d'un nouvel onglet).
 
+- **FR-015**: Un ADR cité par son numéro (« ADR-17 », « ADR 0017 », « l'ADR 17 », « ADR n°17 ») dans
+  le besoin, les réponses, l'instruction d'une modification ou la version en cours DOIT être
+  transmis d'office, avant les ADR trouvés par la recherche ; tous les ADR de ce numéro le sont.
+- **FR-016**: La recherche préparant une modification par l'IA DOIT utiliser l'instruction, puis le
+  besoin et les réponses.
+- **FR-017**: Le budget des ADR transmis est de 12 000 caractères au total et 8 000 par ADR (remplace
+  les 6 000 et 4 000 de FR-011) ; quatre ADR au plus.
+
 ### Key Entities
 
 - **ADR du projet** : une décision reconnue dans la documentation d'un projet ; numéro (valeur
@@ -194,9 +239,8 @@ décision.
 
 - Les ADR sont ceux que la 002 et le correctif adr-tools de la 003 reconnaissent ; la page ne change
   pas la reconnaissance.
-- Le budget global des ADR transmis à une génération reste celui de la 002 (6 000 caractères) ; seule
-  sa répartition change : des ADR entiers, moins nombreux s'il le faut. Le budget exact est fixé au
-  plan, au vu de l'évaluation.
+- Le budget des ADR transmis est porté à 12 000 caractères au total et 8 000 par ADR (FR-017,
+  accord de l'utilisateur) ; la connaissance transmise reste plafonnée à 35 000 caractères (002).
 - Le découpage en morceaux reste utilisé pour la recherche : il n'est pas modifié.
 - La page est en lecture seule ; elle ne modifie ni la documentation ni l'index.
 - Le choix de la source à réindexer, la reprise des étapes après une erreur inattendue et la lecture
