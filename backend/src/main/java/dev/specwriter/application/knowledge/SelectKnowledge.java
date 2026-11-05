@@ -1,6 +1,7 @@
 package dev.specwriter.application.knowledge;
 
 import dev.specwriter.domain.error.DomainException;
+import dev.specwriter.domain.knowledge.AdrNumber;
 import dev.specwriter.domain.knowledge.AdrStatus;
 import dev.specwriter.domain.knowledge.ArchitectureModel.DeploymentFact;
 import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
@@ -17,9 +18,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.jboss.logging.Logger;
 
 /**
@@ -34,6 +34,9 @@ public class SelectKnowledge implements SessionKnowledge {
     static final int MAX_ROLES = 3_000;
     static final int MAX_ADRS = 4;
     static final int MAX_ADR_TEXT = 6_000;
+    /** Au plus par ADR : au-delà, l'ADR est coupé à la fin d'une section (004, research.md R4). */
+    static final int MAX_ADR_PART = 4_000;
+    static final String ADR_TRUNCATED = "\n\n[ADR tronqué]";
     static final int MAX_TICKETS = 3;
     static final int MAX_TICKET_TEXT = 3_000;
     static final int MAX_ARCHITECTURE = 3_000;
@@ -44,9 +47,6 @@ public class SelectKnowledge implements SessionKnowledge {
     private static final int ARCHITECTURE_MARKUP = 40;
     private static final int ADR_CANDIDATES = 12;
     private static final int SUCCESSION = 5;
-    private static final Pattern ADR_NUMBER = Pattern.compile("adr[-_ ]?0*(\\d+)", Pattern.CASE_INSENSITIVE);
-    /** Numéro d'un ADR adr-tools : fichier {@code 0005-titre.html}, titre « 5. Titre ». */
-    private static final Pattern LEADING_NUMBER = Pattern.compile("^0*(\\d+)(?:[-_]|\\.\\s)");
 
     private static final Logger LOG = Logger.getLogger(SelectKnowledge.class);
 
@@ -130,7 +130,12 @@ public class SelectKnowledge implements SessionKnowledge {
         return out;
     }
 
-    /** ADR en vigueur les plus proches ; un remplacé cède la place à son successeur, un obsolète est écarté (FR-036). */
+    /**
+     * ADR en vigueur les plus proches ; un remplacé cède la place à son successeur, un obsolète est
+     * écarté (FR-036). Chaque ADR est transmis entier, morceaux dans l'ordre (004, research.md R4) :
+     * {@link #MAX_ADR_PART} au plus par ADR, {@link #MAX_ADR_TEXT} au total ; le premier qui ne tient
+     * plus arrête la liste.
+     */
     private List<ProjectKnowledge.Entry> adrs(Session session, String query, float[] vector, String model) {
         List<KnowledgeIndex.Hit> hits = index.search(session.projectId(), query, vector, model, List.of(KnowledgeKind.ADR),
                 ADR_CANDIDATES);
@@ -139,17 +144,51 @@ public class SelectKnowledge implements SessionKnowledge {
         }
         List<KnowledgeItem> all = index.all(session.projectId(), KnowledgeKind.ADR);
         Set<String> seen = new LinkedHashSet<>();
-        List<KnowledgeItem> chosen = new ArrayList<>();
+        List<ProjectKnowledge.Entry> chosen = new ArrayList<>();
+        int left = MAX_ADR_TEXT;
         for (KnowledgeIndex.Hit hit : hits) {
             Optional<KnowledgeItem> current = inForce(hit.item(), all);
-            if (current.isPresent() && seen.add(current.get().ref() + "#" + current.get().chunk())) {
-                chosen.add(current.get());
+            if (current.isEmpty() || !seen.add(current.get().ref())) {
+                continue;
             }
+            ProjectKnowledge.Entry entry = whole(current.get(), all);
+            int size = entry.title().length() + entry.text().length();
+            if (size > left) {
+                break;
+            }
+            chosen.add(entry);
+            left -= size;
             if (chosen.size() == MAX_ADRS) {
                 break;
             }
         }
-        return bounded(chosen, MAX_ADR_TEXT / MAX_ADRS);
+        return chosen;
+    }
+
+    /** L'ADR entier : ses morceaux dans l'ordre, coupé à une section au-delà de {@link #MAX_ADR_PART}. */
+    private static ProjectKnowledge.Entry whole(KnowledgeItem adr, List<KnowledgeItem> all) {
+        List<KnowledgeItem> chunks = all.stream().filter(a -> a.ref().equals(adr.ref()))
+                .sorted(java.util.Comparator.comparingInt(KnowledgeItem::chunk)).toList();
+        KnowledgeItem first = chunks.isEmpty() ? adr : chunks.getFirst();
+        String text = chunks.isEmpty() ? adr.body()
+                : String.join("\n\n", chunks.stream().map(KnowledgeItem::body).toList());
+        int room = MAX_ADR_PART - first.title().length();
+        // l'empreinte suit tous les morceaux : un changement dans l'un d'eux change la connaissance
+        String hash = chunks.isEmpty() ? adr.contentHash()
+                : String.join(",", chunks.stream().map(KnowledgeItem::contentHash).toList());
+        return new ProjectKnowledge.Entry(first.kind(), first.role(), first.ref(), 0, first.title(),
+                first.adrStatus() == null ? null : first.adrStatus().name(), false,
+                text.length() <= room ? text : cut(text, room), hash);
+    }
+
+    /** Coupe à la dernière ligne de titre avant la limite, sinon au dernier paragraphe, sinon net. */
+    static String cut(String text, int room) {
+        int limit = Math.max(0, room - ADR_TRUNCATED.length());
+        String head = text.substring(0, Math.min(limit, text.length()));
+        int heading = head.lastIndexOf("\n#");
+        int paragraph = head.lastIndexOf("\n\n");
+        int end = heading > 0 ? heading : paragraph > 0 ? paragraph : head.length();
+        return text.substring(0, end).stripTrailing() + ADR_TRUNCATED;
     }
 
     private static Optional<KnowledgeItem> inForce(KnowledgeItem adr, List<KnowledgeItem> all) {
@@ -159,33 +198,17 @@ public class SelectKnowledge implements SessionKnowledge {
             if (status != AdrStatus.SUPERSEDED) {
                 return status == AdrStatus.DEPRECATED ? Optional.empty() : Optional.of(current);
             }
-            String number = number(current.supersededBy());
-            if (number == null) {
+            OptionalInt number = AdrNumber.ofCited(current.supersededBy());
+            if (number.isEmpty()) {
                 return Optional.empty();
             }
-            current = all.stream().filter(a -> number.equals(number(fileName(a.ref())))
-                    || number.equals(number(a.title()))).findFirst().orElse(null);
+            current = all.stream().filter(a -> AdrNumber.of(a.ref(), a.title()).equals(number)).findFirst()
+                    .orElse(null);
             if (current == null) {
                 return Optional.empty();
             }
         }
         return Optional.empty();
-    }
-
-    private static String number(String text) {
-        if (text == null) {
-            return null;
-        }
-        Matcher m = ADR_NUMBER.matcher(text);
-        if (m.find()) {
-            return m.group(1);
-        }
-        Matcher leading = LEADING_NUMBER.matcher(text);
-        return leading.find() ? leading.group(1) : null;
-    }
-
-    private static String fileName(String ref) {
-        return ref.substring(ref.lastIndexOf('/') + 1);
     }
 
     /**

@@ -131,11 +131,12 @@ class SelectKnowledgeTest {
         assertThat(roles.getFirst().ref()).isIn("facturation/glossaire.html", "facturation/architecture.html");
     }
 
+    /** Des ADR de 2 500 caractères passent entiers : deux tiennent dans les 6 000 (004, research.md R4). */
     @Test
-    void quatreAdrAuPlusEtUnAdrRemplaceParSonSuccesseur() {
+    void adrEntiersEtUnAdrRemplaceParSonSuccesseur() {
         ProjectKnowledge k = select.forQuestions(session, List.of());
         List<ProjectKnowledge.Entry> adrs = k.entries().stream().filter(e -> e.kind() == KnowledgeKind.ADR).toList();
-        assertThat(adrs).hasSize(4);
+        assertThat(adrs).hasSize(2).allSatisfy(e -> assertThat(e.text()).hasSize(2_500));
         assertThat(size(k, KnowledgeKind.ADR)).isLessThanOrEqualTo(6_000);
         assertThat(adrs).extracting(ProjectKnowledge.Entry::ref)
                 .doesNotContain("facturation/adr/adr-002.html", "facturation/adr/adr-003.html")
@@ -157,6 +158,95 @@ class SelectKnowledgeTest {
         List<ProjectKnowledge.Entry> adrs = select.forQuestions(session, List.of()).entries().stream()
                 .filter(e -> e.kind() == KnowledgeKind.ADR).toList();
         assertThat(adrs).extracting(ProjectKnowledge.Entry::ref).containsExactly("projet/adr/0005-zz.html");
+    }
+
+    // ---------- 004, US3 : l'ADR entier ----------
+
+    void onlyAdrs() {
+        index.items.get(P).keySet().removeIf(k -> k.kind() == KnowledgeKind.ADR);
+    }
+
+    void adrChunk(String ref, int chunk, String title, String body, AdrStatus status, String supersededBy) {
+        index.save(KnowledgeItem.adr(P, ref, chunk, title, body, AdrStatus.Statement.of(status, supersededBy), T, T),
+                null, null);
+    }
+
+    List<ProjectKnowledge.Entry> adrEntries() {
+        return select.forQuestions(session, List.of()).entries().stream().filter(e -> e.kind() == KnowledgeKind.ADR)
+                .toList();
+    }
+
+    /** US3-1, US3-2 : un morceau retenu fait transmettre l'ADR entier, une fois, morceaux dans l'ordre. */
+    @Test
+    void morceauRetenuAdrEntierUneSeuleFois() {
+        onlyAdrs();
+        adrChunk("adr/0017-bff.html", 0, "17. BFF", "## Contexte\n\nZz qq.", AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0017-bff.html", 1, "17. BFF", "## Décision\n\nWw kk.", AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0017-bff.html", 2, "17. BFF", "## Conséquences\n\nUne facture annulée par un avoir total.",
+                AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0017-bff.html", 3, "17. BFF", "Le gestionnaire émet l'avoir.", AdrStatus.ACCEPTED, null);
+        assertThat(adrEntries()).singleElement().satisfies(e -> {
+            assertThat(e.ref()).isEqualTo("adr/0017-bff.html");
+            assertThat(e.chunk()).isZero();
+            assertThat(e.text()).isEqualTo("## Contexte\n\nZz qq.\n\n## Décision\n\nWw kk.\n\n## Conséquences\n\n"
+                    + "Une facture annulée par un avoir total.\n\nLe gestionnaire émet l'avoir.");
+        });
+    }
+
+    /** US3-3 : les ADR passent entiers tant que le total le permet ; le premier qui ne tient pas arrête la liste. */
+    @Test
+    void adrEntiersDansLeBudget() {
+        onlyAdrs();
+        adrChunk("adr/0001-a.html", 0, "1. A", text("Avoir et facture A.", 3_000), AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0002-b.html", 0, "2. B", text("Avoir et facture B.", 2_500), AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0003-c.html", 0, "3. C", text("Avoir et facture C.", 2_000), AdrStatus.ACCEPTED, null);
+        List<ProjectKnowledge.Entry> adrs = adrEntries();
+        assertThat(adrs).extracting(ProjectKnowledge.Entry::ref).containsExactly("adr/0001-a.html", "adr/0002-b.html");
+        assertThat(adrs).allSatisfy(e -> assertThat(e.text()).doesNotContain("…").doesNotContain("[ADR tronqué]"));
+        assertThat(adrs.get(0).text()).hasSize(3_000);
+    }
+
+    /** US3-3 : un ADR plus long que sa part est coupé à la dernière section complète, et le dit. */
+    @Test
+    void adrTropLongCoupeAUneSection() {
+        onlyAdrs();
+        String body = "## Contexte\n\n" + text("Avoir et facture.", 1_500) + "\n\n## Décision\n\n" + "d".repeat(1_500)
+                + "\n\n## Conséquences\n\n" + "c".repeat(1_500);
+        adrChunk("adr/0004-long.html", 0, "4. Long", body, AdrStatus.ACCEPTED, null);
+        String sent = adrEntries().getFirst().text();
+        assertThat(sent).endsWith("d".repeat(1_500) + "\n\n[ADR tronqué]").doesNotContain("Conséquences");
+        assertThat(sent.length()).isLessThanOrEqualTo(SelectKnowledge.MAX_ADR_PART);
+
+        onlyAdrs();
+        String paragraphs = text("Avoir et facture.", 1_900) + "\n\n" + "e".repeat(1_900) + "\n\n" + "f".repeat(1_900);
+        adrChunk("adr/0005-plat.html", 0, "5. Plat", paragraphs, AdrStatus.ACCEPTED, null);
+        assertThat(adrEntries().getFirst().text()).endsWith("e".repeat(1_900) + "\n\n[ADR tronqué]");
+    }
+
+    /** US3-4 : un ADR remplacé retenu cède la place à son successeur, transmis entier. */
+    @Test
+    void successeurTransmisEntier() {
+        onlyAdrs();
+        adrChunk("adr/0002-ancien.html", 0, "2. Ancien", "Avoir et facture, version synchrone.", AdrStatus.SUPERSEDED,
+                "ADR-0006");
+        adrChunk("adr/0006-nouveau.html", 0, "6. Nouveau", "Partie un.", AdrStatus.ACCEPTED, null);
+        adrChunk("adr/0006-nouveau.html", 1, "6. Nouveau", "Partie deux.", AdrStatus.ACCEPTED, null);
+        assertThat(adrEntries()).singleElement().satisfies(e -> {
+            assertThat(e.ref()).isEqualTo("adr/0006-nouveau.html");
+            assertThat(e.text()).isEqualTo("Partie un.\n\nPartie deux.");
+        });
+    }
+
+    /** US3-5 et quatre ADR au plus. */
+    @Test
+    void reproductibleEtQuatreAdrAuPlus() {
+        onlyAdrs();
+        for (int i = 1; i <= 6; i++) {
+            adrChunk("adr/000" + i + "-x.html", 0, i + ". X", "Avoir et facture " + i + ".", AdrStatus.ACCEPTED, null);
+        }
+        List<ProjectKnowledge.Entry> first = adrEntries();
+        assertThat(first).hasSize(4);
+        assertThat(adrEntries()).isEqualTo(first);
     }
 
     @Test
