@@ -377,6 +377,36 @@ class AntoraReaderTest {
         assertThat(notAdr.sections()).allSatisfy(sec -> assertThat(sec.kind()).isEqualTo(KnowledgeKind.DOC_SECTION));
     }
 
+    /**
+     * Convention adr-tools / Log4brains : fichier numéroté dans un dossier {@code adr}, titre « N. … »,
+     * statut dans une liste. Hors d'un dossier de décisions, un fichier numéroté n'est pas un ADR.
+     */
+    @Test
+    void adrNumeroteDansUnDossierAdrAvecStatutEnListe() {
+        String html = """
+                <html><body><article class="doc"><h1 class="page">2. Un seul module responsable du schéma</h1>
+                <div id="preamble"><div class="sectionbody"><div class="ulist"><ul>
+                <li><p>Statut: accepté</p></li><li><p>Date: 01/10/2026</p></li></ul></div></div></div>
+                <div class="sect1"><h2 id="_contexte">Contexte</h2><div class="sectionbody">
+                <div class="paragraph"><p>Plusieurs modules écrivent dans les mêmes tables.</p></div></div></div>
+                <div class="sect1"><h2 id="_decision">Décision</h2><div class="sectionbody">
+                <div class="paragraph"><p>Un seul module possède le schéma.</p></div></div></div>
+                </article></body></html>""";
+        for (String ref : List.of("projet/adr/0002-un-seul-module.html", "projet/adrs/0002-un-seul-module.html",
+                "projet/decisions/0002-un-seul-module.html")) {
+            Page p = AntoraReader.page(ref, html, "http://doc/").orElseThrow();
+            assertThat(p.sections()).as(ref).singleElement().satisfies(sec -> {
+                assertThat(sec.kind()).isEqualTo(KnowledgeKind.ADR);
+                assertThat(sec.adr()).isEqualTo(AdrStatus.Statement.of(AdrStatus.ACCEPTED, null));
+            });
+        }
+        String plain = html.replace("2. Un seul module responsable du schéma", "2. Installation");
+        assertThat(AntoraReader.page("projet/guide/0002-installation.html", plain, "http://doc/").orElseThrow()
+                .sections()).allSatisfy(sec -> assertThat(sec.kind()).isEqualTo(KnowledgeKind.DOC_SECTION));
+        assertThat(AntoraReader.page("projet/adr/index.html", plain, "http://doc/").orElseThrow().sections())
+                .allSatisfy(sec -> assertThat(sec.kind()).isEqualTo(KnowledgeKind.DOC_SECTION));
+    }
+
     @Test
     void sectionLongueDecoupeeEnMorceaux() {
         StringBuilder paragraphs = new StringBuilder();

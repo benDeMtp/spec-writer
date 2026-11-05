@@ -10,13 +10,17 @@ import java.util.regex.Pattern;
 /**
  * Reconnaît une page d'ADR et lit son statut (research.md R20). Une page est un ADR si son titre
  * cite {@code ADR-<n>} ou « Architecture Decision Record », ou si son fichier s'appelle
- * {@code adr-<n>} ; une page d'index sous {@code adr/} n'en est pas un.
+ * {@code adr-<n>}, ou s'il est numéroté dans un dossier {@code adr}, {@code adrs} ou {@code decisions}
+ * (convention adr-tools) ; une page d'index sous {@code adr/} n'en est pas un. La ligne de statut
+ * peut être un élément de liste.
  */
 final class AdrParser {
 
     private static final Pattern TITLE = Pattern.compile("\\badr[-_ ]?\\d+\\b|architecture decision record");
     private static final Pattern FILE = Pattern.compile("(^|/)adr[-_]?\\d+[^/]*\\.html?$");
-    private static final Pattern STATUS_LINE = Pattern.compile("(?m)^\\s*(?:statut|status)\\s*:\\s*(.+)$");
+    /** Convention adr-tools / Log4brains : {@code adr/0002-titre.html}, dans un dossier de décisions. */
+    private static final Pattern NUMBERED = Pattern.compile("(^|/)(adr|adrs|decisions)/\\d+[-_][^/]*\\.html?$");
+    private static final Pattern STATUS_LINE = Pattern.compile("(?m)^\\s*(?:[-*•]\\s*)?(?:statut|status)\\s*:\\s*(.+)$");
     private static final Pattern STATUS_TITLE = Pattern.compile("^(?:statut|status)$");
 
     private AdrParser() {
@@ -24,7 +28,8 @@ final class AdrParser {
 
     static boolean isAdr(String ref, String title) {
         String path = ref == null ? "" : ref.toLowerCase(Locale.ROOT).replaceAll("[?#].*$", "");
-        return FILE.matcher(path).find() || title != null && TITLE.matcher(fold(title)).find();
+        return FILE.matcher(path).find() || NUMBERED.matcher(path).find()
+                || title != null && TITLE.matcher(fold(title)).find();
     }
 
     /**

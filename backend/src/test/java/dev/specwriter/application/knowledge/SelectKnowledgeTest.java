@@ -144,6 +144,21 @@ class SelectKnowledgeTest {
                 || s.equals("PROPOSED"));
     }
 
+    /** Convention adr-tools : le successeur « ADR-0005 » est le fichier 0005-… ou le titre « 5. … ». */
+    @Test
+    void successeurRetrouveParLeNumeroDeSonFichier() {
+        index.items.get(P).keySet().removeIf(k -> k.kind() == KnowledgeKind.ADR);
+        index.save(KnowledgeItem.adr(P, "projet/adr/0002-avoir-synchrone.html", 0, "2. Avoir synchrone",
+                text("Décision sur l'avoir et la facture.", 1_000), AdrStatus.Statement.of(AdrStatus.SUPERSEDED,
+                        "ADR-0005"), T, T), null, null);
+        // sans aucun terme commun avec le besoin : retenu seulement comme successeur
+        index.save(KnowledgeItem.adr(P, "projet/adr/0005-zz.html", 0, "5. Zz", "Qq.",
+                AdrStatus.Statement.of(AdrStatus.ACCEPTED, null), T, T), null, null);
+        List<ProjectKnowledge.Entry> adrs = select.forQuestions(session, List.of()).entries().stream()
+                .filter(e -> e.kind() == KnowledgeKind.ADR).toList();
+        assertThat(adrs).extracting(ProjectKnowledge.Entry::ref).containsExactly("projet/adr/0005-zz.html");
+    }
+
     @Test
     void troisTicketsRetenus() {
         ProjectKnowledge k = select.forQuestions(session, List.of());

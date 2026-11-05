@@ -81,6 +81,15 @@ class KnowledgeItemTest {
         assertThat(adr.adrStatus()).isEqualTo(AdrStatus.SUPERSEDED);
     }
 
+    /** Convention adr-tools : successeur cité par son seul numéro. */
+    @Test
+    void successeurCiteParSonNumero() {
+        assertThat(AdrStatus.parse("Statut : Remplacé par 0005"))
+                .isEqualTo(AdrStatus.Statement.of(AdrStatus.SUPERSEDED, "ADR-0005"));
+        assertThat(AdrStatus.parse("Status: Superseded by [5. Trois domaines](0005-trois-domaines.md)"))
+                .isEqualTo(AdrStatus.Statement.of(AdrStatus.SUPERSEDED, "ADR-5"));
+    }
+
     @Test
     void statutDAdrLuDansLaPage() {
         assertThat(AdrStatus.parse("Statut : Accepté")).isEqualTo(AdrStatus.Statement.of(AdrStatus.ACCEPTED, null));

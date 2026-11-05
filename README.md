@@ -95,7 +95,8 @@ La page **Contexte** d'un projet déclare ce que l'outil doit connaître :
 - **Jira** : la clé du projet (sinon celle de la configuration). Les tickets sont copiés dans un
   index local, puis tenus à jour en tâche de fond, sans dépasser 8 requêtes par seconde.
 - **Documentation Antora** : l'adresse du site généré, ou un dossier local de pages HTML. Les ADR
-  sont reconnus, avec leur statut.
+  sont reconnus, avec leur statut : pages `adr-<n>`, titres « ADR-<n> », ou pages numérotées d'un
+  dossier `adr/`, `adrs/` ou `decisions/` (convention adr-tools, `0002-titre.html`).
 - **Architecture** : le `workspace.dsl` Structurizr d'un dossier local (`workspace extends`,
   `!include`, `!element`, `!docs` et `!adrs` sont suivis ; un `!script` n'est jamais exécuté, il est
   ignoré avec un avertissement), et l'ownership, facultatif, qui distingue les modules propres au
