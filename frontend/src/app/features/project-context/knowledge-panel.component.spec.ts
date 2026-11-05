@@ -80,6 +80,20 @@ describe('KnowledgePanelComponent', () => {
 
   afterEach(() => ctrl.verify());
 
+  it('« N ADR » mène à la page des ADR ; « 0 ADR » non (004, FR-002)', async () => {
+    await open(STATUS, null);
+    const link = el.querySelector<HTMLAnchorElement>('.counts a');
+    expect(link?.textContent?.trim()).toBe('3 ADR');
+    expect(link?.getAttribute('href')).toBe('/projets/p1/contexte/adr');
+    expect(el.textContent).toContain("6 tickets · 7 sections de documentation · 3 ADR · 1 élément d'architecture");
+  });
+
+  it('pas de lien sans ADR', async () => {
+    await open({ ...STATUS, adrs: 0 }, null);
+    expect(el.querySelector('.counts a')).toBeNull();
+    expect(el.textContent).toContain('0 ADR');
+  });
+
   it('montre les compteurs, la synchronisation et le modèle', async () => {
     await open({ ...STATUS, partial: true, model: 'TERMS_ONLY' }, null);
     expect(el.textContent).toContain("6 tickets · 7 sections de documentation · 3 ADR · 1 élément d'architecture");

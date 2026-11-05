@@ -79,7 +79,13 @@ const KINDS: Record<KnowledgeKind, string> = {
   template: `
     @if (status(); as s) {
       <p class="counts">
-        {{ counts(s) }}
+        {{ countsBefore(s) }}
+        @if (s.adrs > 0) {
+          <a [routerLink]="['/projets', projectId(), 'contexte', 'adr']">{{ adrCount(s) }}</a>
+        } @else {
+          {{ adrCount(s) }}
+        }
+        · {{ architectureCount(s) }}
         @if (s.partial) {
           <span class="partial">Résultats partiels</span>
         }
@@ -305,13 +311,17 @@ export class KnowledgePanelComponent {
     }
   }
 
-  protected counts(s: KnowledgeStatus): string {
-    return [
-      count(s.tickets, 'ticket', 'tickets'),
-      count(s.docSections, 'section de documentation', 'sections de documentation'),
-      count(s.adrs, 'ADR', 'ADR'),
-      count(s.architectureElements, "élément d'architecture", "éléments d'architecture"),
-    ].join(' · ');
+  /** Tickets et sections, suivis de « · » : le nombre d'ADR est un lien vers leur page (004). */
+  protected countsBefore(s: KnowledgeStatus): string {
+    return `${count(s.tickets, 'ticket', 'tickets')} · ${count(s.docSections, 'section de documentation', 'sections de documentation')} ·`;
+  }
+
+  protected adrCount(s: KnowledgeStatus): string {
+    return count(s.adrs, 'ADR', 'ADR');
+  }
+
+  protected architectureCount(s: KnowledgeStatus): string {
+    return count(s.architectureElements, "élément d'architecture", "éléments d'architecture");
   }
 
   protected synced(s: KnowledgeStatus): string {

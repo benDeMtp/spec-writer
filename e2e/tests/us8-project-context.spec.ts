@@ -106,6 +106,23 @@ test.describe.serial('US8 connaissance du projet', () => {
     await expect(page.locator('.counts')).toContainText('3 ADR');
     await expectNoA11yViolations(page);
 
+    // 004 : « 3 ADR » mène à la page des ADR du projet
+    await page.locator('.counts').getByRole('link', { name: '3 ADR' }).click();
+    await expect(page.getByRole('heading', { name: /ADR du projet/ })).toBeVisible();
+    const rows = page.locator('tbody tr');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toContainText('0002');
+    await expect(rows.nth(0)).toContainText("non transmis à l'IA");
+    await expect(rows.nth(0)).toContainText('ADR-005');
+    await expect(rows.nth(1)).toContainText('0004');
+    const adr5 = rows.nth(2).getByRole('link', { name: /\(nouvel onglet\)$/ });
+    await expect(adr5).toHaveAttribute('href', ADR_005);
+    await expect(adr5).toHaveAttribute('target', '_blank');
+    await expect(page.locator('.summary')).toContainText('3 ADR : 2 acceptés, 1 remplacé');
+    await expectNoA11yViolations(page);
+    await page.getByRole('link', { name: 'Contexte du projet' }).click();
+    await expect(page.locator('.counts')).toContainText('3 ADR');
+
     // recherche d'essai : rien ne part vers Jira ni vers Copilot
     await jira.delete('/__admin/requests');
     await page.getByLabel('Rechercher').fill('avoir');

@@ -72,6 +72,30 @@ export interface KnowledgeStatus {
   model: ModelState;
 }
 
+export type AdrStatus = 'ACCEPTED' | 'PROPOSED' | 'SUPERSEDED' | 'DEPRECATED' | 'UNKNOWN';
+
+/** Un ADR du projet, pour la page des ADR (004). */
+export interface AdrSummary {
+  number: number | null;
+  title: string;
+  status: AdrStatus;
+  supersededBy: string | null;
+  successorFound: boolean;
+  /** Un autre ADR porte la même valeur de numéro. */
+  duplicate: boolean;
+  /** Faux si remplacé ou obsolète. */
+  sentToAi: boolean;
+  /** Page de l'ADR : adresse du site, ou fichier servi par l'outil ; null si introuvable. */
+  url: string | null;
+}
+
+/** ADR du projet, triés par numéro, et leur nombre par statut (004). */
+export interface AdrList {
+  adrs: AdrSummary[];
+  byStatus: Partial<Record<AdrStatus, number>>;
+  indexing: boolean;
+}
+
 export type IndexationMode = 'FULL' | 'INCREMENTAL';
 export type IndexationStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
 export type IndexationStep = 'MODEL' | 'JIRA' | 'DOCUMENTATION' | 'ARCHITECTURE' | 'EMBEDDING';
