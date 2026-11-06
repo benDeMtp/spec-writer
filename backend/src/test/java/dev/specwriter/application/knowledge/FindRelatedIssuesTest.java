@@ -61,7 +61,7 @@ class FindRelatedIssuesTest {
         w.tracker.tracked.put("PROJ-9", new TrackedIssue("PROJ-9", "Facture 9", "", "En cours", "indeterminate", "Story",
                 Instant.parse("2026-11-03T10:00:00Z")));
         SynchronizeKnowledge sync = new SynchronizeKnowledge(w.projects, sources, w.docSources,
-                w.docs, (ws, o) -> null, w.jira, w.tracker, w.ticketLinks, index, embedding, w.clock);
+                w.docs, w.folder, w.fileStates, (ws, o) -> null, w.jira, w.tracker, w.ticketLinks, index, embedding, w.clock);
         indexations = new Indexations(sync, w.projects, task -> { }, w.clock, false);
         find = new FindRelatedIssues(index, embedding, w.llm, w.policy, w.jira, w.tracker, indexations, sources);
         session = Session.start(UUID.randomUUID(), P, Need.of(NEED), null, w.clock.now());

@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.specwriter.domain.port.DocSourceRepository;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.port.DocumentFileStates;
 import dev.specwriter.domain.project.DocSource;
+import dev.specwriter.domain.project.ExclusionPatterns;
 import dev.specwriter.domain.project.JiraProjectKey;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
@@ -27,6 +29,9 @@ class ProjectPersistenceIT {
 
     @Inject
     DocSourceRepository sources;
+
+    @Inject
+    DocumentFileStates files;
 
 
     UUID created;
@@ -72,6 +77,34 @@ class ProjectPersistenceIT {
         projects.delete(p.id());
         created = null;
         assertThat(sources.list(p.id())).isEmpty();
+    }
+
+    /** 006 : dossier de documents, motifs, et état des fichiers supprimé avec la source. */
+    @Test
+    void dossierDeDocumentsEtEtatDesFichiers() throws java.io.IOException {
+        Project p = Project.create(UUID.randomUUID(), ProjectName.of("Documents " + UUID.randomUUID()), null, null, T0);
+        created = p.id();
+        projects.save(p);
+        java.nio.file.Path folder = java.nio.file.Files.createTempDirectory("documents");
+        DocSource docs = DocSource.create(UUID.randomUUID(), p.id(), DocSource.Kind.DOCUMENTS, folder.toString(),
+                ExclusionPatterns.of(java.util.List.of("Archives/**", "*.xlsx")));
+        DocSource antora = DocSource.create(UUID.randomUUID(), p.id(), DocSource.Kind.FOLDER, folder.toString());
+        sources.save(docs);
+        sources.save(antora);
+        assertThat(sources.list(p.id())).containsExactly(docs, antora);
+        sources.save(docs.withExclusions(ExclusionPatterns.NONE));
+        assertThat(sources.find(docs.id())).get().extracting(DocSource::exclusions).isEqualTo(ExclusionPatterns.NONE);
+
+        java.util.Map<String, DocumentFileStates.FileState> states = new java.util.LinkedHashMap<>();
+        states.put("Specs/Aurora.docx", new DocumentFileStates.FileState(1200, T0));
+        states.put("Suivi.xlsx", new DocumentFileStates.FileState(800, T0.plusSeconds(1)));
+        files.replace(docs.id(), states);
+        assertThat(files.of(docs.id())).isEqualTo(states);
+        files.replace(docs.id(), java.util.Map.of("Suivi.xlsx", new DocumentFileStates.FileState(900, T0)));
+        assertThat(files.of(docs.id())).containsOnlyKeys("Suivi.xlsx");
+
+        sources.delete(docs.id());
+        assertThat(files.of(docs.id())).isEmpty();
     }
 
     @Test

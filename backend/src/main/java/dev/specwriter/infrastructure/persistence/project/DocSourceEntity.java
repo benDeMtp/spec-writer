@@ -30,4 +30,7 @@ public class DocSourceEntity {
     /** JSON {@code {pagesRead, pagesInError, limitReached}}, sans contenu. */
     @Column(name = "last_result")
     public String lastResult;
+
+    /** Tableau JSON des motifs d'exclusion d'un dossier de documents (006), {@code null} sinon. */
+    public String exclusions;
 }

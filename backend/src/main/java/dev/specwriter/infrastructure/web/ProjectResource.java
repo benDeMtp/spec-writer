@@ -54,12 +54,12 @@ public class ProjectResource {
     }
 
     public record DocSourceView(UUID id, String kind, String location, Instant lastReadAt, Integer pagesRead,
-            Integer pagesInError) {
+            Integer pagesInError, List<String> exclusions) {
 
         static DocSourceView of(DocSource s) {
             DocSource.ReadSummary r = s.lastResult();
             return new DocSourceView(s.id(), s.kind().name(), s.location(), s.lastReadAt(), r == null ? null : r.pagesRead(),
-                    r == null ? null : r.pagesInError());
+                    r == null ? null : r.pagesInError(), s.exclusions().patterns());
         }
     }
 

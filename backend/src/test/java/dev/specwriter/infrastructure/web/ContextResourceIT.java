@@ -74,4 +74,32 @@ class ContextResourceIT {
         api().delete("/api/projects/" + projectId + "/doc-sources/" + id).then().statusCode(204);
         api().delete("/api/projects/" + projectId + "/doc-sources/" + id).then().statusCode(404);
     }
+
+    /** 006 : dossier de documents, motifs, aperçu ; motif refusé avec le motif cité. */
+    @Test
+    void dossierDeDocumentsMotifsEtApercu(@org.junit.jupiter.api.io.TempDir Path tmp) throws java.io.IOException {
+        Path folder = dev.specwriter.support.TestDocuments.writeAll(tmp.resolve("Aurora"));
+        String base = "/api/projects/" + projectId + "/doc-sources";
+        String id = api().body(Map.of("kind", "DOCUMENTS", "location", folder.toString(), "exclusions",
+                java.util.List.of("Archives/**"))).post(base).then().statusCode(201).body("kind", equalTo("DOCUMENTS"))
+                .body("exclusions", org.hamcrest.Matchers.contains("Archives/**")).extract().path("id");
+
+        api().body(Map.of("location", folder.toString(), "exclusions", java.util.List.of("Archives/**", "*.xlsx")))
+                .post(base + "/preview").then().statusCode(200).body("retained", equalTo(6)).body("excluded", equalTo(2))
+                .body("ignored", equalTo(1)).body("excludedExamples", org.hamcrest.Matchers.contains("Archives/2023.pdf",
+                        "Suivi.xlsx")).body("ignoredExamples", org.hamcrest.Matchers.contains("vieux.doc"))
+                .body("limitReached", equalTo(false));
+
+        api().body(Map.of("exclusions", java.util.List.of("*.pdf"))).put(base + "/" + id + "/exclusions").then()
+                .statusCode(200).body("exclusions", org.hamcrest.Matchers.contains("*.pdf"));
+        api().body(Map.of("exclusions", java.util.List.of("[abc"))).put(base + "/" + id + "/exclusions").then()
+                .statusCode(422).body("userMessage", org.hamcrest.Matchers.containsString("[abc"));
+        api().body(Map.of("kind", "FOLDER", "location", folder.toString(), "exclusions", java.util.List.of("*.pdf")))
+                .post(base).then().statusCode(422);
+        api().body(Map.of("exclusions", java.util.List.of())).put(base + "/" + UUID.randomUUID() + "/exclusions").then()
+                .statusCode(404);
+        api().body(Map.of("location", tmp.resolve("absent").toString())).post(base + "/preview").then().statusCode(422);
+        api().get("/api/projects").then().body("find { it.id == '" + projectId + "' }.docSources[0].exclusions",
+                org.hamcrest.Matchers.contains("*.pdf"));
+    }
 }

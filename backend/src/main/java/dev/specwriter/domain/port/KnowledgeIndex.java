@@ -40,6 +40,12 @@ public interface KnowledgeIndex {
     /** Supprime les éléments de la sorte qui ne sont plus dans {@code keep} ; renvoie leur nombre. */
     int retain(UUID projectId, KnowledgeKind kind, Set<Key> keep);
 
+    /**
+     * Supprime les éléments de toute sorte dont la référence commence par {@code refPrefix} et qui ne
+     * sont pas dans {@code keep} (éléments d'une seule source, 006) ; renvoie leur nombre.
+     */
+    int retainUnder(UUID projectId, String refPrefix, Set<Key> keep);
+
     /** Supprime un élément (ticket supprimé dans Jira, par exemple). */
     void delete(UUID projectId, Key key);
 

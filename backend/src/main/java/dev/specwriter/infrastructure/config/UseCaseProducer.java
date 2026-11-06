@@ -30,7 +30,9 @@ import dev.specwriter.application.session.ResolveRelatedIssue;
 import dev.specwriter.application.jira.RetryRelatedLink;
 import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.application.knowledge.KnowledgeQueries;
+import dev.specwriter.domain.port.DocumentFileStates;
 import dev.specwriter.domain.port.DocumentFiles;
+import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.application.knowledge.ReadDocFile;
 import dev.specwriter.application.knowledge.ListAdrs;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
@@ -457,18 +459,19 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    ManageDocSources manageDocSources(ProjectRepository projects, DocSourceRepository docSources, IdGenerator ids) {
-        return new ManageDocSources(projects, docSources, ids);
+    ManageDocSources manageDocSources(ProjectRepository projects, DocSourceRepository docSources, IdGenerator ids,
+            KnowledgeIndex index, DocumentFolder folder) {
+        return new ManageDocSources(projects, docSources, ids, index, folder);
     }
 
     @Produces
     @ApplicationScoped
     SynchronizeKnowledge synchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
-            DocSourceRepository docSources, DocumentationReader reader, ArchitectureReader architecture, JiraAccess jira,
-            IssueTracker tracker, TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding,
-            ClockPort clock) {
-        return new SynchronizeKnowledge(projects, sources, docSources, reader, architecture, jira, tracker, links, index,
-                embedding, clock);
+            DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
+            DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
+            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
+        return new SynchronizeKnowledge(projects, sources, docSources, reader, folder, fileStates, architecture, jira,
+                tracker, links, index, embedding, clock);
     }
 
     @Produces

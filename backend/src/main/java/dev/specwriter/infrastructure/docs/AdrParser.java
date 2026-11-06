@@ -17,9 +17,12 @@ import java.util.regex.Pattern;
 final class AdrParser {
 
     private static final Pattern TITLE = Pattern.compile("\\badr[-_ ]?\\d+\\b|architecture decision record");
-    private static final Pattern FILE = Pattern.compile("(^|/)adr[-_]?\\d+[^/]*\\.html?$");
-    /** Convention adr-tools / Log4brains : {@code adr/0002-titre.html}, dans un dossier de décisions. */
-    private static final Pattern NUMBERED = Pattern.compile("(^|/)(adr|adrs|decisions)/\\d+[-_][^/]*\\.html?$");
+    private static final Pattern FILE = Pattern.compile("(^|/)adr[-_]?\\d+[^/]*\\.(?:html?|docx|pdf)$");
+    /**
+     * Convention adr-tools / Log4brains : {@code adr/0002-titre.html}, dans un dossier de décisions ;
+     * aussi en Word ou en PDF dans un dossier de documents (006).
+     */
+    private static final Pattern NUMBERED = Pattern.compile("(^|/)(adr|adrs|decisions)/\\d+[-_][^/]*\\.(?:html?|docx|pdf)$");
     private static final Pattern STATUS_LINE = Pattern.compile("(?m)^\\s*(?:[-*•]\\s*)?(?:statut|status)\\s*:\\s*(.+)$");
     private static final Pattern STATUS_TITLE = Pattern.compile("^(?:statut|status)$");
 

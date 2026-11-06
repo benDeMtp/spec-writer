@@ -8,7 +8,15 @@ import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.support.JiraWorld;
+import dev.specwriter.domain.knowledge.KnowledgeItem;
+import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.port.DocumentFolder;
+import dev.specwriter.support.InMemoryKnowledgeIndex;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
 
 /** Fiche générale et sources de documentation d'un projet (FR-008, FR-013 de 002). */
@@ -17,7 +25,8 @@ class ContextUseCasesTest {
     static final UUID P = Project.DEFAULT_ID;
     final JiraWorld w = new JiraWorld();
     final EditContext edit = new EditContext(w.projects, w.clock);
-    final ManageDocSources sources = new ManageDocSources(w.projects, w.docSources, w.ids);
+    final InMemoryKnowledgeIndex index = new InMemoryKnowledgeIndex();
+    final ManageDocSources sources = new ManageDocSources(w.projects, w.docSources, w.ids, index, w.folder);
 
     @Test
     void ficheGeneraleEnregistreeEtDatee() {
@@ -27,6 +36,52 @@ class ContextUseCasesTest {
         assertThat(w.projects.find(P).orElseThrow().context().markdown()).isEqualTo("## Acteurs\n- Le gestionnaire.");
         assertThatThrownBy(() -> edit.run(UUID.randomUUID(), "x")).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.PROJECT_NOT_FOUND));
+    }
+
+    /** 006 : dossier de documents avec ses motifs ; le supprimer retire ses éléments, et eux seuls. */
+    @Test
+    void dossierDeDocumentsAjouteEtSupprime(@TempDir Path folder) {
+        DocSource docs = sources.add(P, DocSource.Kind.DOCUMENTS, folder.toString(), List.of("Archives/**", " "));
+        assertThat(docs.exclusions().patterns()).containsExactly("Archives/**");
+        Instant t = w.clock.now();
+        index.save(KnowledgeItem.docSection(P, DocumentFolder.prefix(docs) + "a.docx#0", 0, "A", "a", null, t, t), null, null);
+        index.save(KnowledgeItem.docSection(P, "guide.html#_a", 0, "Guide", "g", null, t, t), null, null);
+
+        sources.delete(P, docs.id());
+
+        assertThat(index.all(P, KnowledgeKind.DOC_SECTION)).extracting(KnowledgeItem::ref).containsExactly("guide.html#_a");
+        assertThatThrownBy(() -> sources.add(P, DocSource.Kind.FOLDER, folder.toString(), List.of("*.pdf")))
+                .isInstanceOf(DomainException.class);
+    }
+
+    /** 006, US2 : motifs modifiés, et aperçu sans indexation (10 exemples au plus). */
+    @Test
+    void motifsEtApercu(@TempDir Path folder) {
+        DocSource docs = sources.add(P, DocSource.Kind.DOCUMENTS, folder.toString(), List.of());
+        for (int i = 0; i < 12; i++) {
+            w.folder.put(folder.toString(), "Specs/doc" + i + ".docx", 1, w.clock.now(), null);
+        }
+        w.folder.put(folder.toString(), "Archives/2023.pdf", 1, w.clock.now(), null);
+        w.folder.ignored.put(folder.toString(), List.of("vieux.doc"));
+
+        ManageDocSources.Preview preview = sources.preview(P, folder.toString(), List.of("Archives/**"));
+
+        assertThat(preview.retained()).isEqualTo(12);
+        assertThat(preview.excluded()).isEqualTo(1);
+        assertThat(preview.ignored()).isEqualTo(1);
+        assertThat(preview.retainedExamples()).hasSize(10).first().isEqualTo("Specs/doc0.docx");
+        assertThat(preview.excludedExamples()).containsExactly("Archives/2023.pdf");
+        assertThat(preview.ignoredExamples()).containsExactly("vieux.doc");
+        assertThat(w.folder.reads).isEmpty();
+
+        DocSource changed = sources.setExclusions(P, docs.id(), List.of("*.pdf"));
+        assertThat(changed.exclusions().patterns()).containsExactly("*.pdf");
+        assertThat(w.docSources.find(docs.id())).contains(changed);
+        assertThatThrownBy(() -> sources.setExclusions(P, docs.id(), List.of("/abs"))).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> sources.setExclusions(UUID.randomUUID(), docs.id(), List.of()))
+                .isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> sources.preview(P, folder.resolve("absent").toString(), List.of()))
+                .isInstanceOf(DomainException.class);
     }
 
     @Test

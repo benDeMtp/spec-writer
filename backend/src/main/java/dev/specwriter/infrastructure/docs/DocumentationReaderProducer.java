@@ -1,6 +1,7 @@
 package dev.specwriter.infrastructure.docs;
 
 import dev.specwriter.domain.port.ClockPort;
+import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.domain.port.DocumentationReader;
 import dev.specwriter.infrastructure.platform.ProxySettings;
 import jakarta.enterprise.inject.Produces;
@@ -13,5 +14,12 @@ public class DocumentationReaderProducer {
     @Singleton
     DocumentationReader documentationReader(ProxySettings proxy, ClockPort clock) {
         return new AntoraReader(proxy, clock, AntoraReader.Limits.DEFAULT);
+    }
+
+    /** Dossier de documents (006), aux limites de research.md R7. */
+    @Produces
+    @Singleton
+    DocumentFolder documentFolder() {
+        return new LocalDocumentFolder(DocumentFolder.Limits.DEFAULT);
     }
 }

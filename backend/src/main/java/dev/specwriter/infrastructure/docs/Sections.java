@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jsoup.nodes.Element;
 
@@ -25,6 +26,7 @@ final class Sections {
     private static final int MAX_TITLE = KnowledgeItem.MAX_TITLE;
     private static final Pattern VOCABULARY = Pattern.compile("glossaire|glossary|vocabulaire|vocabulary|lexique");
     private static final Pattern OVERVIEW = Pattern.compile("^architecture\\b|vue d'ensemble|overview");
+    private static final Pattern HEADING_LINE = Pattern.compile("^#{1,3} (.+)$");
 
     private Sections() {
     }
@@ -70,6 +72,45 @@ final class Sections {
             String sectionTitle = anchors.get(part.getKey()).equals(ref) ? title : part.getKey().replaceAll(" \\(\\d+\\)$", "");
             sections.addAll(chunks(anchors.get(part.getKey()), sectionTitle, part.getValue(), KnowledgeKind.DOC_SECTION,
                     null, role));
+        }
+        return sections;
+    }
+
+    /**
+     * Document d'un dossier de documents (006) : texte structuré par {@link Extracted}, coupé aux
+     * titres {@code #} à {@code ###} ; un ADR (chemin ou titre) reste un seul élément, entier. Le
+     * titre d'une section reprend celui du document.
+     */
+    static List<Section> ofText(String ref, String title, String text) {
+        List<Map.Entry<String, String>> parts = new ArrayList<>();
+        String current = title;
+        StringBuilder body = new StringBuilder();
+        for (String line : text.split("\n", -1)) {
+            Matcher heading = HEADING_LINE.matcher(line);
+            if (heading.matches()) {
+                parts.add(Map.entry(current, body.toString().strip()));
+                current = heading.group(1).strip();
+                body.setLength(0);
+            } else {
+                body.append(line).append('\n');
+            }
+        }
+        parts.add(Map.entry(current, body.toString().strip()));
+        if (AdrParser.isAdr(ref, title)) {
+            Map<String, String> byTitle = new LinkedHashMap<>();
+            parts.forEach(e -> byTitle.putIfAbsent(e.getKey(), e.getValue()));
+            return chunks(ref, title, text, KnowledgeKind.ADR, AdrParser.statement(text, byTitle), null);
+        }
+        KnowledgeRole pageRole = role(title, true);
+        List<Section> sections = new ArrayList<>();
+        int n = 0;
+        for (Map.Entry<String, String> part : parts) {
+            if (part.getValue().isBlank()) {
+                continue;
+            }
+            KnowledgeRole role = pageRole != null ? pageRole : role(part.getKey(), false);
+            String sectionTitle = part.getKey().equals(title) ? title : title + " — " + part.getKey();
+            sections.addAll(chunks(ref + "#" + n++, sectionTitle, part.getValue(), KnowledgeKind.DOC_SECTION, null, role));
         }
         return sections;
     }
