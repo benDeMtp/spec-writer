@@ -130,6 +130,23 @@ test.describe.serial('US8 connaissance du projet', () => {
     await expect(page.getByRole('list', { name: 'Résultats' })).toContainText('FACT-');
     const sent = await (await jira.post('/__admin/requests/count', { data: { urlPattern: '/rest/.*' } })).json();
     expect(sent.count).toBe(0);
+
+    // 005 : réindexer la seule documentation, sans relire Jira ni le modèle d'architecture
+    await jira.delete('/__admin/requests');
+    await page.getByRole('button', { name: 'Réindexer des sources…' }).click();
+    const choice = page.getByRole('group', { name: 'Sources à réindexer' });
+    await expect(choice.getByRole('checkbox')).toHaveCount(3);
+    await expectNoA11yViolations(page);
+    await choice.getByRole('checkbox', { name: `Documentation : ${jiraURL}/antora-knowledge/` }).check();
+    await choice.getByRole('button', { name: 'Réindexer la sélection' }).click();
+    await expect(page.locator('.reindexed')).toContainText(`Sources réindexées : Documentation : ${jiraURL}/antora-knowledge/`, {
+      timeout: 60_000,
+    });
+    const reread = await (await jira.post('/__admin/requests/count', { data: { urlPattern: '/rest/.*' } })).json();
+    expect(reread.count).toBe(0);
+    const docs = await (await jira.post('/__admin/requests/count', { data: { urlPattern: '/antora-knowledge/.*' } })).json();
+    expect(docs.count).toBeGreaterThan(0);
+    await expect(page.locator('.counts')).toContainText('3 ADR');
   });
 
   test("P5b : un workspace dont un !include manque donne le fichier et la ligne, et garde le modèle précédent", async () => {

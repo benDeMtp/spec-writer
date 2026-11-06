@@ -2,12 +2,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   InjectionToken,
   effect,
   inject,
   input,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,6 +24,7 @@ import {
   IndexationMode,
   IndexationStep,
   IndexationTickets,
+  IndexableSource,
   KnowledgeHit,
   KnowledgeKind,
   KnowledgeStatus,
@@ -114,6 +117,9 @@ const KINDS: Record<KnowledgeKind, string> = {
         @if (g.tickets; as t) {
           <p class="meta tickets">{{ ticketsLabel(g.mode, t) }}</p>
         }
+        @if (g.sources; as ids) {
+          <p class="meta reindexed">Sources réindexées : {{ chosenLabel(ids) }}</p>
+        }
       }
       @if (g.errors.length) {
         <details class="errors-detail">
@@ -131,7 +137,22 @@ const KINDS: Record<KnowledgeKind, string> = {
       <div class="actions">
         <button mat-stroked-button type="button" (click)="start('INCREMENTAL')" [disabled]="busy()">Resynchroniser</button>
         <button mat-button type="button" (click)="start('FULL')" [disabled]="busy()">Tout réindexer</button>
+        @if (status()?.sources?.length) {
+          <button #chooseButton mat-button type="button" (click)="openChoice()" [disabled]="busy()" [attr.aria-expanded]="choosing()">Réindexer des sources…</button>
+        }
       </div>
+      @if (choosing()) {
+        <fieldset class="choice">
+          <legend #choiceLegend tabindex="-1">Sources à réindexer</legend>
+          @for (s of status()?.sources ?? []; track s.id) {
+            <label><input type="checkbox" [checked]="chosen().has(s.id)" (change)="toggle(s.id)" /> {{ sourceLabel(s) }}</label>
+          }
+          <div class="actions">
+            <button mat-stroked-button type="button" (click)="startChosen()" [disabled]="busy() || chosen().size === 0">Réindexer la sélection</button>
+            <button mat-button type="button" (click)="closeChoice()">Annuler</button>
+          </div>
+        </fieldset>
+      }
     }
 
     <form class="search" (ngSubmit)="search()" aria-label="Recherche d'essai">
@@ -224,6 +245,16 @@ const KINDS: Record<KnowledgeKind, string> = {
       margin: 0.5rem 0;
       padding-left: 1.25rem;
     }
+    .choice {
+      margin: 0.75rem 0 0;
+      border: 1px solid var(--sw-line, #ccc);
+      border-radius: 4px;
+      padding: 0.5rem 0.75rem;
+    }
+    .choice label {
+      display: block;
+      margin: 0.25rem 0;
+    }
     .actions,
     .fields {
       display: flex;
@@ -281,6 +312,11 @@ export class KnowledgePanelComponent {
   protected readonly query = signal('');
   protected readonly kind = signal<KnowledgeKind | ''>('');
   protected readonly busy = signal(false);
+  /** Choix des sources à réindexer ouvert, et sources cochées (005, US2). */
+  protected readonly choosing = signal(false);
+  protected readonly chosen = signal<ReadonlySet<string>>(new Set());
+  private readonly chooseButton = viewChild('chooseButton', { read: ElementRef<HTMLButtonElement> });
+  private readonly choiceLegend = viewChild<ElementRef<HTMLElement>>('choiceLegend');
   private readonly now = signal(this.clock());
   private ticker: ReturnType<typeof setInterval> | null = null;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -400,6 +436,52 @@ export class KnowledgePanelComponent {
       this.indexation.set(await this.api.start(id, mode));
       this.poll(id);
     });
+  }
+
+  protected openChoice(): void {
+    this.chosen.set(new Set());
+    this.choosing.set(true);
+    setTimeout(() => this.choiceLegend()?.nativeElement.focus());
+  }
+
+  protected closeChoice(): void {
+    this.choosing.set(false);
+    setTimeout(() => this.chooseButton()?.nativeElement.focus());
+  }
+
+  protected toggle(id: string): void {
+    const next = new Set(this.chosen());
+    if (!next.delete(id)) {
+      next.add(id);
+    }
+    this.chosen.set(next);
+  }
+
+  protected async startChosen(): Promise<void> {
+    const id = this.projectId();
+    const ids = (this.status()?.sources ?? []).filter((s) => this.chosen().has(s.id)).map((s) => s.id);
+    this.choosing.set(false);
+    await this.run(async () => {
+      this.indexation.set(await this.api.start(id, 'FULL', ids));
+      this.poll(id);
+    });
+  }
+
+  protected sourceLabel(s: IndexableSource): string {
+    switch (s.kind) {
+      case 'DOCUMENTATION':
+        return `Documentation : ${s.label}`;
+      case 'ARCHITECTURE':
+        return `Modèle d'architecture : ${s.label}`;
+      default:
+        return s.label;
+    }
+  }
+
+  protected chosenLabel(ids: string[]): string {
+    const known = this.status()?.sources ?? [];
+    return ids.map((id) => known.find((s) => s.id === id)).filter((s): s is IndexableSource => !!s)
+      .map((s) => this.sourceLabel(s)).join(' ; ');
   }
 
   protected async cancel(): Promise<void> {
