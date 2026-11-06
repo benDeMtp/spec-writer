@@ -20,7 +20,7 @@ const FACT: Project = {
   context: '## Acteurs\n- Le comptable',
   contextUpdatedAt: '2026-11-02T10:00:00Z',
   docSources: [
-    { id: 's1', kind: 'URL', location: 'https://docs.example.com/billing/', lastReadAt: '2026-11-02T10:00:00Z', pagesRead: 30, pagesInError: 1 },
+    { id: 's1', kind: 'URL', location: 'https://docs.example.com/billing/', lastReadAt: '2026-11-02T10:00:00Z', pagesRead: 30, pagesInError: 1, exclusions: [] },
   ],
 };
 
@@ -99,6 +99,78 @@ describe('ProjectContextPage', () => {
     await settle(fixture);
     expect(el.textContent).toContain('Fiche générale enregistrée.');
     expect(button(el, 'Enregistrer la fiche')!.disabled).toBe(true);
+  });
+
+  it("déclare un dossier de documents : aide, motifs et aperçu (006)", async () => {
+    await open(FACT);
+    (el.querySelector('mat-select .mat-mdc-select-trigger') as HTMLElement).click();
+    await settle(fixture);
+    const option = Array.from(document.querySelectorAll<HTMLElement>('mat-option')).find((o) =>
+      o.textContent?.includes('Dossier de documents'),
+    )!;
+    option.click();
+    await settle(fixture);
+    expect(el.textContent).toContain('Chemin du dossier synchronisé');
+    const help = el.querySelector('details.sync-help')!;
+    expect(help.querySelector('summary')?.textContent).toContain('Synchroniser un dossier SharePoint');
+    expect(help.textContent).toContain('Ajouter un raccourci à Mes fichiers');
+    expect(help.textContent).toContain('Toujours conserver sur cet appareil');
+
+    type(el.querySelector<HTMLInputElement>('input[name="location"]')!, '/Users/moi/OneDrive/Aurora');
+    type(el.querySelector<HTMLTextAreaElement>('textarea[name="exclusions"]')!, 'Archives/**\n\n*.xlsx ');
+    await settle(fixture);
+    button(el, 'Aperçu du dossier')!.click();
+    const preview = ctrl.expectOne('/api/projects/p1/doc-sources/preview');
+    expect(preview.request.body).toEqual({ location: '/Users/moi/OneDrive/Aurora', exclusions: ['Archives/**', '*.xlsx'] });
+    preview.flush({
+      retained: 6,
+      excluded: 2,
+      ignored: 1,
+      retainedExamples: ['Specs/Aurora.docx'],
+      excludedExamples: ['Archives/2023.pdf', 'Suivi.xlsx'],
+      ignoredExamples: ['vieux.doc'],
+      limitReached: false,
+    });
+    await settle(fixture);
+    const result = el.querySelector('.preview[role="status"]')!;
+    expect(result.textContent).toContain('6 documents retenus, 2 exclus, 1 ignoré');
+    expect(result.textContent).toContain('Archives/2023.pdf');
+    expect(result.textContent).toContain('vieux.doc');
+
+    button(el, 'Ajouter')!.click();
+    const add = ctrl.expectOne('/api/projects/p1/doc-sources');
+    expect(add.request.body).toEqual({ kind: 'DOCUMENTS', location: '/Users/moi/OneDrive/Aurora', exclusions: ['Archives/**', '*.xlsx'] });
+    add.flush({ id: 's2', kind: 'DOCUMENTS', location: '/Users/moi/OneDrive/Aurora', lastReadAt: null, pagesRead: null, pagesInError: null, exclusions: ['Archives/**', '*.xlsx'] });
+    await settle(fixture);
+    ctrl.expectOne('/api/projects').flush([FACT]);
+    await settle(fixture);
+    knowledge();
+    await settle(fixture);
+  });
+
+  it('modifie les motifs d\'un dossier de documents déclaré (006)', async () => {
+    const docs = { id: 's9', kind: 'DOCUMENTS' as const, location: '/Users/moi/OneDrive/Aurora', lastReadAt: null, pagesRead: null, pagesInError: null, exclusions: ['*.pdf'] };
+    await open({ ...FACT, docSources: [docs] });
+    expect(el.querySelector('.sources')?.textContent).toContain('Documents');
+    expect(el.querySelector('.sources')?.textContent).toContain('Exclus : *.pdf');
+    el.querySelector<HTMLButtonElement>('[aria-label="Modifier les motifs de /Users/moi/OneDrive/Aurora"]')!.click();
+    await settle(fixture);
+    const field = el.querySelector<HTMLTextAreaElement>('textarea[name="exclusions-s9"]')!;
+    expect(field.value).toBe('*.pdf');
+    type(field, '*.pdf\nArchives/**');
+    await settle(fixture);
+    button(el, 'Enregistrer les motifs')!.click();
+    const put = ctrl.expectOne('/api/projects/p1/doc-sources/s9/exclusions');
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.body).toEqual({ exclusions: ['*.pdf', 'Archives/**'] });
+    put.flush({ ...docs, exclusions: ['*.pdf', 'Archives/**'] });
+    await settle(fixture);
+    ctrl.expectOne('/api/projects').flush([{ ...FACT, docSources: [{ ...docs, exclusions: ['*.pdf', 'Archives/**'] }] }]);
+    await settle(fixture);
+    knowledge();
+    await settle(fixture);
+    expect(el.textContent).toContain('Motifs enregistrés');
+    expect(el.querySelector('textarea[name="exclusions-s9"]')).toBeNull();
   });
 
   it('ajoute puis retire une source', async () => {

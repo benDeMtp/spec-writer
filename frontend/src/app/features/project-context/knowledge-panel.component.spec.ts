@@ -151,6 +151,18 @@ describe('KnowledgePanelComponent', () => {
     expect(el.textContent).not.toContain('UNEXPECTED');
   });
 
+  it("raisons d'un dossier de documents dites en clair (006)", async () => {
+    const errors = [
+      { kind: 'PAGE' as const, location: 'Exploitation.pdf', reason: 'UNAVAILABLE', httpStatus: null, message: null },
+      { kind: 'PAGE' as const, location: 'protege.docx', reason: 'PROTECTED', httpStatus: null, message: null },
+      { kind: 'WARNING' as const, location: '/docs', reason: 'IGNORED_FORMAT', httpStatus: null, message: '2 fichier(s) ignoré(s) : format non pris en charge' },
+    ];
+    await open(STATUS, indexation({ status: 'SUCCEEDED', finishedAt: '2026-11-04T10:01:00Z', errors }));
+    expect(el.textContent).toContain('Page non lue : Exploitation.pdf (non disponible, fichier OneDrive non téléchargé hors ligne ?)');
+    expect(el.textContent).toContain('Page non lue : protege.docx (protégé par mot de passe)');
+    expect(el.textContent).toContain('Avertissement : /docs (formats non pris en charge, 2 fichier(s) ignoré(s)');
+  });
+
   it('des scripts ignorés sont des avertissements, pas des erreurs', async () => {
     const warning = (line: number) => ({
       kind: 'WARNING' as const,

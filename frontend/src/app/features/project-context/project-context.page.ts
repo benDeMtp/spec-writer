@@ -6,7 +6,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
 import { ContextApi } from '../../core/projects/context.api';
-import { DocSource, DocSourceKind, Project } from '../../core/projects/projects.model';
+import { DocSource, DocSourceKind, DocumentsPreview, Project } from '../../core/projects/projects.model';
+import { count } from '../../shared/text';
 import { ProjectsApi } from '../../core/projects/projects.api';
 import { KnowledgeApi } from '../../core/projects/knowledge.api';
 import { KnowledgePanelComponent } from './knowledge-panel.component';
@@ -38,10 +39,33 @@ import { SheetEditorComponent } from './sheet-editor.component';
             @for (s of p.docSources; track s.id) {
               <li>
                 <span class="location">{{ s.location }}</span>
-                <span class="meta">{{ s.kind === 'URL' ? 'Lien' : 'Dossier' }} · {{ lastRead(s) }}</span>
+                <span class="meta">{{ kindLabel(s) }} · {{ lastRead(s) }}</span>
+                @if (s.kind === 'DOCUMENTS') {
+                  <span class="meta">{{ s.exclusions.length ? 'Exclus : ' + s.exclusions.join(', ') : "Aucun motif d'exclusion" }}</span>
+                  <button mat-button type="button" (click)="editExclusions(s)" [attr.aria-label]="'Modifier les motifs de ' + s.location">
+                    Motifs
+                  </button>
+                }
                 <button mat-button type="button" (click)="removeSource(s)" [attr.aria-label]="'Retirer la source ' + s.location">
                   Retirer
                 </button>
+                @if (editing() === s.id) {
+                  <form class="add motifs" (ngSubmit)="saveExclusions(s)" [attr.aria-label]="'Motifs d’exclusion de ' + s.location">
+                    <mat-form-field appearance="outline" class="grow">
+                      <mat-label>Motifs d'exclusion, un par ligne</mat-label>
+                      <textarea
+                        matInput
+                        rows="4"
+                        [name]="'exclusions-' + s.id"
+                        [ngModelOptions]="{ standalone: true }"
+                        [ngModel]="editedExclusions()"
+                        (ngModelChange)="editedExclusions.set($event)"
+                      ></textarea>
+                    </mat-form-field>
+                    <button mat-stroked-button type="submit" [disabled]="busy()">Enregistrer les motifs</button>
+                    <button mat-button type="button" (click)="editing.set(null)">Annuler</button>
+                  </form>
+                }
               </li>
             }
           </ul>
@@ -52,17 +76,71 @@ import { SheetEditorComponent } from './sheet-editor.component';
           <form class="add" (ngSubmit)="addSource()" aria-label="Ajouter une source">
             <mat-form-field appearance="outline">
               <mat-label>Type</mat-label>
-              <mat-select name="kind" [value]="kind()" (selectionChange)="kind.set($event.value)">
+              <mat-select name="kind" [value]="kind()" (selectionChange)="chooseKind($event.value)">
                 <mat-option value="URL">Lien</mat-option>
                 <mat-option value="FOLDER">Dossier</mat-option>
+                <mat-option value="DOCUMENTS">Dossier de documents (SharePoint synchronisé)</mat-option>
               </mat-select>
             </mat-form-field>
             <mat-form-field appearance="outline" class="grow">
-              <mat-label>{{ kind() === 'URL' ? 'Adresse du site' : 'Chemin du dossier' }}</mat-label>
+              <mat-label>{{ locationLabel() }}</mat-label>
               <input matInput name="location" maxlength="2000" [ngModel]="location()" (ngModelChange)="location.set($event)" />
             </mat-form-field>
+            @if (kind() === 'DOCUMENTS') {
+              <mat-form-field appearance="outline" class="full">
+                <mat-label>Motifs d'exclusion (facultatif)</mat-label>
+                <textarea
+                  matInput
+                  name="exclusions"
+                  rows="3"
+                  aria-describedby="exclusions-hint"
+                  [ngModel]="exclusions()"
+                  (ngModelChange)="exclusions.set($event)"
+                ></textarea>
+              </mat-form-field>
+              <p id="exclusions-hint" class="hint full">
+                Un motif par ligne, relatif au dossier : *.xlsx exclut tous les classeurs, Archives/** un dossier et son
+                contenu, ? remplace un caractère. Word, Excel, PDF et HTML sont lus ; les autres fichiers sont ignorés.
+              </p>
+              <button mat-button type="button" (click)="previewSource()" [disabled]="!location().trim() || busy()">Aperçu du dossier</button>
+            }
             <button mat-stroked-button type="submit" [disabled]="!location().trim()">Ajouter</button>
           </form>
+          @if (kind() === 'DOCUMENTS') {
+            @if (preview(); as pv) {
+              <div class="preview" role="status">
+                <p>{{ previewLabel(pv) }}</p>
+                @if (pv.excludedExamples.length) {
+                  <p class="hint">Exclus : {{ pv.excludedExamples.join(', ') }}</p>
+                }
+                @if (pv.ignoredExamples.length) {
+                  <p class="hint">Ignorés (format) : {{ pv.ignoredExamples.join(', ') }}</p>
+                }
+                @if (pv.retainedExamples.length) {
+                  <p class="hint">Retenus : {{ pv.retainedExamples.join(', ') }}</p>
+                }
+              </div>
+            }
+            <details class="sync-help">
+              <summary>Synchroniser un dossier SharePoint</summary>
+              <ol>
+                <li>Ouvrez le dossier partagé dans SharePoint, dans le navigateur.</li>
+                <li>
+                  Sur un dossier partagé avec vous, choisissez « Ajouter un raccourci à Mes fichiers » ; pour une bibliothèque
+                  entière, « Synchroniser ». OneDrive doit être connecté à votre compte professionnel.
+                </li>
+                <li>
+                  Le dossier apparaît dans le Finder sous le nom de votre organisation, par exemple
+                  ~/Library/CloudStorage/OneDrive-Organisation/… ; copiez ce chemin ici.
+                </li>
+                <li>
+                  Pour une lecture hors ligne, clic droit sur le dossier, « Toujours conserver sur cet appareil ». Sinon,
+                  OneDrive télécharge chaque fichier lu.
+                </li>
+              </ol>
+              <p class="hint">Si « Synchroniser » n'apparaît pas, la synchronisation est désactivée par votre service informatique.</p>
+            </details>
+          }
         } @else {
           <p class="hint">Un projet a au plus 10 sources.</p>
         }
@@ -158,6 +236,15 @@ import { SheetEditorComponent } from './sheet-editor.component';
     .grow {
       flex: 1 1 18rem;
     }
+    .full {
+      flex: 1 1 100%;
+    }
+    .motifs {
+      flex: 1 1 100%;
+    }
+    .sync-help {
+      margin-top: 0.75rem;
+    }
     .sources {
       margin: 0 0 1rem;
       padding: 0;
@@ -190,6 +277,11 @@ export class ProjectContextPage {
   protected readonly project = signal<Project | null>(null);
   protected readonly kind = signal<DocSourceKind>('URL');
   protected readonly location = signal('');
+  /** Dossier de documents (006) : motifs saisis, aperçu, et motifs d'une source en cours de modification. */
+  protected readonly exclusions = signal('');
+  protected readonly preview = signal<DocumentsPreview | null>(null);
+  protected readonly editing = signal<string | null>(null);
+  protected readonly editedExclusions = signal('');
   protected readonly busy = signal(false);
   protected readonly announce = signal('');
   protected readonly workspace = signal('');
@@ -213,6 +305,55 @@ export class ProjectContextPage {
     this.project.set(p);
     this.workspace.set(p?.architectureWorkspace ?? '');
     this.ownership.set(p?.architectureOwnership ?? '');
+  }
+
+  protected kindLabel(s: DocSource): string {
+    return s.kind === 'URL' ? 'Lien' : s.kind === 'DOCUMENTS' ? 'Documents' : 'Dossier';
+  }
+
+  protected locationLabel(): string {
+    const k = this.kind();
+    return k === 'URL' ? 'Adresse du site' : k === 'DOCUMENTS' ? 'Chemin du dossier synchronisé' : 'Chemin du dossier';
+  }
+
+  protected chooseKind(kind: DocSourceKind): void {
+    this.kind.set(kind);
+    this.preview.set(null);
+  }
+
+  protected previewLabel(p: DocumentsPreview): string {
+    const label = `${count(p.retained, 'document retenu', 'documents retenus')}, ${count(p.excluded, 'exclu', 'exclus')}, ${count(p.ignored, 'ignoré', 'ignorés')}`;
+    return p.limitReached ? `${label} (limite atteinte : aperçu partiel)` : label;
+  }
+
+  protected async previewSource(): Promise<void> {
+    const p = this.project();
+    const location = this.location().trim();
+    if (!p || !location) {
+      return;
+    }
+    await this.run(async () => {
+      this.preview.set(await this.api.preview(p.id, location, lines(this.exclusions())));
+    });
+  }
+
+  protected editExclusions(s: DocSource): void {
+    this.editing.set(s.id);
+    this.editedExclusions.set(s.exclusions.join('\n'));
+  }
+
+  protected async saveExclusions(s: DocSource): Promise<void> {
+    const p = this.project();
+    if (!p) {
+      return;
+    }
+    await this.run(async () => {
+      await this.api.setExclusions(p.id, s.id, lines(this.editedExclusions()));
+      this.editing.set(null);
+      this.announce.set("Motifs enregistrés. Ils s'appliquent à la prochaine indexation du dossier.");
+      await this.load(p.id);
+      this.revision.update((n) => n + 1);
+    });
   }
 
   protected lastRead(s: DocSource): string {
@@ -242,8 +383,11 @@ export class ProjectContextPage {
       return;
     }
     await this.run(async () => {
-      await this.api.addSource(p.id, this.kind(), location);
+      const kind = this.kind();
+      await this.api.addSource(p.id, kind, location, kind === 'DOCUMENTS' ? lines(this.exclusions()) : undefined);
       this.location.set('');
+      this.exclusions.set('');
+      this.preview.set(null);
       this.announce.set('Source ajoutée. Elle est lue en arrière-plan.');
       await this.load(p.id);
       this.revision.update((n) => n + 1);
@@ -300,4 +444,12 @@ export class ProjectContextPage {
       this.busy.set(false);
     }
   }
+}
+
+/** Motifs saisis, un par ligne, sans les lignes vides. */
+function lines(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
 }
