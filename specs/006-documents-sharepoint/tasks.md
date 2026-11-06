@@ -112,7 +112,7 @@ reçoit les 5, dans l'ordre, dans le budget ; fichier absent → passages index�
 - [X] T030 E2E `e2e/tests/us8-project-context.spec.ts` : jeu de documents (T002, copié dans les fixtures E2E) déclaré en « dossier de documents » avec `Archives/**` ; aperçu ; indexation ; recherche d'essai d'un mot du PDF et d'un mot du classeur ; aucun `.docx`/`.pdf`/`.xlsx` dans le dossier de données de l'outil (SC-004) ; axe sans violation
 - [X] T031 [P] Contrat `specs/002-projets-contexte-mcp/contracts/openapi.yaml` (kind `DOCUMENTS`, `exclusions`, aperçu, nouvelles raisons) et README (dossier SharePoint synchronisé, motifs, documents dans la génération)
 - [X] T032 Gates avant commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests`, `npm --prefix e2e test`
-- [ ] T033 Évaluation réelle **avec l'accord de l'utilisateur** (prompts modifiés, environ 150 requêtes Copilot) : `env -u JAVA_TOOL_OPTIONS ./mvnw -B -pl backend verify -Peval -DskipDependencyCheck`, scores ≥ `baseline.json`, `bash ci/check-eval.sh`, commit de `last-run.json`
+- [X] T033 Évaluation réelle **avec l'accord de l'utilisateur** (prompts modifiés, environ 150 requêtes Copilot) : `env -u JAVA_TOOL_OPTIONS ./mvnw -B -pl backend verify -Peval -DskipDependencyCheck`, scores ≥ `baseline.json`, `bash ci/check-eval.sh`, commit de `last-run.json`
 - [ ] T034 Essai manuel par l'utilisateur (quickstart.md, « Essai manuel ») ; résultat dans `specs/006-documents-sharepoint/checklists/validation.md`
 
 ---
