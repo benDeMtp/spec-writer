@@ -7,7 +7,7 @@ Prérequis : environnement du `CLAUDE.md` (JDK 25, `env -u JAVA_TOOL_OPTIONS`).
 ```bash
 cd backend
 ../mvnw -B -o -q test -DskipDependencyCheck -Djacoco.skip=true -Dsurefire.failIfNoSpecifiedTests=false \
-  -Dtest='SynchronizeKnowledgeTest,IndexationScopeTest,IndexationsTest,KnowledgeResourceIT'
+  -Dtest='SynchronizeKnowledgeTest,IndexationScopeTest,KnowledgeResourceIT'
 npx --prefix ../frontend ng test --watch=false
 ```
 
@@ -17,7 +17,7 @@ npx --prefix ../frontend ng test --watch=false
 | US1-2 | `SynchronizeKnowledgeTest` | une source de documentation en erreur → l'autre indexée, aucun retrait |
 | US1-3 | `SynchronizeKnowledgeTest` | architecture en erreur → empreinte gardée, Jira et documentation indexés |
 | US1-5 | `SynchronizeKnowledgeTest` | annulation → `Cancelled` remonte |
-| US1 fin | `IndexationsTest` | statut `SUCCEEDED` avec erreurs |
+| US1 fin | `SynchronizeKnowledgeTest` (Indexations) | statut `SUCCEEDED` avec erreurs |
 | US2-2, 3, 4 | `SynchronizeKnowledgeTest` | seules les sources choisies sont lues ; pas de retrait de documentation ; date « Synchronisée le » inchangée |
 | US2-6 | `IndexationScopeTest`, `KnowledgeResourceIT` | liste vide, valeur inconnue, `INCREMENTAL` avec liste → 400 |
 | US2-1, 7 | `KnowledgeResourceIT` | `sources` du statut : seules les sources déclarées |

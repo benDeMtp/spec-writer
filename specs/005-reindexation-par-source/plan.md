@@ -25,7 +25,7 @@ Deux changements de l'indexation de la connaissance d'un projet :
 
 **Storage**: SQLite ; aucune migration
 
-**Testing**: JUnit 5 (`SynchronizeKnowledgeTest`, `IndexationScopeTest`, `IndexationsTest`), IT
+**Testing**: JUnit 5 (`SynchronizeKnowledgeTest`, `IndexationScopeTest`), IT
 Quarkus (`KnowledgeResourceIT`), Vitest (panneau), Playwright (E2E sur le jeu fictif, axe-core)
 
 **Target Platform**: poste local (macOS, Windows, Linux), navigateur récent
