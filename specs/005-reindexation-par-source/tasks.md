@@ -80,7 +80,7 @@ aucune requête Jira ; date « Synchronisée le » inchangée.
 
 - [X] T015 [P] Contrat `specs/002-projets-contexte-mcp/contracts/openapi.yaml` (`IndexationInput.sources`, `IndexationView.sources`, `KnowledgeStatus.sources`, raison `UNEXPECTED`) et README (réindexation par source)
 - [X] T016 Gates avant commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests`, `npm --prefix e2e test`
-- [ ] T017 Essai manuel par l'utilisateur (quickstart.md, « Essai manuel ») ; résultat dans `specs/005-reindexation-par-source/checklists/validation.md`
+- [X] T017 Essai manuel par l'utilisateur (quickstart.md, « Essai manuel ») ; résultat dans `specs/005-reindexation-par-source/checklists/validation.md`
 
 ---
 
