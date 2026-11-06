@@ -8,6 +8,7 @@ import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.JiraIssue;
 import dev.specwriter.domain.jira.JiraSearchPage;
 import dev.specwriter.domain.jira.RequiredField;
+import dev.specwriter.domain.jira.TrackedIssue;
 import dev.specwriter.domain.jira.TrackedIssuePage;
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +24,8 @@ public interface IssueTracker {
     String PERM_BROWSE = "BROWSE_PROJECTS";
     String PERM_CREATE = "CREATE_ISSUES";
     String PERM_EDIT = "EDIT_ISSUES";
+    /** Clés lues au plus par {@link #issuesByKeys}. */
+    int KEYS_PER_READ = 50;
 
     /** Version du serveur ({@code serverInfo}). */
     String serverVersion(JiraEndpoint endpoint);
@@ -75,6 +78,20 @@ public interface IssueTracker {
      */
     TrackedIssuePage searchUpdatedSince(JiraEndpoint endpoint, String projectKey, Instant since, int startAt,
             int maxResults);
+
+    /**
+     * Tickets du projet ouverts (catégorie de statut autre que {@code done}) ou modifiés depuis
+     * {@code since}, non nul, du plus ancien au plus récent : indexation complète qui garde les
+     * tickets fermés sans les relire (FR-002 de 003).
+     */
+    TrackedIssuePage searchOpenOrUpdatedSince(JiraEndpoint endpoint, String projectKey, Instant since, int startAt,
+            int maxResults);
+
+    /**
+     * Tickets du projet lus par clé ({@link #KEYS_PER_READ} au plus, au format {@code [A-Z][A-Z0-9_]+-\d+},
+     * sinon {@link IllegalArgumentException}) ; une clé inexistante est ignorée.
+     */
+    List<TrackedIssue> issuesByKeys(JiraEndpoint endpoint, String projectKey, List<String> keys);
 
     /** Clés de tous les tickets du projet ({@code fields=key}), pour retirer les tickets supprimés. */
     List<String> listKeys(JiraEndpoint endpoint, String projectKey);

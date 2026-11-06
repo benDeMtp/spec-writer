@@ -45,6 +45,8 @@ public class SelectKnowledge implements SessionKnowledge {
     private static final int ADR_CANDIDATES = 12;
     private static final int SUCCESSION = 5;
     private static final Pattern ADR_NUMBER = Pattern.compile("adr[-_ ]?0*(\\d+)", Pattern.CASE_INSENSITIVE);
+    /** Numéro d'un ADR adr-tools : fichier {@code 0005-titre.html}, titre « 5. Titre ». */
+    private static final Pattern LEADING_NUMBER = Pattern.compile("^0*(\\d+)(?:[-_]|\\.\\s)");
 
     private static final Logger LOG = Logger.getLogger(SelectKnowledge.class);
 
@@ -175,7 +177,11 @@ public class SelectKnowledge implements SessionKnowledge {
             return null;
         }
         Matcher m = ADR_NUMBER.matcher(text);
-        return m.find() ? m.group(1) : null;
+        if (m.find()) {
+            return m.group(1);
+        }
+        Matcher leading = LEADING_NUMBER.matcher(text);
+        return leading.find() ? leading.group(1) : null;
     }
 
     private static String fileName(String ref) {

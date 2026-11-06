@@ -71,4 +71,7 @@ public interface KnowledgeIndex {
     ArchitectureModel architecture(UUID projectId);
 
     long count(UUID projectId, KnowledgeKind kind);
+
+    /** Clés des tickets indexés fermés (catégorie {@code done}), gardés sans relecture (FR-002 de 003). */
+    Set<String> closedTickets(UUID projectId);
 }

@@ -97,6 +97,15 @@ export interface Indexation {
   stepStartedAt: string | null;
   finishedAt: string | null;
   errors: IndexationError[];
+  /** Bilan de l'étape Jira ; nul si elle n'a pas tourné (003, FR-009). */
+  tickets: IndexationTickets | null;
+}
+
+/** Tickets relus, fermés gardés sans relecture (0 en incrémental) et retirés. */
+export interface IndexationTickets {
+  read: number;
+  keptClosed: number;
+  removed: number;
 }
 
 export type KnowledgeKind = 'TICKET' | 'DOC_SECTION' | 'ADR' | 'ARCH_ELEMENT';

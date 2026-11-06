@@ -94,7 +94,7 @@ paths:
       responses: { '204': { description: Retiré } }
   /api/projects/{id}/indexations:
     post:
-      summary: Lance une synchronisation (FR-033, R20) ; FULL relit tout, INCREMENTAL seulement ce qui a changé
+      summary: Lance une synchronisation (FR-033, R20) ; FULL relit tout sauf les tickets fermés déjà indexés (003, FR-002), INCREMENTAL seulement ce qui a changé
       requestBody: { content: { application/json: { schema: { type: object, properties: { mode: { enum: [FULL, INCREMENTAL], default: INCREMENTAL } } } } } }
       responses:
         '202': { content: { application/json: { schema: { $ref: '#/components/schemas/Indexation' } } } }
@@ -385,6 +385,14 @@ components:
         stepStartedAt: { type: string, format: date-time, description: "Début de l'étape en cours, pour le minuteur" }
         finishedAt: { type: string, format: date-time }
         errors: { type: array, items: { $ref: '#/components/schemas/GenerationError' } }
+        tickets:
+          type: object
+          nullable: true
+          description: "Bilan de l'étape Jira (003, FR-009), nul si elle n'a pas tourné ; nombres seuls"
+          properties:
+            read: { type: integer, minimum: 0, description: Tickets lus dans Jira }
+            keptClosed: { type: integer, minimum: 0, description: "Tickets fermés gardés sans relecture (0 en incrémental)" }
+            removed: { type: integer, minimum: 0, description: Tickets retirés de l'index }
     GenerationError:
       type: object
       description: Sans aucun contenu de page, de ticket ni de modèle (FR-013g)

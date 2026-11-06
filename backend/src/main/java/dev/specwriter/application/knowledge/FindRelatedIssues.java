@@ -144,11 +144,14 @@ public class FindRelatedIssues {
         return new RelatedIssuesRequest.Candidate(item.ref(), item.title(), item.status(), excerpt);
     }
 
-    /** Statut relu dans Jira ; un ticket supprimé est retiré de l'index et n'est pas montré. */
+    /**
+     * Statut relu dans Jira ; un ticket supprimé est retiré de l'index et n'est pas montré. Un ticket
+     * fermé ne change plus : son statut indexé est montré comme à jour, sans requête (FR-006 de 003).
+     */
     private Optional<RelatedIssues.Issue> fresh(Project project, KnowledgeItem item, String reason,
             Optional<JiraAccess.Target> target) {
         String url = target.map(t -> t.issueUrl(item.ref())).orElse(null);
-        if (target.isPresent()) {
+        if (target.isPresent() && !item.closed()) {
             try {
                 IssueStatus status = tracker.issueStatus(target.get().endpoint(), item.ref());
                 return Optional.of(new RelatedIssues.Issue(item.ref(), item.title(), status.status(),
@@ -164,7 +167,7 @@ public class FindRelatedIssues {
             }
         }
         return Optional.of(new RelatedIssues.Issue(item.ref(), item.title(), item.status(), item.statusCategory(),
-                item.closed(), false, item.sourceUpdatedAt(), reason, url,
+                item.closed(), item.closed(), item.sourceUpdatedAt(), reason, url,
                 families.parentOf(project.id(), item.ref()).orElse(null)));
     }
 }

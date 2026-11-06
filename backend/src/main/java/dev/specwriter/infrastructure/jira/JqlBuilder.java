@@ -1,9 +1,12 @@
 package dev.specwriter.infrastructure.jira;
 
+import dev.specwriter.domain.port.IssueTracker;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -13,6 +16,7 @@ import java.util.regex.Pattern;
 final class JqlBuilder {
 
     private static final Pattern PROJECT = Pattern.compile("[A-Z][A-Z0-9_]+");
+    private static final Pattern ISSUE_KEY = Pattern.compile("[A-Z][A-Z0-9_]+-\\d+");
     private static final Pattern LUCENE = Pattern.compile("[+\\-&|!(){}\\[\\]^~*?\\\\:]");
 
     private static final DateTimeFormatter JQL_DATE = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
@@ -39,6 +43,31 @@ final class JqlBuilder {
         }
         return "project = " + projectKey + " AND updated >= \"" + JQL_DATE.format(since.minus(SINCE_MARGIN))
                 + "\" ORDER BY updated ASC";
+    }
+
+    /**
+     * Tickets ouverts ou modifiés depuis {@code since} (non nul), du plus ancien au plus récent :
+     * l'indexation complète garde les tickets fermés sans les relire (research.md R1 de 003).
+     */
+    static String openOrUpdatedSince(String projectKey, Instant since) {
+        requireProject(projectKey);
+        Objects.requireNonNull(since, "since");
+        return "project = " + projectKey + " AND (statusCategory != Done OR updated >= \""
+                + JQL_DATE.format(since.minus(SINCE_MARGIN)) + "\") ORDER BY updated ASC";
+    }
+
+    /** Tickets du projet par clé, de 1 à {@link IssueTracker#KEYS_PER_READ} clés validées. */
+    static String keys(String projectKey, List<String> keys) {
+        requireProject(projectKey);
+        if (keys == null || keys.isEmpty() || keys.size() > IssueTracker.KEYS_PER_READ) {
+            throw new IllegalArgumentException("De 1 à " + IssueTracker.KEYS_PER_READ + " clés");
+        }
+        for (String key : keys) {
+            if (key == null || !ISSUE_KEY.matcher(key).matches()) {
+                throw new IllegalArgumentException("Clé de ticket invalide");
+            }
+        }
+        return "project = " + projectKey + " AND key in (" + String.join(", ", keys) + ") ORDER BY key ASC";
     }
 
     /** Tous les tickets du projet, par clé, pour en lister les clés. */

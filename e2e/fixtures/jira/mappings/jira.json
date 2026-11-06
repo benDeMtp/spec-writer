@@ -7,7 +7,7 @@
         "urlPath": "/rest/api/2/search",
         "queryParameters": {
           "jql": {
-            "matches": "project = PROJ( AND updated >= .*)? ORDER BY (updated|key) ASC"
+            "matches": "project = PROJ( AND .*)? ORDER BY (updated|key) ASC"
           }
         }
       },

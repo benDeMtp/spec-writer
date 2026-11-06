@@ -3,6 +3,7 @@ package dev.specwriter.infrastructure.web;
 import dev.specwriter.application.knowledge.IndexationError;
 import dev.specwriter.application.knowledge.Indexations;
 import dev.specwriter.application.knowledge.Indexations.Snapshot;
+import dev.specwriter.application.knowledge.TicketSummary;
 import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
 import dev.specwriter.application.knowledge.SynchronizeKnowledge.Mode;
@@ -44,11 +45,13 @@ public class KnowledgeResource {
     }
 
     public record IndexationView(String status, String mode, String step, String current, int done, int total,
-            Instant startedAt, Instant stepStartedAt, Instant finishedAt, List<IndexationError> errors) {
+            Instant startedAt, Instant stepStartedAt, Instant finishedAt, List<IndexationError> errors,
+            TicketSummary tickets) {
 
         static IndexationView of(Snapshot s) {
             return new IndexationView(s.status().name(), s.mode().name(), s.step() == null ? null : s.step().name(),
-                    s.current(), s.done(), s.total(), s.startedAt(), s.stepStartedAt(), s.finishedAt(), s.errors());
+                    s.current(), s.done(), s.total(), s.startedAt(), s.stepStartedAt(), s.finishedAt(), s.errors(),
+                    s.tickets());
         }
     }
 

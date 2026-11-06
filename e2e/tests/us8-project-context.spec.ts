@@ -151,6 +151,16 @@ test.describe.serial('US8 connaissance du projet', () => {
   });
 
   test('P5c : tickets proches avant les questions ; un ticket fermé donne une story liée « relates to »', async () => {
+    // 003, US2 : FACT-7, fermé, est montré depuis l'index sans requête ; FACT-9, ouvert, est relu (ici en erreur)
+    await jira.delete('/__admin/requests');
+    const failing = await jira.post('/__admin/mappings', {
+      data: {
+        priority: 0,
+        request: { method: 'GET', urlPath: '/rest/api/2/issue/FACT-9', queryParameters: { fields: { equalTo: 'status,updated' } } },
+        response: { status: 500 },
+      },
+    });
+    expect(failing.status()).toBe(201);
     await page.goto('/nouveau');
     await page.getByLabel('Votre besoin').fill(NEED_AVOIR);
     await page.getByRole('button', { name: 'Commencer le questionnaire' }).click();
@@ -160,7 +170,13 @@ test.describe.serial('US8 connaissance du projet', () => {
     await expect(fact7).toContainText('Annuler une facture');
     await expect(fact7).toContainText('Terminé');
     await expect(fact7).toContainText('Le ticket annule déjà une facture émise par un avoir total.');
-    await expect(page.locator('sw-related-issues li').filter({ hasText: 'FACT-9' })).toContainText('À faire');
+    const fact9 = page.locator('sw-related-issues li').filter({ hasText: 'FACT-9' });
+    await expect(fact9).toContainText('À faire');
+    await expect(fact9).toContainText("Jira n'a pas pu être relu");
+    await expect(fact7).not.toContainText("Jira n'a pas pu être relu");
+    const fact7Reads = await jira.post('/__admin/requests/find', { data: { method: 'GET', urlPath: '/rest/api/2/issue/FACT-7' } });
+    expect((await fact7Reads.json()).requests).toHaveLength(0);
+    expect((await jira.delete(`/__admin/mappings/${(await failing.json()).id}`)).ok()).toBe(true);
     await expect(page.locator('sw-question-card')).toHaveCount(0);
     await expectNoA11yViolations(page);
 
@@ -344,7 +360,7 @@ test.describe.serial('US8 connaissance du projet', () => {
     ];
     const issues = [...base.mappings[1].response.jsonBody.issues, ...added];
     await stub({
-      request: { method: 'GET', urlPath: '/rest/api/2/search', queryParameters: { jql: { matches: 'project = FACT( AND updated >= .*)? ORDER BY updated ASC' } } },
+      request: { method: 'GET', urlPath: '/rest/api/2/search', queryParameters: { jql: { matches: 'project = FACT( AND .*)? ORDER BY (updated|key) ASC' } } },
       response: { status: 200, headers: { 'Content-Type': 'application/json' }, jsonBody: { startAt: 0, maxResults: 50, total: issues.length, issues } },
     });
     // la liste des clés du fichier de correspondances est en priorité 0 : celle-ci la remplace

@@ -38,6 +38,13 @@ public interface JiraApi extends AutoCloseable {
     Map<String, Object> search(@QueryParam("jql") String jql, @QueryParam("startAt") int startAt,
             @QueryParam("maxResults") int maxResults, @QueryParam("fields") String fields);
 
+    /** Recherche dont les valeurs inconnues (clé supprimée) ne sont que des avertissements. */
+    @GET
+    @Path("/search")
+    Map<String, Object> searchLenient(@QueryParam("jql") String jql, @QueryParam("startAt") int startAt,
+            @QueryParam("maxResults") int maxResults, @QueryParam("fields") String fields,
+            @QueryParam("validateQuery") String validateQuery);
+
     @GET
     @Path("/issue/{key}")
     Map<String, Object> issue(@PathParam("key") String key, @QueryParam("fields") String fields);

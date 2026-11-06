@@ -95,7 +95,8 @@ La page **Contexte** d'un projet déclare ce que l'outil doit connaître :
 - **Jira** : la clé du projet (sinon celle de la configuration). Les tickets sont copiés dans un
   index local, puis tenus à jour en tâche de fond, sans dépasser 8 requêtes par seconde.
 - **Documentation Antora** : l'adresse du site généré, ou un dossier local de pages HTML. Les ADR
-  sont reconnus, avec leur statut.
+  sont reconnus, avec leur statut : pages `adr-<n>`, titres « ADR-<n> », ou pages numérotées d'un
+  dossier `adr/`, `adrs/` ou `decisions/` (convention adr-tools, `0002-titre.html`).
 - **Architecture** : le `workspace.dsl` Structurizr d'un dossier local (`workspace extends`,
   `!include`, `!element`, `!docs` et `!adrs` sont suivis ; un `!script` n'est jamais exécuté, il est
   ignoré avec un avertissement), et l'ownership, facultatif, qui distingue les modules propres au
@@ -120,6 +121,13 @@ par le sens), et celles dont le cas d'usage a changé ou disparu sont signalées
 « livrée, à reprendre » si elles sont fermées. Jira n'est jamais modifié. Après la mise à jour qui
 apporte cette rubrique, la première synchronisation relit tous les tickets une fois, pour lire
 leurs liens.
+
+Un ticket fermé ne change plus : une fois indexé, il n'est plus relu dans Jira. « Tout réindexer »
+ne relit que les tickets ouverts, ceux modifiés depuis la dernière synchronisation et ceux absents
+de l'index ; un ticket rouvert est repris à la synchronisation suivante, et un ticket supprimé ou
+déplacé est retiré. Les tickets proches et les sous-tâches fermés sont montrés avec leur statut
+indexé, même quand Jira ne répond pas. La fin d'une indexation indique combien de tickets ont été
+relus, gardés sans relecture et retirés.
 
 ## Statut d'implémentation
 

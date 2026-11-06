@@ -134,7 +134,27 @@ public class JiraRestClient implements IssueTracker {
     public TrackedIssuePage searchUpdatedSince(JiraEndpoint endpoint, String projectKey, Instant since, int startAt,
             int maxResults) {
         String jql = JqlBuilder.updatedSince(projectKey, since);
-        Map<String, Object> body = call(endpoint, api -> api.search(jql, startAt, maxResults, TRACKED_FIELDS));
+        return trackedPage(endpoint, call(endpoint, api -> api.search(jql, startAt, maxResults, TRACKED_FIELDS)),
+                startAt);
+    }
+
+    @Override
+    public TrackedIssuePage searchOpenOrUpdatedSince(JiraEndpoint endpoint, String projectKey, Instant since,
+            int startAt, int maxResults) {
+        String jql = JqlBuilder.openOrUpdatedSince(projectKey, since);
+        return trackedPage(endpoint, call(endpoint, api -> api.search(jql, startAt, maxResults, TRACKED_FIELDS)),
+                startAt);
+    }
+
+    /** Les avertissements de Jira (clé supprimée entre-temps) sont ignorés, jamais journalisés. */
+    @Override
+    public List<TrackedIssue> issuesByKeys(JiraEndpoint endpoint, String projectKey, List<String> keys) {
+        String jql = JqlBuilder.keys(projectKey, keys);
+        return trackedPage(endpoint, call(endpoint, api -> api.searchLenient(jql, 0, KEYS_PER_READ, TRACKED_FIELDS,
+                "warn")), 0).issues();
+    }
+
+    private TrackedIssuePage trackedPage(JiraEndpoint endpoint, Map<String, Object> body, int startAt) {
         List<TrackedIssue> issues = new ArrayList<>();
         if (body.get("issues") instanceof List<?> list) {
             for (Object o : list) {

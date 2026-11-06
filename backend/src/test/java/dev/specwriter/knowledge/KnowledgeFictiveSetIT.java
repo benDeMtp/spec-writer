@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import dev.specwriter.application.jira.JiraAccess;
 import dev.specwriter.application.knowledge.FindRelatedIssues;
 import dev.specwriter.application.knowledge.StoryFamily;
+import dev.specwriter.domain.knowledge.KnowledgeItem;
+import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.port.EmbeddingPort;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.KnowledgeIndex;
@@ -16,6 +18,11 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.path.json.JsonPath;
 import jakarta.inject.Inject;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.Test;
 
@@ -72,6 +79,37 @@ class KnowledgeFictiveSetIT {
                         .containsExactlyInAnyOrderElementsOf(c.expectedEfforts());
             }
         }
+    }
+
+    /**
+     * 003, SC-004 : la recherche (termes, et termes avec sens) sur les tickets fermés donne les mêmes
+     * résultats avant et après une indexation complète qui les garde sans relecture.
+     */
+    @Test
+    void rechercheSurLesFermesIdentiqueApresUneIndexationComplete() throws Exception {
+        try (ReferenceSet set = new ReferenceSet(Path.of(getClass().getResource("/knowledge").toURI()))) {
+            assertThat(set.index().getString("status")).isEqualTo("SUCCEEDED");
+            UUID project = UUID.fromString(set.projectId);
+            Set<String> closed = index.closedTickets(project);
+            assertThat(closed).isNotEmpty();
+            Map<String, List<String>> before = closedResults(set, project, closed);
+
+            JsonPath again = set.reindex();
+            assertThat(again.getString("status")).isEqualTo("SUCCEEDED");
+            assertThat(set.jqlReceived()).anyMatch(q -> q.contains("statusCategory != Done"));
+            assertThat(closedResults(set, project, closed)).isEqualTo(before);
+        }
+    }
+
+    private Map<String, List<String>> closedResults(ReferenceSet set, UUID project, Set<String> closed) {
+        Map<String, List<String>> results = new LinkedHashMap<>();
+        for (ReferenceSet.Case c : set.cases) {
+            results.put("sens " + c.need(), related.candidates(project, c.need()).stream().map(KnowledgeItem::ref)
+                    .filter(closed::contains).toList());
+            results.put("termes " + c.need(), index.search(project, c.need(), null, null, List.of(KnowledgeKind.TICKET), 20)
+                    .stream().map(h -> h.item().ref()).filter(closed::contains).toList());
+        }
+        return results;
     }
 
     /**

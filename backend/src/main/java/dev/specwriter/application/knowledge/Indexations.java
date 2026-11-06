@@ -32,7 +32,8 @@ public class Indexations {
 
     /** État d'une indexation à un instant donné. */
     public record Snapshot(UUID projectId, Mode mode, Status status, Step step, String current, int done, int total,
-            Instant startedAt, Instant stepStartedAt, Instant finishedAt, List<IndexationError> errors) {
+            Instant startedAt, Instant stepStartedAt, Instant finishedAt, List<IndexationError> errors,
+            TicketSummary tickets) {
     }
 
     private final Map<UUID, Indexation> indexations = new ConcurrentHashMap<>();
@@ -132,6 +133,7 @@ public class Indexations {
         private int done;
         private int total;
         private Instant finishedAt;
+        private TicketSummary tickets;
 
         Indexation(UUID projectId, Mode mode, Instant startedAt) {
             this.projectId = projectId;
@@ -231,6 +233,11 @@ public class Indexations {
         }
 
         @Override
+        public synchronized void tickets(TicketSummary summary) {
+            tickets = summary;
+        }
+
+        @Override
         public synchronized void error(IndexationError error) {
             errors.add(error);
             LOG.warnf("Indexation de la connaissance : %s %s (%s%s)", error.kind(),
@@ -240,7 +247,7 @@ public class Indexations {
 
         synchronized Snapshot snapshot() {
             return new Snapshot(projectId, mode, status, step, current, done, total, startedAt, stepStartedAt,
-                    finishedAt, List.copyOf(errors));
+                    finishedAt, List.copyOf(errors), tickets);
         }
     }
 }

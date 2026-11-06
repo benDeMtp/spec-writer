@@ -5,6 +5,7 @@ import dev.specwriter.application.knowledge.IndexationProgress.Step;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.jira.IssueTrackerException;
+import dev.specwriter.domain.jira.JiraEndpoint;
 import dev.specwriter.domain.jira.TrackedIssue;
 import dev.specwriter.domain.jira.TrackedIssuePage;
 import dev.specwriter.domain.knowledge.ArchElement;
@@ -27,6 +28,7 @@ import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.Project;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -128,7 +130,12 @@ public class SynchronizeKnowledge {
 
     // ---------- Jira ----------
 
-    /** Tickets modifiés depuis le repère (tous en mode complet) ; renvoie le nouveau repère. */
+    /**
+     * Tickets modifiés depuis le repère ; renvoie le nouveau repère. En mode complet avec repère, les
+     * tickets fermés déjà indexés ne sont pas relus (research.md R1 de 003) : la requête ne ramène
+     * que les ouverts et les modifiés, puis la liste des clés donne les absents de l'index, lus par
+     * clé, et les supprimés, retirés. Sans repère, tout est relu (relecture unique, FR-008 de 003).
+     */
     private Instant jira(Project project, KnowledgeSource source, Mode mode, IndexationProgress progress) {
         Instant mark = source.jiraMark();
         if (!jira.configured() || !jira.consented()) {
@@ -140,24 +147,23 @@ public class SynchronizeKnowledge {
             return mark;
         }
         progress.step(Step.JIRA, 0);
-        Instant since = mode == Mode.FULL ? null : mark;
-        Instant newMark = mark;
+        if (mark == null) {
+            LOG.info("Connaissance : relecture de tous les tickets (pas de repère de synchronisation)");
+        }
+        JiraEndpoint endpoint = target.get().endpoint();
+        boolean keepClosed = mode == Mode.FULL && mark != null;
+        Reading reading = new Reading(project.id(), progress, mark);
+        int removed = 0;
+        int keptClosed = 0;
         try {
+            Instant since = mode == Mode.FULL && !keepClosed ? null : mark;
             int startAt = 0;
-            int done = 0;
             while (true) {
                 checkCancelled(progress);
-                TrackedIssuePage page = tracker.searchUpdatedSince(target.get().endpoint(), projectKey, since, startAt,
-                        JIRA_PAGE);
-                for (TrackedIssue issue : page.issues()) {
-                    index.save(ticket(project.id(), issue), null, null);
-                    // réécrits à chaque relecture : un lien ne change pas le texte indexé (research.md R29)
-                    links.replace(project.id(), issue.key(), issue.links());
-                    if (issue.updated() != null && (newMark == null || issue.updated().isAfter(newMark))) {
-                        newMark = issue.updated();
-                    }
-                    progress.advance(issue.key(), ++done, page.total());
-                }
+                TrackedIssuePage page = keepClosed
+                        ? tracker.searchOpenOrUpdatedSince(endpoint, projectKey, since, startAt, JIRA_PAGE)
+                        : tracker.searchUpdatedSince(endpoint, projectKey, since, startAt, JIRA_PAGE);
+                page.issues().forEach(issue -> reading.read(issue, page.total(), true));
                 if (page.last()) {
                     break;
                 }
@@ -165,22 +171,73 @@ public class SynchronizeKnowledge {
             }
             if (mode == Mode.FULL) {
                 checkCancelled(progress);
-                Set<Key> keep = new HashSet<>();
-                tracker.listKeys(target.get().endpoint(), projectKey)
-                        .forEach(k -> keep.add(new Key(KnowledgeKind.TICKET, k, 0)));
-                int removed = index.retain(project.id(), KnowledgeKind.TICKET, keep);
-                links.retain(project.id(), keep.stream().map(Key::ref).collect(Collectors.toSet()));
+                Set<String> keys = new LinkedHashSet<>(tracker.listKeys(endpoint, projectKey));
+                Set<String> closed = index.closedTickets(project.id());
+                if (keepClosed) {
+                    readMissing(endpoint, projectKey, keys, closed, reading);
+                }
+                Set<Key> keep = keys.stream().map(k -> new Key(KnowledgeKind.TICKET, k, 0)).collect(Collectors.toSet());
+                removed = index.retain(project.id(), KnowledgeKind.TICKET, keep);
+                links.retain(project.id(), keys);
                 if (removed > 0) {
                     LOG.infof("Connaissance : %d ticket(s) supprimé(s) de Jira retiré(s) de l'index", removed);
                 }
+                keptClosed = (int) closed.stream().filter(keys::contains).filter(k -> !reading.keys.contains(k)).count();
             }
-            return newMark;
         } catch (IssueTrackerException e) {
             LOG.warnf("Connaissance : Jira non synchronisé (%s)", e.kind());
             progress.error(new IndexationError(IndexationError.Kind.JIRA, projectKey, e.kind().name(), null,
                     "Jira n'a pas pu être synchronisé."));
-            // le repère n'avance que jusqu'au dernier ticket lu
-            return newMark;
+        } finally {
+            // le bilan est transmis même en erreur ou interruption : ce qui a déjà été fait
+            TicketSummary summary = new TicketSummary(reading.keys.size(), keptClosed, removed);
+            progress.tickets(summary);
+            LOG.infof("Connaissance : %d ticket(s) relu(s), %d fermé(s) gardé(s), %d retiré(s)", summary.read(),
+                    summary.keptClosed(), summary.removed());
+        }
+        // le repère n'avance que jusqu'au dernier ticket lu par la requête
+        return reading.mark;
+    }
+
+    /**
+     * Lit par clé, par lots, les tickets absents de l'index et les tickets indexés ouverts que la
+     * requête n'a pas ramenés (statut indexé faux) ; cette lecture n'avance pas le repère.
+     */
+    private void readMissing(JiraEndpoint endpoint, String projectKey, Set<String> keys, Set<String> closed,
+            Reading reading) {
+        Set<String> indexed = index.hashes(reading.projectId, KnowledgeKind.TICKET).keySet().stream().map(Key::ref)
+                .collect(Collectors.toSet());
+        List<String> missing = keys.stream().filter(k -> !reading.keys.contains(k))
+                .filter(k -> !indexed.contains(k) || !closed.contains(k)).toList();
+        for (int from = 0; from < missing.size(); from += IssueTracker.KEYS_PER_READ) {
+            checkCancelled(reading.progress);
+            List<String> batch = missing.subList(from, Math.min(from + IssueTracker.KEYS_PER_READ, missing.size()));
+            tracker.issuesByKeys(endpoint, projectKey, batch).forEach(issue -> reading.read(issue, missing.size(), false));
+        }
+    }
+
+    /** Tickets lus pendant l'étape Jira : écriture dans l'index, liens, avancement et repère. */
+    private final class Reading {
+        final UUID projectId;
+        final IndexationProgress progress;
+        final Set<String> keys = new HashSet<>();
+        Instant mark;
+
+        Reading(UUID projectId, IndexationProgress progress, Instant mark) {
+            this.projectId = projectId;
+            this.progress = progress;
+            this.mark = mark;
+        }
+
+        void read(TrackedIssue issue, int total, boolean advancesMark) {
+            index.save(ticket(projectId, issue), null, null);
+            // réécrits à chaque relecture : un lien ne change pas le texte indexé (research.md R29)
+            links.replace(projectId, issue.key(), issue.links());
+            if (advancesMark && issue.updated() != null && (mark == null || issue.updated().isAfter(mark))) {
+                mark = issue.updated();
+            }
+            keys.add(issue.key());
+            progress.advance(issue.key(), keys.size(), total);
         }
     }
 

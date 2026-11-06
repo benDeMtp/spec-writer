@@ -134,4 +134,15 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
     public long count(UUID projectId, KnowledgeKind kind) {
         return of(projectId).keySet().stream().filter(k -> k.kind() == kind).count();
     }
+
+    @Override
+    public java.util.Set<String> closedTickets(UUID projectId) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        of(projectId).forEach((k, e) -> {
+            if (e.item().closed()) {
+                out.add(k.ref());
+            }
+        });
+        return out;
+    }
 }

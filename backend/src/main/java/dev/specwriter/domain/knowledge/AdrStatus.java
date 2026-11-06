@@ -13,7 +13,9 @@ public enum AdrStatus {
     DEPRECATED,
     UNKNOWN;
 
-    private static final Pattern REPLACED_BY = Pattern.compile("(?:remplace par|superseded by)\\s+(adr-?\\s*\\d+)");
+    /** Successeur cité « ADR-5 », ou par son seul numéro (« 0005 », « [5. Titre](…) », convention adr-tools). */
+    private static final Pattern REPLACED_BY = Pattern.compile(
+            "(?:remplace par|superseded by)\\s+(?:adr-?\\s*|\\[)?(\\d+)");
 
     /** Statut et, pour un ADR remplacé, la référence de celui qui le remplace. */
     public record Statement(AdrStatus status, String supersededBy) {
@@ -32,8 +34,7 @@ public enum AdrStatus {
                 .toLowerCase(Locale.ROOT);
         Matcher replaced = REPLACED_BY.matcher(text);
         if (replaced.find()) {
-            return Statement.of(SUPERSEDED, replaced.group(1).replaceAll("[\\s-]", "").toUpperCase(Locale.ROOT)
-                    .replace("ADR", "ADR-"));
+            return Statement.of(SUPERSEDED, "ADR-" + replaced.group(1));
         }
         if (text.contains("remplace") || text.contains("superseded")) {
             return Statement.of(SUPERSEDED, null);

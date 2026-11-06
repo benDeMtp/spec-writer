@@ -31,6 +31,11 @@ public interface IndexationProgress {
 
     void error(IndexationError error);
 
+    /** Bilan de l'étape Jira, transmis à sa fin, même en erreur (FR-009 de 003). */
+    default void tickets(TicketSummary summary) {
+        // aucun suivi par défaut
+    }
+
     default boolean cancelled() {
         return false;
     }
