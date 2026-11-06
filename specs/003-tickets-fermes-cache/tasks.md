@@ -117,7 +117,7 @@ relu ni retiré ; changement de modèle : fermés revectorisés sans Jira.
 - [X] T027 [P] README : paragraphe « Tickets fermés » de la section connaissance du projet (fermés gardés sans relecture, réouverture prise en compte par la synchronisation, bilan affiché) dans `README.md`
 - [X] T028 Gates avant commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests`, `npm --prefix e2e test` ; puis cocher les tâches et commiter par groupe logique
 - [X] T030 Correctif relevé pendant l'essai manuel : ADR de la convention adr-tools non reconnus (`adr/0002-titre.html`, titre « 2. … », « - Statut: accepté » en liste, successeur « Remplacé par 0005 ») dans `backend/src/main/java/dev/specwriter/infrastructure/docs/AdrParser.java`, `domain/knowledge/AdrStatus.java` et `application/knowledge/SelectKnowledge.java` ; tests `AntoraReaderTest`, `KnowledgeItemTest`, `SelectKnowledgeTest`
-- [ ] T029 Essai manuel par l'utilisateur sur un projet réel (quickstart.md, « Essai manuel ») : durée de l'étape Jira avant et après, bilan affiché, réouverture d'un ticket ; noter le résultat dans `specs/003-tickets-fermes-cache/checklists/validation.md`
+- [X] T029 Essai manuel par l'utilisateur sur un projet réel (quickstart.md, « Essai manuel ») : durée de l'étape Jira avant et après, bilan affiché, réouverture d'un ticket ; noter le résultat dans `specs/003-tickets-fermes-cache/checklists/validation.md`
 
 ---
 
