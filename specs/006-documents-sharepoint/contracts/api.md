@@ -50,5 +50,5 @@ Aucun fichier n'est ouvert : noms et attributs seulement.
 - `projects.model.ts` : `DocSourceKind = 'URL' | 'FOLDER' | 'DOCUMENTS'`, `DocSource.exclusions`.
 - `context.api.ts` : `addSource(kind, location, exclusions?)`, `setExclusions`, `preview`.
 - Page « Contexte du projet » : type « Dossier de documents (SharePoint synchronisé) », champ
-  « Motifs d'exclusion » (zone de texte, un motif par ligne), bouton « Aperçu » (résultat annoncé
+  « Motifs d'exclusion » (zone de texte, un motif par ligne), bouton « Aperçu du dossier » (résultat annoncé
   par `role="status"`), aide « Synchroniser un dossier SharePoint » (étapes OneDrive).
