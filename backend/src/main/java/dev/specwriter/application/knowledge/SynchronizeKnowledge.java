@@ -27,6 +27,7 @@ import dev.specwriter.domain.port.TicketLinkRepository;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.Project;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -87,16 +88,24 @@ public class SynchronizeKnowledge {
     }
 
     public void run(UUID projectId, Mode mode, IndexationProgress progress) {
+        run(projectId, mode, IndexationScope.ALL, progress);
+    }
+
+    /**
+     * Sources choisies (005, US2) : seules elles sont lues ; la documentation ne retire rien et la
+     * date de synchronisation ne change pas, sauf pour toutes les sources.
+     */
+    public void run(UUID projectId, Mode mode, IndexationScope scope, IndexationProgress progress) {
         Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
         KnowledgeSource source = sources.find(projectId);
         Instant now = clock.now();
 
         EmbeddingPort.State model = prepareModel(progress);
-        Instant mark = jira(project, source, mode, progress);
-        documentation(projectId, progress);
+        Instant mark = scope.jira() ? jira(project, source, mode, progress) : source.jiraMark();
+        documentation(projectId, scope, progress);
         KnowledgeSource read;
         try {
-            read = architecture(source, mode, progress);
+            read = scope.architecture() ? architecture(source, mode, progress) : source;
         } catch (RuntimeException | LinkageError e) {
             if (cancelling(progress, e)) {
                 throw e;
@@ -110,7 +119,7 @@ public class SynchronizeKnowledge {
                 && Objects.equals(latest.ownership(), read.ownership())
                         ? latest.withArchitectureHash(read.architectureHash())
                         : latest;
-        sources.save(kept.synced(mark, now));
+        sources.save(scope.all() ? kept.synced(mark, now) : kept.withJiraMark(mark));
         if (model == EmbeddingPort.State.READY) {
             try {
                 vectors(projectId, progress);
@@ -121,6 +130,30 @@ public class SynchronizeKnowledge {
                 unexpected(progress, IndexationError.Kind.MODEL, null, e);
             }
         }
+    }
+
+    /** Sources proposées au choix d'une réindexation : celles que l'indexation lirait (005, R5). */
+    public List<IndexableSource> sources(UUID projectId) {
+        Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
+        List<IndexableSource> out = new ArrayList<>();
+        String projectKey = jira.configured() && jira.consented() && jira.target().isPresent()
+                ? jira.effectiveProject(project)
+                : null;
+        if (projectKey != null) {
+            out.add(new IndexableSource(IndexationScope.JIRA, IndexableSource.Kind.JIRA, "Jira " + projectKey));
+        }
+        docSources.list(projectId).forEach(d -> out.add(
+                new IndexableSource(d.id().toString(), IndexableSource.Kind.DOCUMENTATION, d.location())));
+        String workspace = sources.find(projectId).workspace();
+        if (workspace != null) {
+            out.add(new IndexableSource(IndexationScope.ARCHITECTURE, IndexableSource.Kind.ARCHITECTURE, workspace));
+        }
+        return out;
+    }
+
+    /** Sources choisies validées contre celles du projet. */
+    public IndexationScope scope(UUID projectId, List<String> ids) {
+        return IndexationScope.of(ids, docSources.list(projectId));
     }
 
     // ---------- Modèle ----------
@@ -276,8 +309,8 @@ public class SynchronizeKnowledge {
 
     // ---------- Documentation ----------
 
-    private void documentation(UUID projectId, IndexationProgress progress) {
-        List<DocSource> declared = docSources.list(projectId);
+    private void documentation(UUID projectId, IndexationScope scope, IndexationProgress progress) {
+        List<DocSource> declared = docSources.list(projectId).stream().filter(scope::includes).toList();
         if (declared.isEmpty()) {
             return;
         }
@@ -299,8 +332,9 @@ public class SynchronizeKnowledge {
                 complete = false;
             }
         }
-        // une source illisible ou une lecture bornée ne retire rien : l'index précédent reste
-        if (complete) {
+        // une source illisible ou une lecture bornée ne retire rien : l'index précédent reste ; une
+        // source choisie seule non plus, ses éléments ne disant pas de quelle source ils viennent
+        if (complete && scope.all()) {
             index.retain(projectId, KnowledgeKind.DOC_SECTION, keepSections);
             index.retain(projectId, KnowledgeKind.ADR, keepAdrs);
         }

@@ -38,6 +38,11 @@ public record KnowledgeSource(UUID projectId, String workspace, String ownership
         return new KnowledgeSource(projectId, workspace, ownership, hash, jiraMark, syncedAt);
     }
 
+    /** Repère Jira seul, sans la date de synchronisation : réindexation de sources choisies (005). */
+    public KnowledgeSource withJiraMark(Instant mark) {
+        return new KnowledgeSource(projectId, workspace, ownership, architectureHash, mark, syncedAt);
+    }
+
     public KnowledgeSource synced(Instant mark, Instant at) {
         return new KnowledgeSource(projectId, workspace, ownership, architectureHash, mark, at);
     }

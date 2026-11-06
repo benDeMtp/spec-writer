@@ -43,17 +43,18 @@ public class KnowledgeResource {
     public record ArchitectureSourceInput(String workspace, String ownership) {
     }
 
-    public record IndexationInput(String mode) {
+    /** {@code sources} : sources choisies (005), absentes pour toutes. */
+    public record IndexationInput(String mode, List<String> sources) {
     }
 
     public record IndexationView(String status, String mode, String step, String current, int done, int total,
             Instant startedAt, Instant stepStartedAt, Instant finishedAt, List<IndexationError> errors,
-            TicketSummary tickets) {
+            TicketSummary tickets, List<String> sources) {
 
         static IndexationView of(Snapshot s) {
             return new IndexationView(s.status().name(), s.mode().name(), s.step() == null ? null : s.step().name(),
                     s.current(), s.done(), s.total(), s.startedAt(), s.stepStartedAt(), s.finishedAt(), s.errors(),
-                    s.tickets());
+                    s.tickets(), s.sources());
         }
     }
 
@@ -90,7 +91,8 @@ public class KnowledgeResource {
     @Path("/indexations")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response startIndexation(@PathParam("id") String id, IndexationInput input) {
-        Snapshot s = indexations.start(ProjectResource.projectId(id), mode(input == null ? null : input.mode()));
+        Snapshot s = indexations.start(ProjectResource.projectId(id), mode(input == null ? null : input.mode()),
+                input == null ? null : input.sources());
         return Response.status(Response.Status.ACCEPTED).entity(IndexationView.of(s)).build();
     }
 

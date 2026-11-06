@@ -578,6 +578,142 @@ class SynchronizeKnowledgeTest {
         });
     }
 
+    // ---------- 005, US2 : réindexer seulement les sources choisies ----------
+
+    String second() {
+        String other = "https://doc.example.com/clients/";
+        world.docSources.save(DocSource.create(UUID.randomUUID(), P, DocSource.Kind.URL, other));
+        world.docs.sites.put(other, new Result(List.of(new Page(other + "client.html", "Client", "texte", List.of(
+                new Section(other + "client.html", 0, "Client", "Un client.", KnowledgeKind.DOC_SECTION, null, null)))),
+                List.of()));
+        return other;
+    }
+
+    DocSource declared(String location) {
+        return world.docSources.list(P).stream().filter(d -> d.location().equals(location)).findFirst().orElseThrow();
+    }
+
+    /** Une source de documentation choisie : seule elle est lue ; ni Jira ni l'architecture. */
+    @Test
+    void seuleLaSourceChoisieEstLue() {
+        String other = second();
+        sync.run(P, Mode.FULL, progress);
+        Instant synced = sources.find(P).syncedAt();
+        world.docs.reads.clear();
+        world.tracker.calls.clear();
+        architectureReads.clear();
+        world.clock.advance(Duration.ofHours(1));
+        Recorder chosen = new Recorder();
+
+        sync.run(P, Mode.FULL, IndexationScope.of(List.of(declared(other).id().toString()), world.docSources.list(P)),
+                chosen);
+
+        assertThat(world.docs.reads).containsExactly(other);
+        assertThat(world.tracker.calls).isEmpty();
+        assertThat(architectureReads).isEmpty();
+        assertThat(chosen.steps).doesNotContain(Step.JIRA, Step.ARCHITECTURE);
+        assertThat(chosen.tickets).isNull();
+        assertThat(sources.find(P).syncedAt()).isEqualTo(synced);
+    }
+
+    /** Page retirée de la source choisie : l'élément reste, faute de savoir à quelle source il appartient. */
+    @Test
+    void sourceChoisieNeRetirePasDePage() {
+        sync.run(P, Mode.FULL, progress);
+        world.docs.sites.put(SITE, new Result(List.of(new Page(SITE + "adr-005.html", "ADR-005", "texte", List.of(
+                new Section(SITE + "adr-005.html", 0, "ADR-005", "Asynchrone.", KnowledgeKind.ADR,
+                        AdrStatus.Statement.of(AdrStatus.ACCEPTED, null), null)))), List.of()));
+
+        sync.run(P, Mode.FULL, IndexationScope.of(List.of(declared(SITE).id().toString()), world.docSources.list(P)),
+                new Recorder());
+
+        assertThat(index.count(P, KnowledgeKind.DOC_SECTION)).isEqualTo(1);
+    }
+
+    /** Architecture choisie : réanalysée même si son empreinte n'a pas changé. */
+    @Test
+    void architectureChoisieReanalysee() {
+        sync.run(P, Mode.FULL, progress);
+        Instant synced = sources.find(P).syncedAt();
+        index.retain(P, KnowledgeKind.ARCH_ELEMENT, java.util.Set.of());
+        world.docs.reads.clear();
+        world.clock.advance(Duration.ofHours(1));
+
+        sync.run(P, Mode.FULL, IndexationScope.of(List.of(IndexationScope.ARCHITECTURE), world.docSources.list(P)),
+                new Recorder());
+
+        assertThat(index.count(P, KnowledgeKind.ARCH_ELEMENT)).isEqualTo(2);
+        assertThat(architectureReads).hasSize(2);
+        assertThat(world.docs.reads).isEmpty();
+        assertThat(sources.find(P).architectureHash()).isEqualTo("h1");
+        assertThat(sources.find(P).syncedAt()).isEqualTo(synced);
+    }
+
+    /** Jira choisi : relu selon les règles de la 003, repère avancé, date de synchronisation inchangée. */
+    @Test
+    void jiraChoisiAvanceSonRepere() {
+        sync.run(P, Mode.FULL, progress);
+        Instant synced = sources.find(P).syncedAt();
+        world.tracker.tracked.put("PROJ-10", issue("PROJ-10", "Relancer un client", "new",
+                Instant.parse("2026-11-01T08:00:00Z")));
+        world.docs.reads.clear();
+        architectureReads.clear();
+        world.clock.advance(Duration.ofHours(1));
+        Recorder chosen = new Recorder();
+
+        sync.run(P, Mode.FULL, IndexationScope.of(List.of(IndexationScope.JIRA), world.docSources.list(P)), chosen);
+
+        assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(3);
+        assertThat(chosen.tickets.keptClosed()).isEqualTo(1);
+        assertThat(sources.find(P).jiraMark()).isEqualTo(Instant.parse("2026-11-01T08:00:00Z"));
+        assertThat(sources.find(P).syncedAt()).isEqualTo(synced);
+        assertThat(world.docs.reads).isEmpty();
+        assertThat(architectureReads).isEmpty();
+    }
+
+    /** Sources proposées au choix : seules celles qui seraient lues (research.md R5). */
+    @Test
+    void sourcesReindexables() {
+        assertThat(sync.sources(P)).extracting(IndexableSource::id, IndexableSource::kind, IndexableSource::label)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(IndexationScope.JIRA, IndexableSource.Kind.JIRA, "Jira PROJ"),
+                        org.assertj.core.groups.Tuple.tuple(declared(SITE).id().toString(),
+                                IndexableSource.Kind.DOCUMENTATION, SITE),
+                        org.assertj.core.groups.Tuple.tuple(IndexationScope.ARCHITECTURE,
+                                IndexableSource.Kind.ARCHITECTURE, sources.find(P).workspace()));
+
+        world.consents.record(new dev.specwriter.domain.consent.ConsentRecord(ConsentService.JIRA, false, Instant.EPOCH));
+        sources.save(sources.find(P).withArchitecture(null, null));
+        assertThat(sync.sources(P)).extracting(IndexableSource::kind).containsExactly(IndexableSource.Kind.DOCUMENTATION);
+    }
+
+    /** Lancement d'une réindexation de sources choisies : validée, gardée dans l'état de l'indexation. */
+    @Test
+    void indexationDeSourcesChoisies() {
+        ManualExecutor executor = new ManualExecutor();
+        Indexations indexations = new Indexations(sync, world.projects, executor, world.clock);
+        for (List<String> refused : List.of(List.<String>of(), List.of("WIKI"))) {
+            assertThatThrownBy(() -> indexations.start(P, Mode.FULL, refused)).isInstanceOfSatisfying(
+                    DomainException.class, e -> assertThat(e.code().name()).isEqualTo("VALIDATION_FAILED"));
+        }
+        assertThatThrownBy(() -> indexations.start(P, Mode.INCREMENTAL, List.of(IndexationScope.JIRA)))
+                .isInstanceOfSatisfying(DomainException.class,
+                        e -> assertThat(e.code().name()).isEqualTo("VALIDATION_FAILED"));
+        assertThat(executor.tasks).isEmpty();
+
+        Indexations.Snapshot started = indexations.start(P, Mode.FULL, List.of(IndexationScope.ARCHITECTURE));
+        assertThat(started.sources()).containsExactly(IndexationScope.ARCHITECTURE);
+        executor.runAll();
+        assertThat(architectureReads).hasSize(1);
+        assertThat(world.docs.reads).isEmpty();
+        assertThat(indexations.current(P)).get().satisfies(s -> {
+            assertThat(s.status()).isEqualTo(Indexations.Status.SUCCEEDED);
+            assertThat(s.sources()).containsExactly(IndexationScope.ARCHITECTURE);
+        });
+        world.clock.advance(Duration.ofMinutes(31));
+        assertThat(indexations.start(P, Mode.FULL).sources()).isNull();
+    }
+
     /** Une bibliothèque absente du jar est signalée à son étape, les autres continuent (T117, puis 005). */
     @Test
     void bibliothequeAbsenteSignaleeASonEtape() {

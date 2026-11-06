@@ -26,7 +26,7 @@ public class KnowledgeQueries {
 
     /** Compteurs, dernière synchronisation, connaissance partielle et état du modèle. */
     public record Status(long tickets, long docSections, long adrs, long architectureElements, Instant syncedAt,
-            boolean partial, EmbeddingPort.State model) {
+            boolean partial, EmbeddingPort.State model, List<IndexableSource> sources) {
     }
 
     public record Hit(KnowledgeKind kind, String ref, String title, String status, ArchScope scope, String excerpt,
@@ -59,7 +59,8 @@ public class KnowledgeQueries {
         EmbeddingPort.State model = embedding.state();
         return new Status(index.count(projectId, KnowledgeKind.TICKET), index.count(projectId, KnowledgeKind.DOC_SECTION),
                 index.count(projectId, KnowledgeKind.ADR), index.count(projectId, KnowledgeKind.ARCH_ELEMENT),
-                source.syncedAt(), incomplete || model != EmbeddingPort.State.READY, model);
+                source.syncedAt(), incomplete || model != EmbeddingPort.State.READY, model,
+                indexations.sources(projectId));
     }
 
     /** Recherche hybride, ou par les termes seuls si le modèle n'est pas prêt (FR-043). */
