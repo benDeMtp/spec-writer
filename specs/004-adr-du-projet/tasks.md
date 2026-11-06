@@ -123,7 +123,7 @@ terme commun avec le besoin : il est transmis en premier, entier.
 - [X] T020 [P] Contrat : ajouter `GET /knowledge/adrs`, `AdrList` et `GET /doc-files/{path}` à `specs/002-projets-contexte-mcp/contracts/openapi.yaml` d'après `contracts/api.md`
 - [X] T021 [P] README : page des ADR (lien depuis le contexte, signalements, pages d'un dossier local servies par l'outil sans script) et ADR transmis en entier, dans `README.md`
 - [X] T022 Gates avant commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests`, `npm --prefix e2e test` ; prévenir l'utilisateur avant, son instance tournant depuis `backend/target/` ; puis cocher et commiter par groupe logique
-- [ ] T023 Essai manuel par l'utilisateur (quickstart.md, « Essai manuel ») : « 21 ADR », page des ADR, doublons 0005 et 0017, lien en nouvel onglet, génération touchant l'ADR 0017
+- [X] T023 Essai manuel par l'utilisateur (quickstart.md, « Essai manuel ») : « 21 ADR », page des ADR, doublons 0005 et 0017, lien en nouvel onglet, génération touchant l'ADR 0017
 
 ---
 
