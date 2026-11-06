@@ -32,6 +32,39 @@ class AiEditTest {
         session = w.generatedSession();
     }
 
+    /** 004, US4 : la connaissance d'une modification reçoit l'instruction et la version de base. */
+    @Test
+    void laConnaissanceRecoitLInstructionEtLaVersion() {
+        java.util.List<String> seen = new java.util.ArrayList<>();
+        dev.specwriter.application.knowledge.SessionKnowledge recording = new dev.specwriter.application.knowledge.SessionKnowledge() {
+            @Override
+            public dev.specwriter.domain.knowledge.ProjectKnowledge forQuestions(Session s,
+                    java.util.List<dev.specwriter.domain.llm.QuestionAndAnswer> answers) {
+                throw new AssertionError("pas pour une modification");
+            }
+
+            @Override
+            public dev.specwriter.domain.knowledge.ProjectKnowledge forSpecification(Session s,
+                    java.util.List<dev.specwriter.domain.llm.QuestionAndAnswer> answers) {
+                throw new AssertionError("forEdit attendu");
+            }
+
+            @Override
+            public dev.specwriter.domain.knowledge.ProjectKnowledge forEdit(Session s,
+                    java.util.List<dev.specwriter.domain.llm.QuestionAndAnswer> answers, String instruction,
+                    String currentMarkdown) {
+                seen.add(instruction);
+                seen.add(currentMarkdown);
+                return dev.specwriter.domain.knowledge.ProjectKnowledge.EMPTY;
+            }
+        };
+        w.llm.edits.add(JiraWorld.draft("Réservation modifiée"));
+        new ProposeAiEdit(w.sessions, w.versions, w.llm, w.policy, w.proposals, recording)
+                .run(session.id(), "Applique l'ADR 0017");
+        assertThat(seen).containsExactly("Applique l'ADR 0017",
+                w.versions.find(session.id(), 1).orElseThrow().markdown());
+    }
+
     @Test
     void propositionAvecDiffSansNouvelleVersion() {
         w.llm.edits.add(JiraWorld.draft("Réservation modifiée"));

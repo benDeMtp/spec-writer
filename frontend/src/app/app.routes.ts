@@ -28,6 +28,11 @@ export const routes: Routes = [
   },
   { path: 'sessions', title: 'Sessions · spec-writer', loadComponent: () => import('./features/sessions/sessions.page').then((m) => m.SessionsPage) },
   {
+    path: 'projets/:id/contexte/adr',
+    title: 'ADR · spec-writer',
+    loadComponent: () => import('./features/project-context/adrs.page').then((m) => m.AdrsPage),
+  },
+  {
     path: 'projets/:id/contexte',
     title: 'Contexte du projet · spec-writer',
     loadComponent: () => import('./features/project-context/project-context.page').then((m) => m.ProjectContextPage),

@@ -2,7 +2,9 @@ package dev.specwriter.infrastructure.web;
 
 import dev.specwriter.application.knowledge.IndexationError;
 import dev.specwriter.application.knowledge.Indexations;
+import dev.specwriter.application.knowledge.AdrList;
 import dev.specwriter.application.knowledge.Indexations.Snapshot;
+import dev.specwriter.application.knowledge.ListAdrs;
 import dev.specwriter.application.knowledge.TicketSummary;
 import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
@@ -65,6 +67,8 @@ public class KnowledgeResource {
     Indexations indexations;
     @Inject
     KnowledgeQueries queries;
+    @Inject
+    ListAdrs listAdrs;
 
     @PUT
     @Path("/architecture-source")
@@ -107,6 +111,13 @@ public class KnowledgeResource {
     @Path("/knowledge")
     public KnowledgeQueries.Status knowledge(@PathParam("id") String id) {
         return queries.status(ProjectResource.projectId(id));
+    }
+
+    /** ADR du projet pour la page des ADR (feature 004, contracts/api.md). */
+    @GET
+    @Path("/knowledge/adrs")
+    public AdrList adrs(@PathParam("id") String id) {
+        return listAdrs.run(ProjectResource.projectId(id));
     }
 
     @GET

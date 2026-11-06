@@ -99,6 +99,20 @@ paths:
       responses:
         '202': { content: { application/json: { schema: { $ref: '#/components/schemas/Indexation' } } } }
         '409': { description: Une indexation est déjà en cours pour ce projet (OPERATION_IN_PROGRESS) }
+  /api/projects/{id}/knowledge/adrs:
+    get:
+      summary: ADR du projet pour la page des ADR (004, contracts/api.md)
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/AdrList' } } } }
+        '404': { description: Projet inconnu (PROJECT_NOT_FOUND) }
+  /api/projects/{id}/doc-files/{path}:
+    get:
+      summary: "Fichier d'une source de documentation dossier du projet (004, R3) ; CSP sandbox sans script"
+      parameters:
+        - { name: path, in: path, required: true, schema: { type: string }, description: Chemin relatif au dossier déclaré }
+      responses:
+        '200': { description: "html, htm, css, png, jpg, jpeg, gif, svg, webp, woff, woff2" }
+        '404': { description: "Hors du dossier, extension refusée, absent, dossier, ou projet inconnu ; sans détail" }
   /api/projects/{id}/indexations/current:
     get:
       summary: Indexation en cours ou dernière, gardée 30 minutes (FR-013f, FR-013g)
@@ -393,6 +407,24 @@ components:
             read: { type: integer, minimum: 0, description: Tickets lus dans Jira }
             keptClosed: { type: integer, minimum: 0, description: "Tickets fermés gardés sans relecture (0 en incrémental)" }
             removed: { type: integer, minimum: 0, description: Tickets retirés de l'index }
+    AdrList:
+      type: object
+      properties:
+        adrs:
+          type: array
+          items:
+            type: object
+            properties:
+              number: { type: integer, nullable: true }
+              title: { type: string }
+              status: { enum: [ACCEPTED, PROPOSED, SUPERSEDED, DEPRECATED, UNKNOWN] }
+              supersededBy: { type: string, nullable: true }
+              successorFound: { type: boolean }
+              duplicate: { type: boolean }
+              sentToAi: { type: boolean }
+              url: { type: string, nullable: true }
+        byStatus: { type: object, additionalProperties: { type: integer } }
+        indexing: { type: boolean }
     GenerationError:
       type: object
       description: Sans aucun contenu de page, de ticket ni de modèle (FR-013g)

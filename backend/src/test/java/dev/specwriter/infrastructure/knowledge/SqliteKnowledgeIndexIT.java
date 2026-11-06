@@ -144,6 +144,22 @@ class SqliteKnowledgeIndexIT {
                 .extracting(h -> h.item().ref()).containsExactly("FACT-9");
     }
 
+    /** 004, FR-001 : un ADR ou une section découpés en morceaux comptent pour un élément. */
+    @Test
+    void compteursParElementEtNonParMorceau() {
+        AdrStatus.Statement accepted = AdrStatus.Statement.of(AdrStatus.ACCEPTED, null);
+        for (int chunk = 0; chunk < 3; chunk++) {
+            index.save(KnowledgeItem.adr(project, "adr/0001-long.html", chunk, "1. Long", "morceau " + chunk, accepted,
+                    T0, T0), null, null);
+        }
+        index.save(KnowledgeItem.adr(project, "adr/0002-court.html", 0, "2. Court", "x", accepted, T0, T0), null, null);
+        index.save(KnowledgeItem.adr(project, "adr/0003-court.html", 0, "3. Court", "y", accepted, T0, T0), null, null);
+        index.save(KnowledgeItem.docSection(project, "guide.html#_regles", 0, "Règles", "a", null, T0, T0), null, null);
+        index.save(KnowledgeItem.docSection(project, "guide.html#_regles", 1, "Règles", "b", null, T0, T0), null, null);
+        assertThat(index.count(project, KnowledgeKind.ADR)).isEqualTo(3);
+        assertThat(index.count(project, KnowledgeKind.DOC_SECTION)).isEqualTo(1);
+    }
+
     @Test
     void ticketsFermesDuProjet() {
         index.save(KnowledgeItem.ticket(project, "FACT-1", "Fermé", "x", "Terminé", "done", "Story", T0, T0), null, null);

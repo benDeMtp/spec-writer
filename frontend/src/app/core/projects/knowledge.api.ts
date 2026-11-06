@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { Indexation, IndexationMode, KnowledgeHit, KnowledgeKind, KnowledgeStatus, Project } from './projects.model';
+import { AdrList, Indexation, IndexationMode, KnowledgeHit, KnowledgeKind, KnowledgeStatus, Project } from './projects.model';
 
 /** Connaissance d'un projet : workspace Structurizr, indexations, état et recherche (US2 de 002). */
 @Injectable({ providedIn: 'root' })
@@ -18,6 +18,11 @@ export class KnowledgeApi {
 
   clearArchitecture(projectId: string): Promise<void> {
     return firstValueFrom(this.http.delete<void>(`${this.base(projectId)}/architecture-source`));
+  }
+
+  /** ADR du projet pour la page des ADR (004). */
+  adrs(projectId: string): Promise<AdrList> {
+    return firstValueFrom(this.http.get<AdrList>(`${this.base(projectId)}/knowledge/adrs`));
   }
 
   start(projectId: string, mode: IndexationMode): Promise<Indexation> {

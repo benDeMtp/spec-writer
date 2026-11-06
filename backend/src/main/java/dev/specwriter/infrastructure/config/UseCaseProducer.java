@@ -30,6 +30,9 @@ import dev.specwriter.application.session.ResolveRelatedIssue;
 import dev.specwriter.application.jira.RetryRelatedLink;
 import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.application.knowledge.KnowledgeQueries;
+import dev.specwriter.domain.port.DocumentFiles;
+import dev.specwriter.application.knowledge.ReadDocFile;
+import dev.specwriter.application.knowledge.ListAdrs;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
 import dev.specwriter.application.knowledge.SynchronizeKnowledge;
 import dev.specwriter.domain.port.ArchitectureReader;
@@ -480,6 +483,19 @@ public class UseCaseProducer {
     @ApplicationScoped
     ManageEmbeddingSettings manageEmbeddingSettings(SettingsRepository settings, EmbeddingPort embedding) {
         return new ManageEmbeddingSettings(settings, embedding);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ListAdrs listAdrs(ProjectRepository projects, KnowledgeIndex index, DocSourceRepository docSources,
+            DocumentFiles files, Indexations indexations) {
+        return new ListAdrs(projects, index, docSources, files, indexations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ReadDocFile readDocFile(ProjectRepository projects, DocSourceRepository docSources, DocumentFiles files) {
+        return new ReadDocFile(projects, docSources, files);
     }
 
     @Produces

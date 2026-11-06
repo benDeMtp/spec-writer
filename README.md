@@ -103,6 +103,15 @@ La page **Contexte** d'un projet déclare ce que l'outil doit connaître :
   projet des modules communs. Sans ownership, ce qui vient du modèle étendu est commun.
 - **Fiche générale** : un texte écrit à la main, qui l'emporte sur les sources.
 
+Quand des ADR ont été trouvés, leur nombre est un lien vers la page **ADR du projet** : un ADR par
+ligne, trié par numéro, avec son statut et son successeur. Les ADR remplacés ou obsolètes, qui ne
+sont pas transmis à l'IA, sont grisés ; les statuts non lus et les numéros en double sont signalés.
+Le titre ouvre la page de l'ADR dans un nouvel onglet ; pour une documentation en dossier local,
+spec-writer sert lui-même la page, sans en exécuter les scripts et sans rien lire hors du dossier
+déclaré. Un ADR retenu pour une génération est transmis en entier à l'IA (8 000 caractères au plus,
+coupé à une section au-delà) ; un ADR cité par son numéro (« ADR 0017 », « l'ADR 17 ») dans le
+besoin, une réponse ou l'instruction d'une modification est transmis d'office.
+
 La recherche dans cet index se fait sur le poste, par mots et par sens. Le modèle de recherche
 (multilingual-e5-small, environ 120 Mo) est téléchargé une seule fois, par le proxy d'entreprise,
 à la première indexation. Il peut être remplacé par un autre modèle ONNX depuis

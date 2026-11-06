@@ -115,6 +115,35 @@ class KnowledgeResourceIT {
         }
     }
 
+    /** 004, US2 : ADR du projet, et leur page servie depuis le dossier déclaré, sans script. */
+    @Test
+    void adrDuProjetEtLeurPage() {
+        api().body(Map.of("kind", "FOLDER", "location", knowledge.resolve("antora").toString()))
+                .post(base() + "/doc-sources").then().statusCode(201);
+        assertThat(index("FULL").getString("status")).isEqualTo("SUCCEEDED");
+
+        JsonPath adrs = api().get(base() + "/knowledge/adrs").then().statusCode(200).extract().jsonPath();
+        assertThat(adrs.getList("adrs.number")).containsExactly(2, 4, 5);
+        assertThat(adrs.getString("adrs[0].status")).isEqualTo("SUPERSEDED");
+        assertThat(adrs.getString("adrs[0].supersededBy")).isEqualTo("ADR-005");
+        assertThat(adrs.getBoolean("adrs[0].successorFound")).isTrue();
+        assertThat(adrs.getBoolean("adrs[0].sentToAi")).isFalse();
+        assertThat(adrs.getBoolean("adrs[0].duplicate")).isFalse();
+        assertThat(adrs.getInt("byStatus.ACCEPTED")).isEqualTo(2);
+        assertThat(adrs.getBoolean("indexing")).isFalse();
+        String url = adrs.getString("adrs[2].url");
+        assertThat(url).isEqualTo(base() + "/doc-files/facturation/adr/adr-005.html");
+
+        io.restassured.response.Response page = api().get(url);
+        assertThat(page.statusCode()).isEqualTo(200);
+        assertThat(page.contentType()).startsWith("text/html");
+        assertThat(page.header("Content-Security-Policy")).isEqualTo(
+                "sandbox allow-same-origin; script-src 'none'; object-src 'none'; default-src 'self' 'unsafe-inline'");
+        assertThat(page.asString()).contains("ADR-005");
+
+        api().get("/api/projects/" + UUID.randomUUID() + "/knowledge/adrs").then().statusCode(404);
+    }
+
     @Test
     void indexationCompletePuisRecherche() {
         api().body(Map.of("kind", "FOLDER", "location", knowledge.resolve("antora").toString()))

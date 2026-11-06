@@ -1,5 +1,5 @@
 {
-  "date" : "2026-11-05T08:09:54Z",
+  "date" : "2026-11-05T16:19:25Z",
   "fingerprint" : "ee3fe8c9c84f4b0cdd8eb995a20a1880a6bc6f03b3a677e0cdf8dc411faf614a",
   "model" : "défaut du compte",
   "copilotSdk" : "1.0.28-preview.0",
@@ -7,158 +7,166 @@
   "runs" : 3,
   "scores" : {
     "scenarioStructure" : 1.0,
-    "questionRelevance" : 0.9926
+    "questionRelevance" : 0.9797
   },
   "details" : [ {
     "case" : "01-reservation-salle",
     "run" : 1,
-    "questions" : 6,
-    "irrelevant" : [ ],
-    "scenarios" : 8,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "02-paiement-en-ligne",
-    "run" : 1,
-    "questions" : 10,
-    "irrelevant" : [ ],
-    "scenarios" : 7,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "03-export-comptable",
-    "run" : 1,
-    "questions" : 5,
-    "irrelevant" : [ ],
-    "scenarios" : 5,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "04-facturation-avec-contexte",
-    "run" : 1,
-    "questions" : 7,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "05-conges-avec-contexte",
-    "run" : 1,
-    "questions" : 7,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "06-api-avec-contexte-technique",
-    "run" : 1,
-    "questions" : 5,
-    "irrelevant" : [ ],
-    "scenarios" : 7,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "07-avoir-adr-architecture",
-    "run" : 1,
-    "questions" : 5,
-    "irrelevant" : [ ],
-    "scenarios" : 7,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "01-reservation-salle",
-    "run" : 2,
-    "questions" : 5,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "02-paiement-en-ligne",
-    "run" : 2,
-    "questions" : 10,
-    "irrelevant" : [ ],
-    "scenarios" : 10,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "03-export-comptable",
-    "run" : 2,
-    "questions" : 0,
-    "irrelevant" : [ ],
-    "scenarios" : 3,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "04-facturation-avec-contexte",
-    "run" : 2,
     "questions" : 8,
-    "irrelevant" : [ ],
-    "scenarios" : 7,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "05-conges-avec-contexte",
-    "run" : 2,
-    "questions" : 7,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "06-api-avec-contexte-technique",
-    "run" : 2,
-    "questions" : 9,
-    "irrelevant" : [ ],
-    "scenarios" : 11,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "07-avoir-adr-architecture",
-    "run" : 2,
-    "questions" : 6,
-    "irrelevant" : [ ],
-    "scenarios" : 7,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "01-reservation-salle",
-    "run" : 3,
-    "questions" : 6,
-    "irrelevant" : [ ],
-    "scenarios" : 8,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "02-paiement-en-ligne",
-    "run" : 3,
-    "questions" : 11,
     "irrelevant" : [ {
-      "reason" : "Reformule la question 1, déjà posée et répondue : les frais ne sont pas facturés ; la marque de contradiction ne s'applique pas ici car la réponse existait déjà et la contradiction était déjà tranchée.",
       "verdict" : "REDONDANTE",
-      "question" : "Les frais de traitement sont-ils facturés au client en plus du montant du panier, ou le montant débité est-il strictement celui du panier ?"
+      "question" : "Comment l'employé doit-il être prévenu quand la salle est déjà prise, et que lui propose-t-on ensuite ?",
+      "reason" : "La réponse à propos de la notification et des alternatives proposées figure déjà dans la réponse 2 (message et salles libres du même étage)."
     } ],
     "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 1,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 9,
+    "structureViolations" : [ ]
+  }, {
     "case" : "03-export-comptable",
-    "run" : 3,
+    "run" : 1,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "04-facturation-avec-contexte",
+    "run" : 1,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 8,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "05-conges-avec-contexte",
+    "run" : 1,
+    "questions" : 6,
+    "irrelevant" : [ {
+      "verdict" : "REDONDANTE",
+      "question" : "Quelles contraintes de confidentialité, d'historique et de traçabilité s'appliquent aux demandes de congés (qui peut les consulter, durée de conservation, journalisation des décisions) ?",
+      "reason" : "Reprend la partie confidentialité, historique et traçabilité déjà posée à la question 5 et laissée sans précision."
+    } ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "06-api-avec-contexte-technique",
+    "run" : 1,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 8,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "07-avoir-adr-architecture",
+    "run" : 1,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 9,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "01-reservation-salle",
+    "run" : 2,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 2,
+    "questions" : 10,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 2,
     "questions" : 5,
     "irrelevant" : [ ],
     "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "04-facturation-avec-contexte",
-    "run" : 3,
-    "questions" : 9,
-    "irrelevant" : [ ],
-    "scenarios" : 11,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "05-conges-avec-contexte",
-    "run" : 3,
-    "questions" : 0,
+    "run" : 2,
+    "questions" : 7,
     "irrelevant" : [ ],
     "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
-    "case" : "06-api-avec-contexte-technique",
-    "run" : 3,
-    "questions" : 8,
+    "case" : "05-conges-avec-contexte",
+    "run" : 2,
+    "questions" : 6,
     "irrelevant" : [ ],
     "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
+    "case" : "06-api-avec-contexte-technique",
+    "run" : 2,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 10,
+    "structureViolations" : [ ]
+  }, {
     "case" : "07-avoir-adr-architecture",
+    "run" : 2,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "01-reservation-salle",
+    "run" : 3,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 3,
+    "questions" : 9,
+    "irrelevant" : [ {
+      "verdict" : "REDONDANTE",
+      "question" : "Les frais de traitement sont-ils facturés au client (ajoutés au total du panier) ou absorbés par la boutique ? Comment sont-ils calculés et affichés ?",
+      "reason" : "Reformule la question 1 dont la réponse (aucun frais) était déjà donnée, le calcul et l'affichage en découlent."
+    } ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 3,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "04-facturation-avec-contexte",
+    "run" : 3,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "05-conges-avec-contexte",
     "run" : 3,
     "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 8,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "06-api-avec-contexte-technique",
+    "run" : 3,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "07-avoir-adr-architecture",
+    "run" : 3,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 4,
     "structureViolations" : [ ]
   } ]
 }

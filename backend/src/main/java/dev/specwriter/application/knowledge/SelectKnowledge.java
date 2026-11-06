@@ -1,6 +1,7 @@
 package dev.specwriter.application.knowledge;
 
 import dev.specwriter.domain.error.DomainException;
+import dev.specwriter.domain.knowledge.AdrNumber;
 import dev.specwriter.domain.knowledge.AdrStatus;
 import dev.specwriter.domain.knowledge.ArchitectureModel.DeploymentFact;
 import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
@@ -14,12 +15,15 @@ import dev.specwriter.domain.port.KnowledgeIndex;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.session.Session;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.jboss.logging.Logger;
 
 /**
@@ -33,7 +37,10 @@ public class SelectKnowledge implements SessionKnowledge {
 
     static final int MAX_ROLES = 3_000;
     static final int MAX_ADRS = 4;
-    static final int MAX_ADR_TEXT = 6_000;
+    static final int MAX_ADR_TEXT = 12_000;
+    /** Au plus par ADR : au-delà, l'ADR est coupé à la fin d'une section (004, research.md R4). */
+    static final int MAX_ADR_PART = 8_000;
+    static final String ADR_TRUNCATED = "\n\n[ADR tronqué]";
     static final int MAX_TICKETS = 3;
     static final int MAX_TICKET_TEXT = 3_000;
     static final int MAX_ARCHITECTURE = 3_000;
@@ -43,10 +50,10 @@ public class SelectKnowledge implements SessionKnowledge {
     /** Taille comptée pour un module, un échange ou un constat, en plus de ses noms. */
     private static final int ARCHITECTURE_MARKUP = 40;
     private static final int ADR_CANDIDATES = 12;
+    /** Tickets lus par recherche avant la fusion (hors famille de la story liée). */
+    private static final int TICKET_CANDIDATES = 10;
+    private static final int RRF_K = 60;
     private static final int SUCCESSION = 5;
-    private static final Pattern ADR_NUMBER = Pattern.compile("adr[-_ ]?0*(\\d+)", Pattern.CASE_INSENSITIVE);
-    /** Numéro d'un ADR adr-tools : fichier {@code 0005-titre.html}, titre « 5. Titre ». */
-    private static final Pattern LEADING_NUMBER = Pattern.compile("^0*(\\d+)(?:[-_]|\\.\\s)");
 
     private static final Logger LOG = Logger.getLogger(SelectKnowledge.class);
 
@@ -72,32 +79,39 @@ public class SelectKnowledge implements SessionKnowledge {
 
     @Override
     public ProjectKnowledge forQuestions(Session session, List<QuestionAndAnswer> answers) {
-        return select(session, answers, false);
+        return select(session, answers, null, null, false);
     }
 
     @Override
     public ProjectKnowledge forSpecification(Session session, List<QuestionAndAnswer> answers) {
-        return select(session, answers, true);
+        return select(session, answers, null, null, true);
     }
 
-    private ProjectKnowledge select(Session session, List<QuestionAndAnswer> answers, boolean architecture) {
+    @Override
+    public ProjectKnowledge forEdit(Session session, List<QuestionAndAnswer> answers, String instruction,
+            String currentMarkdown) {
+        return select(session, answers, instruction, currentMarkdown, true);
+    }
+
+    private ProjectKnowledge select(Session session, List<QuestionAndAnswer> answers, String instruction,
+            String currentMarkdown, boolean architecture) {
         ProjectKnowledge sheet = SessionKnowledge.sheet(projects, session);
-        String query = query(session.need().text(), answers);
-        float[] vector = null;
-        if (embedding.state() == EmbeddingPort.State.READY) {
-            try {
-                vector = embedding.query(query);
-            } catch (RuntimeException e) {
-                // la recherche se rabat sur les termes (FR-043)
-                LOG.warnf("Connaissance : vecteur de la recherche indisponible (%s)", e.getClass().getSimpleName());
-            }
-        }
-        String model = vector == null ? null : embedding.modelId();
+        String query = query(instruction, session.need().text(), answers);
+        Set<Integer> cited = cited(session.need().text(), answers, instruction, currentMarkdown);
+        Search combined = search(query);
+        float[] vector = combined.vector();
+        String model = combined.model();
+        // en modification, l'instruction est aussi cherchée seule : noyée dans le besoin, elle ne
+        // ferait pas remonter le ticket ou l'ADR qu'elle désigne (004, US4)
+        List<Search> searches = instruction == null || instruction.isBlank() ? List.of(combined)
+                : List.of(search(query(instruction, "", List.of())), combined);
         StoryFamily.Family family = families.of(session);
-        List<ProjectKnowledge.Entry> entries = new ArrayList<>();
-        entries.addAll(roles(session));
-        entries.addAll(adrs(session, query, vector, model));
-        entries.addAll(tickets(session, family, query, vector, model));
+        List<ProjectKnowledge.Entry> entries = new ArrayList<>(roles(session));
+        // la fiche générale l'emporte : les ADR prennent ce qui reste sous le plafond (004, FR-017)
+        int adrBudget = Math.min(MAX_ADR_TEXT, ProjectKnowledge.MAX_TOTAL - MAX_ARCHITECTURE
+                - sheet.generalSheet().length() - size(entries) - MAX_TICKET_TEXT - MAX_SUBTASK_TEXT);
+        entries.addAll(adrs(session, searches, cited, adrBudget));
+        entries.addAll(tickets(session, family, searches));
         ProjectKnowledge selected = new ProjectKnowledge(sheet.generalSheet(), sheet.sheetUpdatedAt(), entries,
                 List.of(), List.of(), List.of(), subtasks(session, family));
         if (!architecture) {
@@ -112,6 +126,47 @@ public class SelectKnowledge implements SessionKnowledge {
             LOG.warnf("Connaissance : analyse d'architecture indisponible (%s)", e.code());
             return selected;
         }
+    }
+
+    /** Une recherche : son texte et, si le modèle local est prêt, son vecteur. */
+    private record Search(String query, float[] vector, String model) {
+    }
+
+    private Search search(String query) {
+        if (embedding.state() == EmbeddingPort.State.READY) {
+            try {
+                return new Search(query, embedding.query(query), embedding.modelId());
+            } catch (RuntimeException e) {
+                // la recherche se rabat sur les termes (FR-043)
+                LOG.warnf("Connaissance : vecteur de la recherche indisponible (%s)", e.getClass().getSimpleName());
+            }
+        }
+        return new Search(query, null, null);
+    }
+
+    /** Résultats des recherches, fusionnés par rangs ({@link #fuse}). */
+    private List<KnowledgeItem> hits(Session session, List<Search> searches, KnowledgeKind kind, int max) {
+        return fuse(searches.stream().map(s -> index.search(session.projectId(), s.query(), s.vector(), s.model(),
+                List.of(kind), max).stream().map(KnowledgeIndex.Hit::item).toList()).toList());
+    }
+
+    /**
+     * Fusion par rangs réciproques, comme l'index entre termes et sens : chaque liste apporte
+     * 1 / (60 + rang) à ses éléments (même élément, même morceau). Un élément trouvé par les deux
+     * recherches passe devant le premier d'une seule ; à égalité, l'ordre des listes départage.
+     */
+    static List<KnowledgeItem> fuse(List<List<KnowledgeItem>> lists) {
+        Map<String, KnowledgeItem> items = new LinkedHashMap<>();
+        Map<String, Double> scores = new HashMap<>();
+        for (List<KnowledgeItem> list : lists) {
+            for (int rank = 0; rank < list.size(); rank++) {
+                String key = list.get(rank).ref() + "#" + list.get(rank).chunk();
+                items.putIfAbsent(key, list.get(rank));
+                scores.merge(key, 1.0 / (RRF_K + rank + 1), Double::sum);
+            }
+        }
+        return items.keySet().stream().sorted(Comparator.comparing(scores::get, Comparator.reverseOrder()))
+                .map(items::get).toList();
     }
 
     /** Vocabulaire et vue d'ensemble, toujours transmis (FR-042), dans la limite de 3 000 caractères. */
@@ -130,26 +185,84 @@ public class SelectKnowledge implements SessionKnowledge {
         return out;
     }
 
-    /** ADR en vigueur les plus proches ; un remplacé cède la place à son successeur, un obsolète est écarté (FR-036). */
-    private List<ProjectKnowledge.Entry> adrs(Session session, String query, float[] vector, String model) {
-        List<KnowledgeIndex.Hit> hits = index.search(session.projectId(), query, vector, model, List.of(KnowledgeKind.ADR),
-                ADR_CANDIDATES);
-        if (hits.isEmpty()) {
+    /**
+     * ADR cités (004, US4), puis ADR en vigueur les plus proches ; un remplacé cède la place à son
+     * successeur, un obsolète est écarté (FR-036). Chaque ADR est transmis entier, morceaux dans
+     * l'ordre (004, research.md R4) : {@link #MAX_ADR_PART} au plus par ADR, {@link #MAX_ADR_TEXT} au
+     * total ; le premier qui ne tient plus arrête la liste.
+     */
+    private List<ProjectKnowledge.Entry> adrs(Session session, List<Search> searches, Set<Integer> cited, int budget) {
+        List<KnowledgeItem> hits = hits(session, searches, KnowledgeKind.ADR, ADR_CANDIDATES);
+        if (hits.isEmpty() && cited.isEmpty()) {
             return List.of();
         }
         List<KnowledgeItem> all = index.all(session.projectId(), KnowledgeKind.ADR);
+        List<KnowledgeItem> candidates = new ArrayList<>();
+        for (int number : cited) {
+            all.stream().filter(a -> a.chunk() == 0 && AdrNumber.of(a.ref(), a.title()).equals(OptionalInt.of(number)))
+                    .sorted(Comparator.comparing(KnowledgeItem::ref)).forEach(candidates::add);
+        }
+        candidates.addAll(hits);
         Set<String> seen = new LinkedHashSet<>();
-        List<KnowledgeItem> chosen = new ArrayList<>();
-        for (KnowledgeIndex.Hit hit : hits) {
-            Optional<KnowledgeItem> current = inForce(hit.item(), all);
-            if (current.isPresent() && seen.add(current.get().ref() + "#" + current.get().chunk())) {
-                chosen.add(current.get());
+        List<ProjectKnowledge.Entry> chosen = new ArrayList<>();
+        int left = budget;
+        for (KnowledgeItem candidate : candidates) {
+            Optional<KnowledgeItem> current = inForce(candidate, all);
+            if (current.isEmpty() || !seen.add(current.get().ref())) {
+                continue;
             }
+            // le premier ADR passe toujours, coupé s'il le faut ; les suivants seulement entiers
+            ProjectKnowledge.Entry entry = whole(current.get(), all,
+                    chosen.isEmpty() ? Math.min(MAX_ADR_PART, left) : MAX_ADR_PART);
+            int size = entry.title().length() + entry.text().length();
+            if (size > left || entry.text().isEmpty()) {
+                break;
+            }
+            chosen.add(entry);
+            left -= size;
             if (chosen.size() == MAX_ADRS) {
                 break;
             }
         }
-        return bounded(chosen, MAX_ADR_TEXT / MAX_ADRS);
+        return chosen;
+    }
+
+    /** Numéros des ADR cités dans le besoin, les réponses, l'instruction et la version en cours. */
+    private static Set<Integer> cited(String need, List<QuestionAndAnswer> answers, String instruction,
+            String currentMarkdown) {
+        Set<Integer> out = new LinkedHashSet<>();
+        out.addAll(AdrNumber.cited(instruction));
+        out.addAll(AdrNumber.cited(need));
+        answers.forEach(a -> out.addAll(AdrNumber.cited(a.answer())));
+        out.addAll(AdrNumber.cited(currentMarkdown));
+        return out;
+    }
+
+    /** L'ADR entier : ses morceaux dans l'ordre, coupé à une section au-delà de {@code part} (titre compris). */
+    private static ProjectKnowledge.Entry whole(KnowledgeItem adr, List<KnowledgeItem> all, int part) {
+        List<KnowledgeItem> chunks = all.stream().filter(a -> a.ref().equals(adr.ref()))
+                .sorted(java.util.Comparator.comparingInt(KnowledgeItem::chunk)).toList();
+        KnowledgeItem first = chunks.isEmpty() ? adr : chunks.getFirst();
+        String text = chunks.isEmpty() ? adr.body()
+                : String.join("\n\n", chunks.stream().map(KnowledgeItem::body).toList());
+        int room = part - first.title().length();
+        // l'empreinte suit tous les morceaux : un changement dans l'un d'eux change la connaissance
+        String hash = chunks.isEmpty() ? adr.contentHash()
+                : String.join(",", chunks.stream().map(KnowledgeItem::contentHash).toList());
+        return new ProjectKnowledge.Entry(first.kind(), first.role(), first.ref(), 0, first.title(),
+                first.adrStatus() == null ? null : first.adrStatus().name(), false,
+                text.length() <= room ? text : cut(text, room), hash);
+    }
+
+    /** Coupe à la dernière ligne de titre avant la limite, sinon au dernier paragraphe, sinon net. */
+    static String cut(String text, int room) {
+        int limit = Math.max(0, room - ADR_TRUNCATED.length());
+        String head = text.substring(0, Math.min(limit, text.length()));
+        int heading = head.lastIndexOf("\n#");
+        int paragraph = head.lastIndexOf("\n\n");
+        int end = heading > 0 ? heading : paragraph > 0 ? paragraph : head.length();
+        String kept = text.substring(0, end).stripTrailing();
+        return kept.isEmpty() ? "" : kept + ADR_TRUNCATED;
     }
 
     private static Optional<KnowledgeItem> inForce(KnowledgeItem adr, List<KnowledgeItem> all) {
@@ -159,12 +272,12 @@ public class SelectKnowledge implements SessionKnowledge {
             if (status != AdrStatus.SUPERSEDED) {
                 return status == AdrStatus.DEPRECATED ? Optional.empty() : Optional.of(current);
             }
-            String number = number(current.supersededBy());
-            if (number == null) {
+            OptionalInt number = AdrNumber.ofCited(current.supersededBy());
+            if (number.isEmpty()) {
                 return Optional.empty();
             }
-            current = all.stream().filter(a -> number.equals(number(fileName(a.ref())))
-                    || number.equals(number(a.title()))).findFirst().orElse(null);
+            current = all.stream().filter(a -> AdrNumber.of(a.ref(), a.title()).equals(number)).findFirst()
+                    .orElse(null);
             if (current == null) {
                 return Optional.empty();
             }
@@ -172,32 +285,14 @@ public class SelectKnowledge implements SessionKnowledge {
         return Optional.empty();
     }
 
-    private static String number(String text) {
-        if (text == null) {
-            return null;
-        }
-        Matcher m = ADR_NUMBER.matcher(text);
-        if (m.find()) {
-            return m.group(1);
-        }
-        Matcher leading = LEADING_NUMBER.matcher(text);
-        return leading.find() ? leading.group(1) : null;
-    }
-
-    private static String fileName(String ref) {
-        return ref.substring(ref.lastIndexOf('/') + 1);
-    }
-
     /**
      * Tickets les plus proches, hors famille de la story liée : ses sous-tâches et son parent ne sont
      * pas des travaux concurrents (FR-045). Un ticket lié explicitement à la story porte ce lien.
      */
-    private List<ProjectKnowledge.Entry> tickets(Session session, StoryFamily.Family family, String query,
-            float[] vector, String model) {
+    private List<ProjectKnowledge.Entry> tickets(Session session, StoryFamily.Family family, List<Search> searches) {
         int excluded = family.isEmpty() ? 0 : 2 + family.subtasks().size();
-        List<KnowledgeItem> items = index.search(session.projectId(), query, vector, model, List.of(KnowledgeKind.TICKET),
-                MAX_TICKETS + excluded).stream().map(KnowledgeIndex.Hit::item).filter(i -> !family.contains(i.ref()))
-                .limit(MAX_TICKETS).toList();
+        List<KnowledgeItem> items = hits(session, searches, KnowledgeKind.TICKET, TICKET_CANDIDATES + excluded).stream()
+                .filter(i -> !family.contains(i.ref())).limit(MAX_TICKETS).toList();
         return bounded(items, MAX_TICKET_TEXT / MAX_TICKETS).stream().map(e -> e.withLink(family.link(e.ref())))
                 .toList();
     }
@@ -298,10 +393,23 @@ public class SelectKnowledge implements SessionKnowledge {
 
     /** Besoin puis réponses, dans la limite d'une recherche. */
     static String query(String need, List<QuestionAndAnswer> answers) {
-        StringBuilder out = new StringBuilder(need);
+        return query(null, need, answers);
+    }
+
+    /** L'instruction d'une modification d'abord, puis le besoin et les réponses (004, FR-016). */
+    static String query(String instruction, String need, List<QuestionAndAnswer> answers) {
+        StringBuilder out = new StringBuilder();
+        if (instruction != null && !instruction.isBlank()) {
+            out.append(instruction.strip()).append('\n');
+        }
+        out.append(need);
         for (QuestionAndAnswer a : answers) {
             out.append('\n').append(a.answer());
         }
         return out.length() <= MAX_QUERY ? out.toString() : out.substring(0, MAX_QUERY);
+    }
+
+    private static int size(List<ProjectKnowledge.Entry> entries) {
+        return entries.stream().mapToInt(e -> e.title().length() + e.text().length()).sum();
     }
 }
