@@ -12,6 +12,8 @@ public class FakeDocumentationReader implements DocumentationReader {
 
     public final Map<String, Result> sites = new LinkedHashMap<>();
     public final List<String> reads = new ArrayList<>();
+    /** Sources dont la lecture lève une erreur inattendue (005, US1). */
+    public final Map<String, RuntimeException> broken = new LinkedHashMap<>();
 
     /** Motif renvoyé pour une source sans page ; {@code UNREACHABLE} par défaut. */
     public final Map<String, UnreadReason> problems = new LinkedHashMap<>();
@@ -30,6 +32,9 @@ public class FakeDocumentationReader implements DocumentationReader {
     @Override
     public Result read(DocSource source, Listener listener) {
         reads.add(source.location());
+        if (broken.containsKey(source.location())) {
+            throw broken.get(source.location());
+        }
         Result r = sites.get(source.location());
         if (r == null) {
             return new Result(List.of(), List.of(new Unread(source.location(), UnreadReason.UNREACHABLE)));

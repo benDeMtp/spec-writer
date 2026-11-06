@@ -13,6 +13,8 @@ public class FakeEmbedding implements EmbeddingPort {
     public String modelId = "fake@1";
     /** Textes vectorisés comme passages, dans l'ordre. */
     public final List<String> passages = new ArrayList<>();
+    /** Panne inattendue au calcul des passages (005, US1). */
+    public RuntimeException passagesFailure;
 
     @Override
     public State state() {
@@ -37,6 +39,9 @@ public class FakeEmbedding implements EmbeddingPort {
 
     @Override
     public List<float[]> passages(List<String> texts) {
+        if (passagesFailure != null) {
+            throw passagesFailure;
+        }
         if (state != State.READY) {
             return List.of();
         }

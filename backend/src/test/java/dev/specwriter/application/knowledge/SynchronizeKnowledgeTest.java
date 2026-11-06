@@ -57,8 +57,12 @@ class SynchronizeKnowledgeTest {
     final FakeEmbedding embedding = new FakeEmbedding();
     final AtomicReference<ArchitectureReader.Result> architecture = new AtomicReference<>();
     final List<String> architectureReads = new ArrayList<>();
+    final AtomicReference<RuntimeException> architectureFailure = new AtomicReference<>();
     final ArchitectureReader architectureReader = (workspace, ownership) -> {
         architectureReads.add(workspace);
+        if (architectureFailure.get() != null) {
+            throw architectureFailure.get();
+        }
         return architecture.get();
     };
     SynchronizeKnowledge sync;
@@ -449,9 +453,134 @@ class SynchronizeKnowledgeTest {
         assertThat(world.ticketLinks.of(P, "PROJ-7")).isEmpty();
     }
 
-    /** Une bibliothèque absente du jar ne laisse pas l'indexation « en cours » pour toujours (T117). */
+    // ---------- 005, US1 : une étape en échec n'arrête pas les autres ----------
+
+    static void unexpected(List<IndexationError> errors, IndexationError.Kind kind, String location) {
+        assertThat(errors).filteredOn(e -> "UNEXPECTED".equals(e.reason())).singleElement().satisfies(e -> {
+            assertThat(e.kind()).isEqualTo(kind);
+            assertThat(e.location()).isEqualTo(location);
+            assertThat(e.message()).startsWith("Erreur inattendue (");
+        });
+    }
+
+    /** Erreur inattendue à Jira : documentation et architecture indexées, repère Jira inchangé. */
     @Test
-    void bibliothequeAbsenteTermineEnEchec() {
+    void jiraEnErreurInattendueNArretePasLesAutresEtapes() {
+        sync.run(P, Mode.FULL, progress);
+        Instant mark = sources.find(P).jiraMark();
+        index.retain(P, KnowledgeKind.DOC_SECTION, java.util.Set.of());
+        index.retain(P, KnowledgeKind.ARCH_ELEMENT, java.util.Set.of());
+        world.tracker.unexpected = () -> new IllegalStateException("panne");
+        world.clock.advance(Duration.ofHours(1));
+        Recorder second = new Recorder();
+
+        sync.run(P, Mode.FULL, second);
+
+        unexpected(second.errors, IndexationError.Kind.JIRA, "PROJ");
+        assertThat(second.steps).contains(Step.DOCUMENTATION, Step.ARCHITECTURE);
+        assertThat(index.count(P, KnowledgeKind.DOC_SECTION)).isEqualTo(1);
+        assertThat(index.count(P, KnowledgeKind.ARCH_ELEMENT)).isEqualTo(2);
+        assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(2);
+        assertThat(sources.find(P).jiraMark()).isEqualTo(mark);
+    }
+
+    /** Bibliothèque manquante (essai de la 003, {@code NoSuchMethodError}) : même traitement. */
+    @Test
+    void bibliothequeManquanteAJiraNArretePasLesAutresEtapes() {
+        world.tracker.unexpected = () -> new NoSuchMethodError("searchLenient");
+
+        sync.run(P, Mode.FULL, progress);
+
+        unexpected(progress.errors, IndexationError.Kind.JIRA, "PROJ");
+        assertThat(index.count(P, KnowledgeKind.ADR)).isEqualTo(1);
+        assertThat(index.count(P, KnowledgeKind.ARCH_ELEMENT)).isEqualTo(2);
+        assertThat(sources.find(P).jiraMark()).isNull();
+    }
+
+    /** Une source de documentation en erreur : l'autre est lue, rien n'est retiré. */
+    @Test
+    void sourceDeDocumentationEnErreurNArretePasLesAutres() {
+        String other = "https://doc.example.com/clients/";
+        world.docSources.save(DocSource.create(UUID.randomUUID(), P, DocSource.Kind.URL, other));
+        world.docs.sites.put(other, new Result(List.of(new Page(other + "client.html", "Client", "texte", List.of(
+                new Section(other + "client.html", 0, "Client", "Un client.", KnowledgeKind.DOC_SECTION, null, null)))),
+                List.of()));
+        sync.run(P, Mode.FULL, progress);
+        assertThat(index.count(P, KnowledgeKind.DOC_SECTION)).isEqualTo(2);
+        world.docs.sites.put(other, new Result(List.of(new Page(other + "client.html", "Client", "texte", List.of(
+                new Section(other + "client.html", 0, "Client", "Un client, modifié.", KnowledgeKind.DOC_SECTION,
+                        null, null)))), List.of()));
+        world.docs.broken.put(SITE, new IllegalStateException("panne"));
+        Recorder second = new Recorder();
+
+        sync.run(P, Mode.FULL, second);
+
+        unexpected(second.errors, IndexationError.Kind.SOURCE, SITE);
+        assertThat(index.count(P, KnowledgeKind.DOC_SECTION)).isEqualTo(2);
+        assertThat(index.count(P, KnowledgeKind.ADR)).isEqualTo(1);
+        assertThat(index.all(P, KnowledgeKind.DOC_SECTION)).extracting(i -> i.body()).contains("Un client, modifié.");
+        assertThat(second.steps).contains(Step.ARCHITECTURE);
+    }
+
+    /** Erreur inattendue à l'architecture : Jira et documentation indexés, empreinte inchangée. */
+    @Test
+    void architectureEnErreurInattendueGardeSonEmpreinte() {
+        sync.run(P, Mode.FULL, progress);
+        architectureFailure.set(new IllegalArgumentException("panne"));
+        world.tracker.tracked.put("PROJ-10", issue("PROJ-10", "Relancer un client", "new",
+                Instant.parse("2026-11-01T08:00:00Z")));
+        Recorder second = new Recorder();
+
+        sync.run(P, Mode.FULL, second);
+
+        unexpected(second.errors, IndexationError.Kind.ARCHITECTURE, sources.find(P).workspace());
+        assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(3);
+        assertThat(sources.find(P).architectureHash()).isEqualTo("h1");
+        assertThat(index.count(P, KnowledgeKind.ARCH_ELEMENT)).isEqualTo(2);
+    }
+
+    /** Erreur inattendue au calcul des vecteurs : signalée, les sources restent indexées. */
+    @Test
+    void vecteursEnErreurInattendueSignales() {
+        embedding.passagesFailure = new IllegalStateException("panne");
+
+        sync.run(P, Mode.FULL, progress);
+
+        unexpected(progress.errors, IndexationError.Kind.MODEL, null);
+        assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(2);
+        assertThat(sources.find(P).syncedAt()).isNotNull();
+    }
+
+    /** Une annulation demandée pendant une étape n'est pas une erreur d'étape : elle remonte. */
+    @Test
+    void annulationPendantUneEtapeRemonte() {
+        world.tracker.unexpected = () -> {
+            progress.cancel = true;
+            return new IllegalStateException("appel coupé");
+        };
+
+        assertThatThrownBy(() -> sync.run(P, Mode.FULL, progress)).isInstanceOf(RuntimeException.class);
+        assertThat(progress.errors).noneMatch(e -> "UNEXPECTED".equals(e.reason()));
+        assertThat(progress.steps).doesNotContain(Step.DOCUMENTATION);
+    }
+
+    /** L'indexation se termine « avec des erreurs », pas en échec (FR-002). */
+    @Test
+    void etapeEnErreurTermineAvecDesErreurs() {
+        ManualExecutor executor = new ManualExecutor();
+        Indexations indexations = new Indexations(sync, world.projects, executor, world.clock);
+        world.tracker.unexpected = () -> new IllegalStateException("panne");
+        indexations.start(P, Mode.FULL);
+        executor.runAll();
+        assertThat(indexations.current(P)).get().satisfies(s -> {
+            assertThat(s.status()).isEqualTo(Indexations.Status.SUCCEEDED);
+            unexpected(s.errors(), IndexationError.Kind.JIRA, "PROJ");
+        });
+    }
+
+    /** Une bibliothèque absente du jar est signalée à son étape, les autres continuent (T117, puis 005). */
+    @Test
+    void bibliothequeAbsenteSignaleeASonEtape() {
         ManualExecutor executor = new ManualExecutor();
         ArchitectureReader missingLibrary = (workspace, ownership) -> {
             throw new NoClassDefFoundError("org/slf4j/LoggerFactory");
@@ -462,9 +591,11 @@ class SynchronizeKnowledgeTest {
         indexations.start(P, Mode.FULL);
         executor.runAll();
         assertThat(indexations.current(P)).get().satisfies(s -> {
-            assertThat(s.status()).isEqualTo(Indexations.Status.FAILED);
-            assertThat(s.errors()).extracting(IndexationError::reason).contains("INTERNAL_ERROR");
+            assertThat(s.status()).isEqualTo(Indexations.Status.SUCCEEDED);
+            assertThat(s.errors()).extracting(IndexationError::kind, IndexationError::reason)
+                    .contains(org.assertj.core.groups.Tuple.tuple(IndexationError.Kind.ARCHITECTURE, "UNEXPECTED"));
         });
+        assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(2);
     }
 
     @Test

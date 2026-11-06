@@ -385,6 +385,10 @@ export class KnowledgePanelComponent {
 
   protected errorLabel(e: IndexationError): string {
     const where = e.location ? ` : ${e.location}` : '';
+    if (e.reason === 'UNEXPECTED') {
+      // erreur inattendue d'une étape (005) : les étapes suivantes ont continué
+      return `${ERROR_KINDS[e.kind]}${where} (${e.message ?? 'Erreur inattendue'} ; les autres sources ont été indexées)`;
+    }
     const http = e.httpStatus ? ` ${e.httpStatus}` : '';
     const message = e.message ? `, ${e.message}` : '';
     return `${ERROR_KINDS[e.kind]}${where} (${e.reason}${http}${message})`;

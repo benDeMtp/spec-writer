@@ -136,6 +136,14 @@ describe('KnowledgePanelComponent', () => {
     expect(el.querySelector('[role="timer"]')).toBeNull();
   });
 
+  it("une erreur inattendue d'étape est dite en clair, l'indexation finit avec des erreurs (005, US1)", async () => {
+    const error = { kind: 'JIRA' as const, location: 'AURORA', reason: 'UNEXPECTED', httpStatus: null, message: 'Erreur inattendue (NoSuchMethodError)' };
+    await open(STATUS, indexation({ status: 'SUCCEEDED', finishedAt: '2026-11-04T10:01:00Z', errors: [error] }));
+    expect(el.textContent).toContain('Indexation terminée en 1 min 00 s, avec des erreurs.');
+    expect(el.textContent).toContain('Jira : AURORA (Erreur inattendue (NoSuchMethodError) ; les autres sources ont été indexées)');
+    expect(el.textContent).not.toContain('UNEXPECTED');
+  });
+
   it('des scripts ignorés sont des avertissements, pas des erreurs', async () => {
     const warning = (line: number) => ({
       kind: 'WARNING' as const,
