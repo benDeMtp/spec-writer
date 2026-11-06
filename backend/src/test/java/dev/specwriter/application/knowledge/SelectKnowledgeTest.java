@@ -14,16 +14,22 @@ import dev.specwriter.domain.knowledge.KnowledgeRole;
 import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.ImpactResult;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
+import dev.specwriter.domain.port.DocumentFolder;
+import dev.specwriter.domain.port.DocumentationReader.Page;
 import dev.specwriter.domain.port.EmbeddingPort;
+import dev.specwriter.domain.project.DocSource;
+import dev.specwriter.domain.project.ExclusionPatterns;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.support.FakeDocumentFolder;
 import dev.specwriter.support.FakeEmbedding;
 import dev.specwriter.support.InMemoryKnowledgeIndex;
 import dev.specwriter.support.JiraWorld;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +48,10 @@ class SelectKnowledgeTest {
     final InMemoryKnowledgeIndex index = new InMemoryKnowledgeIndex();
     final FakeEmbedding embedding = new FakeEmbedding();
     SelectKnowledge select;
+    AnalyzeArchitecture analyze;
     Session session;
+    final DocSource documents = new DocSource(UUID.fromString("00000000-0000-0000-0000-000000000006"), P,
+            DocSource.Kind.DOCUMENTS, "/sync/Aurora", null, null, ExclusionPatterns.NONE);
 
     static String text(String start, int length) {
         StringBuilder out = new StringBuilder(start);
@@ -95,7 +104,7 @@ class SelectKnowledgeTest {
         index.save(KnowledgeItem.archElement(P, new ArchElement("Comptabilité", ArchElement.Type.SOFTWARE_SYSTEM,
                 ArchScope.COMMON, false, "Reçoit les avoirs et factures", null), T, T), null, null);
         index.replaceArchitecture(P, ArchitectureModel.EMPTY);
-        AnalyzeArchitecture analyze = new AnalyzeArchitecture(index, w.llm, w.policy);
+        analyze = new AnalyzeArchitecture(index, w.llm, w.policy);
         select = new SelectKnowledge(w.projects, index, embedding, analyze);
         session = Session.start(UUID.randomUUID(), P, Need.of(NEED), null, w.clock.now());
     }
@@ -500,5 +509,148 @@ class SelectKnowledgeTest {
         assertThat(family.contains("FACT-1")).isTrue();
         assertThat(family.contains("FACT-3")).isFalse();
         assertThat(new StoryFamily(w.tickets, w.ticketLinks).parentOf(P, "FACT-3")).contains("FACT-1");
+    }
+    // 006, US3 : documents d'un dossier synchronisé relus entiers pour la génération (research.md R6)
+
+    SelectKnowledge withDocuments() {
+        w.docSources.save(documents);
+        return new SelectKnowledge(w.projects, index, embedding, analyze, StoryFamily.none(), w.docSources, w.folder);
+    }
+
+    /** Un document indexé par parties ; s'il est sur le poste, sa relecture rend le texte entier. */
+    String document(String path, String title, List<String> parts, int partLength, boolean onDisk) {
+        String ref = DocumentFolder.ref(documents, path);
+        List<String> text = new ArrayList<>();
+        for (int i = 0; i < parts.size(); i++) {
+            String body = text(parts.get(i) + " : l'avoir de la facture.", partLength);
+            index.save(KnowledgeItem.docSection(P, ref + "#" + i, 0, title + " — " + parts.get(i), body, null, T, T),
+                    null, null);
+            text.add("# " + parts.get(i) + "\n\n" + body);
+        }
+        if (onDisk) {
+            w.folder.put(documents.location(), path, 1_000, T,
+                    FakeDocumentFolder.page(new Page(ref, title, String.join("\n\n", text), List.of())));
+        }
+        return ref;
+    }
+
+    static List<ProjectKnowledge.Entry> documents(ProjectKnowledge k) {
+        return k.entries().stream().filter(e -> e.ref().startsWith("docs:")).toList();
+    }
+
+    @Test
+    void documentRetenuReluEntier() {
+        String ref = document("Specs/Avoirs.docx", "Avoirs", List.of("Contexte", "Exigences"), 1_000, true);
+
+        ProjectKnowledge k = withDocuments().forSpecification(session, List.of());
+
+        assertThat(documents(k)).singleElement().satisfies(e -> {
+            assertThat(e.kind()).isEqualTo(KnowledgeKind.DOC_SECTION);
+            assertThat(e.ref()).isEqualTo(ref);
+            assertThat(e.title()).isEqualTo("Avoirs");
+            assertThat(e.text()).startsWith("# Contexte\n\nContexte").contains("\n\n# Exigences\n\nExigences")
+                    .doesNotContain("[document tronqué]");
+        });
+        assertThat(w.folder.reads).containsExactly("Specs/Avoirs.docx");
+        // les sections de documentation ordinaires ne vont toujours pas à la génération
+        assertThat(k.entries()).extracting(ProjectKnowledge.Entry::title).doesNotContain("Règles de l'avoir");
+        assertThat(total(k)).isLessThanOrEqualTo(ProjectKnowledge.MAX_TOTAL);
+    }
+
+    @Test
+    void deuxDocumentsAuPlusCoupesAUneSection() {
+        // le document A, le plus proche du besoin, vient en premier
+        document("A.docx", "Avoirs A", List.of("Un gestionnaire annuler", "Deux gestionnaire annuler",
+                "Trois gestionnaire annuler", "Quatre gestionnaire annuler"), 2_000, true);
+        document("B.docx", "Avoirs B", List.of("Un"), 1_000, true);
+        document("C.docx", "Avoirs C", List.of("Un"), 1_000, true);
+
+        ProjectKnowledge k = withDocuments().forSpecification(session, List.of());
+
+        List<ProjectKnowledge.Entry> docs = documents(k);
+        assertThat(docs).hasSize(SelectKnowledge.MAX_DOCUMENTS);
+        ProjectKnowledge.Entry first = docs.getFirst();
+        assertThat(first.title().length() + first.text().length()).isLessThanOrEqualTo(SelectKnowledge.MAX_DOCUMENT_PART);
+        assertThat(first.text()).endsWith("\n\n[document tronqué]").contains("# Deux").doesNotContain("# Quatre");
+        assertThat(docs.stream().mapToInt(e -> e.title().length() + e.text().length()).sum())
+                .isLessThanOrEqualTo(SelectKnowledge.MAX_DOCUMENT_TEXT);
+    }
+
+    @Test
+    void laFicheEtLesAdrPassentAvantLesDocuments() {
+        sheet(text("## Fiche générale", 20_000));
+        document("Specs/Avoirs.docx", "Avoirs", List.of("Contexte", "Exigences"), 1_500, true);
+
+        ProjectKnowledge k = withDocuments().forSpecification(session, List.of());
+
+        assertThat(size(k, KnowledgeKind.ADR)).isPositive();
+        assertThat(documents(k)).singleElement()
+                .satisfies(e -> assertThat(e.text()).contains("# Contexte").doesNotContain("# Exigences")
+                        .endsWith("[document tronqué]"));
+        assertThat(total(k)).isLessThanOrEqualTo(ProjectKnowledge.MAX_TOTAL - SelectKnowledge.MAX_ARCHITECTURE
+                - SelectKnowledge.MAX_TICKET_TEXT - SelectKnowledge.MAX_SUBTASK_TEXT + size(k, KnowledgeKind.TICKET));
+    }
+
+    @Test
+    void documentIllisibleRemplaceParSesPassagesIndexes() {
+        String ref = document("Specs/Avoirs.docx", "Avoirs", List.of("Contexte", "Exigences"), 1_000, false);
+
+        ProjectKnowledge k = withDocuments().forSpecification(session, List.of());
+
+        assertThat(documents(k)).singleElement().satisfies(e -> {
+            assertThat(e.ref()).isEqualTo(ref);
+            assertThat(e.title()).isEqualTo("Avoirs");
+            assertThat(e.text()).startsWith("Contexte").contains("\n\nExigences");
+        });
+        assertThat(w.folder.reads).containsExactly("Specs/Avoirs.docx");
+
+        // source supprimée entre-temps : rien n'est relu, les passages servent
+        w.folder.reads.clear();
+        w.docSources.delete(documents.id());
+        SelectKnowledge orphan = new SelectKnowledge(w.projects, index, embedding, analyze, StoryFamily.none(),
+                w.docSources, w.folder);
+        assertThat(documents(orphan.forSpecification(session, List.of()))).singleElement()
+                .satisfies(e -> assertThat(e.text()).startsWith("Contexte"));
+        assertThat(w.folder.reads).isEmpty();
+    }
+
+    @Test
+    void adrDUnDossierDeDocumentsSuitLaVoieDesAdr() {
+        String ref = DocumentFolder.ref(documents, "Decisions/0017-avoirs.docx");
+        index.save(KnowledgeItem.adr(P, ref, 0, "ADR-017 Avoir total sur facture",
+                "Décision : l'avoir total annule la facture émise. avoir facture",
+                AdrStatus.Statement.of(AdrStatus.ACCEPTED, null), T, T), null, null);
+
+        ProjectKnowledge k = withDocuments().forSpecification(session, List.of());
+
+        assertThat(k.entries()).filteredOn(e -> e.ref().equals(ref)).singleElement()
+                .satisfies(e -> assertThat(e.kind()).isEqualTo(KnowledgeKind.ADR));
+        assertThat(w.folder.reads).isEmpty();
+    }
+
+    @Test
+    void deuxPreparationsIdentiques() {
+        document("Specs/Avoirs.docx", "Avoirs", List.of("Contexte", "Exigences"), 1_000, true);
+        SelectKnowledge documented = withDocuments();
+        assertThat(documented.forSpecification(session, List.of()))
+                .isEqualTo(documented.forSpecification(session, List.of()));
+    }
+
+    @Test
+    void documentDesigneParLInstructionSeule() {
+        for (int i = 1; i <= 3; i++) {
+            document("Avoirs " + i + ".docx", "Avoirs " + i, List.of("Contexte"), 1_000, true);
+        }
+        String parking = DocumentFolder.ref(documents, "Parking.pdf");
+        index.save(KnowledgeItem.docSection(P, parking + "#0", 0, "Parking — Stationnement",
+                "Stationnement des vélos au siège.", null, T, T), null, null);
+        w.folder.put(documents.location(), "Parking.pdf", 1_000, T,
+                FakeDocumentFolder.page(new Page(parking, "Parking", "Stationnement des vélos au siège.", List.of())));
+        SelectKnowledge documented = withDocuments();
+
+        assertThat(documents(documented.forSpecification(session, List.of())))
+                .extracting(ProjectKnowledge.Entry::ref).doesNotContain(parking);
+        assertThat(documents(documented.forEdit(session, List.of(), "Ajoute le stationnement des vélos.", "")))
+                .extracting(ProjectKnowledge.Entry::ref).contains(parking);
     }
 }

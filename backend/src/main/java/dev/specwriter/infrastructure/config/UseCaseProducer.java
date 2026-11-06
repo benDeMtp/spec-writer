@@ -177,8 +177,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
-            AnalyzeArchitecture analyze, StoryFamily families) {
-        return new SelectKnowledge(projects, index, embedding, analyze, families);
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder) {
+        return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder);
     }
 
     /** Sous-tâches de la story liée, rattachées aux cas d'usage d'une version (research.md R29). */
