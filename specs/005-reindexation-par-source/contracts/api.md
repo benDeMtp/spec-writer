@@ -14,7 +14,7 @@ Corps :
 - `sources` présent : `mode` doit être `FULL` ; liste non vide ; chaque valeur est `JIRA`,
   `ARCHITECTURE` ou l'identifiant d'une source de documentation du projet.
 - 202 : `IndexationView`, avec `sources` repris.
-- 400 `VALIDATION_FAILED` : liste vide, valeur inconnue, `INCREMENTAL` avec une liste.
+- 422 `VALIDATION_FAILED` : liste vide, valeur inconnue, `INCREMENTAL` avec une liste.
 - 409 `OPERATION_IN_PROGRESS` : indexation en cours (inchangé).
 
 ## GET /api/projects/{id}/indexations/current

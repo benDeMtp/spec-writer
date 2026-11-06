@@ -38,10 +38,10 @@ d'architecture sont uniques par projet.
 dans `application/knowledge`, avec `IndexationScope.ALL`. À l'API, une liste de chaînes :
 `"JIRA"`, `"ARCHITECTURE"` et l'identifiant de chaque source de documentation. Liste absente :
 toutes les sources (comportement actuel). Liste vide, valeur inconnue ou source de documentation
-d'un autre projet : 400 `VALIDATION_FAILED`.
+d'un autre projet : 422 `VALIDATION_FAILED`.
 
 Une liste de sources n'est acceptée qu'en mode `FULL` : forcer la relecture d'une source, c'est
-la réindexer entièrement (spec, Assumptions). En `INCREMENTAL` avec une liste : 400.
+la réindexer entièrement (spec, Assumptions). En `INCREMENTAL` avec une liste : 422.
 
 ## R3 — Ce que « réindexer entièrement » veut dire pour chaque source
 

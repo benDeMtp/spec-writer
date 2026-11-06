@@ -138,6 +138,12 @@ déplacé est retiré. Les tickets proches et les sous-tâches fermés sont mont
 indexé, même quand Jira ne répond pas. La fin d'une indexation indique combien de tickets ont été
 relus, gardés sans relecture et retirés.
 
+« Réindexer des sources… » relit entièrement les seules sources cochées : Jira, une source de
+documentation, le modèle d'architecture. La date « Synchronisée le » ne change pas, et une page
+supprimée d'une source réindexée seule reste dans l'index jusqu'à la prochaine indexation de toutes
+les sources. Une erreur inattendue dans une source n'arrête que son étape : les autres sources sont
+indexées, et l'indexation se termine « avec des erreurs ».
+
 ## Statut d'implémentation
 
 Une spécification est « brouillon », « prête à implémenter », « en cours » ou « implémentée ».

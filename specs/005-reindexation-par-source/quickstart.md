@@ -19,7 +19,7 @@ npx --prefix ../frontend ng test --watch=false
 | US1-5 | `SynchronizeKnowledgeTest` | annulation → `Cancelled` remonte |
 | US1 fin | `SynchronizeKnowledgeTest` (Indexations) | statut `SUCCEEDED` avec erreurs |
 | US2-2, 3, 4 | `SynchronizeKnowledgeTest` | seules les sources choisies sont lues ; pas de retrait de documentation ; date « Synchronisée le » inchangée |
-| US2-6 | `IndexationScopeTest`, `KnowledgeResourceIT` | liste vide, valeur inconnue, `INCREMENTAL` avec liste → 400 |
+| US2-6 | `IndexationScopeTest`, `KnowledgeResourceIT` | liste vide, valeur inconnue, `INCREMENTAL` avec liste → 422 |
 | US2-1, 7 | `KnowledgeResourceIT` | `sources` du statut : seules les sources déclarées |
 
 E2E (`us8-project-context.spec.ts`, jeu fictif) : « Réindexer des sources… », cocher la
