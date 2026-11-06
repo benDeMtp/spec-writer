@@ -172,4 +172,8 @@ pas lus, et leur contenu dans l'index ne change pas.
 - La préparation du modèle de recherche et le calcul des vecteurs ne sont pas des sources : ils
   s'exécutent à chaque indexation, quelles que soient les sources choisies.
 - Le choix des sources n'est pas mémorisé d'une fois sur l'autre.
+- Une page supprimée d'une source de documentation réindexée seule reste dans l'index jusqu'à la
+  prochaine indexation de toutes les sources : les éléments de documentation ne gardent pas la
+  trace de leur source, et retirer ce que la source réindexée n'a pas lu effacerait les autres
+  sources. Une page modifiée ou ajoutée est, elle, prise en compte.
 - Hors périmètre : la lecture des `!docs` et `!adrs` du modèle d'architecture C4.
