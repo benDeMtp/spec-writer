@@ -7,9 +7,11 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static dev.specwriter.support.LocalApi.api;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -205,6 +207,38 @@ class KnowledgeResourceIT {
         assertThat(state.getList("errors.kind")).containsExactly("ARCHITECTURE");
         assertThat(state.getString("errors[0].location")).endsWith("workspace.dsl:4");
         api().get(base() + "/knowledge").then().body("partial", equalTo(true));
+    }
+
+    /** 005, US2 : sources proposées au choix, puis réindexation de la seule documentation. */
+    @Test
+    void reindexationDeSourcesChoisies() {
+        String docId = api().body(Map.of("kind", "FOLDER", "location", knowledge.resolve("antora").toString()))
+                .post(base() + "/doc-sources").then().statusCode(201).extract().path("id");
+        JsonPath status = api().get(base() + "/knowledge").then().statusCode(200).extract().jsonPath();
+        assertThat(status.getList("sources.id")).containsExactly("JIRA", docId);
+        assertThat(status.getList("sources.label")).containsExactly("Jira FACT", knowledge.resolve("antora").toString());
+        assertThat(status.getList("sources.kind")).containsExactly("JIRA", "DOCUMENTATION");
+
+        api().body(Map.of("mode", "FULL", "sources", List.of())).post(base() + "/indexations").then().statusCode(422);
+        api().body(Map.of("mode", "FULL", "sources", List.of("WIKI"))).post(base() + "/indexations").then()
+                .statusCode(422);
+        api().body(Map.of("mode", "INCREMENTAL", "sources", List.of(docId))).post(base() + "/indexations").then()
+                .statusCode(422);
+
+        jira.resetRequests();
+        api().body(Map.of("mode", "FULL", "sources", List.of(docId))).post(base() + "/indexations").then()
+                .statusCode(202).body("sources", contains(docId));
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(60);
+        JsonPath state;
+        do {
+            state = api().get(base() + "/indexations/current").then().statusCode(200).extract().jsonPath();
+        } while ("RUNNING".equals(state.getString("status")) && System.nanoTime() < deadline);
+        assertThat(state.getString("status")).isEqualTo("SUCCEEDED");
+        assertThat(state.getList("sources")).containsExactly(docId);
+        assertThat(state.getMap("tickets")).isNull();
+        jira.verify(0, com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor(urlPathEqualTo("/rest/api/2/search")));
+        api().get(base() + "/knowledge").then().statusCode(200).body("tickets", equalTo(0)).body("adrs", equalTo(3))
+                .body("syncedAt", nullValue());
     }
 
     @Test

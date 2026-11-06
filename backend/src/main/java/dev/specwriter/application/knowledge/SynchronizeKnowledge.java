@@ -27,6 +27,7 @@ import dev.specwriter.domain.port.TicketLinkRepository;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.Project;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -53,6 +54,8 @@ public class SynchronizeKnowledge {
     /** Texte transmis au modèle : au-delà, le modèle tronque de toute façon (512 jetons). */
     static final int EMBEDDING_TEXT = 2_000;
 
+    /** Raison d'une erreur inattendue d'étape (005). */
+    static final String UNEXPECTED = "UNEXPECTED";
     private static final Logger LOG = Logger.getLogger(SynchronizeKnowledge.class);
 
     private final ProjectRepository projects;
@@ -85,24 +88,72 @@ public class SynchronizeKnowledge {
     }
 
     public void run(UUID projectId, Mode mode, IndexationProgress progress) {
+        run(projectId, mode, IndexationScope.ALL, progress);
+    }
+
+    /**
+     * Sources choisies (005, US2) : seules elles sont lues ; la documentation ne retire rien et la
+     * date de synchronisation ne change pas, sauf pour toutes les sources.
+     */
+    public void run(UUID projectId, Mode mode, IndexationScope scope, IndexationProgress progress) {
         Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
         KnowledgeSource source = sources.find(projectId);
         Instant now = clock.now();
 
         EmbeddingPort.State model = prepareModel(progress);
-        Instant mark = jira(project, source, mode, progress);
-        documentation(projectId, progress);
-        KnowledgeSource read = architecture(source, mode, progress);
+        Instant mark = scope.jira() ? jira(project, source, mode, progress) : source.jiraMark();
+        documentation(projectId, scope, progress);
+        KnowledgeSource read;
+        try {
+            read = scope.architecture() ? architecture(source, mode, progress) : source;
+        } catch (RuntimeException | LinkageError e) {
+            if (cancelling(progress, e)) {
+                throw e;
+            }
+            unexpected(progress, IndexationError.Kind.ARCHITECTURE, source.workspace(), e);
+            read = source;
+        }
         // la source a pu changer pendant la synchronisation : seule l'empreinte du workspace lu s'applique
         KnowledgeSource latest = sources.find(projectId);
         KnowledgeSource kept = Objects.equals(latest.workspace(), read.workspace())
                 && Objects.equals(latest.ownership(), read.ownership())
                         ? latest.withArchitectureHash(read.architectureHash())
                         : latest;
-        sources.save(kept.synced(mark, now));
+        sources.save(scope.all() ? kept.synced(mark, now) : kept.withJiraMark(mark));
         if (model == EmbeddingPort.State.READY) {
-            vectors(projectId, progress);
+            try {
+                vectors(projectId, progress);
+            } catch (RuntimeException | LinkageError e) {
+                if (cancelling(progress, e)) {
+                    throw e;
+                }
+                unexpected(progress, IndexationError.Kind.MODEL, null, e);
+            }
         }
+    }
+
+    /** Sources proposées au choix d'une réindexation : celles que l'indexation lirait (005, R5). */
+    public List<IndexableSource> sources(UUID projectId) {
+        Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
+        List<IndexableSource> out = new ArrayList<>();
+        String projectKey = jira.configured() && jira.consented() && jira.target().isPresent()
+                ? jira.effectiveProject(project)
+                : null;
+        if (projectKey != null) {
+            out.add(new IndexableSource(IndexationScope.JIRA, IndexableSource.Kind.JIRA, "Jira " + projectKey));
+        }
+        docSources.list(projectId).forEach(d -> out.add(
+                new IndexableSource(d.id().toString(), IndexableSource.Kind.DOCUMENTATION, d.location())));
+        String workspace = sources.find(projectId).workspace();
+        if (workspace != null) {
+            out.add(new IndexableSource(IndexationScope.ARCHITECTURE, IndexableSource.Kind.ARCHITECTURE, workspace));
+        }
+        return out;
+    }
+
+    /** Sources choisies validées contre celles du projet. */
+    public IndexationScope scope(UUID projectId, List<String> ids) {
+        return IndexationScope.of(ids, docSources.list(projectId));
     }
 
     // ---------- Modèle ----------
@@ -188,6 +239,13 @@ public class SynchronizeKnowledge {
             LOG.warnf("Connaissance : Jira non synchronisé (%s)", e.kind());
             progress.error(new IndexationError(IndexationError.Kind.JIRA, projectKey, e.kind().name(), null,
                     "Jira n'a pas pu être synchronisé."));
+        } catch (RuntimeException | LinkageError e) {
+            if (cancelling(progress, e)) {
+                throw e;
+            }
+            unexpected(progress, IndexationError.Kind.JIRA, projectKey, e);
+            // erreur inattendue : le repère reste celui d'avant l'étape (005, FR-003)
+            return mark;
         } finally {
             // le bilan est transmis même en erreur ou interruption : ce qui a déjà été fait
             TicketSummary summary = new TicketSummary(reading.keys.size(), keptClosed, removed);
@@ -251,8 +309,8 @@ public class SynchronizeKnowledge {
 
     // ---------- Documentation ----------
 
-    private void documentation(UUID projectId, IndexationProgress progress) {
-        List<DocSource> declared = docSources.list(projectId);
+    private void documentation(UUID projectId, IndexationScope scope, IndexationProgress progress) {
+        List<DocSource> declared = docSources.list(projectId).stream().filter(scope::includes).toList();
         if (declared.isEmpty()) {
             return;
         }
@@ -264,44 +322,61 @@ public class SynchronizeKnowledge {
         boolean complete = true;
         for (DocSource source : declared) {
             checkCancelled(progress);
-            DocumentationReader.Result read = reader.read(source, new DocumentationReader.Listener() {
-                @Override
-                public void reading(String location, int done, int total) {
-                    progress.advance(location, done, total);
+            try {
+                complete &= document(projectId, source, progress, sections, adrs, keepSections, keepAdrs);
+            } catch (RuntimeException | LinkageError e) {
+                if (cancelling(progress, e)) {
+                    throw e;
                 }
-
-                @Override
-                public boolean cancelled() {
-                    return progress.cancelled();
-                }
-            });
-            checkCancelled(progress);
-            for (DocumentationReader.Page page : read.pages()) {
-                for (Section section : page.sections()) {
-                    KnowledgeItem item = item(projectId, section);
-                    Key key = Key.of(item);
-                    boolean adr = item.kind() == KnowledgeKind.ADR;
-                    (adr ? keepAdrs : keepSections).add(key);
-                    if (!item.contentHash().equals((adr ? adrs : sections).get(key))) {
-                        index.save(item, null, null);
-                    }
-                }
-            }
-            for (DocumentationReader.Unread unread : read.unread()) {
-                if (unread.reason() == DocumentationReader.UnreadReason.NOT_ANTORA) {
-                    continue;
-                }
-                boolean wholeSource = read.pages().isEmpty();
-                complete &= !wholeSource && unread.reason() != DocumentationReader.UnreadReason.LIMIT_REACHED;
-                progress.error(new IndexationError(wholeSource ? IndexationError.Kind.SOURCE : IndexationError.Kind.PAGE,
-                        unread.location(), unread.reason().name(), unread.httpStatus(), null));
+                unexpected(progress, IndexationError.Kind.SOURCE, source.location(), e);
+                complete = false;
             }
         }
-        // une source illisible ou une lecture bornée ne retire rien : l'index précédent reste
-        if (complete) {
+        // une source illisible ou une lecture bornée ne retire rien : l'index précédent reste ; une
+        // source choisie seule non plus, ses éléments ne disant pas de quelle source ils viennent
+        if (complete && scope.all()) {
             index.retain(projectId, KnowledgeKind.DOC_SECTION, keepSections);
             index.retain(projectId, KnowledgeKind.ADR, keepAdrs);
         }
+    }
+
+    /** Lit une source de documentation ; faux si la lecture est incomplète (rien ne sera retiré). */
+    private boolean document(UUID projectId, DocSource source, IndexationProgress progress, Map<Key, String> sections,
+            Map<Key, String> adrs, Set<Key> keepSections, Set<Key> keepAdrs) {
+        boolean complete = true;
+        DocumentationReader.Result read = reader.read(source, new DocumentationReader.Listener() {
+            @Override
+            public void reading(String location, int done, int total) {
+                progress.advance(location, done, total);
+            }
+
+            @Override
+            public boolean cancelled() {
+                return progress.cancelled();
+            }
+        });
+        checkCancelled(progress);
+        for (DocumentationReader.Page page : read.pages()) {
+            for (Section section : page.sections()) {
+                KnowledgeItem item = item(projectId, section);
+                Key key = Key.of(item);
+                boolean adr = item.kind() == KnowledgeKind.ADR;
+                (adr ? keepAdrs : keepSections).add(key);
+                if (!item.contentHash().equals((adr ? adrs : sections).get(key))) {
+                    index.save(item, null, null);
+                }
+            }
+        }
+        for (DocumentationReader.Unread unread : read.unread()) {
+            if (unread.reason() == DocumentationReader.UnreadReason.NOT_ANTORA) {
+                continue;
+            }
+            boolean wholeSource = read.pages().isEmpty();
+            complete &= !wholeSource && unread.reason() != DocumentationReader.UnreadReason.LIMIT_REACHED;
+            progress.error(new IndexationError(wholeSource ? IndexationError.Kind.SOURCE : IndexationError.Kind.PAGE,
+                unread.location(), unread.reason().name(), unread.httpStatus(), null));
+    }
+        return complete;
     }
 
     private KnowledgeItem item(UUID projectId, Section section) {
@@ -394,6 +469,21 @@ public class SynchronizeKnowledge {
     }
 
     // ---------- Outils ----------
+
+    /** Vrai si l'erreur vient d'une annulation : elle n'est pas une erreur d'étape (005, FR-005). */
+    private static boolean cancelling(IndexationProgress progress, Throwable e) {
+        return e instanceof IndexationProgress.Cancelled || progress.cancelled() || Thread.currentThread().isInterrupted();
+    }
+
+    /**
+     * Erreur inattendue d'une étape (005, research.md R1) : journalisée avec sa pile, signalée dans le
+     * détail sans contenu, les étapes suivantes continuent.
+     */
+    private static void unexpected(IndexationProgress progress, IndexationError.Kind kind, String location, Throwable e) {
+        LOG.error("Connaissance : erreur inattendue à l'étape " + kind, e);
+        progress.error(new IndexationError(kind, location, UNEXPECTED, null,
+                "Erreur inattendue (" + e.getClass().getSimpleName() + ")"));
+    }
 
     private static void checkCancelled(IndexationProgress progress) {
         if (progress.cancelled() || Thread.currentThread().isInterrupted()) {

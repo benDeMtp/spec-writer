@@ -35,6 +35,8 @@ public class FakeIssueTracker implements IssueTracker {
     public Kind failure;
     /** Seuls les appels dont la trace commence ainsi échouent (Jira injoignable). */
     public String failingCall;
+    /** Panne inattendue (ni {@code IssueTrackerException}) à la lecture des tickets suivis (005, US1). */
+    public java.util.function.Supplier<? extends Throwable> unexpected;
     public final List<IssueType> types = new ArrayList<>(List.of(new IssueType("10002", "Bug"), new IssueType("10001", "Story")));
     public final Map<String, List<RequiredField>> required = new LinkedHashMap<>();
     public final List<Map<String, Object>> created = new ArrayList<>();
@@ -50,6 +52,16 @@ public class FakeIssueTracker implements IssueTracker {
     public final List<String> links = new ArrayList<>();
     /** Panne de la seule création de lien. */
     public Kind linkFailure;
+
+    private void unexpected() {
+        if (unexpected != null) {
+            Throwable t = unexpected.get();
+            if (t instanceof Error e) {
+                throw e;
+            }
+            throw (RuntimeException) t;
+        }
+    }
 
     private void fail() {
         if (failure != null) {
@@ -170,6 +182,7 @@ public class FakeIssueTracker implements IssueTracker {
             int maxResults) {
         calls.add("updatedSince " + projectKey + " " + since + " " + startAt);
         fail();
+        unexpected();
         List<TrackedIssue> all = tracked.values().stream().filter(i -> i.key().startsWith(projectKey + "-"))
                 .filter(i -> since == null || !i.updated().isBefore(since))
                 .sorted(java.util.Comparator.comparing(TrackedIssue::updated)).toList();
@@ -183,6 +196,7 @@ public class FakeIssueTracker implements IssueTracker {
             int startAt, int maxResults) {
         calls.add("openOrUpdatedSince " + projectKey + " " + since + " " + startAt);
         fail();
+        unexpected();
         List<TrackedIssue> all = tracked.values().stream().filter(i -> i.key().startsWith(projectKey + "-"))
                 .filter(i -> !"done".equals(i.statusCategory()) || !i.updated().isBefore(since))
                 .sorted(java.util.Comparator.comparing(TrackedIssue::updated)).toList();

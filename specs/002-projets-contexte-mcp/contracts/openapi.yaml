@@ -95,10 +95,22 @@ paths:
   /api/projects/{id}/indexations:
     post:
       summary: Lance une synchronisation (FR-033, R20) ; FULL relit tout sauf les tickets fermés déjà indexés (003, FR-002), INCREMENTAL seulement ce qui a changé
-      requestBody: { content: { application/json: { schema: { type: object, properties: { mode: { enum: [FULL, INCREMENTAL], default: INCREMENTAL } } } } } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { enum: [FULL, INCREMENTAL], default: INCREMENTAL }
+                sources:
+                  type: array
+                  minItems: 1
+                  items: { type: string }
+                  description: "Sources choisies (005) : JIRA, ARCHITECTURE, identifiants de sources de documentation ; mode FULL seulement ; absent pour toutes"
       responses:
         '202': { content: { application/json: { schema: { $ref: '#/components/schemas/Indexation' } } } }
         '409': { description: Une indexation est déjà en cours pour ce projet (OPERATION_IN_PROGRESS) }
+        '422': { description: "Mode inconnu, liste de sources vide ou inconnue, ou sources en INCREMENTAL (VALIDATION_FAILED)" }
   /api/projects/{id}/knowledge/adrs:
     get:
       summary: ADR du projet pour la page des ADR (004, contracts/api.md)
@@ -407,6 +419,11 @@ components:
             read: { type: integer, minimum: 0, description: Tickets lus dans Jira }
             keptClosed: { type: integer, minimum: 0, description: "Tickets fermés gardés sans relecture (0 en incrémental)" }
             removed: { type: integer, minimum: 0, description: Tickets retirés de l'index }
+        sources:
+          type: array
+          nullable: true
+          items: { type: string }
+          description: "Sources choisies (005), nul pour toutes"
     AdrList:
       type: object
       properties:
@@ -431,7 +448,7 @@ components:
       properties:
         kind: { enum: [PAGE, SOURCE, JIRA, ARCHITECTURE, MODEL, FAILURE, WARNING], description: "WARNING : avertissement (par exemple !script ignoré), sans effet sur partial" }
         location: { type: string, description: "Adresse, clé, ou fichier:ligne pour ARCHITECTURE" }
-        reason: { type: string }
+        reason: { type: string, description: "UNEXPECTED : erreur inattendue d'une étape, les étapes suivantes ont continué (005)" }
         httpStatus: { type: integer }
         message: { type: string }
     KnowledgeStatus:
@@ -444,6 +461,15 @@ components:
         syncedAt: { type: string, format: date-time }
         partial: { type: boolean, description: "Indexation en cours, source en erreur ou modèle absent" }
         model: { enum: [MISSING, DOWNLOADING, READY, ERROR, TERMS_ONLY] }
+        sources:
+          type: array
+          description: "Sources proposées au choix d'une réindexation (005)"
+          items:
+            type: object
+            properties:
+              id: { type: string, description: "JIRA, ARCHITECTURE ou identifiant de la source de documentation" }
+              kind: { enum: [JIRA, DOCUMENTATION, ARCHITECTURE] }
+              label: { type: string, description: "« Jira CLE », emplacement de la documentation, ou workspace" }
     EmbeddingSettings:
       type: object
       properties:

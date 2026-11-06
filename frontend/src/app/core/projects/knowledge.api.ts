@@ -25,8 +25,10 @@ export class KnowledgeApi {
     return firstValueFrom(this.http.get<AdrList>(`${this.base(projectId)}/knowledge/adrs`));
   }
 
-  start(projectId: string, mode: IndexationMode): Promise<Indexation> {
-    return firstValueFrom(this.http.post<Indexation>(`${this.base(projectId)}/indexations`, { mode }));
+  /** Indexation de toutes les sources, ou des seules sources choisies (005, mode FULL). */
+  start(projectId: string, mode: IndexationMode, sources?: string[]): Promise<Indexation> {
+    const body = sources ? { mode, sources } : { mode };
+    return firstValueFrom(this.http.post<Indexation>(`${this.base(projectId)}/indexations`, body));
   }
 
   /** Indexation en cours ou dernière ; null s'il n'y en a aucune. Sans bandeau d'erreur. */

@@ -15,7 +15,13 @@ const STATUS: KnowledgeStatus = {
   syncedAt: '2026-11-04T08:00:00Z',
   partial: false,
   model: 'READY',
+  sources: [],
 };
+const SOURCES: KnowledgeStatus['sources'] = [
+  { id: 'JIRA', kind: 'JIRA', label: 'Jira FACT' },
+  { id: 'd1', kind: 'DOCUMENTATION', label: '/docs/antora' },
+  { id: 'ARCHITECTURE', kind: 'ARCHITECTURE', label: '/c4/workspace.dsl' },
+];
 const CURRENT = '/api/projects/p1/indexations/current';
 
 function indexation(over: Partial<Indexation>): Indexation {
@@ -31,6 +37,7 @@ function indexation(over: Partial<Indexation>): Indexation {
     finishedAt: null,
     errors: [],
     tickets: null,
+    sources: null,
     ...over,
   };
 }
@@ -136,6 +143,14 @@ describe('KnowledgePanelComponent', () => {
     expect(el.querySelector('[role="timer"]')).toBeNull();
   });
 
+  it("une erreur inattendue d'étape est dite en clair, l'indexation finit avec des erreurs (005, US1)", async () => {
+    const error = { kind: 'JIRA' as const, location: 'AURORA', reason: 'UNEXPECTED', httpStatus: null, message: 'Erreur inattendue (NoSuchMethodError)' };
+    await open(STATUS, indexation({ status: 'SUCCEEDED', finishedAt: '2026-11-04T10:01:00Z', errors: [error] }));
+    expect(el.textContent).toContain('Indexation terminée en 1 min 00 s, avec des erreurs.');
+    expect(el.textContent).toContain('Jira : AURORA (Erreur inattendue (NoSuchMethodError) ; les autres sources ont été indexées)');
+    expect(el.textContent).not.toContain('UNEXPECTED');
+  });
+
   it('des scripts ignorés sont des avertissements, pas des erreurs', async () => {
     const warning = (line: number) => ({
       kind: 'WARNING' as const,
@@ -193,6 +208,53 @@ describe('KnowledgePanelComponent', () => {
     await settle(fixture);
     expect(el.textContent).toContain('Indexation interrompue');
     expect(button(el, 'Tout réindexer')).toBeDefined();
+  });
+
+  it('réindexe les seules sources cochées (005, US2)', async () => {
+    await open({ ...STATUS, sources: SOURCES }, null);
+    button(el, 'Réindexer des sources…')!.click();
+    await settle(fixture);
+    const group = el.querySelector('fieldset.choice')!;
+    expect(group.querySelector('legend')?.textContent?.trim()).toBe('Sources à réindexer');
+    const boxes = Array.from(group.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+    expect(boxes.map((b) => b.closest('label')?.textContent?.trim())).toEqual([
+      'Jira FACT',
+      'Documentation : /docs/antora',
+      "Modèle d'architecture : /c4/workspace.dsl",
+    ]);
+    expect(boxes.every((b) => !b.checked)).toBe(true);
+    expect(button(el, 'Réindexer la sélection')!.disabled).toBe(true);
+
+    boxes[1].click();
+    await settle(fixture);
+    expect(button(el, 'Réindexer la sélection')!.disabled).toBe(false);
+    button(el, 'Réindexer la sélection')!.click();
+    const req = ctrl.expectOne((r) => r.method === 'POST' && r.url === '/api/projects/p1/indexations');
+    expect(req.request.body).toEqual({ mode: 'FULL', sources: ['d1'] });
+    req.flush(indexation({ mode: 'FULL', step: 'DOCUMENTATION', sources: ['d1'] }));
+    await settle(fixture);
+    expect(el.querySelector('fieldset.choice')).toBeNull();
+    ctrl.expectOne(CURRENT).flush(indexation({ status: 'SUCCEEDED', mode: 'FULL', finishedAt: '2026-11-04T10:01:00Z', sources: ['d1'] }));
+    await settle(fixture);
+    ctrl.expectOne('/api/projects/p1/knowledge').flush({ ...STATUS, sources: SOURCES });
+    await settle(fixture);
+    expect(el.textContent).toContain('Sources réindexées : Documentation : /docs/antora');
+  });
+
+  it('le choix des sources se referme sans rien lancer', async () => {
+    await open({ ...STATUS, sources: SOURCES }, null);
+    button(el, 'Réindexer des sources…')!.click();
+    await settle(fixture);
+    expect(document.activeElement?.textContent?.trim()).toBe('Sources à réindexer');
+    button(el, 'Annuler')!.click();
+    await settle(fixture);
+    expect(el.querySelector('fieldset.choice')).toBeNull();
+    expect(document.activeElement).toBe(button(el, 'Réindexer des sources…'));
+  });
+
+  it('pas de choix de sources sans source déclarée', async () => {
+    await open(STATUS, null);
+    expect(button(el, 'Réindexer des sources…')).toBeUndefined();
   });
 
   it("recherche d'essai par type, avec le lien du ticket", async () => {

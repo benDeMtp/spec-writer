@@ -70,6 +70,16 @@ export interface KnowledgeStatus {
   /** Indexation en cours, source en erreur ou modèle de recherche absent. */
   partial: boolean;
   model: ModelState;
+  /** Sources proposées au choix d'une réindexation (005). */
+  sources: IndexableSource[];
+}
+
+/** Source réindexable seule : Jira, une source de documentation, le modèle d'architecture (005). */
+export interface IndexableSource {
+  /** `JIRA`, `ARCHITECTURE` ou l'identifiant de la source de documentation. */
+  id: string;
+  kind: 'JIRA' | 'DOCUMENTATION' | 'ARCHITECTURE';
+  label: string;
 }
 
 export type AdrStatus = 'ACCEPTED' | 'PROPOSED' | 'SUPERSEDED' | 'DEPRECATED' | 'UNKNOWN';
@@ -123,6 +133,8 @@ export interface Indexation {
   errors: IndexationError[];
   /** Bilan de l'étape Jira ; nul si elle n'a pas tourné (003, FR-009). */
   tickets: IndexationTickets | null;
+  /** Sources choisies ; nul pour toutes (005). */
+  sources: string[] | null;
 }
 
 /** Tickets relus, fermés gardés sans relecture (0 en incrémental) et retirés. */

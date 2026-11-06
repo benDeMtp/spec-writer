@@ -33,7 +33,7 @@ public class Indexations {
     /** État d'une indexation à un instant donné. */
     public record Snapshot(UUID projectId, Mode mode, Status status, Step step, String current, int done, int total,
             Instant startedAt, Instant stepStartedAt, Instant finishedAt, List<IndexationError> errors,
-            TicketSummary tickets) {
+            TicketSummary tickets, List<String> sources) {
     }
 
     private final Map<UUID, Indexation> indexations = new ConcurrentHashMap<>();
@@ -61,11 +61,28 @@ public class Indexations {
 
     /** Démarre une indexation demandée par l'utilisateur ; refusée si une autre est en cours. */
     public Snapshot start(UUID projectId, Mode mode) {
+        return start(projectId, mode, null);
+    }
+
+    /**
+     * Réindexation des seules sources choisies (005, US2) ; {@code null} pour toutes. Une liste n'est
+     * acceptée qu'en indexation complète : forcer la relecture d'une source, c'est la relire entière.
+     */
+    public Snapshot start(UUID projectId, Mode mode, List<String> sources) {
         if (projects.find(projectId).isEmpty()) {
             throw new DomainException(ErrorCode.PROJECT_NOT_FOUND);
         }
+        IndexationScope scope = IndexationScope.ALL;
+        if (sources != null) {
+            if (mode != Mode.FULL) {
+                throw new DomainException(ErrorCode.VALIDATION_FAILED,
+                        "Des sources choisies se réindexent entièrement : mode FULL.");
+            }
+            scope = synchronize.scope(projectId, sources);
+        }
         purge();
-        Indexation indexation = new Indexation(projectId, mode, clock.now());
+        Indexation indexation = new Indexation(projectId, mode, scope, sources == null ? null : List.copyOf(sources),
+                clock.now());
         Indexation existing = indexations.compute(projectId, (id, e) -> e != null && e.running() ? e : indexation);
         if (existing != indexation) {
             throw new DomainException(ErrorCode.OPERATION_IN_PROGRESS,
@@ -101,6 +118,11 @@ public class Indexations {
         }
     }
 
+    /** Sources proposées au choix d'une réindexation (005, research.md R5). */
+    public List<IndexableSource> sources(UUID projectId) {
+        return synchronize.sources(projectId);
+    }
+
     public Optional<Snapshot> current(UUID projectId) {
         purge();
         return Optional.ofNullable(indexations.get(projectId)).map(Indexation::snapshot);
@@ -122,6 +144,8 @@ public class Indexations {
     private final class Indexation implements IndexationProgress {
         private final UUID projectId;
         private final Mode mode;
+        private final IndexationScope scope;
+        private final List<String> sources;
         private final Instant startedAt;
         private final List<IndexationError> errors = new ArrayList<>();
         private volatile boolean cancelRequested;
@@ -135,9 +159,11 @@ public class Indexations {
         private Instant finishedAt;
         private TicketSummary tickets;
 
-        Indexation(UUID projectId, Mode mode, Instant startedAt) {
+        Indexation(UUID projectId, Mode mode, IndexationScope scope, List<String> sources, Instant startedAt) {
             this.projectId = projectId;
             this.mode = mode;
+            this.scope = scope;
+            this.sources = sources;
             this.startedAt = startedAt;
         }
 
@@ -149,7 +175,7 @@ public class Indexations {
                 worker = Thread.currentThread();
             }
             try {
-                synchronize.run(projectId, mode, this);
+                synchronize.run(projectId, mode, scope, this);
                 finish(Status.SUCCEEDED);
             } catch (IndexationProgress.Cancelled e) {
                 finish(Status.CANCELLED);
@@ -247,7 +273,7 @@ public class Indexations {
 
         synchronized Snapshot snapshot() {
             return new Snapshot(projectId, mode, status, step, current, done, total, startedAt, stepStartedAt,
-                    finishedAt, List.copyOf(errors), tickets);
+                    finishedAt, List.copyOf(errors), tickets, sources);
         }
     }
 }

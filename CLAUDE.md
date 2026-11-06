@@ -1,8 +1,9 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/004-adr-du-projet/` (compteurs, page des ADR du projet, ADR entier
-transmis à la génération), après `specs/003-tickets-fermes-cache/` (tickets Jira fermés gardés dans
+La feature en cours est `specs/005-reindexation-par-source/` (étapes de l'indexation
+indépendantes, réindexation des seules sources choisies), après `specs/004-adr-du-projet/`
+(compteurs, page des ADR du projet, ADR entier transmis à la génération) et `specs/003-tickets-fermes-cache/` (tickets Jira fermés gardés dans
 l'index sans relecture). Elles prolongent `specs/002-projets-contexte-mcp/` (projets, connaissance du projet par
 index local de Jira, Antora et Structurizr, suppression locale, Jira paginé, passerelle MCP pour
 les agents de code). La conception de la connaissance du projet est dans
