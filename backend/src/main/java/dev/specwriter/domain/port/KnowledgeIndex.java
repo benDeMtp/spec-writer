@@ -3,6 +3,7 @@ package dev.specwriter.domain.port;
 import dev.specwriter.domain.knowledge.ArchitectureModel;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.Mentionable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +71,18 @@ public interface KnowledgeIndex {
 
     /** Éléments d'un rôle donné (vocabulaire, vue d'ensemble), toujours transmis (FR-042). */
     List<KnowledgeItem> withRole(UUID projectId);
+
+    /**
+     * Documents mentionnables avec @ (007, research.md R3) : sections de documentation sans rôle et
+     * ADR, un élément par document, sans les corps.
+     */
+    List<Mentionable> mentionables(UUID projectId);
+
+    /**
+     * Sections d'un document (sa référence, puis {@code ref#…}) dans l'ordre où elles ont été
+     * indexées, qui est celui du document (007 : page Antora recomposée).
+     */
+    List<KnowledgeItem> documentParts(UUID projectId, String documentRef);
 
     /** Remplace les relations et déploiements du modèle d'architecture du projet. */
     void replaceArchitecture(UUID projectId, ArchitectureModel model);

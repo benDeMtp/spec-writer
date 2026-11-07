@@ -8,6 +8,7 @@ import dev.specwriter.domain.knowledge.ArchitectureModel;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.KnowledgeRole;
+import dev.specwriter.domain.knowledge.Mentionable;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.KnowledgeIndex;
@@ -250,6 +251,27 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
                 + " from knowledge_item where project_id = ?1 and role is not null order by role, ref, chunk")
                 .setParameter(1, projectId.toString()).getResultList();
         return rows.stream().map(SqliteKnowledgeIndex::item).toList();
+    }
+
+    @Override
+    public List<KnowledgeItem> documentParts(UUID projectId, String documentRef) {
+        String prefix = documentRef + "#";
+        // l'ordre d'insertion (rowid) est celui du document ; une mise à jour garde le rowid
+        List<Object[]> rows = em.createNativeQuery("select " + COLUMNS + " from knowledge_item where project_id = ?1"
+                + " and kind = 'DOC_SECTION' and (ref = ?2 or substr(ref, 1, ?3) = ?4) order by rowid")
+                .setParameter(1, projectId.toString()).setParameter(2, documentRef).setParameter(3, prefix.length())
+                .setParameter(4, prefix).getResultList();
+        return rows.stream().map(SqliteKnowledgeIndex::item).toList();
+    }
+
+    @Override
+    public List<Mentionable> mentionables(UUID projectId) {
+        // sans les corps : leur longueur seule, pour estimer la place (007, research.md R3)
+        List<Object[]> rows = em.createNativeQuery("select kind, ref, title, length(body) from knowledge_item"
+                + " where project_id = ?1 and kind in ('DOC_SECTION', 'ADR') and role is null order by kind, ref, chunk")
+                .setParameter(1, projectId.toString()).getResultList();
+        return Mentionable.catalogue(rows.stream().map(r -> new Mentionable.Part(KnowledgeKind.valueOf((String) r[0]),
+                (String) r[1], (String) r[2], r[3] == null ? 0 : ((Number) r[3]).intValue())).toList());
     }
 
     @Override

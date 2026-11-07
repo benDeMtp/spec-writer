@@ -4,6 +4,7 @@ import dev.specwriter.domain.knowledge.ArchElement;
 import dev.specwriter.domain.knowledge.ArchitectureModel;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.Mentionable;
 import dev.specwriter.domain.port.KnowledgeIndex;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -115,6 +116,21 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
     @Override
     public List<KnowledgeItem> all(UUID projectId, KnowledgeKind kind) {
         return of(projectId).values().stream().map(Entry::item).filter(i -> i.kind() == kind).toList();
+    }
+
+    @Override
+    public List<KnowledgeItem> documentParts(UUID projectId, String documentRef) {
+        return of(projectId).values().stream().map(Entry::item).filter(i -> i.kind() == KnowledgeKind.DOC_SECTION
+                && (i.ref().equals(documentRef) || i.ref().startsWith(documentRef + "#"))).toList();
+    }
+
+    @Override
+    public List<Mentionable> mentionables(UUID projectId) {
+        return Mentionable.catalogue(of(projectId).values().stream().map(Entry::item)
+                .filter(i -> (i.kind() == KnowledgeKind.DOC_SECTION || i.kind() == KnowledgeKind.ADR) && i.role() == null)
+                .sorted(java.util.Comparator.comparing((KnowledgeItem i) -> i.kind().name())
+                        .thenComparing(KnowledgeItem::ref).thenComparingInt(KnowledgeItem::chunk))
+                .map(i -> new Mentionable.Part(i.kind(), i.ref(), i.title(), i.body().length())).toList());
     }
 
     @Override

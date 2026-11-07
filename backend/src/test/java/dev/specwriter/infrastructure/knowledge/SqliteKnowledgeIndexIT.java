@@ -1,6 +1,7 @@
 package dev.specwriter.infrastructure.knowledge;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import dev.specwriter.domain.knowledge.AdrStatus;
 import dev.specwriter.domain.knowledge.ArchDeployment;
@@ -11,6 +12,7 @@ import dev.specwriter.domain.knowledge.ArchitectureModel;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.KnowledgeRole;
+import dev.specwriter.domain.knowledge.Mentionable;
 import dev.specwriter.domain.port.KnowledgeIndex;
 import dev.specwriter.domain.port.KnowledgeIndex.Hit;
 import dev.specwriter.domain.port.KnowledgeIndex.Key;
@@ -183,6 +185,38 @@ class SqliteKnowledgeIndexIT {
         assertThat(index.count(project, KnowledgeKind.DOC_SECTION)).isEqualTo(3);
     }
 
+    /** 007 : un élément par document mentionnable, sans corps, titre de tête et taille totale. */
+    @Test
+    void documentsMentionnables() {
+        AdrStatus.Statement accepted = AdrStatus.Statement.of(AdrStatus.ACCEPTED, null);
+        index.save(section("docs:s1/Specs/Aurora.docx#0", "Aurora — Contexte", "abc"), null, null);
+        index.save(section("docs:s1/Specs/Aurora.docx#1", "Aurora — Exigences", "defgh"), null, null);
+        index.save(section("docs:s1/C#.docx#0", "C# — Intro", "x"), null, null);
+        index.save(section("guide.html#_regles", "Règles", "rr"), null, null);
+        index.save(section("guide.html", "Guide de facturation", "g"), null, null);
+        index.save(KnowledgeItem.adr(project, "adr/0017-ihm.html", 0, "17. IHM", "12345", accepted, T0, T0), null, null);
+        index.save(KnowledgeItem.adr(project, "adr/0017-ihm.html", 1, "17. IHM", "67", accepted, T0, T0), null, null);
+        index.save(KnowledgeItem.docSection(project, "glossaire.html", 0, "Glossaire", "v", KnowledgeRole.VOCABULARY, T0,
+                T0), null, null);
+
+        List<Mentionable> found = index.mentionables(project);
+
+        assertThat(found).extracting(Mentionable::ref, Mentionable::title,
+                Mentionable::size).containsExactlyInAnyOrder(
+                        tuple("docs:s1/Specs/Aurora.docx", "Aurora", 8),
+                        tuple("docs:s1/C#.docx", "C#", 1),
+                        tuple("guide.html", "Guide de facturation", 3),
+                        tuple("adr/0017-ihm.html", "17. IHM", 7));
+        assertThat(index.mentionables(UUID.randomUUID())).isEmpty();
+
+        // sections d'une page dans l'ordre d'indexation, pas dans l'ordre alphabétique des ancres
+        index.save(section("guide.html#_avoirs", "Avoirs", "a"), null, null);
+        assertThat(index.documentParts(project, "guide.html")).extracting(KnowledgeItem::ref)
+                .containsExactly("guide.html#_regles", "guide.html", "guide.html#_avoirs");
+        assertThat(index.documentParts(project, "docs:s1/C#.docx")).extracting(KnowledgeItem::ref)
+                .containsExactly("docs:s1/C#.docx#0");
+    }
+
     @Test
     void ticketsFermesDuProjet() {
         index.save(KnowledgeItem.ticket(project, "FACT-1", "Fermé", "x", "Terminé", "done", "Story", T0, T0), null, null);
@@ -280,8 +314,8 @@ class SqliteKnowledgeIndexIT {
         assertThat(read.relations()).containsExactlyElementsOf(model.relations());
         assertThat(read.deployments()).containsExactlyElementsOf(model.deployments());
         assertThat(read.elements()).extracting(ArchElement::name, ArchElement::scope, ArchElement::transport)
-                .containsExactlyInAnyOrder(org.assertj.core.groups.Tuple.tuple("Facturation/API", ArchScope.PROJECT, false),
-                        org.assertj.core.groups.Tuple.tuple("Suez/topic", ArchScope.COMMON, true));
+                .containsExactlyInAnyOrder(tuple("Facturation/API", ArchScope.PROJECT, false),
+                        tuple("Suez/topic", ArchScope.COMMON, true));
     }
 
     @Test

@@ -653,4 +653,128 @@ class SelectKnowledgeTest {
         assertThat(documents(documented.forEdit(session, List.of(), "Ajoute le stationnement des vélos.", "")))
                 .extracting(ProjectKnowledge.Entry::ref).contains(parking);
     }
+    // 007 : documents désignés avec @, transmis d'office avant la recherche (research.md R6)
+
+    Session sessionWith(String need) {
+        return Session.start(UUID.randomUUID(), P, Need.of(need), null, w.clock.now());
+    }
+
+    static List<ProjectKnowledge.Entry> designated(ProjectKnowledge k) {
+        return k.entries().stream().filter(ProjectKnowledge.Entry::designated).toList();
+    }
+
+    @Test
+    void documentMentionneDansUneReponseTransmisEnPremier() {
+        String ref = document("Specs/Parking.docx", "Parking", List.of("Stationnement"), 1_000, true);
+
+        ProjectKnowledge k = withDocuments().forSpecification(session,
+                List.of(answer("q1", "les informations sont dans le document @Parking")));
+
+        assertThat(designated(k)).singleElement().satisfies(e -> {
+            assertThat(e.ref()).isEqualTo(ref);
+            assertThat(e.title()).isEqualTo("Parking");
+            assertThat(e.text()).startsWith("# Stationnement");
+        });
+        assertThat(k.entries()).filteredOn(e -> e.ref().equals(ref)).hasSize(1);
+        int position = k.entries().indexOf(designated(k).getFirst());
+        assertThat(k.entries().subList(0, position)).allMatch(e -> e.role() != null);
+        assertThat(total(k)).isLessThanOrEqualTo(ProjectKnowledge.MAX_TOTAL);
+    }
+
+    @Test
+    void pageAntoraMentionneeRecomposeeDansSonOrdre() {
+        index.save(KnowledgeItem.docSection(P, "facturation/regles/avoir.html#_plafond", 0, "Plafond",
+                "Le plafond est le restant dû.", null, T, T), null, null);
+        index.save(KnowledgeItem.docSection(P, "facturation/regles/avoir.html#_delai", 0, "Délai",
+                "Le délai est de trente jours.", null, T, T), null, null);
+
+        ProjectKnowledge k = select.forSpecification(sessionWith(NEED + " Voir @Règles de l'avoir."), List.of());
+
+        assertThat(designated(k)).singleElement().satisfies(e -> {
+            assertThat(e.ref()).isEqualTo("facturation/regles/avoir.html");
+            assertThat(e.title()).isEqualTo("Règles de l'avoir");
+            assertThat(e.text()).startsWith("Un avoir ne dépasse pas")
+                    .contains("\n\nLe plafond est le restant dû.\n\nLe délai est de trente jours.");
+        });
+    }
+
+    @Test
+    void adrMentionneSuitLaVoieDesAdr() {
+        ProjectKnowledge k = select.forSpecification(sessionWith(NEED + " Respecter @ADR-2 et @ADR-3."), List.of());
+
+        // ADR-002 est remplacé par l'ADR-005 ; l'ADR-003 est obsolète
+        assertThat(designated(k)).singleElement().satisfies(e -> {
+            assertThat(e.kind()).isEqualTo(KnowledgeKind.ADR);
+            assertThat(e.ref()).isEqualTo("facturation/adr/adr-005.html");
+        });
+        assertThat(k.entries()).filteredOn(e -> e.ref().equals("facturation/adr/adr-005.html")).hasSize(1);
+        assertThat(k.entries()).extracting(ProjectKnowledge.Entry::ref).doesNotContain("facturation/adr/adr-003.html");
+    }
+
+    @Test
+    void quatreDocumentsDesignesAuPlusCoupesAUneSection() {
+        StringBuilder need = new StringBuilder(NEED);
+        for (int i = 1; i <= 5; i++) {
+            document("D" + i + ".docx", "D" + i, List.of("Partie"), 2_500, true);
+            need.append(" @D").append(i);
+        }
+        document("Long.docx", "Long", List.of("Un", "Deux", "Trois", "Quatre", "Cinq"), 3_000, true);
+
+        SelectKnowledge documented = withDocuments();
+        List<ProjectKnowledge.Entry> four = designated(documented.forSpecification(sessionWith(need.toString()), List.of()));
+        assertThat(four).extracting(ProjectKnowledge.Entry::title).containsExactly("D1", "D2", "D3", "D4");
+        assertThat(four.stream().mapToInt(e -> e.title().length() + e.text().length()).sum())
+                .isLessThanOrEqualTo(SelectKnowledge.MAX_MENTIONED_TEXT);
+
+        ProjectKnowledge.Entry cut = designated(documented.forSpecification(sessionWith(NEED + " @Long"), List.of()))
+                .getFirst();
+        assertThat(cut.title().length() + cut.text().length()).isLessThanOrEqualTo(SelectKnowledge.MAX_MENTIONED_PART);
+        assertThat(cut.text()).contains("# Deux").doesNotContain("# Quatre").endsWith("[document tronqué]");
+    }
+
+    @Test
+    void laFicheGeneraleLEmporteSurLesDocumentsDesignes() {
+        sheet(text("## Fiche générale", 20_000));
+        document("Long.docx", "Long", List.of("Un", "Deux", "Trois"), 3_000, true);
+
+        ProjectKnowledge k = withDocuments().forSpecification(sessionWith(NEED + " @Long"), List.of());
+
+        ProjectKnowledge.Entry cut = designated(k).getFirst();
+        assertThat(cut.text()).endsWith("[document tronqué]");
+        assertThat(total(k)).isLessThanOrEqualTo(ProjectKnowledge.MAX_TOTAL - SelectKnowledge.MAX_ARCHITECTURE
+                - SelectKnowledge.MAX_TICKET_TEXT - SelectKnowledge.MAX_SUBTASK_TEXT + size(k, KnowledgeKind.TICKET));
+    }
+
+    @Test
+    void mentionAmbigueOuIntrouvableNonTransmise() {
+        document("Delivery/Suivi.xlsx", "Suivi", List.of("Jalons"), 500, true);
+        document("Archives/Suivi.xlsx", "Suivi", List.of("Jalons"), 500, true);
+
+        ProjectKnowledge k = withDocuments().forSpecification(sessionWith(NEED + " @Suivi et @Inconnu"), List.of());
+
+        assertThat(designated(k)).isEmpty();
+        ProjectKnowledge precise = withDocuments().forSpecification(sessionWith(NEED + " @Archives/Suivi.xlsx"),
+                List.of());
+        assertThat(designated(precise)).extracting(ProjectKnowledge.Entry::ref)
+                .containsExactly(DocumentFolder.ref(documents, "Archives/Suivi.xlsx"));
+    }
+
+    @Test
+    void mentionPourLesQuestionsEtLaModification() {
+        document("Specs/Parking.docx", "Parking", List.of("Stationnement"), 1_000, true);
+        SelectKnowledge documented = withDocuments();
+
+        assertThat(designated(documented.forQuestions(sessionWith(NEED + " @Parking"), List.of()))).hasSize(1);
+        assertThat(designated(documented.forEdit(session, List.of(), "Ajoute ce que dit @Parking.", ""))).hasSize(1);
+        assertThat(designated(documented.forEdit(session, List.of(), "Ajoute un cas d'erreur.", ""))).isEmpty();
+    }
+
+    @Test
+    void deuxPreparationsIdentiquesAvecMentions() {
+        document("Specs/Parking.docx", "Parking", List.of("Stationnement"), 1_000, true);
+        SelectKnowledge documented = withDocuments();
+        Session mentioning = sessionWith(NEED + " @Parking @ADR-1");
+        assertThat(documented.forSpecification(mentioning, List.of()))
+                .isEqualTo(documented.forSpecification(mentioning, List.of()));
+    }
 }

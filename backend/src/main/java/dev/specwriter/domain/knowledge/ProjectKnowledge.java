@@ -33,19 +33,29 @@ public record ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List
      * ticket lié explicitement à la story de la session, la phrase du lien (research.md R29).
      */
     public record Entry(KnowledgeKind kind, KnowledgeRole role, String ref, int chunk, String title, String status,
-            boolean closed, String text, String contentHash, String link) {
+            boolean closed, String text, String contentHash, String link, boolean designated) {
 
         public Entry {
             text = text == null ? "" : text;
         }
 
         public Entry(KnowledgeKind kind, KnowledgeRole role, String ref, int chunk, String title, String status,
+                boolean closed, String text, String contentHash, String link) {
+            this(kind, role, ref, chunk, title, status, closed, text, contentHash, link, false);
+        }
+
+        public Entry(KnowledgeKind kind, KnowledgeRole role, String ref, int chunk, String title, String status,
                 boolean closed, String text, String contentHash) {
-            this(kind, role, ref, chunk, title, status, closed, text, contentHash, null);
+            this(kind, role, ref, chunk, title, status, closed, text, contentHash, null, false);
         }
 
         public Entry withLink(String newLink) {
-            return new Entry(kind, role, ref, chunk, title, status, closed, text, contentHash, newLink);
+            return new Entry(kind, role, ref, chunk, title, status, closed, text, contentHash, newLink, designated);
+        }
+
+        /** Élément désigné par l'utilisateur avec @ (007) : transmis d'office, marqué pour l'IA. */
+        public Entry withDesignated() {
+            return new Entry(kind, role, ref, chunk, title, status, closed, text, contentHash, link, true);
         }
     }
 
