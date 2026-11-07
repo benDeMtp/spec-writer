@@ -99,7 +99,7 @@ mention avec le chemin.
 - [X] T024 E2E `e2e/tests/us8-project-context.spec.ts` (P11) : dans le besoin, taper « @Suiv », la suggestion « Suivi » (Document) s'affiche, Entrée l'insère ; l'état annonce « transmis à l'IA » ; « @Inconnu » est indiqué introuvable ; axe sans violation sur la liste ouverte et sur l'état. La transmission à l'IA est vérifiée par `SelectKnowledgeTest` (T009), une génération E2E demandant de nouvelles réponses rejouées
 - [X] T025 [P] Contrat `specs/002-projets-contexte-mcp/contracts/openapi.yaml` (deux routes de contracts/api.md) et README (mentionner un document avec `@`, états, levée d'ambiguïté)
 - [X] T026 Gates avant commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests`, `npm --prefix e2e test`
-- [ ] T027 Évaluation réelle **avec l'accord de l'utilisateur** (prompts modifiés, environ 150 requêtes Copilot), dans un worktree : `env -u JAVA_TOOL_OPTIONS ./mvnw -B -pl backend verify -Peval -DskipDependencyCheck`, scores ≥ `baseline.json`, `bash ci/check-eval.sh`, commit de `last-run.json`
+- [X] T027 Évaluation réelle **avec l'accord de l'utilisateur** (prompts modifiés, environ 150 requêtes Copilot), dans un worktree : `env -u JAVA_TOOL_OPTIONS ./mvnw -B -pl backend verify -Peval -DskipDependencyCheck`, scores ≥ `baseline.json`, `bash ci/check-eval.sh`, commit de `last-run.json`
 - [X] T028 Essai manuel par l'utilisateur (quickstart.md, « Essai manuel ») ; résultat dans `specs/007-mention-documents/checklists/validation.md`
 
 ---
