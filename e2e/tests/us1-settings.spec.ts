@@ -46,6 +46,30 @@ test.describe.serial('US1 configuration', () => {
     await page.goto('/configuration');
   });
 
+  test('US1-3 : capacité et coût de chaque modèle, place de la connaissance (008)', async () => {
+    const select = page.getByRole('combobox', { name: 'Modèle utilisé' });
+    const knowledge = page.locator('.knowledge');
+    // le modèle par défaut n'annonce pas sa limite : le budget d'aujourd'hui
+    await expect(knowledge).toHaveText(/Connaissance transmise : jusqu’à 35\s000 caractères/);
+    await select.click();
+    const options = page.getByRole('option');
+    await expect(options).toHaveCount(3);
+    await expect(options.nth(0)).toHaveText(/Model A\s+capacité inconnue · coût inconnu/);
+    await expect(options.nth(1)).toHaveText(/Model B\s+environ 32\s000 tokens \(≈ 96\s000 caractères\) · ×0,33/);
+    await expect(options.nth(2)).toHaveText(/Grand modèle\s+environ 128\s000 tokens \(≈ 384\s000 caractères\) · ×1/);
+    await expectNoA11yViolations(page);
+
+    await page.getByRole('option', { name: /Grand modèle/ }).click();
+    await expect(select).toHaveText('Grand modèle');
+    await expect(knowledge).toHaveText(/jusqu’à 162\s000 caractères/);
+    await expectNoA11yViolations(page);
+
+    // retour au modèle par défaut pour les parcours suivants
+    await select.click();
+    await page.getByRole('option', { name: /Model A/ }).click();
+    await expect(knowledge).toHaveText(/jusqu’à 35\s000 caractères/);
+  });
+
   test("US1-4 : configuration Jira en http avec avertissement, consentement puis test réussi", async () => {
     await page.getByLabel('Adresse du serveur').fill(jiraURL);
     await expect(page.getByText("Cette adresse n'est pas chiffrée (http).")).toBeVisible();

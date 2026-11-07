@@ -15,6 +15,8 @@ const disconnected: Settings = {
     consent: false,
     model: null,
     availableModels: [],
+    models: [],
+    knowledgeChars: 35000,
   },
   jira: null,
 };
@@ -27,6 +29,11 @@ const connected: Settings = {
     consent: true,
     model: 'claude-sonnet-5.5',
     availableModels: ['claude-sonnet-5.5', 'gpt-6-luna'],
+    models: [
+      { id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5', promptTokens: 128000, contextTokens: 200000, multiplier: 1, knowledgeChars: 162000 },
+      { id: 'gpt-6-luna', name: 'GPT 6 Luna', promptTokens: null, contextTokens: null, multiplier: null, knowledgeChars: 35000 },
+    ],
+    knowledgeChars: 162000,
   },
   jira: {
     enabled: true,
@@ -137,13 +144,39 @@ describe('SettingsPage', () => {
     expect(button(el, 'Recommencer')).toBeTruthy();
   });
 
-  it('affiche la liste des modèles autorisés', async () => {
+  const flat = (text: string | null | undefined) => (text ?? '').replace(/\s+/g, ' ').trim();
+
+  it('affiche la liste des modèles autorisés, avec leur capacité et leur coût (008)', async () => {
     await open(connected);
-    expect(el.querySelector('mat-select')?.textContent).toContain('claude-sonnet-5.5');
+    expect(flat(el.querySelector('mat-select')?.textContent)).toBe('Claude Sonnet 5.5');
+    expect(flat(el.querySelector('.knowledge')?.textContent)).toBe('Connaissance transmise : jusqu’à 162 000 caractères');
     (el.querySelector('mat-select .mat-mdc-select-trigger') as HTMLElement).click();
     await settle(fixture);
-    const options = Array.from(document.querySelectorAll('mat-option')).map((o) => o.textContent?.trim());
-    expect(options).toEqual(['claude-sonnet-5.5', 'gpt-6-luna']);
+    const options = Array.from(document.querySelectorAll('mat-option'));
+    // le texte entier de l'option est lu au lecteur d'écran
+    expect(options.map((o) => flat(o.textContent))).toEqual([
+      'Claude Sonnet 5.5 environ 128 000 tokens (≈ 384 000 caractères) · ×1',
+      'GPT 6 Luna capacité inconnue · coût inconnu',
+    ]);
+    expect(options.map((o) => o.getAttribute('aria-label'))).toEqual([null, null]);
+  });
+
+  it('coefficient décimal et modèle absent des capacités', async () => {
+    await open({
+      ...connected,
+      copilot: {
+        ...connected.copilot,
+        model: 'gpt-6-luna',
+        knowledgeChars: 35000,
+        models: [{ id: 'gpt-6-luna', name: 'gpt-6-luna', promptTokens: 32000, contextTokens: null, multiplier: 0.33, knowledgeChars: 35000 }],
+      },
+    });
+    expect(flat(el.querySelector('.knowledge')?.textContent)).toBe('Connaissance transmise : jusqu’à 35 000 caractères');
+    (el.querySelector('mat-select .mat-mdc-select-trigger') as HTMLElement).click();
+    await settle(fixture);
+    expect(Array.from(document.querySelectorAll('mat-option')).map((o) => flat(o.textContent))).toEqual([
+      'gpt-6-luna environ 32 000 tokens (≈ 96 000 caractères) · ×0,33',
+    ]);
   });
 
   it('jeton masqué, vide après enregistrement, avec Remplacer et Supprimer mais sans Afficher', async () => {
