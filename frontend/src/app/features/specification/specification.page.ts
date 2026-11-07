@@ -180,6 +180,7 @@ const SYNC: Record<SyncState, string> = {
         @if (editing() && !locked()) {
           <sw-ai-edit-panel
             [sessionId]="id()"
+            [projectId]="session()?.projectId ?? null"
             [initialProposal]="mergeProposal()"
             (applied)="onApplied($event)"
             (closed)="closeEdit()"

@@ -6,9 +6,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { ProjectsStore } from '../../core/projects/projects.store';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import { SettingsStore } from '../../core/settings/settings.store';
 import { ConsentDialogComponent } from '../../shared/ui/consent-dialog.component';
+import { MentionStatusComponent } from '../../shared/ui/mention-status.component';
+import { MentionDirective } from '../../shared/ui/mention.directive';
 
 export const MAX_NEED = 10_000;
 export const MIN_WORDS = 10;
@@ -17,7 +20,7 @@ export const MIN_WORDS = 10;
 @Component({
   selector: 'sw-need-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MentionDirective, MentionStatusComponent],
   template: `
     <h1>Nouveau besoin</h1>
     <div class="sheet">
@@ -31,6 +34,7 @@ export const MIN_WORDS = 10;
           <textarea
             matInput
             name="need"
+            [swMention]="projectId()"
             [(ngModel)]="text"
             [maxlength]="max"
             rows="9"
@@ -40,6 +44,7 @@ export const MIN_WORDS = 10;
           <mat-hint id="need-help" align="start">{{ wordsHint() }}</mat-hint>
           <mat-hint align="end">{{ length() }} / {{ max }}</mat-hint>
         </mat-form-field>
+        <sw-mention-status [projectId]="projectId()" field="NEED" [text]="text()" (replaced)="text.set($event)" />
         @if (showError()) {
           <p class="status warn" role="alert">
             Décrivez votre besoin en au moins 10 mots, pour que les questions portent sur votre cas.
@@ -121,6 +126,9 @@ export class NeedPage {
   private readonly settings = inject(SettingsStore);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
+  private readonly projects = inject(ProjectsStore);
+  /** Projet courant : ses documents sont mentionnables avec @ (007). */
+  protected readonly projectId = this.projects.currentId;
 
   protected readonly max = MAX_NEED;
   protected readonly example =

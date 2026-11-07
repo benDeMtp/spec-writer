@@ -173,3 +173,36 @@ export interface KnowledgeHit {
   excerpt: string;
   url: string | null;
 }
+
+/** Sorte d'un document mentionnable avec @ (007). */
+export type MentionKind = 'DOCUMENT' | 'PAGE' | 'ADR';
+
+/** Champ où une mention est écrite (007). */
+export type MentionField = 'NEED' | 'ANSWER' | 'INSTRUCTION';
+
+/** Suggestion après @ : la mention à insérer garde le nom, ou le chemin s'il est partagé. */
+export interface MentionSuggestion {
+  kind: MentionKind;
+  name: string;
+  path: string;
+  insert: string;
+}
+
+export type MentionStateName = 'TRANSMITTED' | 'PARTIAL' | 'NO_ROOM' | 'AMBIGUOUS' | 'NOT_FOUND' | 'SUPERSEDED' | 'DEPRECATED';
+
+export interface MentionDocument {
+  kind: MentionKind;
+  title: string;
+  path: string;
+  insert: string;
+}
+
+/** État d'une mention avant la génération, estimé sur l'index (007, research.md R8). */
+export interface MentionState {
+  text: string;
+  field: MentionField;
+  state: MentionStateName;
+  document: MentionDocument | null;
+  candidates: MentionDocument[];
+  transmittedShare: number;
+}
