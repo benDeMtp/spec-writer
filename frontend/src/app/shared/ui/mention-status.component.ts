@@ -1,13 +1,16 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, effect, inject, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { KnowledgeApi } from '../../core/projects/knowledge.api';
-import { MentionDocument, MentionField, MentionState } from '../../core/projects/projects.model';
+import { BetterModel, MentionDocument, MentionField, MentionState } from '../../core/projects/projects.model';
 import { MENTION_DELAYS } from './mention.directive';
+
+const NUMBER = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
 
 /**
  * État de chaque mention @ d'un champ, avant la génération (007, US3) : transmise, en partie, faute
  * de place, ambiguë (avec les documents possibles), introuvable, ADR remplacé ou obsolète. Aucune
- * mention n'échoue en silence. Estimation sur l'index, à la pause de frappe.
+ * mention n'échoue en silence. Estimation sur l'index, à la pause de frappe. Une mention coupée
+ * indique le modèle qui la transmettrait en entier (008).
  */
 @Component({
   selector: 'sw-mention-status',
@@ -24,6 +27,9 @@ import { MENTION_DELAYS } from './mention.directive';
                 <span class="doc">{{ m.document.title }}</span>
               }
               <span class="state">{{ label(m) }}</span>
+              @if (m.betterModel; as better) {
+                <span class="better">{{ betterLabel(better) }}</span>
+              }
               @for (c of m.candidates; track c.path) {
                 <button mat-button type="button" (click)="use(m, c)">Utiliser {{ c.path }}</button>
               }
@@ -51,6 +57,9 @@ import { MENTION_DELAYS } from './mention.directive';
     }
     .doc {
       opacity: 0.85;
+    }
+    .better {
+      font-style: italic;
     }
     li.NOT_FOUND .state,
     li.AMBIGUOUS .state,
@@ -122,6 +131,12 @@ export class MentionStatusComponent implements OnDestroy {
       case 'DEPRECATED':
         return 'ADR obsolète, non transmis';
     }
+  }
+
+  /** Suggestion seulement (008, US3) : le modèle se choisit dans la configuration. */
+  protected betterLabel(b: BetterModel): string {
+    const cost = b.multiplier === null ? 'coût inconnu' : `×${NUMBER.format(b.multiplier)}`;
+    return `— transmis en entier avec ${b.name} (${cost})`;
   }
 
   /** Réécrit la mention ambiguë avec le chemin du document choisi (research.md R2). */

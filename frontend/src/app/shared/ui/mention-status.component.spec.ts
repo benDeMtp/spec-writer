@@ -93,6 +93,28 @@ describe('MentionStatusComponent', () => {
     expect(rewritten).toBe('voir @Aurora_Matrice_Regles_Gestion_Activites_1, @Archives/Suivi.xlsx, @Inconnu et @ADR-2');
   });
 
+  it('propose le modèle qui transmettrait le document en entier (008)', async () => {
+    fixture.componentRef.setInput('text', '@Aurora_Matrice_Regles_Gestion_Activites_1 @Gros @Long');
+    await settle(fixture);
+    ctrl.expectOne('/api/projects/p1/mentions/resolve').flush([
+      { ...STATES[0], betterModel: { id: 'grand', name: 'Grand modèle', multiplier: 1 } },
+      { ...STATES[0], text: '@Gros', state: 'NO_ROOM', transmittedShare: 0, betterModel: { id: 'eco', name: 'Éco', multiplier: 0.33 } },
+      { ...STATES[0], text: '@Long', betterModel: { id: 'x', name: 'Sans coût', multiplier: null } },
+      { ...STATES[0], text: '@Seul', betterModel: null },
+    ]);
+    await settle(fixture);
+
+    const lines = Array.from(el.querySelectorAll('li')).map((l) => (l.textContent ?? '').replace(/\s+/g, ' '));
+    expect(lines[0]).toContain('transmis en partie (environ 21 %)');
+    expect(lines[0]).toContain('transmis en entier avec Grand modèle (×1)');
+    expect(lines[1]).toContain('non transmis : plus de place');
+    expect(lines[1]).toContain('transmis en entier avec Éco (×0,33)');
+    expect(lines[2]).toContain('transmis en entier avec Sans coût (coût inconnu)');
+    expect(lines[3]).not.toContain('transmis en entier');
+    // une suggestion seulement : le modèle choisi n'est pas changé
+    expect(el.querySelectorAll('button')).toHaveLength(0);
+  });
+
   it('n’interroge rien sans @ ni sans projet', async () => {
     fixture.componentRef.setInput('text', 'sans mention');
     await settle(fixture);
