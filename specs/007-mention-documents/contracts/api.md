@@ -11,7 +11,7 @@ Complète `specs/002-projets-contexte-mcp/contracts/openapi.yaml`.
   { "kind": "DOCUMENT", "name": "Aurora_Matrice_Regles_Gestion_Activites_1",
     "path": "10. MVP/Documentation DC/Aurora_Matrice_Regles_Gestion_Activites_1.xlsx",
     "insert": "@Aurora_Matrice_Regles_Gestion_Activites_1" },
-  { "kind": "ADR", "name": "12. Sobriété d'usage de l'IA", "path": "ADR-12", "insert": "@ADR-12" }
+  { "kind": "ADR", "name": "ADR-12", "path": "aurora/adr/0012-sobriete-usage-ia.html", "insert": "@ADR-12" }
 ]
 ```
 

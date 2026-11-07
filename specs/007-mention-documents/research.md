@@ -63,9 +63,11 @@ convient pas à une insertion au curseur. `@angular/cdk` 22 est déjà là.
 de texte : elle repère la mention en cours avant le curseur (R1), interroge
 `GET /api/projects/{id}/mentions?q=` (debounce 150 ms, 8 résultats), affiche une liste en
 **Overlay CDK** sous le champ, pilotée par `ActiveDescendantKeyManager` (flèches, Entrée, Tab,
-Échap). ARIA du motif combobox 1.2 sur la zone de texte : `aria-autocomplete="list"`,
-`aria-expanded`, `aria-controls`, `aria-activedescendant` ; options `role="option"` ; nombre de
-résultats annoncé par une région `aria-live="polite"`. Le choix remplace la mention en cours par
+Échap). La zone de texte garde son rôle de champ de texte (`role="combobox"` n'est pas permis sur
+`textarea`, et `aria-expanded` n'est pas permis sur un champ de texte : axe les refuse) ; elle
+porte `aria-autocomplete="list"`, `aria-controls` et `aria-activedescendant` vers la liste
+`role="listbox"` et ses options `role="option"` ; le nombre de résultats est annoncé par une région
+`aria-live="polite"`. Le choix remplace la mention en cours par
 `@<nom>` suivi d'un espace (nom de fichier sans extension, ou chemin si ambigu).
 
 **Alternatives** : `mat-autocomplete` (rejeté, ci-dessus) ; éditeur riche à jetons (rejeté : le
