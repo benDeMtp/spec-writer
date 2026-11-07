@@ -15,6 +15,8 @@ import dev.specwriter.domain.knowledge.KnowledgeSource;
 import dev.specwriter.domain.port.ArchitectureReader;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.DocSourceRepository;
+import dev.specwriter.domain.port.DocumentFileStates;
+import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.domain.port.DocumentationReader;
 import dev.specwriter.domain.port.DocumentationReader.Section;
 import dev.specwriter.domain.port.EmbeddingPort;
@@ -28,7 +30,9 @@ import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.Project;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -56,12 +60,17 @@ public class SynchronizeKnowledge {
 
     /** Raison d'une erreur inattendue d'étape (005). */
     static final String UNEXPECTED = "UNEXPECTED";
+    /** Avertissement : fichiers d'un dossier de documents ignorés pour leur format (006). */
+    static final String IGNORED_FORMAT = "IGNORED_FORMAT";
+    private static final String DOCUMENTS_PREFIX = "docs:";
     private static final Logger LOG = Logger.getLogger(SynchronizeKnowledge.class);
 
     private final ProjectRepository projects;
     private final KnowledgeSourceRepository sources;
     private final DocSourceRepository docSources;
     private final DocumentationReader reader;
+    private final DocumentFolder folder;
+    private final DocumentFileStates fileStates;
     private final ArchitectureReader architecture;
     private final JiraAccess jira;
     private final IssueTracker tracker;
@@ -71,13 +80,15 @@ public class SynchronizeKnowledge {
     private final ClockPort clock;
 
     public SynchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
-            DocSourceRepository docSources, DocumentationReader reader, ArchitectureReader architecture, JiraAccess jira,
-            IssueTracker tracker, TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding,
-            ClockPort clock) {
+            DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
+            DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
+            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
         this.projects = projects;
         this.sources = sources;
         this.docSources = docSources;
         this.reader = reader;
+        this.folder = folder;
+        this.fileStates = fileStates;
         this.architecture = architecture;
         this.jira = jira;
         this.tracker = tracker;
@@ -102,7 +113,7 @@ public class SynchronizeKnowledge {
 
         EmbeddingPort.State model = prepareModel(progress);
         Instant mark = scope.jira() ? jira(project, source, mode, progress) : source.jiraMark();
-        documentation(projectId, scope, progress);
+        documentation(projectId, scope, mode, progress);
         KnowledgeSource read;
         try {
             read = scope.architecture() ? architecture(source, mode, progress) : source;
@@ -309,7 +320,7 @@ public class SynchronizeKnowledge {
 
     // ---------- Documentation ----------
 
-    private void documentation(UUID projectId, IndexationScope scope, IndexationProgress progress) {
+    private void documentation(UUID projectId, IndexationScope scope, Mode mode, IndexationProgress progress) {
         List<DocSource> declared = docSources.list(projectId).stream().filter(scope::includes).toList();
         if (declared.isEmpty()) {
             return;
@@ -323,7 +334,11 @@ public class SynchronizeKnowledge {
         for (DocSource source : declared) {
             checkCancelled(progress);
             try {
-                complete &= document(projectId, source, progress, sections, adrs, keepSections, keepAdrs);
+                if (source.kind() == DocSource.Kind.DOCUMENTS) {
+                    documents(projectId, source, mode, progress);
+                } else {
+                    complete &= document(projectId, source, progress, sections, adrs, keepSections, keepAdrs);
+                }
             } catch (RuntimeException | LinkageError e) {
                 if (cancelling(progress, e)) {
                     throw e;
@@ -335,9 +350,85 @@ public class SynchronizeKnowledge {
         // une source illisible ou une lecture bornée ne retire rien : l'index précédent reste ; une
         // source choisie seule non plus, ses éléments ne disant pas de quelle source ils viennent
         if (complete && scope.all()) {
+            // les éléments des dossiers de documents sont retirés par leur source (documents)
+            index.hashes(projectId, KnowledgeKind.DOC_SECTION).keySet().stream().filter(SynchronizeKnowledge::fromFolder)
+                    .forEach(keepSections::add);
+            index.hashes(projectId, KnowledgeKind.ADR).keySet().stream().filter(SynchronizeKnowledge::fromFolder)
+                    .forEach(keepAdrs::add);
             index.retain(projectId, KnowledgeKind.DOC_SECTION, keepSections);
             index.retain(projectId, KnowledgeKind.ADR, keepAdrs);
         }
+    }
+
+    private static boolean fromFolder(Key key) {
+        return key.ref().startsWith(DOCUMENTS_PREFIX);
+    }
+
+    /**
+     * Dossier de documents (006, research.md R3) : seuls les documents nouveaux ou changés (taille,
+     * date) sont lus, sauf en indexation complète ; un document en échec garde son indexation
+     * précédente et sera relu ; les éléments des documents disparus ou exclus sont retirés, sauf
+     * lecture incomplète (dossier illisible, limite atteinte).
+     */
+    private void documents(UUID projectId, DocSource source, Mode mode, IndexationProgress progress) {
+        DocumentFolder.Scan scan = folder.scan(source);
+        if (scan.problem() != null) {
+            progress.error(new IndexationError(IndexationError.Kind.SOURCE, source.location(), scan.problem().name(), null,
+                    null));
+            return;
+        }
+        if (!scan.ignored().isEmpty()) {
+            progress.error(new IndexationError(IndexationError.Kind.WARNING, source.location(), IGNORED_FORMAT, null,
+                    scan.ignored().size() + " fichier(s) ignoré(s) : format non pris en charge"));
+        }
+        Map<String, DocumentFileStates.FileState> known = fileStates.of(source.id());
+        Map<String, DocumentFileStates.FileState> next = new LinkedHashMap<>();
+        Map<Key, String> existing = new HashMap<>(index.hashes(projectId, KnowledgeKind.DOC_SECTION));
+        existing.putAll(index.hashes(projectId, KnowledgeKind.ADR));
+        Set<Key> keep = new HashSet<>();
+        int done = 0;
+        for (DocumentFolder.FileEntry file : scan.retained()) {
+            checkCancelled(progress);
+            progress.advance(file.path(), done++, scan.retained().size());
+            DocumentFileStates.FileState state = new DocumentFileStates.FileState(file.size(), file.modifiedAt());
+            String ref = DocumentFolder.ref(source, file.path());
+            if (mode == Mode.INCREMENTAL && state.equals(known.get(file.path()))) {
+                keep.addAll(itemsOf(existing.keySet(), ref));
+                next.put(file.path(), state);
+                continue;
+            }
+            DocumentFolder.Reading reading = folder.read(source, file.path());
+            if (reading.failure() != null) {
+                progress.error(new IndexationError(IndexationError.Kind.PAGE, file.path(), reading.failure().name(), null,
+                        null));
+                keep.addAll(itemsOf(existing.keySet(), ref));
+                continue;
+            }
+            for (Section section : reading.page().sections()) {
+                KnowledgeItem item = item(projectId, section);
+                Key key = Key.of(item);
+                keep.add(key);
+                if (!item.contentHash().equals(existing.get(key))) {
+                    index.save(item, null, null);
+                }
+            }
+            next.put(file.path(), state);
+        }
+        if (scan.limitReached()) {
+            progress.error(new IndexationError(IndexationError.Kind.SOURCE, source.location(),
+                    DocumentationReader.UnreadReason.LIMIT_REACHED.name(), null, null));
+            Map<String, DocumentFileStates.FileState> merged = new LinkedHashMap<>(known);
+            merged.putAll(next);
+            fileStates.replace(source.id(), merged);
+            return;
+        }
+        index.retainUnder(projectId, DocumentFolder.prefix(source), keep);
+        fileStates.replace(source.id(), next);
+    }
+
+    /** Éléments d'un document : sa référence, ou ses sections {@code ref#n}. */
+    private static List<Key> itemsOf(Set<Key> keys, String ref) {
+        return keys.stream().filter(k -> k.ref().equals(ref) || k.ref().startsWith(ref + "#")).toList();
     }
 
     /** Lit une source de documentation ; faux si la lecture est incomplète (rien ne sera retiré). */

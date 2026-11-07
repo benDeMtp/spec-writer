@@ -89,6 +89,10 @@ public class ListAdrs {
         if (ref.toLowerCase(Locale.ROOT).startsWith("http")) {
             return ref;
         }
+        if (ref.startsWith("docs:")) {
+            // dossier de documents (006) : le fichier n'est jamais servi par l'outil
+            return null;
+        }
         String path = ref.replaceAll("[?#].*$", "");
         return folders.stream().anyMatch(f -> files.exists(f, path))
                 ? "/api/projects/" + projectId + "/doc-files/" + path

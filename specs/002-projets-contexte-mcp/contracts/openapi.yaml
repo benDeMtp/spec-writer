@@ -66,14 +66,44 @@ paths:
         '422': { description: Plus de 20 000 caractères }
   /api/projects/{id}/doc-sources:
     post:
-      summary: Ajoute une source de documentation Antora (FR-013)
+      summary: Ajoute une source de documentation Antora (FR-013) ou un dossier de documents synchronisé (006)
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/DocSourceInput' } } } }
       responses:
         '201': { content: { application/json: { schema: { $ref: '#/components/schemas/DocSource' } } } }
-        '422': { description: 'Adresse ou dossier invalide (identifiants dans l’URL, chemin relatif…)' }
+        '422': { description: 'Adresse ou dossier invalide (identifiants dans l’URL, chemin relatif…), motif refusé (cité avec sa raison), plus de 50 motifs' }
   /api/projects/{id}/doc-sources/{sourceId}:
     delete:
       responses: { '204': { description: Supprimée } }
+  /api/projects/{id}/doc-sources/{sourceId}/exclusions:
+    put:
+      summary: Remplace les motifs d'exclusion d'un dossier de documents (006, US2) ; pris en compte à la prochaine indexation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [exclusions]
+              properties:
+                exclusions: { type: array, maxItems: 50, items: { type: string, maxLength: 200 } }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/DocSource' } } } }
+        '404': { description: Source inconnue ou d'un autre projet }
+        '422': { description: Motif refusé, ou source qui n'est pas un dossier de documents }
+  /api/projects/{id}/doc-sources/preview:
+    post:
+      summary: Aperçu des motifs sur un dossier de documents (006, US2), sans ouvrir aucun fichier
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [location]
+              properties:
+                location: { type: string, maxLength: 2000 }
+                exclusions: { type: array, maxItems: 50, items: { type: string, maxLength: 200 } }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/DocumentsPreview' } } } }
+        '422': { description: Dossier illisible ou motif refusé }
   /api/projects/{id}/architecture-source:
     put:
       summary: Déclare le workspace Structurizr du projet (FR-013, FR-038) ; démarre une indexation complète
@@ -379,8 +409,23 @@ components:
       type: object
       required: [kind, location]
       properties:
-        kind: { enum: [URL, FOLDER] }
+        kind: { enum: [URL, FOLDER, DOCUMENTS], description: "DOCUMENTS : dossier SharePoint synchronisé par OneDrive (006), Word, Excel, PDF et HTML" }
         location: { type: string, maxLength: 2000 }
+        exclusions:
+          type: array
+          maxItems: 50
+          items: { type: string, maxLength: 200 }
+          description: "Motifs d'exclusion (DOCUMENTS seulement), relatifs au dossier : *.xlsx, Archives/**, **/brouillon*"
+    DocumentsPreview:
+      type: object
+      properties:
+        retained: { type: integer }
+        excluded: { type: integer }
+        ignored: { type: integer, description: Formats non pris en charge }
+        retainedExamples: { type: array, maxItems: 10, items: { type: string } }
+        excludedExamples: { type: array, maxItems: 10, items: { type: string } }
+        ignoredExamples: { type: array, maxItems: 10, items: { type: string } }
+        limitReached: { type: boolean }
     DocSource:
       allOf:
         - $ref: '#/components/schemas/DocSourceInput'
@@ -396,7 +441,9 @@ components:
         location: { type: string }
         reason:
           enum: [UNREACHABLE, NOT_ANTORA, HTTP_ERROR, TOO_LARGE, REDIRECT_OTHER_HOST, LIMIT_REACHED,
-            FOLDER_NOT_FOUND, NOT_A_FOLDER, ACCESS_DENIED, UNREADABLE, NO_HTML, ADOC_SOURCES]
+            FOLDER_NOT_FOUND, NOT_A_FOLDER, ACCESS_DENIED, UNREADABLE, NO_HTML, ADOC_SOURCES,
+            PROTECTED, NO_TEXT, UNAVAILABLE]
+          description: "PROTECTED, NO_TEXT, UNAVAILABLE : document protégé, PDF sans texte, fichier à la demande non téléchargé (006)"
         httpStatus: { type: integer, description: 'Code HTTP reçu, absent sans réponse' }
     Indexation:
       type: object
@@ -446,7 +493,7 @@ components:
       type: object
       description: Sans aucun contenu de page, de ticket ni de modèle (FR-013g)
       properties:
-        kind: { enum: [PAGE, SOURCE, JIRA, ARCHITECTURE, MODEL, FAILURE, WARNING], description: "WARNING : avertissement (par exemple !script ignoré), sans effet sur partial" }
+        kind: { enum: [PAGE, SOURCE, JIRA, ARCHITECTURE, MODEL, FAILURE, WARNING], description: "WARNING : avertissement (par exemple !script ignoré, IGNORED_FORMAT pour des fichiers d'un format non pris en charge), sans effet sur partial" }
         location: { type: string, description: "Adresse, clé, ou fichier:ligne pour ARCHITECTURE" }
         reason: { type: string, description: "UNEXPECTED : erreur inattendue d'une étape, les étapes suivantes ont continué (005)" }
         httpStatus: { type: integer }

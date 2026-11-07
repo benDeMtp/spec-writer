@@ -1,13 +1,15 @@
 import { expect, request, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
-import { baseURL, jiraURL, storageStatePath } from './support/env';
+import { baseURL, jiraURL, stateDir, storageStatePath } from './support/env';
 
 const DEFAULT_PROJECT = '00000000-0000-0000-0000-000000000001';
 const WORKSPACE = join(process.cwd(), 'fixtures', 'c4', 'facturation', 'workspace.dsl');
 const BROKEN = join(process.cwd(), 'fixtures', 'c4', 'broken', 'workspace.dsl');
+/** Dossier SharePoint synchronisé simulé (006) : Word, Excel, PDF, HTML, et des fichiers illisibles. */
+const DOCUMENTS = join(process.cwd(), 'fixtures', 'documents', 'Aurora');
 const ADR_005 = `${jiraURL}/antora-knowledge/facturation/adr/adr-005.html`;
 /** Besoins du jeu fictif ; les réponses de Copilot sont rejouées depuis fixtures/llm (11 à 25). */
 const NEED_AVOIR = 'Saisir un avoir sur une facture émise et en informer la comptabilité.';
@@ -20,6 +22,13 @@ const META = '/rest/api/2/issue/createmeta/FACT/issuetypes';
  * le site Antora sont servis par WireMock, le workspace Structurizr est lu dans fixtures/c4, le
  * modèle de recherche est celui des tests (backend/target/test-model).
  */
+function files(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? files(path) : [path];
+  });
+}
+
 test.describe.serial('US8 connaissance du projet', () => {
   let context: BrowserContext;
   let page: Page;
@@ -457,5 +466,42 @@ test.describe.serial('US8 connaissance du projet', () => {
     const calls = (await (await jira.get('/__admin/requests')).json()).requests as { request: { method: string; url: string } }[];
     expect(calls.map((c) => c.request.method).filter((m) => m !== 'GET')).toEqual([]);
     expect(calls.map((c) => c.request.url).join('\n')).toContain('/rest/api/2/issue/FACT-41');
+  });
+
+  test('P10 : dossier de documents synchronisé, motifs et aperçu ; ses documents se cherchent sans être copiés (006)', async () => {
+    test.setTimeout(120_000);
+    await page.goto(`/projets/${projectId}/contexte`);
+    const add = page.getByRole('form', { name: 'Ajouter une source' });
+    await add.getByRole('combobox', { name: 'Type' }).click();
+    await page.getByRole('option', { name: 'Dossier de documents (SharePoint synchronisé)' }).click();
+    await add.getByLabel('Chemin du dossier synchronisé').fill(DOCUMENTS);
+    await add.getByLabel("Motifs d'exclusion (facultatif)").fill('Archives/**');
+
+    // aperçu : noms seulement, aucun fichier ouvert
+    await add.getByRole('button', { name: 'Aperçu du dossier' }).click();
+    await expect(page.locator('.preview')).toContainText('7 documents retenus, 1 exclu, 1 ignoré');
+    await expectNoA11yViolations(page);
+
+    await add.getByRole('button', { name: 'Ajouter', exact: true }).click();
+    await expect(page.getByRole('button', { name: `Modifier les motifs de ${DOCUMENTS}` })).toBeVisible();
+    await expect(page.getByText('Exclus : Archives/**')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Resynchroniser' })).toBeVisible({ timeout: 60_000 });
+
+    // recherche d'essai : un mot du PDF, un mot du classeur ; le PDF exclu n'est pas indexé
+    const search = page.getByRole('form', { name: "Recherche d'essai" });
+    await page.getByLabel('Rechercher').fill('Prometheus');
+    await search.getByRole('button', { name: 'Rechercher' }).click();
+    await expect(page.getByRole('list', { name: 'Résultats' })).toContainText('Exploitation');
+    await page.getByLabel('Rechercher').fill('Recette');
+    await search.getByRole('button', { name: 'Rechercher' }).click();
+    await expect(page.getByRole('list', { name: 'Résultats' })).toContainText('Suivi');
+    await expectNoA11yViolations(page);
+    const archived = await page.request.get(`/api/projects/${projectId}/knowledge/search`, { params: { q: 'Ancien bilan' } });
+    expect(archived.status()).toBe(200);
+    expect(JSON.stringify(await archived.json())).not.toContain('Archives');
+
+    // SC-004 : aucun document copié dans les données de l'outil
+    const dataDir = readFileSync(join(stateDir, 'data-dir'), 'utf8').trim();
+    expect(files(dataDir).filter((f) => /\.(docx|xlsx|pdf|html?)$/i.test(f))).toEqual([]);
   });
 });

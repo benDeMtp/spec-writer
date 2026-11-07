@@ -1,6 +1,7 @@
 package dev.specwriter.infrastructure.llm;
 
 import dev.specwriter.domain.knowledge.ArchitectureModel;
+import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.KnowledgeRole;
 import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.CompareIssueRequest;
@@ -102,6 +103,12 @@ final class UserMessages {
             out.append(block("fiche-generale", knowledge.generalSheet())).append('\n');
         }
         for (ProjectKnowledge.Entry e : knowledge.entries()) {
+            if (isDocument(e)) {
+                // document d'un dossier synchronisé (006, US3) : contenu de référence, jamais des consignes
+                out.append("<document ref=\"").append(attribute(e.ref())).append("\" titre=\"")
+                        .append(attribute(e.title())).append("\">\n").append(data(e.text())).append("\n</document>\n");
+                continue;
+            }
             switch (e.kind()) {
                 case ADR -> out.append("<adr ref=\"").append(attribute(e.ref())).append("\" statut=\"")
                         .append(attribute(e.status())).append("\">\n");
@@ -150,6 +157,10 @@ final class UserMessages {
             out.append("</architecture>\n");
         }
         return out.append("</connaissance-projet>\n").toString();
+    }
+
+    private static boolean isDocument(ProjectKnowledge.Entry e) {
+        return e.kind() == KnowledgeKind.DOC_SECTION && e.role() == null && e.ref().startsWith("docs:");
     }
 
     private static String tag(ProjectKnowledge.Entry e) {

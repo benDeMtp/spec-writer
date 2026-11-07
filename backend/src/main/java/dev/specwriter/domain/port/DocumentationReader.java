@@ -49,7 +49,13 @@ public interface DocumentationReader {
         /** Dossier sans aucune page HTML. */
         NO_HTML,
         /** Dossier de sources AsciiDoc ({@code .adoc}) au lieu du site généré par Antora. */
-        ADOC_SOURCES
+        ADOC_SOURCES,
+        /** Document protégé par mot de passe ou chiffré (006). */
+        PROTECTED,
+        /** Document sans texte, comme un PDF scanné (006). */
+        NO_TEXT,
+        /** Fichier non disponible : à la demande et non téléchargé, poste hors ligne (006). */
+        UNAVAILABLE
     }
 
     /** Pages annoncées par une source et, si elle n'en annonce aucune, pourquoi. */

@@ -27,7 +27,8 @@ export interface Project {
 
 export type DeletionMode = 'MOVE' | 'DELETE';
 
-export type DocSourceKind = 'URL' | 'FOLDER';
+/** Lien Antora, dossier Antora, ou dossier de documents (Word, Excel, PDF, HTML, 006). */
+export type DocSourceKind = 'URL' | 'FOLDER' | 'DOCUMENTS';
 export type UnreadReason =
   | 'UNREACHABLE'
   | 'NOT_ANTORA'
@@ -40,7 +41,10 @@ export type UnreadReason =
   | 'ACCESS_DENIED'
   | 'UNREADABLE'
   | 'NO_HTML'
-  | 'ADOC_SOURCES';
+  | 'ADOC_SOURCES'
+  | 'PROTECTED'
+  | 'NO_TEXT'
+  | 'UNAVAILABLE';
 
 /** Source de documentation Antora d'un projet (FR-013) et résultat de sa dernière lecture. */
 export interface DocSource {
@@ -50,6 +54,19 @@ export interface DocSource {
   lastReadAt: string | null;
   pagesRead: number | null;
   pagesInError: number | null;
+  /** Motifs d'exclusion d'un dossier de documents (006) ; vide sinon. */
+  exclusions: string[];
+}
+
+/** Effet des motifs sur un dossier de documents, sans rien lire (006). */
+export interface DocumentsPreview {
+  retained: number;
+  excluded: number;
+  ignored: number;
+  retainedExamples: string[];
+  excludedExamples: string[];
+  ignoredExamples: string[];
+  limitReached: boolean;
 }
 
 export interface UnreadSource {

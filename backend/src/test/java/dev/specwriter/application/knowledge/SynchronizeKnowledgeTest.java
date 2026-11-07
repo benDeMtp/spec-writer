@@ -24,9 +24,11 @@ import dev.specwriter.domain.port.DocumentationReader.Result;
 import dev.specwriter.domain.port.DocumentationReader.Section;
 import dev.specwriter.domain.port.DocumentationReader.Unread;
 import dev.specwriter.domain.port.DocumentationReader.UnreadReason;
+import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.domain.port.EmbeddingPort;
 import dev.specwriter.domain.port.KnowledgeIndex.Key;
 import dev.specwriter.domain.project.DocSource;
+import dev.specwriter.domain.project.ExclusionPatterns;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.support.FakeEmbedding;
 import dev.specwriter.support.InMemoryKnowledgeIndex;
@@ -135,7 +137,7 @@ class SynchronizeKnowledgeTest {
         Path workspace = Files.writeString(tmp.resolve("workspace.dsl"), "workspace {}");
         sources.save(sources.find(P).withArchitecture(workspace.toString(), "facturation"));
         architecture.set(model("h1"));
-        sync = new SynchronizeKnowledge(world.projects, sources, world.docSources, world.docs, architectureReader,
+        sync = new SynchronizeKnowledge(world.projects, sources, world.docSources, world.docs, world.folder, world.fileStates, architectureReader,
                 world.jira, world.tracker, world.ticketLinks, index, embedding, world.clock);
         progress = new Recorder();
     }
@@ -714,6 +716,178 @@ class SynchronizeKnowledgeTest {
         assertThat(indexations.start(P, Mode.FULL).sources()).isNull();
     }
 
+    // ---------- 006, US1 : dossier de documents ----------
+
+    static final String DOCS = "/Users/moi/Library/CloudStorage/OneDrive-LaPoste/Aurora";
+    static final Instant M1 = Instant.parse("2026-11-01T10:00:00Z");
+
+    DocSource documents(String... exclusions) {
+        DocSource source = new DocSource(UUID.randomUUID(), P, DocSource.Kind.DOCUMENTS, DOCS, null, null,
+                ExclusionPatterns.of(List.of(exclusions)));
+        world.docSources.save(source);
+        return source;
+    }
+
+    static DocumentFolder.Reading docPage(DocSource source, String path, String title, String... bodies) {
+        String ref = DocumentFolder.ref(source, path);
+        List<Section> sections = new ArrayList<>();
+        for (int i = 0; i < bodies.length; i++) {
+            sections.add(new Section(ref + "#" + i, 0, title, bodies[i], KnowledgeKind.DOC_SECTION, null, null));
+        }
+        return DocumentFolder.Reading.of(new Page(ref, title, String.join("\n\n", bodies), sections));
+    }
+
+    List<String> documentRefs() {
+        List<String> refs = new ArrayList<>();
+        index.all(P, KnowledgeKind.DOC_SECTION).forEach(i -> refs.add(i.ref()));
+        index.all(P, KnowledgeKind.ADR).forEach(i -> refs.add(i.ref()));
+        return refs.stream().filter(r -> r.startsWith("docs:")).sorted().toList();
+    }
+
+    /** Documents indexés avec leur source dans la référence ; les sources Antora gardent leurs éléments. */
+    @Test
+    void dossierDeDocumentsIndexe() {
+        DocSource docs = documents();
+        world.folder.put(DOCS, "Specs/Aurora.docx", 1200, M1,
+                docPage(docs, "Specs/Aurora.docx", "Aurora", "Contexte GAIA.", "Exigences nginx."));
+        world.folder.put(DOCS, "Suivi.xlsx", 800, M1, docPage(docs, "Suivi.xlsx", "Suivi", "| Recette | 2026-12-01 |"));
+        world.folder.put(DOCS, "Decisions/0017-ihm-nginx.docx", 500, M1, DocumentFolder.Reading.of(new Page(
+                DocumentFolder.ref(docs, "Decisions/0017-ihm-nginx.docx"), "17. IHM nginx", "Statut : accepté", List.of(
+                        new Section(DocumentFolder.ref(docs, "Decisions/0017-ihm-nginx.docx"), 0, "17. IHM nginx",
+                                "Statut : accepté. nginx.", KnowledgeKind.ADR,
+                                AdrStatus.Statement.of(AdrStatus.ACCEPTED, null), null)))));
+
+        sync.run(P, Mode.FULL, progress);
+
+        String prefix = DocumentFolder.prefix(docs);
+        assertThat(documentRefs()).containsExactly(prefix + "Decisions/0017-ihm-nginx.docx",
+                prefix + "Specs/Aurora.docx#0", prefix + "Specs/Aurora.docx#1", prefix + "Suivi.xlsx#0");
+        assertThat(index.all(P, KnowledgeKind.ADR)).filteredOn(i -> i.ref().startsWith(prefix)).singleElement()
+                .satisfies(i -> assertThat(i.status()).isEqualTo("ACCEPTED"));
+        // la source Antora déclarée dans setUp garde ses éléments
+        assertThat(index.count(P, KnowledgeKind.DOC_SECTION)).isEqualTo(4);
+        assertThat(world.fileStates.of(docs.id())).containsOnlyKeys("Decisions/0017-ihm-nginx.docx",
+                "Specs/Aurora.docx", "Suivi.xlsx");
+        assertThat(progress.errors).isEmpty();
+    }
+
+    /** Un document inchangé n'est pas relu ; modifié, il l'est ; supprimé, il est retiré. */
+    @Test
+    void seulsLesDocumentsChangesSontRelus() {
+        DocSource docs = documents();
+        world.folder.put(DOCS, "Specs/Aurora.docx", 1200, M1, docPage(docs, "Specs/Aurora.docx", "Aurora", "v1"));
+        world.folder.put(DOCS, "Suivi.xlsx", 800, M1, docPage(docs, "Suivi.xlsx", "Suivi", "v1"));
+        sync.run(P, Mode.FULL, progress);
+        world.folder.reads.clear();
+
+        sync.run(P, Mode.INCREMENTAL, new Recorder());
+        assertThat(world.folder.reads).isEmpty();
+
+        world.folder.put(DOCS, "Suivi.xlsx", 900, M1.plusSeconds(60), docPage(docs, "Suivi.xlsx", "Suivi", "v2"));
+        world.folder.remove(DOCS, "Specs/Aurora.docx");
+        sync.run(P, Mode.INCREMENTAL, new Recorder());
+
+        assertThat(world.folder.reads).containsExactly("Suivi.xlsx");
+        assertThat(documentRefs()).containsExactly(DocumentFolder.prefix(docs) + "Suivi.xlsx#0");
+        assertThat(index.all(P, KnowledgeKind.DOC_SECTION)).filteredOn(i -> i.ref().startsWith("docs:"))
+                .extracting(i -> i.body()).containsExactly("v2");
+
+        world.folder.reads.clear();
+        sync.run(P, Mode.FULL, new Recorder());
+        assertThat(world.folder.reads).containsExactly("Suivi.xlsx");
+    }
+
+    /** Formats ignorés comptés ; document illisible signalé, son indexation précédente gardée. */
+    @Test
+    void ignoresEtEchecsSignales() {
+        DocSource docs = documents();
+        world.folder.put(DOCS, "Exploitation.pdf", 300, M1, docPage(docs, "Exploitation.pdf", "Exploitation", "Prometheus."));
+        world.folder.ignored.put(DOCS, List.of("vieux.doc", "plan.pptx"));
+        sync.run(P, Mode.FULL, progress);
+        assertThat(progress.errors).singleElement().satisfies(e -> {
+            assertThat(e.kind()).isEqualTo(IndexationError.Kind.WARNING);
+            assertThat(e.reason()).isEqualTo("IGNORED_FORMAT");
+            assertThat(e.location()).isEqualTo(DOCS);
+            assertThat(e.message()).contains("2");
+        });
+
+        world.folder.put(DOCS, "Exploitation.pdf", 400, M1.plusSeconds(60),
+                DocumentFolder.Reading.failed(UnreadReason.UNAVAILABLE));
+        Recorder second = new Recorder();
+        sync.run(P, Mode.FULL, second);
+
+        assertThat(second.errors).extracting(IndexationError::kind, IndexationError::location, IndexationError::reason)
+                .contains(org.assertj.core.groups.Tuple.tuple(IndexationError.Kind.PAGE, "Exploitation.pdf", "UNAVAILABLE"));
+        assertThat(documentRefs()).containsExactly(DocumentFolder.prefix(docs) + "Exploitation.pdf#0");
+        // le fichier en échec sera relu à la prochaine synchronisation
+        assertThat(world.fileStates.of(docs.id())).doesNotContainKey("Exploitation.pdf");
+    }
+
+    /** Dossier absent : signalé, rien n'est retiré. */
+    @Test
+    void dossierAbsentNeRetireRien() {
+        DocSource docs = documents();
+        world.folder.put(DOCS, "a.docx", 1, M1, docPage(docs, "a.docx", "A", "a"));
+        sync.run(P, Mode.FULL, progress);
+        world.folder.folders.remove(DOCS);
+        Recorder second = new Recorder();
+
+        sync.run(P, Mode.FULL, second);
+
+        assertThat(second.errors).extracting(IndexationError::kind, IndexationError::reason)
+                .contains(org.assertj.core.groups.Tuple.tuple(IndexationError.Kind.SOURCE, "FOLDER_NOT_FOUND"));
+        assertThat(documentRefs()).hasSize(1);
+    }
+
+    /** Réindexation choisie (005) d'un dossier de documents : seul lui est lu, ses disparus retirés. */
+    @Test
+    void reindexationChoisieDuDossier() {
+        DocSource docs = documents();
+        world.folder.put(DOCS, "a.docx", 1, M1, docPage(docs, "a.docx", "A", "a"));
+        world.folder.put(DOCS, "b.docx", 1, M1, docPage(docs, "b.docx", "B", "b"));
+        sync.run(P, Mode.FULL, progress);
+        world.docs.reads.clear();
+        world.folder.remove(DOCS, "b.docx");
+
+        sync.run(P, Mode.FULL, IndexationScope.of(List.of(docs.id().toString()), world.docSources.list(P)), new Recorder());
+
+        assertThat(world.docs.reads).isEmpty();
+        assertThat(documentRefs()).containsExactly(DocumentFolder.prefix(docs) + "a.docx#0");
+    }
+
+    /** 006, US2 : un document nouvellement exclu est retiré ; tout exclure n'est pas une erreur. */
+    @Test
+    void documentsExclusRetires() {
+        DocSource docs = documents();
+        world.folder.put(DOCS, "Specs/a.docx", 1, M1, docPage(docs, "Specs/a.docx", "A", "a"));
+        world.folder.put(DOCS, "Archives/b.pdf", 1, M1, docPage(docs, "Archives/b.pdf", "B", "b"));
+        sync.run(P, Mode.FULL, progress);
+        assertThat(documentRefs()).hasSize(2);
+
+        world.docSources.save(docs.withExclusions(ExclusionPatterns.of(List.of("Archives/**"))));
+        sync.run(P, Mode.INCREMENTAL, new Recorder());
+        assertThat(documentRefs()).containsExactly(DocumentFolder.prefix(docs) + "Specs/a.docx#0");
+
+        world.docSources.save(docs.withExclusions(ExclusionPatterns.of(List.of("**"))));
+        Recorder all = new Recorder();
+        sync.run(P, Mode.FULL, all);
+        assertThat(documentRefs()).isEmpty();
+        assertThat(all.errors).isEmpty();
+    }
+
+    /** Erreur inattendue d'un dossier de documents (005) : les autres sources continuent. */
+    @Test
+    void erreurInattendueDuDossier() {
+        documents();
+        world.folder.broken.put(DOCS, new IllegalStateException("panne"));
+
+        sync.run(P, Mode.FULL, progress);
+
+        unexpected(progress.errors, IndexationError.Kind.SOURCE, DOCS);
+        assertThat(index.count(P, KnowledgeKind.DOC_SECTION)).isEqualTo(1);
+        assertThat(index.count(P, KnowledgeKind.ARCH_ELEMENT)).isEqualTo(2);
+    }
+
     /** Une bibliothèque absente du jar est signalée à son étape, les autres continuent (T117, puis 005). */
     @Test
     void bibliothequeAbsenteSignaleeASonEtape() {
@@ -722,7 +896,7 @@ class SynchronizeKnowledgeTest {
             throw new NoClassDefFoundError("org/slf4j/LoggerFactory");
         };
         Indexations indexations = new Indexations(new SynchronizeKnowledge(world.projects, sources, world.docSources,
-                world.docs, missingLibrary, world.jira, world.tracker, world.ticketLinks, index, embedding, world.clock), world.projects,
+                world.docs, world.folder, world.fileStates, missingLibrary, world.jira, world.tracker, world.ticketLinks, index, embedding, world.clock), world.projects,
                 executor, world.clock);
         indexations.start(P, Mode.FULL);
         executor.runAll();

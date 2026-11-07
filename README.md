@@ -15,7 +15,8 @@ L'outil tourne sur votre poste. Il s'ouvre dans votre navigateur, à l'adresse
   puis renvoyer la mise à jour en signalant tout conflit ;
 - chercher à la fois dans vos spécifications et dans Jira, par pages de 25 ;
 - ranger les spécifications par projet, chacun avec sa connaissance : tickets Jira, documentation
-  Antora et modèle d'architecture Structurizr ;
+  Antora, documents Word, Excel, PDF et HTML d'un dossier SharePoint synchronisé, et modèle
+  d'architecture Structurizr ;
 - supprimer une version ou une spécification sans toucher à Jira ;
 - suivre le statut d'implémentation, et donner aux agents de code (Claude Code, Copilot, Cursor)
   les features à implémenter.
@@ -97,6 +98,12 @@ La page **Contexte** d'un projet déclare ce que l'outil doit connaître :
 - **Documentation Antora** : l'adresse du site généré, ou un dossier local de pages HTML. Les ADR
   sont reconnus, avec leur statut : pages `adr-<n>`, titres « ADR-<n> », ou pages numérotées d'un
   dossier `adr/`, `adrs/` ou `decisions/` (convention adr-tools, `0002-titre.html`).
+- **Dossier de documents (SharePoint synchronisé)** : un dossier SharePoint synchronisé par
+  OneDrive sur le poste (voir plus bas). Les fichiers Word (`.docx`), Excel (`.xlsx`), PDF et HTML
+  sont indexés, sous-dossiers compris ; les anciens formats (`.doc`, `.xls`) et les autres sont
+  ignorés et comptés. Des motifs d'exclusion, un par ligne et relatifs au dossier, écartent des
+  fichiers : `*.xlsx`, `Archives/**`, `**/brouillon*`. « Aperçu du dossier » montre leur effet
+  (documents retenus, exclus, ignorés) sans ouvrir aucun fichier.
 - **Architecture** : le `workspace.dsl` Structurizr d'un dossier local (`workspace extends`,
   `!include`, `!element`, `!docs` et `!adrs` sont suivis ; un `!script` n'est jamais exécuté, il est
   ignoré avec un avertissement), et l'ownership, facultatif, qui distingue les modules propres au
@@ -111,6 +118,32 @@ spec-writer sert lui-même la page, sans en exécuter les scripts et sans rien l
 déclaré. Un ADR retenu pour une génération est transmis en entier à l'IA (8 000 caractères au plus,
 coupé à une section au-delà) ; un ADR cité par son numéro (« ADR 0017 », « l'ADR 17 ») dans le
 besoin, une réponse ou l'instruction d'une modification est transmis d'office.
+
+### Dossier SharePoint synchronisé
+
+spec-writer ne se connecte pas à SharePoint : la lecture directe exigerait une application déclarée
+par l'administrateur Microsoft 365. Il lit le dossier que OneDrive synchronise sur le poste :
+
+1. Ouvrez le dossier partagé dans SharePoint, dans le navigateur.
+2. Bibliothèque entière : bouton **Synchroniser**. Dossier partagé avec vous : **Ajouter un
+   raccourci à Mes fichiers**, sur le dossier.
+3. Le dossier apparaît dans le Finder, sous `~/Library/CloudStorage/OneDrive-<Organisation>/`
+   (raccourci) ou `~/Library/CloudStorage/OneDrive-SharedLibraries-<Organisation>/` (bibliothèque).
+   Déclarez ce chemin dans la page **Contexte**.
+4. Facultatif : clic droit sur le dossier, **Toujours conserver sur cet appareil**, pour que les
+   fichiers se lisent hors ligne.
+
+Si le bouton Synchroniser n'apparaît pas, la synchronisation est désactivée par l'IT.
+
+Les fichiers ne sont jamais copiés : l'index garde le texte découpé et ses vecteurs. Un fichier
+inchangé (même taille, même date) n'est pas rouvert, ce qui évite à OneDrive de télécharger un
+fichier « à la demande ». Un fichier protégé par mot de passe, un PDF scanné sans texte ou un
+fichier non téléchargé hors ligne est signalé dans le bilan, sans arrêter les autres. Quand la
+recherche retient un passage d'un document pour une génération, le document est relu entier dans
+le dossier (2 documents, 8 000 caractères au plus, coupé à une section au-delà, après la fiche
+générale et les ADR) ; s'il ne se lit plus, ses passages indexés sont transmis. Un ADR rangé dans
+ce dossier (`adr-17.pdf`, `decisions/0017-titre.docx`, ou un titre « ADR-17 ») est reconnu comme
+un ADR.
 
 La recherche dans cet index se fait sur le poste, par mots et par sens. Le modèle de recherche
 (multilingual-e5-small, environ 120 Mo) est téléchargé une seule fois, par le proxy d'entreprise,
@@ -141,7 +174,8 @@ relus, gardés sans relecture et retirés.
 « Réindexer des sources… » relit entièrement les seules sources cochées : Jira, une source de
 documentation, le modèle d'architecture. La date « Synchronisée le » ne change pas, et une page
 supprimée d'une source réindexée seule reste dans l'index jusqu'à la prochaine indexation de toutes
-les sources. Une erreur inattendue dans une source n'arrête que son étape : les autres sources sont
+les sources ; pour un dossier de documents, les fichiers supprimés ou exclus sont retirés dès la
+réindexation du dossier. Une erreur inattendue dans une source n'arrête que son étape : les autres sources sont
 indexées, et l'indexation se termine « avec des erreurs ».
 
 ## Statut d'implémentation

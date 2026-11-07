@@ -2,6 +2,7 @@ package dev.specwriter.infrastructure.persistence.project;
 
 import dev.specwriter.domain.port.DocSourceRepository;
 import dev.specwriter.domain.project.DocSource;
+import dev.specwriter.domain.project.ExclusionPatterns;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -29,6 +30,7 @@ public class DocSourceJpaRepository implements DocSourceRepository {
         e.location = s.location();
         e.lastReadAt = s.lastReadAt();
         e.lastResult = s.lastResult() == null ? null : JSON.writeValueAsString(s.lastResult());
+        e.exclusions = s.exclusions().isEmpty() ? null : JSON.writeValueAsString(s.exclusions().patterns());
         em.merge(e);
     }
 
@@ -59,7 +61,9 @@ public class DocSourceJpaRepository implements DocSourceRepository {
 
     private static DocSource toDomain(DocSourceEntity e) {
         DocSource.ReadSummary result = e.lastResult == null ? null : JSON.readValue(e.lastResult, DocSource.ReadSummary.class);
+        ExclusionPatterns exclusions = e.exclusions == null ? ExclusionPatterns.NONE
+                : ExclusionPatterns.of(List.of(JSON.readValue(e.exclusions, String[].class)));
         return new DocSource(UUID.fromString(e.id), UUID.fromString(e.projectId), DocSource.Kind.valueOf(e.kind), e.location,
-                e.lastReadAt, result);
+                e.lastReadAt, result, exclusions);
     }
 }

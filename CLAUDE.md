@@ -1,8 +1,10 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/005-reindexation-par-source/` (étapes de l'indexation
-indépendantes, réindexation des seules sources choisies), après `specs/004-adr-du-projet/`
+La feature en cours est `specs/006-documents-sharepoint/` (dossier SharePoint synchronisé par
+OneDrive : Word, Excel, PDF, HTML, motifs d'exclusion, documents relus à la volée), après
+`specs/005-reindexation-par-source/` (étapes de l'indexation
+indépendantes, réindexation des seules sources choisies), `specs/004-adr-du-projet/`
 (compteurs, page des ADR du projet, ADR entier transmis à la génération) et `specs/003-tickets-fermes-cache/` (tickets Jira fermés gardés dans
 l'index sans relecture). Elles prolongent `specs/002-projets-contexte-mcp/` (projets, connaissance du projet par
 index local de Jira, Antora et Structurizr, suppression locale, Jira paginé, passerelle MCP pour

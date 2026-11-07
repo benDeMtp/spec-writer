@@ -19,6 +19,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -32,7 +33,14 @@ public class ContextResource {
     public record ContextInput(String markdown) {
     }
 
-    public record DocSourceInput(String kind, String location) {
+    /** {@code exclusions} : motifs d'un dossier de documents (006), un par élément. */
+    public record DocSourceInput(String kind, String location, List<String> exclusions) {
+    }
+
+    public record ExclusionsInput(List<String> exclusions) {
+    }
+
+    public record PreviewInput(String location, List<String> exclusions) {
     }
 
     @Inject
@@ -55,12 +63,33 @@ public class ContextResource {
     @Path("/doc-sources")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response addSource(@PathParam("id") String id, DocSourceInput input) {
-        DocSourceInput in = input == null ? new DocSourceInput(null, null) : input;
+        DocSourceInput in = input == null ? new DocSourceInput(null, null, null) : input;
         UUID projectId = ProjectResource.projectId(id);
-        DocSource source = manageDocSources.add(projectId, kind(in.kind()), in.location());
+        DocSource source = manageDocSources.add(projectId, kind(in.kind()), in.location(),
+                in.exclusions() == null ? List.of() : in.exclusions());
         // une nouvelle source se lit en entier, sans attendre (research.md R20)
         indexations.trigger(projectId, SynchronizeKnowledge.Mode.FULL);
         return Response.status(Response.Status.CREATED).entity(DocSourceView.of(source)).build();
+    }
+
+    /** Motifs d'un dossier de documents, pris en compte à sa prochaine indexation (006). */
+    @PUT
+    @Path("/doc-sources/{sourceId}/exclusions")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public DocSourceView setExclusions(@PathParam("id") String id, @PathParam("sourceId") String sourceId,
+            ExclusionsInput input) {
+        return DocSourceView.of(manageDocSources.setExclusions(ProjectResource.projectId(id), Ids.parse(sourceId),
+                input == null || input.exclusions() == null ? List.of() : input.exclusions()));
+    }
+
+    /** Effet des motifs sur un dossier, sans rien lire ni indexer (006, FR-010). */
+    @POST
+    @Path("/doc-sources/preview")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public ManageDocSources.Preview preview(@PathParam("id") String id, PreviewInput input) {
+        PreviewInput in = input == null ? new PreviewInput(null, null) : input;
+        return manageDocSources.preview(ProjectResource.projectId(id), in.location(),
+                in.exclusions() == null ? List.of() : in.exclusions());
     }
 
     @DELETE
@@ -73,7 +102,7 @@ public class ContextResource {
         try {
             return DocSource.Kind.valueOf(raw == null ? "" : raw);
         } catch (IllegalArgumentException e) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Choisissez une adresse (URL) ou un dossier (FOLDER).");
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Choisissez une adresse (URL), un dossier Antora (FOLDER) ou un dossier de documents (DOCUMENTS).");
         }
     }
 }

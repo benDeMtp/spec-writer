@@ -58,6 +58,17 @@ class ListAdrsTest {
         files.put(FOLDER, "adr/0005-domaines.html", "<html/>");
     }
 
+    /** 006 : un ADR d'un dossier de documents garde son numéro, sans lien (fichiers jamais servis). */
+    @Test
+    void adrDUnDossierDeDocumentsSansLien() {
+        String ref = "docs:" + UUID.randomUUID() + "/Decisions/0018-ihm.docx";
+        adr(ref, 0, "IHM nginx", AdrStatus.ACCEPTED, null);
+        files.put(FOLDER, ref, "<html/>");
+        AdrSummary summary = byTitle(list.run(P)).get("IHM nginx");
+        assertThat(summary.number()).isEqualTo(18);
+        assertThat(summary.url()).isNull();
+    }
+
     @Test
     void uneLigneParAdrTrieesParNumeroSansNumeroALaFin() {
         AdrList adrs = list.run(P);

@@ -160,6 +160,29 @@ class SqliteKnowledgeIndexIT {
         assertThat(index.count(project, KnowledgeKind.DOC_SECTION)).isEqualTo(1);
     }
 
+    /** 006 : retrait sous un préfixe de référence, sans toucher aux autres sources ni aux jokers SQL. */
+    @Test
+    void retraitSousUnPrefixe() {
+        AdrStatus.Statement accepted = AdrStatus.Statement.of(AdrStatus.ACCEPTED, null);
+        index.save(section("docs:s1/a.docx#0", "A", "a"), null, null);
+        index.save(section("docs:s1/b.docx#0", "B", "b"), null, null);
+        index.save(KnowledgeItem.adr(project, "docs:s1/0017-adr.docx", 0, "17. ADR", "x", accepted, T0, T0), null, null);
+        index.save(section("docs:s2/a.docx#0", "A2", "a"), null, null);
+        index.save(section("docs:s%/c.docx#0", "C", "c"), null, null);
+        index.save(section("guide.html#_regles", "Règles", "r"), null, null);
+
+        int removed = index.retainUnder(project, "docs:s1/",
+                java.util.Set.of(new Key(KnowledgeKind.DOC_SECTION, "docs:s1/a.docx#0", 0)));
+
+        assertThat(removed).isEqualTo(2);
+        assertThat(index.all(project, KnowledgeKind.DOC_SECTION)).extracting(KnowledgeItem::ref)
+                .containsExactlyInAnyOrder("docs:s1/a.docx#0", "docs:s2/a.docx#0", "docs:s%/c.docx#0",
+                        "guide.html#_regles");
+        assertThat(index.count(project, KnowledgeKind.ADR)).isZero();
+        assertThat(index.retainUnder(project, "docs:s%/", java.util.Set.of())).isEqualTo(1);
+        assertThat(index.count(project, KnowledgeKind.DOC_SECTION)).isEqualTo(3);
+    }
+
     @Test
     void ticketsFermesDuProjet() {
         index.save(KnowledgeItem.ticket(project, "FACT-1", "Fermé", "x", "Terminé", "done", "Story", T0, T0), null, null);

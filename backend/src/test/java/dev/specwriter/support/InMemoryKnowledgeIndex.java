@@ -61,6 +61,14 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
     }
 
     @Override
+    public int retainUnder(UUID projectId, String refPrefix, Set<Key> keep) {
+        List<Key> gone = of(projectId).keySet().stream().filter(k -> k.ref().startsWith(refPrefix) && !keep.contains(k))
+                .toList();
+        gone.forEach(of(projectId)::remove);
+        return gone.size();
+    }
+
+    @Override
     public void delete(UUID projectId, Key key) {
         of(projectId).remove(key);
     }

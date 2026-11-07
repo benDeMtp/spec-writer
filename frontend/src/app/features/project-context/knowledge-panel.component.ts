@@ -55,6 +55,14 @@ const ERROR_KINDS: Record<IndexationError['kind'], string> = {
   WARNING: 'Avertissement',
 };
 
+/** Raisons d'un dossier de documents (006), dites en clair ; les autres restent leur code. */
+const REASONS: Record<string, string> = {
+  PROTECTED: 'protégé par mot de passe',
+  NO_TEXT: 'sans texte, document scanné ?',
+  UNAVAILABLE: 'non disponible, fichier OneDrive non téléchargé hors ligne ?',
+  IGNORED_FORMAT: 'formats non pris en charge',
+};
+
 const MODEL_STATES: Record<ModelState, string> = {
   MISSING: 'pas encore téléchargé',
   DOWNLOADING: 'téléchargement en cours',
@@ -427,7 +435,7 @@ export class KnowledgePanelComponent {
     }
     const http = e.httpStatus ? ` ${e.httpStatus}` : '';
     const message = e.message ? `, ${e.message}` : '';
-    return `${ERROR_KINDS[e.kind]}${where} (${e.reason}${http}${message})`;
+    return `${ERROR_KINDS[e.kind]}${where} (${REASONS[e.reason] ?? e.reason}${http}${message})`;
   }
 
   protected async start(mode: IndexationMode): Promise<void> {

@@ -1,31 +1,31 @@
 {
-  "date" : "2026-11-05T16:19:25Z",
-  "fingerprint" : "ee3fe8c9c84f4b0cdd8eb995a20a1880a6bc6f03b3a677e0cdf8dc411faf614a",
+  "date" : "2026-11-06T16:23:56Z",
+  "fingerprint" : "6741a235212ba09783d21dbb38b688a6d265a7eee13571d82f9bd5770648bfa1",
   "model" : "défaut du compte",
   "copilotSdk" : "1.0.28-preview.0",
   "copilotCli" : "embarqué",
   "runs" : 3,
   "scores" : {
     "scenarioStructure" : 1.0,
-    "questionRelevance" : 0.9797
+    "questionRelevance" : 0.9721
   },
   "details" : [ {
     "case" : "01-reservation-salle",
     "run" : 1,
-    "questions" : 8,
-    "irrelevant" : [ {
-      "verdict" : "REDONDANTE",
-      "question" : "Comment l'employé doit-il être prévenu quand la salle est déjà prise, et que lui propose-t-on ensuite ?",
-      "reason" : "La réponse à propos de la notification et des alternatives proposées figure déjà dans la réponse 2 (message et salles libres du même étage)."
-    } ],
-    "scenarios" : 5,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 1,
-    "questions" : 8,
-    "irrelevant" : [ ],
-    "scenarios" : 9,
+    "questions" : 10,
+    "irrelevant" : [ {
+      "reason" : "Reformule la question 1, dont la réponse (aucun frais) est déjà donnée ; le calcul et l'affichage sont déjà couverts.",
+      "verdict" : "REDONDANTE",
+      "question" : "Les frais de traitement sont-ils à la charge du client (ajoutés au total du panier) ou absorbés par la boutique ? Comment sont-ils calculés et affichés ?"
+    } ],
+    "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
@@ -37,99 +37,103 @@
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 1,
-    "questions" : 8,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 8,
+    "scenarios" : 4,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 1,
-    "questions" : 6,
+    "questions" : 7,
     "irrelevant" : [ {
+      "reason" : "Le canal de notification a déjà été demandé à la question 2 (réponse : non précisé), et les supports sont un détail technique non demandé.",
       "verdict" : "REDONDANTE",
-      "question" : "Quelles contraintes de confidentialité, d'historique et de traçabilité s'appliquent aux demandes de congés (qui peut les consulter, durée de conservation, journalisation des décisions) ?",
-      "reason" : "Reprend la partie confidentialité, historique et traçabilité déjà posée à la question 5 et laissée sans précision."
+      "question" : "Sur quels supports l'application doit-elle être utilisable et par quel canal les notifications sont-elles envoyées (e-mail, notification dans l'application, autre) ?"
     } ],
     "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
     "run" : 1,
-    "questions" : 5,
-    "irrelevant" : [ ],
-    "scenarios" : 8,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "07-avoir-adr-architecture",
-    "run" : 1,
-    "questions" : 7,
-    "irrelevant" : [ ],
-    "scenarios" : 9,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "01-reservation-salle",
-    "run" : 2,
-    "questions" : 7,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "02-paiement-en-ligne",
-    "run" : 2,
-    "questions" : 10,
-    "irrelevant" : [ ],
-    "scenarios" : 5,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "03-export-comptable",
-    "run" : 2,
-    "questions" : 5,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "04-facturation-avec-contexte",
-    "run" : 2,
-    "questions" : 7,
-    "irrelevant" : [ ],
-    "scenarios" : 5,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "05-conges-avec-contexte",
-    "run" : 2,
-    "questions" : 6,
-    "irrelevant" : [ ],
-    "scenarios" : 8,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "06-api-avec-contexte-technique",
-    "run" : 2,
-    "questions" : 7,
+    "questions" : 8,
     "irrelevant" : [ ],
     "scenarios" : 10,
     "structureViolations" : [ ]
   }, {
     "case" : "07-avoir-adr-architecture",
+    "run" : 1,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "01-reservation-salle",
+    "run" : 2,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 2,
+    "questions" : 7,
+    "irrelevant" : [ {
+      "reason" : "Reformule la question 1 (qui supporte les frais) et la réponse est déjà donnée ; le calcul et l'affichage n'apportent rien puisque aucun frais n'est facturé, et elle n'est pas marquée contradiction.",
+      "verdict" : "REDONDANTE",
+      "question" : "Qui supporte réellement les frais de traitement : le client (ajoutés au total du panier) ou la boutique (paiement gratuit pour le client) ? Comment sont-ils calculés et affichés ?"
+    } ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 2,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "04-facturation-avec-contexte",
+    "run" : 2,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "05-conges-avec-contexte",
     "run" : 2,
     "questions" : 5,
     "irrelevant" : [ ],
-    "scenarios" : 6,
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "06-api-avec-contexte-technique",
+    "run" : 2,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 9,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "07-avoir-adr-architecture",
+    "run" : 2,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
     "case" : "01-reservation-salle",
     "run" : 3,
-    "questions" : 7,
+    "questions" : 8,
     "irrelevant" : [ ],
-    "scenarios" : 7,
+    "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 3,
     "questions" : 9,
     "irrelevant" : [ {
+      "reason" : "Reformule la question 1 déjà posée et déjà répondue (aucun frais), le calcul et l'affichage sont donc sans objet.",
       "verdict" : "REDONDANTE",
-      "question" : "Les frais de traitement sont-ils facturés au client (ajoutés au total du panier) ou absorbés par la boutique ? Comment sont-ils calculés et affichés ?",
-      "reason" : "Reformule la question 1 dont la réponse (aucun frais) était déjà donnée, le calcul et l'affichage en découlent."
+      "question" : "Les frais de traitement sont-ils bien facturés au client en plus du total du panier, ou sont-ils absorbés par la boutique ? Comment sont-ils calculés (montant fixe, pourcentage) et affichés ?"
     } ],
     "scenarios" : 7,
     "structureViolations" : [ ]
@@ -143,30 +147,30 @@
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 3,
-    "questions" : 8,
+    "questions" : 5,
     "irrelevant" : [ ],
     "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 3,
-    "questions" : 6,
-    "irrelevant" : [ ],
-    "scenarios" : 8,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "06-api-avec-contexte-technique",
-    "run" : 3,
-    "questions" : 5,
+    "questions" : 7,
     "irrelevant" : [ ],
     "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
-    "case" : "07-avoir-adr-architecture",
+    "case" : "06-api-avec-contexte-technique",
     "run" : 3,
     "questions" : 8,
     "irrelevant" : [ ],
-    "scenarios" : 4,
+    "scenarios" : 10,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "07-avoir-adr-architecture",
+    "run" : 3,
+    "questions" : 0,
+    "irrelevant" : [ ],
+    "scenarios" : 3,
     "structureViolations" : [ ]
   } ]
 }

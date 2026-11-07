@@ -13,12 +13,26 @@ import java.util.UUID;
 
 /**
  * Source de documentation d'un projet : un site Antora par son lien ou par son dossier local
- * (data-model.md de 002, FR-013). Le contenu lu n'est jamais conservé ; seul le résultat de la
- * dernière lecture l'est, sans contenu.
+ * (data-model.md de 002, FR-013), ou un dossier de documents (Word, Excel, PDF, HTML), par exemple
+ * un dossier SharePoint synchronisé (006), avec ses motifs d'exclusion. Le contenu lu n'est jamais
+ * conservé ; seul le résultat de la dernière lecture l'est, sans contenu.
  */
-public record DocSource(UUID id, UUID projectId, Kind kind, String location, Instant lastReadAt, ReadSummary lastResult) {
+public record DocSource(UUID id, UUID projectId, Kind kind, String location, Instant lastReadAt, ReadSummary lastResult,
+        ExclusionPatterns exclusions) {
 
-    public enum Kind { URL, FOLDER }
+    public enum Kind { URL, FOLDER, DOCUMENTS }
+
+    public DocSource {
+        exclusions = exclusions == null ? ExclusionPatterns.NONE : exclusions;
+        if (kind != Kind.DOCUMENTS && !exclusions.isEmpty()) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED,
+                    "Les motifs d'exclusion sont réservés au dossier de documents.");
+        }
+    }
+
+    public DocSource(UUID id, UUID projectId, Kind kind, String location, Instant lastReadAt, ReadSummary lastResult) {
+        this(id, projectId, kind, location, lastReadAt, lastResult, ExclusionPatterns.NONE);
+    }
 
     /** Résultat de la dernière lecture : nombres de pages, jamais leur contenu. */
     public record ReadSummary(int pagesRead, int pagesInError, boolean limitReached) {
@@ -28,11 +42,19 @@ public record DocSource(UUID id, UUID projectId, Kind kind, String location, Ins
     public static final int MAX_LOCATION = 2_000;
 
     public static DocSource create(UUID id, UUID projectId, Kind kind, String location) {
-        return new DocSource(id, projectId, kind, validLocation(kind, location), null, null);
+        return create(id, projectId, kind, location, ExclusionPatterns.NONE);
+    }
+
+    public static DocSource create(UUID id, UUID projectId, Kind kind, String location, ExclusionPatterns exclusions) {
+        return new DocSource(id, projectId, kind, validLocation(kind, location), null, null, exclusions);
     }
 
     public DocSource read(Instant at, ReadSummary result) {
-        return new DocSource(id, projectId, kind, location, at, result);
+        return new DocSource(id, projectId, kind, location, at, result, exclusions);
+    }
+
+    public DocSource withExclusions(ExclusionPatterns patterns) {
+        return new DocSource(id, projectId, kind, location, lastReadAt, lastResult, patterns);
     }
 
     /** Refuse une source de plus quand le projet en a déjà {@link #MAX_PER_PROJECT}. */
