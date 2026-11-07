@@ -36,6 +36,7 @@ import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.application.knowledge.ReadDocFile;
 import dev.specwriter.application.knowledge.ListAdrs;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
+import dev.specwriter.application.knowledge.MentionQueries;
 import dev.specwriter.application.knowledge.SynchronizeKnowledge;
 import dev.specwriter.domain.port.ArchitectureReader;
 import dev.specwriter.domain.port.EmbeddingPort;
@@ -179,6 +180,14 @@ public class UseCaseProducer {
     SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
             AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder) {
         return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder);
+    }
+
+    /** Mentions @ d'un document (007) : suggestions et état, avec la place calculée comme à la génération. */
+    @Produces
+    @ApplicationScoped
+    MentionQueries mentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
+            EmbeddingPort embedding, AnalyzeArchitecture analyze) {
+        return new MentionQueries(projects, sessions, index, new SelectKnowledge(projects, index, embedding, analyze));
     }
 
     /** Sous-tâches de la story liée, rattachées aux cas d'usage d'une version (research.md R29). */

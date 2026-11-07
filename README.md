@@ -119,6 +119,20 @@ déclaré. Un ADR retenu pour une génération est transmis en entier à l'IA (8
 coupé à une section au-delà) ; un ADR cité par son numéro (« ADR 0017 », « l'ADR 17 ») dans le
 besoin, une réponse ou l'instruction d'une modification est transmis d'office.
 
+### Mentionner un document avec @
+
+Dans le besoin, une réponse ou l'instruction d'une modification, `@` suivi de quelques lettres
+propose les documents du projet : documents du dossier synchronisé, pages de la documentation,
+ADR. Les flèches choisissent, Entrée insère, Échap ferme. Une mention écrite à la main suffit
+aussi : `@Aurora_Matrice_Regles_Gestion_Activites_1`, le nom du fichier avec ou sans extension,
+son chemin, le titre d'une page, « @ADR-12 ». Le document mentionné est transmis à l'IA d'office,
+avant ceux que trouve la recherche, après la fiche générale (4 documents et 12 000 caractères au
+plus, coupé à une section au-delà de 8 000).
+
+Sous le champ, chaque mention montre ce qu'elle deviendra : transmise, transmise en partie, non
+transmise faute de place, ambiguë, introuvable, ADR remplacé ou obsolète. Quand deux documents
+portent le même nom, « Utiliser <chemin> » réécrit la mention avec le chemin du bon document.
+
 ### Dossier SharePoint synchronisé
 
 spec-writer ne se connecte pas à SharePoint : la lecture directe exigerait une application déclarée

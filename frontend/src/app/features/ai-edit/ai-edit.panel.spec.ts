@@ -5,6 +5,7 @@ import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { Proposal } from '../../core/jira/jira.model';
 import { Specification } from '../../core/sessions/sessions.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
+import { MENTION_DELAYS } from '../../shared/ui/mention.directive';
 import { AiEditPanelComponent } from './ai-edit.panel';
 
 const SPEC = { number: 2, title: 'Avec annulation', origin: 'AI_EDIT' } as Specification;
@@ -92,5 +93,43 @@ describe('AiEditPanelComponent', () => {
     ctrl.expectNone('/api/sessions/s1/ai-edits/p1/accept');
     expect(el.querySelector('textarea')).toBeTruthy();
     expect(el.querySelector('[role="status"]')?.textContent).toContain('la spécification est inchangée');
+  });
+});
+
+describe('AiEditPanelComponent, mentions @ (007)', () => {
+  it('propose les documents du projet dans l’instruction et montre l’état de la mention', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
+        { provide: ConsentGate, useValue: { ensure: async () => true } },
+        { provide: MENTION_DELAYS, useValue: { suggest: 0, resolve: 0 } },
+      ],
+    });
+    const ctrl = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AiEditPanelComponent);
+    fixture.componentRef.setInput('sessionId', 's1');
+    fixture.componentRef.setInput('projectId', 'p1');
+    fixture.detectChanges();
+    // le formulaire enregistre son champ au tour suivant
+    await settle(fixture);
+    const area = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement;
+    area.focus();
+    area.value = 'Ajoute ce que dit @Suiv';
+    area.setSelectionRange(area.value.length, area.value.length);
+    area.dispatchEvent(new Event('input'));
+    for (let i = 0; i < 3; i++) {
+      await settle(fixture);
+    }
+        ctrl.expectOne((r) => r.url === '/api/projects/p1/mentions' && r.params.get('q') === 'Suiv').flush([]);
+    const resolve = ctrl.expectOne('/api/projects/p1/mentions/resolve');
+    expect(resolve.request.body).toEqual({ sessionId: 's1', fields: [{ field: 'INSTRUCTION', text: 'Ajoute ce que dit @Suiv' }] });
+    resolve.flush([{ text: '@Suiv', field: 'INSTRUCTION', state: 'NOT_FOUND', document: null, candidates: [], transmittedShare: 0 }]);
+    for (let i = 0; i < 3; i++) {
+      await settle(fixture);
+    }
+    expect(fixture.nativeElement.textContent).toContain('introuvable');
+    ctrl.verify();
   });
 });

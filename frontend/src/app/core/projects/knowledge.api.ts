@@ -1,7 +1,18 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AdrList, Indexation, IndexationMode, KnowledgeHit, KnowledgeKind, KnowledgeStatus, Project } from './projects.model';
+import {
+  AdrList,
+  Indexation,
+  IndexationMode,
+  KnowledgeHit,
+  KnowledgeKind,
+  KnowledgeStatus,
+  MentionField,
+  MentionState,
+  MentionSuggestion,
+  Project,
+} from './projects.model';
 
 /** Connaissance d'un projet : workspace Structurizr, indexations, état et recherche (US2 de 002). */
 @Injectable({ providedIn: 'root' })
@@ -53,6 +64,27 @@ export class KnowledgeApi {
 
   status(projectId: string): Promise<KnowledgeStatus> {
     return firstValueFrom(this.http.get<KnowledgeStatus>(`${this.base(projectId)}/knowledge`));
+  }
+
+  /** Suggestions après @ (007) : index local seul ; une erreur pendant la frappe ne montre aucun bandeau. */
+  suggestMentions(projectId: string, q: string): Promise<MentionSuggestion[]> {
+    return firstValueFrom(
+      this.http.get<MentionSuggestion[]>(`${this.base(projectId)}/mentions`, {
+        params: new HttpParams().set('q', q),
+        headers: new HttpHeaders({ 'X-Sw-Silent': '1' }),
+      }),
+    );
+  }
+
+  /** État des mentions des champs en cours de saisie (007), avec la session si elle existe. */
+  resolveMentions(projectId: string, sessionId: string | null, fields: { field: MentionField; text: string }[]): Promise<MentionState[]> {
+    return firstValueFrom(
+      this.http.post<MentionState[]>(
+        `${this.base(projectId)}/mentions/resolve`,
+        { sessionId, fields },
+        { headers: new HttpHeaders({ 'X-Sw-Silent': '1' }) },
+      ),
+    );
   }
 
   search(projectId: string, q: string, kinds: KnowledgeKind[]): Promise<KnowledgeHit[]> {

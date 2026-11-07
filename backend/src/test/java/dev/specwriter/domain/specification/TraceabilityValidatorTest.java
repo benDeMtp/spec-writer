@@ -68,7 +68,9 @@ class TraceabilityValidatorTest {
                     new ProjectKnowledge.Entry(KnowledgeKind.ADR, null, "facturation/adr/adr-005.html", 0, "ADR-005",
                             "ACCEPTED", false, "Notification asynchrone.", "h2"),
                     new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, KnowledgeRole.VOCABULARY,
-                            "facturation/glossaire.html", 0, "Glossaire", "Avoir.", false, "Avoir.", "h3")),
+                            "facturation/glossaire.html", 0, "Glossaire", "Avoir.", false, "Avoir.", "h3"),
+                    new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, null, "docs:s/Matrice.xlsx", 0, "Matrice", null,
+                            false, "Règles.", "h4").withDesignated()),
             List.of(new KnowledgeSelection.ImpactedModule("Facturation/Service Avoirs", ArchScope.PROJECT)), List.of(),
             List.of());
 
@@ -98,6 +100,9 @@ class TraceabilityValidatorTest {
                 List.of()).isEmpty()).isTrue();
         assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.ARCH_ELEMENT, "Facturation/Service Avoirs", ""),
                 List.of()).isEmpty()).isTrue();
+        // 007 : un document désigné avec @ se cite comme les autres éléments transmis
+        assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.DOC_PAGE, "docs:s/Matrice.xlsx", ""), List.of())
+                .isEmpty()).isTrue();
         // hors de la sélection, ou d'une autre sorte
         assertThat(checkWithKnowledge(SourceRef.knowledge(SourceRef.Kind.JIRA_ISSUE, "FACT-99", ""), List.of()).messages())
                 .anyMatch(m -> m.contains("JIRA_ISSUE"));

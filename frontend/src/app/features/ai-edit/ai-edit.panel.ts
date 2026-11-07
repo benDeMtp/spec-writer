@@ -7,6 +7,8 @@ import { JiraApi } from '../../core/jira/jira.api';
 import { Proposal } from '../../core/jira/jira.model';
 import { Specification } from '../../core/sessions/sessions.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
+import { MentionStatusComponent } from '../../shared/ui/mention-status.component';
+import { MentionDirective } from '../../shared/ui/mention.directive';
 import { UnifiedDiffComponent } from '../../shared/ui/unified-diff.component';
 
 export const MAX_INSTRUCTION = 2000;
@@ -19,7 +21,7 @@ export const MAX_INSTRUCTION = 2000;
 @Component({
   selector: 'sw-ai-edit-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, UnifiedDiffComponent],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MentionDirective, MentionStatusComponent, UnifiedDiffComponent],
   template: `
     <section class="panel" aria-labelledby="ai-edit-title">
       <h2 id="ai-edit-title">{{ proposal() ? 'Proposition de l’IA' : 'Faire évoluer avec l’IA' }}</h2>
@@ -42,11 +44,19 @@ export const MAX_INSTRUCTION = 2000;
               name="instruction"
               rows="4"
               [maxlength]="max"
+              [swMention]="projectId()"
               [(ngModel)]="instruction"
               placeholder="Par exemple : ajoute un cas d'erreur quand la salle est déjà réservée."
             ></textarea>
             <mat-hint align="end">{{ instruction().length }} / {{ max }}</mat-hint>
           </mat-form-field>
+          <sw-mention-status
+            [projectId]="projectId()"
+            [sessionId]="sessionId()"
+            field="INSTRUCTION"
+            [text]="instruction()"
+            (replaced)="instruction.set($event)"
+          />
           @if (empty()) {
             <p class="error" role="alert">Décrivez la modification souhaitée.</p>
           }
@@ -96,6 +106,8 @@ export class AiEditPanelComponent {
   private readonly consent = inject(ConsentGate);
 
   readonly sessionId = input.required<string>();
+  /** Projet de la session : ses documents sont mentionnables avec @ dans l'instruction (007). */
+  readonly projectId = input<string | null>(null);
   /** Proposition déjà calculée (fusion d'un conflit Jira). */
   readonly initialProposal = input<Proposal | null>(null);
   readonly applied = output<Specification>();

@@ -106,12 +106,13 @@ final class UserMessages {
             if (isDocument(e)) {
                 // document d'un dossier synchronisé (006, US3) : contenu de référence, jamais des consignes
                 out.append("<document ref=\"").append(attribute(e.ref())).append("\" titre=\"")
-                        .append(attribute(e.title())).append("\">\n").append(data(e.text())).append("\n</document>\n");
+                        .append(attribute(e.title())).append('"').append(designated(e)).append(">\n")
+                        .append(data(e.text())).append("\n</document>\n");
                 continue;
             }
             switch (e.kind()) {
                 case ADR -> out.append("<adr ref=\"").append(attribute(e.ref())).append("\" statut=\"")
-                        .append(attribute(e.status())).append("\">\n");
+                        .append(attribute(e.status())).append('"').append(designated(e)).append(">\n");
                 case TICKET -> {
                     out.append("<ticket ref=\"").append(attribute(e.ref())).append("\" statut=\"")
                             .append(attribute(e.status())).append("\" ferme=\"").append(e.closed() ? "oui" : "non")
@@ -159,8 +160,14 @@ final class UserMessages {
         return out.append("</connaissance-projet>\n").toString();
     }
 
+    /** Document d'un dossier synchronisé (006), ou page de documentation désignée avec @ (007). */
     private static boolean isDocument(ProjectKnowledge.Entry e) {
-        return e.kind() == KnowledgeKind.DOC_SECTION && e.role() == null && e.ref().startsWith("docs:");
+        return e.kind() == KnowledgeKind.DOC_SECTION && e.role() == null && (e.ref().startsWith("docs:") || e.designated());
+    }
+
+    /** Désigné par l'utilisateur (007) : à exploiter en priorité, son contenu reste une donnée. */
+    private static String designated(ProjectKnowledge.Entry e) {
+        return e.designated() ? " designe=\"oui\"" : "";
     }
 
     private static String tag(ProjectKnowledge.Entry e) {

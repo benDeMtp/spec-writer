@@ -8,10 +8,12 @@ import dev.specwriter.application.knowledge.ListAdrs;
 import dev.specwriter.application.knowledge.TicketSummary;
 import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
+import dev.specwriter.application.knowledge.MentionQueries;
 import dev.specwriter.application.knowledge.SynchronizeKnowledge.Mode;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
+import dev.specwriter.domain.knowledge.MentionField;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.infrastructure.web.ProjectResource.ProjectView;
 import jakarta.inject.Inject;
@@ -27,6 +29,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -44,6 +47,16 @@ public class KnowledgeResource {
     }
 
     /** {@code sources} : sources choisies (005), absentes pour toutes. */
+    /** Champ d'une saisie dont on veut l'état des mentions (007). */
+    public record MentionFieldInput(String field, String text) {
+    }
+
+    public record MentionsInput(String sessionId, List<MentionFieldInput> fields) {
+    }
+
+    static final int MAX_MENTION_FIELDS = 40;
+    static final int MAX_MENTION_TEXT = 20_000;
+
     public record IndexationInput(String mode, List<String> sources) {
     }
 
@@ -70,6 +83,8 @@ public class KnowledgeResource {
     KnowledgeQueries queries;
     @Inject
     ListAdrs listAdrs;
+    @Inject
+    MentionQueries mentions;
 
     @PUT
     @Path("/architecture-source")
@@ -127,6 +142,50 @@ public class KnowledgeResource {
     public List<KnowledgeQueries.Hit> search(@PathParam("id") String id, @QueryParam("q") String q,
             @QueryParam("kinds") List<String> kinds) {
         return queries.search(ProjectResource.projectId(id), q, kinds(kinds));
+    }
+
+    /** Suggestions pour la saisie qui suit @ (007, contracts/api.md) : index local seul. */
+    @GET
+    @Path("/mentions")
+    public List<MentionQueries.Suggestion> suggestMentions(@PathParam("id") String id, @QueryParam("q") String q) {
+        return mentions.suggest(ProjectResource.projectId(id), q);
+    }
+
+    /** État de chaque mention des champs reçus, avant la génération (007, research.md R8). */
+    @POST
+    @Path("/mentions/resolve")
+    public List<MentionQueries.MentionState> resolveMentions(@PathParam("id") String id, MentionsInput input) {
+        List<MentionFieldInput> fields = input == null || input.fields() == null ? List.of() : input.fields();
+        if (fields.size() > MAX_MENTION_FIELDS) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "40 champs au plus.");
+        }
+        List<MentionQueries.FieldText> texts = new ArrayList<>();
+        for (MentionFieldInput f : fields) {
+            String text = f == null || f.text() == null ? "" : f.text();
+            if (text.length() > MAX_MENTION_TEXT) {
+                throw new DomainException(ErrorCode.VALIDATION_FAILED, "Un champ dépasse 20 000 caractères.");
+            }
+            texts.add(new MentionQueries.FieldText(field(f == null ? null : f.field()), text));
+        }
+        UUID session = input == null || input.sessionId() == null || input.sessionId().isBlank() ? null
+                : sessionId(input.sessionId());
+        return mentions.resolve(ProjectResource.projectId(id), session, texts);
+    }
+
+    private static MentionField field(String raw) {
+        try {
+            return MentionField.valueOf(raw == null ? "" : raw);
+        } catch (IllegalArgumentException e) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Champ inconnu : NEED, ANSWER ou INSTRUCTION.");
+        }
+    }
+
+    private static UUID sessionId(String raw) {
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException e) {
+            throw new DomainException(ErrorCode.NOT_FOUND);
+        }
     }
 
     private static Mode mode(String raw) {

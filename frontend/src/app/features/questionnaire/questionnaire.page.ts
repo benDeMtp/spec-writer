@@ -59,7 +59,14 @@ import { count } from '../../shared/text';
           <sw-related-issues [sessionId]="s.id" [related]="r" (decided)="onDecided($event)" />
         } @else if (s.currentBatch.length) {
           @for (q of s.currentBatch; track q.id) {
-            <sw-question-card [question]="q" [busy]="busy() || locked()" (answered)="answer(q.id, $event)" (skipped)="skip(q.id)" />
+            <sw-question-card
+              [question]="q"
+              [busy]="busy() || locked()"
+              [projectId]="s.projectId"
+              [sessionId]="s.id"
+              (answered)="answer(q.id, $event)"
+              (skipped)="skip(q.id)"
+            />
           }
           <div class="conclude">
             <p class="hint">Vous pouvez terminer à tout moment : les questions restantes seront passées.</p>

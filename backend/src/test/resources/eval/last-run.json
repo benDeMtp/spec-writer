@@ -1,109 +1,105 @@
 {
-  "date" : "2026-11-06T16:23:56Z",
-  "fingerprint" : "6741a235212ba09783d21dbb38b688a6d265a7eee13571d82f9bd5770648bfa1",
+  "date" : "2026-11-07T09:43:16Z",
+  "fingerprint" : "b1ca3498c2b6b4ecfcbaa51ddd7e5c9132fa0b8972718679784673de5a18c96e",
   "model" : "défaut du compte",
   "copilotSdk" : "1.0.28-preview.0",
   "copilotCli" : "embarqué",
   "runs" : 3,
   "scores" : {
     "scenarioStructure" : 1.0,
-    "questionRelevance" : 0.9721
+    "questionRelevance" : 0.9784
   },
   "details" : [ {
     "case" : "01-reservation-salle",
     "run" : 1,
     "questions" : 7,
     "irrelevant" : [ ],
-    "scenarios" : 8,
+    "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 1,
     "questions" : 10,
     "irrelevant" : [ {
-      "reason" : "Reformule la question 1, dont la réponse (aucun frais) est déjà donnée ; le calcul et l'affichage sont déjà couverts.",
-      "verdict" : "REDONDANTE",
-      "question" : "Les frais de traitement sont-ils à la charge du client (ajoutés au total du panier) ou absorbés par la boutique ? Comment sont-ils calculés et affichés ?"
+      "question" : "Les frais de traitement sont-ils bien à la charge du client, et comment sont-ils calculés et affichés ?",
+      "reason" : "Reformule la question 1 sur les frais de traitement, dont la réponse a déjà été donnée ; le marquage de contradiction ne change rien car elle a déjà été tranchée à la question 1.",
+      "verdict" : "REDONDANTE"
     } ],
-    "scenarios" : 6,
+    "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
     "run" : 1,
     "questions" : 7,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 1,
-    "questions" : 6,
+    "questions" : 5,
     "irrelevant" : [ ],
-    "scenarios" : 4,
+    "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 1,
     "questions" : 7,
-    "irrelevant" : [ {
-      "reason" : "Le canal de notification a déjà été demandé à la question 2 (réponse : non précisé), et les supports sont un détail technique non demandé.",
-      "verdict" : "REDONDANTE",
-      "question" : "Sur quels supports l'application doit-elle être utilisable et par quel canal les notifications sont-elles envoyées (e-mail, notification dans l'application, autre) ?"
-    } ],
+    "irrelevant" : [ ],
     "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
     "run" : 1,
-    "questions" : 8,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 10,
+    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 1,
     "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
     "case" : "01-reservation-salle",
     "run" : 2,
     "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 2,
-    "questions" : 7,
+    "questions" : 10,
     "irrelevant" : [ {
-      "reason" : "Reformule la question 1 (qui supporte les frais) et la réponse est déjà donnée ; le calcul et l'affichage n'apportent rien puisque aucun frais n'est facturé, et elle n'est pas marquée contradiction.",
-      "verdict" : "REDONDANTE",
-      "question" : "Qui supporte réellement les frais de traitement : le client (ajoutés au total du panier) ou la boutique (paiement gratuit pour le client) ? Comment sont-ils calculés et affichés ?"
+      "question" : "Les frais de traitement sont-ils facturés au client (ajoutés au total du panier) ou absorbés par la boutique ? Comment sont-ils calculés (montant fixe, pourcentage) et affichés ?",
+      "reason" : "Reformule la question 1, dont la réponse (aucun frais) est déjà donnée.",
+      "verdict" : "REDONDANTE"
     } ],
     "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
     "run" : 2,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 2,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 7,
+    "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 2,
-    "questions" : 5,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 7,
+    "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
@@ -115,62 +111,62 @@
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 2,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 8,
+    "scenarios" : 9,
     "structureViolations" : [ ]
   }, {
     "case" : "01-reservation-salle",
     "run" : 3,
-    "questions" : 8,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 6,
+    "scenarios" : 9,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 3,
     "questions" : 9,
-    "irrelevant" : [ {
-      "reason" : "Reformule la question 1 déjà posée et déjà répondue (aucun frais), le calcul et l'affichage sont donc sans objet.",
-      "verdict" : "REDONDANTE",
-      "question" : "Les frais de traitement sont-ils bien facturés au client en plus du total du panier, ou sont-ils absorbés par la boutique ? Comment sont-ils calculés (montant fixe, pourcentage) et affichés ?"
-    } ],
+    "irrelevant" : [ ],
     "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
     "run" : 3,
-    "questions" : 7,
+    "questions" : 8,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 4,
     "structureViolations" : [ ]
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 3,
-    "questions" : 5,
-    "irrelevant" : [ ],
-    "scenarios" : 5,
+    "questions" : 8,
+    "irrelevant" : [ {
+      "question" : "Que se passe-t-il si la facture est déjà totalement avoirée (restant dû à 0 €), ou si le montant saisi est nul ou négatif ?",
+      "reason" : "Le cas restant dû à 0 € est déjà évoqué à la question 4 (facture déjà totalement avoirée), et le dépassement du restant dû est couvert ; seul montant nul/négatif est nouveau, mais la question recouvre pour l'essentiel la précédente.",
+      "verdict" : "REDONDANTE"
+    } ],
+    "scenarios" : 9,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 3,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ ],
     "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
     "run" : 3,
-    "questions" : 8,
+    "questions" : 7,
     "irrelevant" : [ ],
-    "scenarios" : 10,
+    "scenarios" : 9,
     "structureViolations" : [ ]
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 3,
     "questions" : 0,
     "irrelevant" : [ ],
-    "scenarios" : 3,
+    "scenarios" : 4,
     "structureViolations" : [ ]
   } ]
 }

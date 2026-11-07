@@ -175,6 +175,40 @@ paths:
         - { name: q, in: query, required: true, schema: { type: string, maxLength: 2000 } }
         - { name: kinds, in: query, schema: { type: array, items: { enum: [TICKET, DOC_SECTION, ADR, ARCH_ELEMENT] } } }
       responses: { '200': { content: { application/json: { schema: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/KnowledgeHit' } } } } } }
+  /api/projects/{id}/mentions:
+    get:
+      summary: Suggestions pour la saisie qui suit @ (007) ; index local seul, aucun fichier lu
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      responses:
+        '200': { content: { application/json: { schema: { type: array, maxItems: 8, items: { $ref: '#/components/schemas/MentionSuggestion' } } } } }
+        '404': { description: Projet inconnu }
+        '422': { description: Saisie vide ou de plus de 200 caractères }
+  /api/projects/{id}/mentions/resolve:
+    post:
+      summary: >-
+        État des mentions @ des champs en cours de saisie (007), estimé sur l'index : avec une session,
+        son besoin et ses réponses comptent dans l'ordre de priorité et dans la place
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId: { type: string, format: uuid }
+                fields:
+                  type: array
+                  maxItems: 40
+                  items:
+                    type: object
+                    required: [field, text]
+                    properties:
+                      field: { enum: [NEED, ANSWER, INSTRUCTION] }
+                      text: { type: string, maxLength: 20000 }
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/MentionState' } } } } }
+        '404': { description: Projet ou session inconnus }
+        '422': { description: Champ inconnu, plus de 40 champs ou texte de plus de 20 000 caractères }
   /api/sessions/{id}/related-issues:
     get:
       summary: >-
@@ -416,6 +450,29 @@ components:
           maxItems: 50
           items: { type: string, maxLength: 200 }
           description: "Motifs d'exclusion (DOCUMENTS seulement), relatifs au dossier : *.xlsx, Archives/**, **/brouillon*"
+    MentionDocument:
+      type: object
+      properties:
+        kind: { enum: [DOCUMENT, PAGE, ADR] }
+        title: { type: string }
+        path: { type: string }
+        insert: { type: string, description: "Mention à écrire : @nom, ou @chemin si le nom est partagé" }
+    MentionSuggestion:
+      type: object
+      properties:
+        kind: { enum: [DOCUMENT, PAGE, ADR] }
+        name: { type: string }
+        path: { type: string }
+        insert: { type: string }
+    MentionState:
+      type: object
+      properties:
+        text: { type: string }
+        field: { enum: [NEED, ANSWER, INSTRUCTION] }
+        state: { enum: [TRANSMITTED, PARTIAL, NO_ROOM, AMBIGUOUS, NOT_FOUND, SUPERSEDED, DEPRECATED] }
+        document: { $ref: '#/components/schemas/MentionDocument' }
+        candidates: { type: array, items: { $ref: '#/components/schemas/MentionDocument' } }
+        transmittedShare: { type: integer, minimum: 0, maximum: 100 }
     DocumentsPreview:
       type: object
       properties:
