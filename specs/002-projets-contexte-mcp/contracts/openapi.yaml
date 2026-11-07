@@ -473,6 +473,14 @@ components:
         document: { $ref: '#/components/schemas/MentionDocument' }
         candidates: { type: array, items: { $ref: '#/components/schemas/MentionDocument' } }
         transmittedShare: { type: integer, minimum: 0, maximum: 100 }
+        betterModel:
+          type: object
+          nullable: true
+          description: Modèle autorisé le moins coûteux qui transmettrait le document en entier (008)
+          properties:
+            id: { type: string }
+            name: { type: string }
+            multiplier: { type: number, nullable: true }
     DocumentsPreview:
       type: object
       properties:

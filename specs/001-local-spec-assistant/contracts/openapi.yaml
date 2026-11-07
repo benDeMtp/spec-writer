@@ -380,7 +380,21 @@ components:
             consent: { type: boolean }
             model: { type: string, nullable: true }
             availableModels: { type: array, items: { type: string } }
+            models:
+              type: array
+              description: Capacité, coefficient et place de la connaissance de chaque modèle autorisé (008)
+              items: { $ref: '#/components/schemas/ModelInfo' }
+            knowledgeChars: { type: integer, description: Connaissance transmise avec le modèle choisi, en caractères (008) }
         jira: { $ref: '#/components/schemas/JiraSettings' }
+    ModelInfo:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        promptTokens: { type: integer, nullable: true, description: Limite de prompt ; nulle si inconnue }
+        contextTokens: { type: integer, nullable: true }
+        multiplier: { type: number, nullable: true, description: Coefficient de facturation ; nul si inconnu }
+        knowledgeChars: { type: integer, minimum: 35000, maximum: 200000 }
     JiraSettings:
       type: object
       properties:

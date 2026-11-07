@@ -127,11 +127,27 @@ ADR. Les flèches choisissent, Entrée insère, Échap ferme. Une mention écrit
 aussi : `@Aurora_Matrice_Regles_Gestion_Activites_1`, le nom du fichier avec ou sans extension,
 son chemin, le titre d'une page, « @ADR-12 ». Le document mentionné est transmis à l'IA d'office,
 avant ceux que trouve la recherche, après la fiche générale (4 documents et 12 000 caractères au
-plus, coupé à une section au-delà de 8 000).
+plus, coupé à une section au-delà de 8 000, avec un modèle de capacité inconnue).
 
 Sous le champ, chaque mention montre ce qu'elle deviendra : transmise, transmise en partie, non
 transmise faute de place, ambiguë, introuvable, ADR remplacé ou obsolète. Quand deux documents
 portent le même nom, « Utiliser <chemin> » réécrit la mention avec le chemin du bon document.
+Quand un document est coupé et qu'un autre modèle autorisé le transmettrait en entier, la mention
+le nomme, le moins coûteux d'abord (« transmis en entier avec Claude Sonnet 5.5 (×1) ») ; le
+modèle se change dans la configuration.
+
+### Choisir le modèle selon la taille de la connaissance
+
+**Configuration › GitHub Copilot › Modèle utilisé** montre, pour chaque modèle, sa limite
+(« environ 128 000 tokens (≈ 384 000 caractères) ») et son coefficient de facturation (« ×1 »),
+tels que Copilot les annonce, ou « capacité inconnue » / « coût inconnu ». Sous le choix, la ligne
+« Connaissance transmise : jusqu'à N caractères » donne la place de la connaissance du projet
+avec ce modèle : 35 000 caractères pour un modèle de capacité inconnue ou petite, comme avant,
+jusqu'à 200 000 pour un grand modèle. Toutes les parts (ADR, documents trouvés, documents
+mentionnés, tickets, architecture) grandissent dans la même proportion ; les nombres de documents
+restent les mêmes. Avec un modèle de 128 000 tokens, un document mentionné de 30 000 caractères
+est transmis en entier. Les capacités sont relues à chaque connexion à GitHub : reconnectez-vous
+si un modèle vient d'apparaître.
 
 ### Dossier SharePoint synchronisé
 
