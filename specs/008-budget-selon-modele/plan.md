@@ -83,7 +83,7 @@ backend/src/main/java/dev/specwriter/
 ├── application/knowledge/MentionQueries.java             # budget, betterModel
 ├── infrastructure/github/SdkCopilotAccountGateway.java   # lit limites et coefficient
 ├── infrastructure/github/FakeGitHubAuthenticator.java    # capacités simulées
-├── infrastructure/settings/SettingsModelCapacities.java  # nouveau adaptateur
+├── infrastructure/github/SettingsModelCapacities.java    # nouveau adaptateur
 ├── infrastructure/persistence/settings/…                 # colonne model_capacities
 ├── infrastructure/web/SettingsResource.java              # models, knowledgeChars
 └── resources/db/migration/V16__model_capacities.sql
@@ -95,8 +95,8 @@ frontend/src/app/
 ```
 
 **Structure Decision**: structure web existante. Le calcul du budget est du domaine (pur) ; la
-lecture des capacités reste dans `infrastructure/github`, leur exposition dans
-`infrastructure/settings`, hors de `infrastructure/llm` pour ne pas changer l'empreinte de
+lecture des capacités et leur exposition restent dans `infrastructure/github`, hors de
+`infrastructure/llm` pour ne pas changer l'empreinte de
 l'évaluation.
 
 ## Complexity Tracking

@@ -47,14 +47,14 @@ trop optimiste pour le français accentué).
 
 **Décision** : port `domain/port/ModelCapacities` : `OptionalInt promptTokens()` du modèle choisi,
 et `List<ModelCapacity> all()` des modèles autorisés. Adaptateur
-`infrastructure/settings/SettingsModelCapacities` (lit `CopilotSettings` : modèle choisi et
+`infrastructure/github/SettingsModelCapacities` (lit `CopilotSettings` : modèle choisi et
 capacités rangées). Modèle nul (défaut du compte) ou absent des capacités → inconnu → `STANDARD`.
 `SelectKnowledge` reçoit le port et calcule le budget au début de chaque sélection ; ses
 constantes d'aujourd'hui deviennent les valeurs de `KnowledgeBudget.STANDARD` (les tests qui les
 citent restent valables). `MentionQueries` utilise le même budget (FR-010).
 
-**Évaluation** : ni les prompts ni `infrastructure/llm` ne changent ; l'adaptateur vit dans
-`infrastructure/settings` et la lecture des capacités dans `infrastructure/github`. L'empreinte de
+**Évaluation** : ni les prompts ni `infrastructure/llm` ne changent ; l'adaptateur et la lecture des
+capacités vivent dans `infrastructure/github`. L'empreinte de
 l'évaluation (`ci/check-eval.sh`) est donc inchangée, et l'évaluation tourne avec le modèle par
 défaut du compte, donc `STANDARD` : la connaissance transmise y est identique (SC-002, SC-005).
 À vérifier par `bash ci/check-eval.sh` dans les gates.
