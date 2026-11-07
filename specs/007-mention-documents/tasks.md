@@ -100,7 +100,7 @@ mention avec le chemin.
 - [X] T025 [P] Contrat `specs/002-projets-contexte-mcp/contracts/openapi.yaml` (deux routes de contracts/api.md) et README (mentionner un document avec `@`, états, levée d'ambiguïté)
 - [X] T026 Gates avant commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests`, `npm --prefix e2e test`
 - [ ] T027 Évaluation réelle **avec l'accord de l'utilisateur** (prompts modifiés, environ 150 requêtes Copilot), dans un worktree : `env -u JAVA_TOOL_OPTIONS ./mvnw -B -pl backend verify -Peval -DskipDependencyCheck`, scores ≥ `baseline.json`, `bash ci/check-eval.sh`, commit de `last-run.json`
-- [ ] T028 Essai manuel par l'utilisateur (quickstart.md, « Essai manuel ») ; résultat dans `specs/007-mention-documents/checklists/validation.md`
+- [X] T028 Essai manuel par l'utilisateur (quickstart.md, « Essai manuel ») ; résultat dans `specs/007-mention-documents/checklists/validation.md`
 
 ---
 
