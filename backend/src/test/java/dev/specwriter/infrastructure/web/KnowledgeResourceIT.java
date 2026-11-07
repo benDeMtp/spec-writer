@@ -146,6 +146,34 @@ class KnowledgeResourceIT {
         api().get("/api/projects/" + UUID.randomUUID() + "/knowledge/adrs").then().statusCode(404);
     }
 
+    /** 007 : suggestions après @ et état des mentions, sur l'index seul. */
+    @Test
+    void mentionsSuggereesEtResolues() {
+        api().body(Map.of("kind", "FOLDER", "location", knowledge.resolve("antora").toString()))
+                .post(base() + "/doc-sources").then().statusCode(201);
+        assertThat(index("FULL").getString("status")).isEqualTo("SUCCEEDED");
+
+        JsonPath found = api().queryParam("q", "adr-00").get(base() + "/mentions").then().statusCode(200).extract()
+                .jsonPath();
+        assertThat(found.getList("kind")).isNotEmpty().allMatch("ADR"::equals);
+        assertThat(found.getList("insert", String.class)).allMatch(i -> i.startsWith("@"));
+
+        JsonPath states = api().body(Map.of("fields", List.of(Map.of("field", "ANSWER", "text", "voir @ADR-2 et @Inconnu"))))
+                .post(base() + "/mentions/resolve").then().statusCode(200).extract().jsonPath();
+        assertThat(states.getList("state")).containsExactly("SUPERSEDED", "NOT_FOUND");
+        assertThat(states.getString("[0].document.kind")).isEqualTo("ADR");
+
+        api().queryParam("q", "").get(base() + "/mentions").then().statusCode(422);
+        api().body(Map.of("fields", List.of(Map.of("field", "AUTRE", "text", "@x")))).post(base() + "/mentions/resolve")
+                .then().statusCode(422);
+        api().body(Map.of("fields", java.util.Collections.nCopies(41, Map.of("field", "NEED", "text", "x"))))
+                .post(base() + "/mentions/resolve").then().statusCode(422);
+        api().body(Map.of("sessionId", "inconnue", "fields", List.of())).post(base() + "/mentions/resolve").then()
+                .statusCode(404);
+        api().queryParam("q", "adr").get("/api/projects/" + UUID.randomUUID() + "/mentions").then()
+                .statusCode(404);
+    }
+
     @Test
     void indexationCompletePuisRecherche() {
         api().body(Map.of("kind", "FOLDER", "location", knowledge.resolve("antora").toString()))
