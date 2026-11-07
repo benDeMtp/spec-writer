@@ -14,17 +14,20 @@ import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.MentionField;
 import dev.specwriter.domain.knowledge.MentionKind;
 import dev.specwriter.domain.llm.ProposedQuestion;
+import dev.specwriter.domain.port.ModelCapacities;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.settings.ModelCapacity;
 import dev.specwriter.support.FakeEmbedding;
 import dev.specwriter.support.InMemoryKnowledgeIndex;
 import dev.specwriter.support.JiraWorld;
 import java.time.Instant;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -165,5 +168,93 @@ class MentionQueriesTest {
                 .singleElement().satisfies(m -> assertThat(m.state()).isEqualTo(State.TRANSMITTED));
         assertThatThrownBy(() -> queries.resolve(P, UUID.randomUUID(), List.of())).isInstanceOfSatisfying(
                 DomainException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    // 008 : place selon le modèle choisi (FR-010) et modèle qui transmettrait tout (US3, research.md R5)
+
+    static ModelCapacities models(Integer chosen, ModelCapacity... all) {
+        return new ModelCapacities() {
+            @Override
+            public OptionalInt promptTokens() {
+                return chosen == null ? OptionalInt.empty() : OptionalInt.of(chosen);
+            }
+
+            @Override
+            public List<ModelCapacity> all() {
+                return List.of(all);
+            }
+        };
+    }
+
+    static final ModelCapacity PETIT = new ModelCapacity("petit", "Petit", 32_000, null, 0.33);
+    static final ModelCapacity MOYEN = new ModelCapacity("moyen", "Moyen", 64_000, null, 0.33);
+    static final ModelCapacity GRAND = new ModelCapacity("grand", "Grand modèle", 128_000, 200_000, 1.0);
+    static final ModelCapacity GRAND_BIS = new ModelCapacity("grand-bis", "Grand bis", 150_000, null, 1.0);
+    static final ModelCapacity ENORME = new ModelCapacity("enorme", "Énorme", 1_000_000, null, 3.0);
+    static final ModelCapacity SANS_COUT = new ModelCapacity("sans-cout", "Sans coût connu", 400_000, null, null);
+    static final ModelCapacity SANS_LIMITE = new ModelCapacity("sans-limite", "Sans limite", null, null, 0.0);
+
+    MentionQueries with(ModelCapacities capacities) {
+        AnalyzeArchitecture analyze = new AnalyzeArchitecture(index, w.llm, w.policy);
+        return new MentionQueries(w.projects, w.sessions, index,
+                new SelectKnowledge(w.projects, index, new FakeEmbedding(), analyze, StoryFamily.none(), null, null,
+                        capacities));
+    }
+
+    @Test
+    void laPlaceSuitLeModeleChoisi() {
+        String matrice = "@Aurora_Matrice_Regles_Gestion_Activites_1";
+        assertThat(states(with(models(128_000, GRAND)), matrice).getFirst().state()).isEqualTo(State.TRANSMITTED);
+        assertThat(states(with(models(128_000, GRAND)), matrice).getFirst().transmittedShare()).isEqualTo(100);
+        assertThat(states(with(models(null, GRAND)), matrice).getFirst().state()).isEqualTo(State.PARTIAL);
+        assertThat(states(with(models(32_000, PETIT)), matrice).getFirst().state()).isEqualTo(State.PARTIAL);
+    }
+
+    @Test
+    void leModeleLeMoinsCouteuxQuiTransmetToutEstPropose() {
+        ModelCapacities capacities = models(32_000, ENORME, SANS_COUT, GRAND_BIS, SANS_LIMITE, MOYEN, GRAND, PETIT);
+        MentionState cut = states(with(capacities), "@Aurora_Matrice_Regles_Gestion_Activites_1").getFirst();
+
+        assertThat(cut.state()).isEqualTo(State.PARTIAL);
+        // moyen ne suffit pas ; grand et grand-bis coûtent autant : la plus petite limite l'emporte
+        assertThat(cut.betterModel()).isEqualTo(new MentionQueries.BetterModel("grand", "Grand modèle", 1.0));
+        // le modèle choisi n'est pas changé
+        assertThat(capacities.promptTokens()).hasValue(32_000);
+    }
+
+    @Test
+    void coutInconnuComptePourLePlusCher() {
+        MentionState cut = states(with(models(32_000, SANS_COUT, ENORME)), "@Aurora_Matrice_Regles_Gestion_Activites_1")
+                .getFirst();
+        assertThat(cut.betterModel()).isEqualTo(new MentionQueries.BetterModel("enorme", "Énorme", 3.0));
+        assertThat(states(with(models(32_000, SANS_COUT)), "@Aurora_Matrice_Regles_Gestion_Activites_1").getFirst()
+                .betterModel()).isEqualTo(new MentionQueries.BetterModel("sans-cout", "Sans coût connu", null));
+    }
+
+    @Test
+    void aucunModeleProposeSiRienNeSuffitOuSiToutPasse() {
+        ModelCapacities capacities = models(32_000, GRAND, ENORME);
+        doc("Lot/Immense.docx", "Immense", 60_000);
+        assertThat(states(with(capacities), "@Immense").getFirst().state()).isEqualTo(State.PARTIAL);
+        assertThat(states(with(capacities), "@Immense").getFirst().betterModel()).isNull();
+        assertThat(states(with(capacities), "@FAQ_Aurora_Features").getFirst().betterModel()).isNull();
+        // la cinquième mention n'a pas de place quel que soit le modèle : quatre documents au plus
+        for (int i = 1; i <= 5; i++) {
+            doc("Lot/D" + i + ".docx", "D" + i, 2_000);
+        }
+        assertThat(states(with(capacities), "@D1 @D2 @D3 @D4 @D5").get(4))
+                .satisfies(m -> assertThat(m.state()).isEqualTo(State.NO_ROOM))
+                .satisfies(m -> assertThat(m.betterModel()).isNull());
+        // sans modèle connu, rien à proposer
+        assertThat(states(queries, "@Aurora_Matrice_Regles_Gestion_Activites_1").getFirst().betterModel()).isNull();
+    }
+
+    @Test
+    void plusDePlaceAvecUnGrandModele() {
+        w.projects.save(w.projects.find(P).orElseThrow().withContext(ProjectContext.edited("x".repeat(20_000), T)));
+        doc("Lot/Gros.docx", "Gros", 13_000);
+        MentionState gros = states(with(models(32_000, GRAND)), "@FAQ_Aurora_Features @Gros").get(1);
+        assertThat(gros.state()).isIn(State.PARTIAL, State.NO_ROOM);
+        assertThat(gros.betterModel()).isEqualTo(new MentionQueries.BetterModel("grand", "Grand modèle", 1.0));
     }
 }

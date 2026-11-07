@@ -8,6 +8,7 @@ import dev.specwriter.domain.knowledge.AdrStatus;
 import dev.specwriter.domain.knowledge.ArchElement;
 import dev.specwriter.domain.knowledge.ArchScope;
 import dev.specwriter.domain.knowledge.ArchitectureModel;
+import dev.specwriter.domain.knowledge.KnowledgeBudget;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.KnowledgeRole;
@@ -17,6 +18,7 @@ import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.domain.port.DocumentationReader.Page;
 import dev.specwriter.domain.port.EmbeddingPort;
+import dev.specwriter.domain.port.ModelCapacities;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.ExclusionPatterns;
 import dev.specwriter.domain.project.Project;
@@ -24,6 +26,7 @@ import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.settings.ModelCapacity;
 import dev.specwriter.support.FakeDocumentFolder;
 import dev.specwriter.support.FakeEmbedding;
 import dev.specwriter.support.InMemoryKnowledgeIndex;
@@ -31,6 +34,7 @@ import dev.specwriter.support.JiraWorld;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -776,5 +780,106 @@ class SelectKnowledgeTest {
         Session mentioning = sessionWith(NEED + " @Parking @ADR-1");
         assertThat(documented.forSpecification(mentioning, List.of()))
                 .isEqualTo(documented.forSpecification(mentioning, List.of()));
+    }
+
+    // 008 : la connaissance transmise suit la capacité du modèle choisi (research.md R2)
+
+    static ModelCapacities limit(int promptTokens) {
+        return new ModelCapacities() {
+            @Override
+            public OptionalInt promptTokens() {
+                return OptionalInt.of(promptTokens);
+            }
+
+            @Override
+            public List<ModelCapacity> all() {
+                return List.of(new ModelCapacity("grand", "Grand", promptTokens, null, 1.0));
+            }
+        };
+    }
+
+    SelectKnowledge withModel(int promptTokens) {
+        w.docSources.save(documents);
+        return new SelectKnowledge(w.projects, index, embedding, analyze, StoryFamily.none(), w.docSources, w.folder,
+                limit(promptTokens));
+    }
+
+    /** La matrice du cas réel : six feuilles, environ 30 000 caractères. */
+    String matrice() {
+        return document("10. MVP/Aurora_Matrice.xlsx", "Aurora_Matrice",
+                List.of("Paramètres", "Activités", "Règles", "Calendrier", "Exemples", "Synthèse"), 4_900, true);
+    }
+
+    @Test
+    void grandModeleMatriceTransmiseEnEntier() {
+        String ref = matrice();
+        Session mentioning = sessionWith(NEED + " Les règles sont dans @Aurora_Matrice.");
+
+        ProjectKnowledge k = withModel(128_000).forSpecification(mentioning, List.of());
+
+        assertThat(designated(k)).singleElement().satisfies(e -> {
+            assertThat(e.ref()).isEqualTo(ref);
+            assertThat(e.text().length()).isGreaterThan(29_000);
+            assertThat(e.text()).contains("# Synthèse").doesNotContain("[document tronqué]");
+        });
+        assertThat(k.budget()).isEqualTo(162_000);
+        // avec le budget d'aujourd'hui, la même matrice est coupée
+        ProjectKnowledge standard = withDocuments().forSpecification(mentioning, List.of());
+        assertThat(designated(standard).getFirst().text()).endsWith("[document tronqué]");
+        assertThat(standard.budget()).isEqualTo(ProjectKnowledge.MAX_TOTAL);
+    }
+
+    @Test
+    void grandModeleProportionsGardeesEtNombresInchanges() {
+        KnowledgeBudget b = KnowledgeBudget.forPromptTokens(OptionalInt.of(128_000));
+        for (int i = 8; i <= 13; i++) {
+            index.save(KnowledgeItem.adr(P, "facturation/adr/adr-%03d.html".formatted(i), 0,
+                    "ADR-%03d Avoirs et factures".formatted(i), text("Décision " + i + " sur l'avoir et la facture.", 7_000),
+                    AdrStatus.Statement.of(AdrStatus.ACCEPTED, null), T, T), null, null);
+        }
+        for (int i = 1; i <= 3; i++) {
+            document("Avoirs " + i + ".docx", "Avoirs " + i, List.of("Un", "Deux", "Trois", "Quatre"), 4_000, true);
+        }
+
+        Session citing = sessionWith(NEED + " Respecter ADR-008, ADR-009, ADR-010, ADR-011 et ADR-012.");
+
+        ProjectKnowledge k = withModel(128_000).forSpecification(citing, List.of());
+
+        assertThat(k.entries()).filteredOn(e -> e.kind() == KnowledgeKind.ADR).hasSize(SelectKnowledge.MAX_ADRS);
+        assertThat(size(k, KnowledgeKind.ADR)).isGreaterThan(SelectKnowledge.MAX_ADR_TEXT).isLessThanOrEqualTo(b.adrText());
+        assertThat(documents(k)).hasSize(SelectKnowledge.MAX_DOCUMENTS);
+        assertThat(documents(k).stream().mapToInt(e -> e.title().length() + e.text().length()).sum())
+                .isGreaterThan(SelectKnowledge.MAX_DOCUMENT_TEXT).isLessThanOrEqualTo(b.documentText());
+        assertThat(k.entries()).filteredOn(e -> e.kind() == KnowledgeKind.TICKET).hasSize(SelectKnowledge.MAX_TICKETS);
+        assertThat(size(k, KnowledgeKind.TICKET)).isLessThanOrEqualTo(b.ticketText());
+        assertThat(total(k)).isLessThanOrEqualTo(b.total());
+    }
+
+    @Test
+    void grandModeleLaFicheGeneraleLEmporteToujours() {
+        sheet(text("## Fiche générale", 20_000));
+        matrice();
+
+        ProjectKnowledge k = withModel(128_000).forSpecification(sessionWith(NEED + " @Aurora_Matrice"), List.of());
+
+        assertThat(k.generalSheet()).hasSize(20_000);
+        assertThat(total(k)).isLessThanOrEqualTo(162_000);
+    }
+
+    @Test
+    void petitModeleOuLimiteInconnueBudgetDAujourdhui() {
+        matrice();
+        Session mentioning = sessionWith(NEED + " @Aurora_Matrice");
+        ProjectKnowledge standard = withDocuments().forSpecification(mentioning, List.of());
+
+        assertThat(withModel(32_000).forSpecification(mentioning, List.of())).isEqualTo(standard);
+        assertThat(standard.fingerprint()).isEqualTo(standard.withBudget(KnowledgeBudget.STANDARD.total()).fingerprint());
+    }
+
+    @Test
+    void lEmpreinteSuitLeBudgetHorsStandard() {
+        ProjectKnowledge k = select.forSpecification(session, List.of());
+        assertThat(k.withBudget(162_000).fingerprint()).isNotEqualTo(k.fingerprint());
+        assertThat(k.withBudget(162_000).withBudget(ProjectKnowledge.MAX_TOTAL).fingerprint()).isEqualTo(k.fingerprint());
     }
 }

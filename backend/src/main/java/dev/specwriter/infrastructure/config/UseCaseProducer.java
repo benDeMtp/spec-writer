@@ -28,6 +28,7 @@ import dev.specwriter.application.session.ChangeStatus;
 import dev.specwriter.application.session.EvolveSpecification;
 import dev.specwriter.application.session.ResolveRelatedIssue;
 import dev.specwriter.application.jira.RetryRelatedLink;
+import dev.specwriter.domain.port.ModelCapacities;
 import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.domain.port.DocumentFileStates;
@@ -174,20 +175,22 @@ public class UseCaseProducer {
         return new AnalyzeArchitecture(index, llm, consent);
     }
 
-    /** Connaissance transmise aux opérations de l'IA (research.md R24). */
+    /** Connaissance transmise aux opérations de l'IA (research.md R24), selon le modèle choisi (008). */
     @Produces
     @ApplicationScoped
     SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
-            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder) {
-        return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder);
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
+            ModelCapacities capacities) {
+        return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder, capacities);
     }
 
     /** Mentions @ d'un document (007) : suggestions et état, avec la place calculée comme à la génération. */
     @Produces
     @ApplicationScoped
     MentionQueries mentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
-            EmbeddingPort embedding, AnalyzeArchitecture analyze) {
-        return new MentionQueries(projects, sessions, index, new SelectKnowledge(projects, index, embedding, analyze));
+            EmbeddingPort embedding, AnalyzeArchitecture analyze, ModelCapacities capacities) {
+        return new MentionQueries(projects, sessions, index,
+                new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), null, null, capacities));
     }
 
     /** Sous-tâches de la story liée, rattachées aux cas d'usage d'une version (research.md R29). */

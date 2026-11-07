@@ -114,7 +114,8 @@ public record KnowledgeItem(
         return new DomainException(ErrorCode.VALIDATION_FAILED, message);
     }
 
-    private static String hash(String title, String body) {
+    /** Empreinte d'un titre et d'un texte, comme celle d'un élément, sans limite de taille (008). */
+    public static String hash(String title, String body) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.update(title.getBytes(StandardCharsets.UTF_8));
