@@ -504,4 +504,26 @@ test.describe.serial('US8 connaissance du projet', () => {
     const dataDir = readFileSync(join(stateDir, 'data-dir'), 'utf8').trim();
     expect(files(dataDir).filter((f) => /\.(docx|xlsx|pdf|html?)$/i.test(f))).toEqual([]);
   });
+
+  test('P11 : un document se mentionne avec @ dans le besoin, au clavier, et son état est annoncé (007)', async () => {
+    await page.goto('/nouveau');
+    const need = page.getByLabel('Votre besoin');
+    await need.fill(`${NEED_AVOIR} Les jalons sont dans @Suiv`);
+    const option = page.getByRole('option', { name: /Suivi/ });
+    await expect(option).toBeVisible();
+    await expect(option).toContainText('Document');
+    await expect(need).toHaveAttribute('aria-activedescendant', /.+/);
+    await expectNoA11yViolations(page);
+    await need.press('Enter');
+    await expect(need).toHaveValue(`${NEED_AVOIR} Les jalons sont dans @Suivi `);
+    const status = page.getByRole('list', { name: 'Documents mentionnés' });
+    await expect(status).toContainText('@Suivi');
+    await expect(status).toContainText('transmis à l’IA');
+
+    // une mention inconnue est signalée, sans bloquer la saisie
+    await need.pressSequentially('et @Inconnu.');
+    await need.press('Escape');
+    await expect(status).toContainText('introuvable');
+    await expectNoA11yViolations(page);
+  });
 });
