@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.persistence.settings;
 
+import dev.specwriter.domain.settings.ModelCapacity;
 import dev.specwriter.infrastructure.persistence.InstantTextConverter;
 import dev.specwriter.infrastructure.persistence.StringListJsonConverter;
 import jakarta.persistence.Column;
@@ -41,4 +42,8 @@ public class CopilotSettingsEntity {
 
     @Column(name = "secret_persistence", nullable = false)
     public String secretPersistence;
+
+    @Convert(converter = ModelCapacitiesJsonConverter.class)
+    @Column(name = "model_capacities", nullable = false)
+    public List<ModelCapacity> modelCapacities;
 }

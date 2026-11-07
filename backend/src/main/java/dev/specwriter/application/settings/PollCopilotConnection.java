@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * Relit l'état de la connexion en cours. Une fois connecté, les modèles autorisés pour le compte
- * sont enregistrés et le modèle par défaut choisi (FR-030c) ; sans Copilot, NO_COPILOT (US1-3).
+ * sont enregistrés, avec leur capacité (008), et le modèle par défaut choisi (FR-030c) ; sans Copilot, NO_COPILOT (US1-3).
  */
 public class PollCopilotConnection {
 
@@ -25,9 +25,10 @@ public class PollCopilotConnection {
     public ConnectionStatus run(String flowId) {
         ConnectionStatus status = authenticator.poll(flowId);
         if (status.state() == State.CONNECTED) {
-            List<String> models = authenticator.listModels().stream().filter(ModelOption::enabled)
-                    .map(ModelOption::id).toList();
-            CopilotSettings updated = settings.copilot().connected(status.login(), models);
+            List<ModelOption> enabled = authenticator.listModels().stream().filter(ModelOption::enabled).toList();
+            List<String> models = enabled.stream().map(ModelOption::id).toList();
+            CopilotSettings updated = settings.copilot().connected(status.login(), models,
+                    enabled.stream().map(ModelOption::capacity).toList());
             settings.saveCopilot(updated);
             if (models.isEmpty()) {
                 return new ConnectionStatus(State.NO_COPILOT, status.login());

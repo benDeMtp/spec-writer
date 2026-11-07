@@ -11,6 +11,7 @@ import dev.specwriter.domain.settings.EmbeddingSettings;
 import dev.specwriter.domain.settings.CopilotSettings;
 import dev.specwriter.domain.settings.JiraSettings;
 import dev.specwriter.domain.settings.JiraTestResult;
+import dev.specwriter.domain.settings.ModelCapacity;
 import dev.specwriter.domain.settings.SecretPersistence;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -48,6 +49,15 @@ class SettingsPersistenceIT {
         CopilotSettings c = CopilotSettings.initial().connected("ada", List.of("a", "b")).withModel("b");
         settings.saveCopilot(c);
         assertThat(settings.copilot()).isEqualTo(c);
+        assertThat(settings.copilot().capacities()).isEmpty();
+
+        // 008 : capacités relues à l'identique, y compris les valeurs inconnues
+        CopilotSettings sized = CopilotSettings.initial().connected("ada", List.of("a", "b"), List.of(
+                new ModelCapacity("a", "Modèle A", 128_000, 200_000, 1.0), new ModelCapacity("b", null, null, null, null)))
+                .withModel("a");
+        settings.saveCopilot(sized);
+        assertThat(settings.copilot()).isEqualTo(sized);
+        assertThat(settings.copilot().capacity()).hasValueSatisfying(m -> assertThat(m.promptTokens()).isEqualTo(128_000));
 
         JiraSettings j = JiraSettings.create("https://jira.example.com", "PROJ", null, false, SecretPersistence.KEYCHAIN)
                 .withTest(Instant.parse("2026-10-30T10:00:00Z"), JiraTestResult.OK, "9.12.3");

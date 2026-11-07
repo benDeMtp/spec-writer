@@ -17,7 +17,8 @@ class FakeGitHubAuthenticatorTest {
         assertThat(fake.poll(start.flowId()).state()).isEqualTo(State.PENDING);
         assertThat(fake.poll(start.flowId()).state()).isEqualTo(State.CONNECTED);
         assertThat(fake.connectedLogin()).contains(FakeGitHubAuthenticator.LOGIN);
-        assertThat(fake.listModels()).extracting(m -> m.id()).containsExactly("model-a", "model-b");
+        assertThat(fake.listModels()).extracting(m -> m.id()).containsExactly("model-a", "model-b", "model-c");
+        assertThat(fake.listModels()).extracting(m -> m.capacity().promptTokens()).containsExactly(null, 32_000, 128_000);
         fake.disconnect();
         assertThat(fake.connectedLogin()).isEmpty();
     }

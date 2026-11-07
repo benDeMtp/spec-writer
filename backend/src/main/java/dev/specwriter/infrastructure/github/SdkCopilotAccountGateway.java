@@ -17,11 +17,13 @@ import com.github.copilot.generated.rpc.SessionAccountsLoginBeginResult;
 import com.github.copilot.generated.rpc.SessionAccountsLoginCancelParams;
 import com.github.copilot.rpc.GetAuthStatusResponse;
 import com.github.copilot.rpc.ModelInfo;
+import com.github.copilot.rpc.ModelLimits;
 import dev.specwriter.domain.port.GitHubAuthenticator.ModelOption;
 import dev.specwriter.infrastructure.llm.CopilotRuntime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -121,11 +123,20 @@ public class SdkCopilotAccountGateway implements CopilotAccountGateway {
     @Override
     public List<ModelOption> models() {
         List<ModelInfo> models = await(runtime.client().listModels(), 60);
-        return models.stream()
-                .map(m -> new ModelOption(m.getId(), m.getName(),
-                        m.getPolicy() == null || m.getPolicy().getState() == null
-                                || "enabled".equalsIgnoreCase(m.getPolicy().getState())))
-                .toList();
+        return models.stream().map(SdkCopilotAccountGateway::option).toList();
+    }
+
+    /** Limites et coefficient lus sans planter s'ils manquent : inconnus (008, research.md R1). */
+    static ModelOption option(ModelInfo m) {
+        boolean enabled = m.getPolicy() == null || m.getPolicy().getState() == null
+                || "enabled".equalsIgnoreCase(m.getPolicy().getState());
+        ModelLimits limits = m.getCapabilities() == null ? null : m.getCapabilities().getLimits();
+        Integer prompt = limits == null ? null : limits.getMaxPromptTokens();
+        Integer context = limits == null || limits.getMaxContextWindowTokens() <= 0 ? null
+                : limits.getMaxContextWindowTokens();
+        OptionalDouble multiplier = m.getBilling() == null ? OptionalDouble.empty() : m.getBilling().getMultiplierOpt();
+        return new ModelOption(m.getId(), m.getName(), enabled, prompt, context,
+                multiplier.isPresent() ? multiplier.getAsDouble() : null);
     }
 
     @Override

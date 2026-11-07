@@ -10,6 +10,7 @@ import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.GitHubAuthenticator;
 import dev.specwriter.domain.port.SecretStore;
 import dev.specwriter.domain.settings.CopilotSettings.SubscriptionState;
+import dev.specwriter.domain.settings.ModelCapacity;
 import dev.specwriter.domain.settings.SecretPersistence;
 import dev.specwriter.support.FixedClock;
 import dev.specwriter.support.InMemoryConsents;
@@ -24,7 +25,7 @@ class SettingsUseCasesTest {
 
     static class StubAuthenticator implements GitHubAuthenticator {
         ConnectionStatus next = new ConnectionStatus(State.PENDING, null);
-        List<ModelOption> models = List.of(new ModelOption("gpt-6-luna", "GPT 6 Luna", true),
+        List<ModelOption> models = List.of(new ModelOption("gpt-6-luna", "GPT 6 Luna", true, 128_000, 200_000, 1.0),
                 new ModelOption("claude-sonnet-5.5", "Claude Sonnet 5.5", true),
                 new ModelOption("bloqué", "Bloqué", false));
         boolean disconnected;
@@ -109,6 +110,18 @@ class SettingsUseCasesTest {
         assertThat(settings.copilot().connectedLogin()).isEqualTo("ada");
         assertThat(settings.copilot().availableModels()).containsExactly("gpt-6-luna", "claude-sonnet-5.5");
         assertThat(settings.copilot().model()).isEqualTo("claude-sonnet-5.5");
+    }
+
+    @Test
+    void connexionRangeLaCapaciteDesModelesAutorises() {
+        auth.next = new GitHubAuthenticator.ConnectionStatus(GitHubAuthenticator.State.CONNECTED, "ada");
+        new PollCopilotConnection(auth, settings).run("f1");
+        assertThat(settings.copilot().capacities()).extracting(ModelCapacity::id)
+                .containsExactly("gpt-6-luna", "claude-sonnet-5.5");
+        assertThat(settings.copilot().capacities().getFirst())
+                .isEqualTo(new ModelCapacity("gpt-6-luna", "GPT 6 Luna", 128_000, 200_000, 1.0));
+        assertThat(settings.copilot().capacities().get(1).prompt()).isEmpty();
+        assertThat(settings.copilot().capacity()).hasValueSatisfying(c -> assertThat(c.id()).isEqualTo("claude-sonnet-5.5"));
     }
 
     @Test

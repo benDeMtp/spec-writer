@@ -28,7 +28,7 @@ public class SettingsJpaRepository implements SettingsRepository {
         }
         return new CopilotSettings(e.connectedLogin, CopilotSettings.SubscriptionState.valueOf(e.subscriptionState),
                 CopilotSettings.AuthMode.valueOf(e.authMode), e.model, e.availableModels, e.modelPreference,
-                e.tokenExpiresAt, SecretPersistence.valueOf(e.secretPersistence));
+                e.tokenExpiresAt, SecretPersistence.valueOf(e.secretPersistence), e.modelCapacities);
     }
 
     @Override
@@ -43,6 +43,7 @@ public class SettingsJpaRepository implements SettingsRepository {
         e.modelPreference = s.modelPreference();
         e.tokenExpiresAt = s.tokenExpiresAt();
         e.secretPersistence = s.secretPersistence().name();
+        e.modelCapacities = s.capacities();
         em.merge(e);
     }
 
