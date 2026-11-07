@@ -7,7 +7,11 @@ import com.github.copilot.rpc.ModelCapabilities;
 import com.github.copilot.rpc.ModelInfo;
 import com.github.copilot.rpc.ModelLimits;
 import com.github.copilot.rpc.ModelPolicy;
+import dev.specwriter.domain.error.DomainException;
+import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.GitHubAuthenticator.ModelOption;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
 
 /** Lecture de la capacité et du coefficient d'un modèle du SDK (008, research.md R1). */
@@ -34,5 +38,16 @@ class SdkCopilotAccountGatewayTest {
         assertThat(empty.enabled()).isFalse();
         assertThat(empty.capacity().promptTokens()).isNull();
         assertThat(empty.capacity().contextTokens()).isNull();
+    }
+
+    @Test
+    void jetonDuTrousseauRangeParUnAutreProgramme() {
+        Exception refused = new CompletionException(new IllegalStateException("Request account.logout failed with "
+                + "message: Failed to remove token: Keychain error: Couldn't access platform storage: Invalid attempt "
+                + "to change the owner of this item."));
+        assertThat(SdkCopilotAccountGateway.logoutFailure(refused)).isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.code()).isEqualTo(ErrorCode.COPILOT_KEYCHAIN_DENIED));
+        // les autres échecs gardent leur classement habituel
+        assertThat(SdkCopilotAccountGateway.logoutFailure(new TimeoutException())).isNotInstanceOf(DomainException.class);
     }
 }
