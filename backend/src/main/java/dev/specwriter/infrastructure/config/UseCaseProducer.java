@@ -71,6 +71,7 @@ import dev.specwriter.application.specification.ProposeAiEdit;
 import dev.specwriter.application.settings.DeleteJiraSettings;
 import dev.specwriter.application.settings.DisconnectCopilot;
 import dev.specwriter.application.settings.PollCopilotConnection;
+import dev.specwriter.application.settings.RefreshModelCapacities;
 import dev.specwriter.application.settings.SaveJiraSettings;
 import dev.specwriter.application.settings.SelectModel;
 import dev.specwriter.application.settings.StartCopilotConnection;
@@ -142,6 +143,12 @@ public class UseCaseProducer {
     @ApplicationScoped
     PollCopilotConnection pollCopilotConnection(GitHubAuthenticator authenticator, SettingsRepository settings) {
         return new PollCopilotConnection(authenticator, settings);
+    }
+
+    @Produces
+    @ApplicationScoped
+    RefreshModelCapacities refreshModelCapacities(GitHubAuthenticator authenticator, SettingsRepository settings) {
+        return new RefreshModelCapacities(authenticator, settings);
     }
 
     @Produces

@@ -9,6 +9,7 @@ import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.GitHubAuthenticator;
 import dev.specwriter.domain.port.SecretStore;
+import dev.specwriter.domain.settings.CopilotSettings;
 import dev.specwriter.domain.settings.CopilotSettings.SubscriptionState;
 import dev.specwriter.domain.settings.ModelCapacity;
 import dev.specwriter.domain.settings.SecretPersistence;
@@ -29,6 +30,7 @@ class SettingsUseCasesTest {
                 new ModelOption("claude-sonnet-5.5", "Claude Sonnet 5.5", true),
                 new ModelOption("bloqué", "Bloqué", false));
         boolean disconnected;
+        DomainException failure;
 
         @Override
         public ConnectionStart startConnection() {
@@ -53,6 +55,9 @@ class SettingsUseCasesTest {
 
         @Override
         public List<ModelOption> listModels() {
+            if (failure != null) {
+                throw failure;
+            }
             return models;
         }
     }
@@ -122,6 +127,30 @@ class SettingsUseCasesTest {
                 .isEqualTo(new ModelCapacity("gpt-6-luna", "GPT 6 Luna", 128_000, 200_000, 1.0));
         assertThat(settings.copilot().capacities().get(1).prompt()).isEmpty();
         assertThat(settings.copilot().capacity()).hasValueSatisfying(c -> assertThat(c.id()).isEqualTo("claude-sonnet-5.5"));
+    }
+
+    @Test
+    void capacitesReluesPourUnCompteConnecteAvantLa008() {
+        // connexion d'avant la 008 : modèles connus, capacités vides, modèle choisi par l'utilisateur
+        settings.saveCopilot(CopilotSettings.initial().connected("ada", List.of("gpt-6-luna", "claude-sonnet-5.5"))
+                .withModel("gpt-6-luna"));
+        assertThat(new RefreshModelCapacities(auth, settings).run()).isTrue();
+        assertThat(settings.copilot().model()).isEqualTo("gpt-6-luna");
+        assertThat(settings.copilot().capacity()).hasValueSatisfying(c -> assertThat(c.promptTokens()).isEqualTo(128_000));
+        assertThat(settings.copilot().connectedLogin()).isEqualTo("ada");
+    }
+
+    @Test
+    void capacitesNonReluesSansCompteOuSansReponse() {
+        assertThat(new RefreshModelCapacities(auth, settings).run()).isFalse();
+        CopilotSettings before = CopilotSettings.initial().connected("ada", List.of("gpt-6-luna"));
+        settings.saveCopilot(before);
+        auth.failure = new DomainException(ErrorCode.LLM_UNAVAILABLE);
+        assertThat(new RefreshModelCapacities(auth, settings).run()).isFalse();
+        auth.failure = null;
+        auth.models = List.of();
+        assertThat(new RefreshModelCapacities(auth, settings).run()).isFalse();
+        assertThat(settings.copilot()).isEqualTo(before);
     }
 
     @Test
