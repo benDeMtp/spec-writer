@@ -10,6 +10,7 @@ import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
 import dev.specwriter.application.knowledge.MentionQueries;
 import dev.specwriter.application.knowledge.SynchronizeKnowledge.Mode;
+import dev.specwriter.domain.attachment.Attachments;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
@@ -51,7 +52,12 @@ public class KnowledgeResource {
     public record MentionFieldInput(String field, String text) {
     }
 
-    public record MentionsInput(String sessionId, List<MentionFieldInput> fields) {
+    /** {@code attachmentIds} : documents joints avant le démarrage (009), 5 au plus. */
+    public record MentionsInput(String sessionId, List<MentionFieldInput> fields, List<String> attachmentIds) {
+
+        public MentionsInput(String sessionId, List<MentionFieldInput> fields) {
+            this(sessionId, fields, null);
+        }
     }
 
     static final int MAX_MENTION_FIELDS = 40;
@@ -169,12 +175,21 @@ public class KnowledgeResource {
         }
         UUID session = input == null || input.sessionId() == null || input.sessionId().isBlank() ? null
                 : sessionId(input.sessionId());
-        return mentions.resolve(ProjectResource.projectId(id), session, texts);
+        List<String> joined = input == null || input.attachmentIds() == null ? List.of() : input.attachmentIds();
+        if (joined.size() > Attachments.MAX_PER_SESSION) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "5 documents joints au plus.");
+        }
+        return mentions.resolve(ProjectResource.projectId(id), session, texts,
+                joined.stream().map(Ids::draft).toList());
     }
 
     private static MentionField field(String raw) {
         try {
-            return MentionField.valueOf(raw == null ? "" : raw);
+            MentionField field = MentionField.valueOf(raw == null ? "" : raw);
+            if (field == MentionField.ATTACHMENT) {
+                throw new IllegalArgumentException("document joint : pas un champ de saisie");
+            }
+            return field;
         } catch (IllegalArgumentException e) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "Champ inconnu : NEED, ANSWER ou INSTRUCTION.");
         }

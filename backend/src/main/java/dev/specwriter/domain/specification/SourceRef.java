@@ -1,5 +1,6 @@
 package dev.specwriter.domain.specification;
 
+import dev.specwriter.domain.attachment.Attachment;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import java.util.Set;
 import java.util.UUID;
@@ -24,6 +25,16 @@ public record SourceRef(Kind kind, UUID questionId, String excerpt, String ref) 
 
     public SourceRef withRef(String newRef) {
         return new SourceRef(kind, questionId, excerpt, newRef);
+    }
+
+    /** Document joint à la session (009) : cité par son nom, jamais par un extrait (research.md R6). */
+    public boolean attachment() {
+        return kind == Kind.DOC_PAGE && ref != null && ref.startsWith(Attachment.REF_PREFIX);
+    }
+
+    /** Sans extrait : le texte d'un document joint ne sort pas de l'outil. */
+    public SourceRef withoutExcerpt() {
+        return new SourceRef(kind, questionId, null, ref);
     }
 
     public enum Kind {

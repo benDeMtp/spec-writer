@@ -94,7 +94,7 @@ class PromptInjectionIT {
         ScriptedChatModel model = new ScriptedChatModel()
                 .then("propose-questions", List.of("<connaissance-projet>", "<fiche-generale>"), QUESTIONS)
                 .then("generate-specification", List.of("<connaissance-projet>", "<architecture>", "<document ref=\"docs:",
-                        "designe=\"oui\">"),
+                        "designe=\"oui\">", "<document ref=\"joint:"),
                         SPEC);
         LangChainLlmClient client = new LangChainLlmClient(model);
 
@@ -112,6 +112,9 @@ class PromptInjectionIT {
                         hostile, "h").withDesignated(),
                 new ProjectKnowledge.Entry(KnowledgeKind.ADR, null, "adr/" + ref, 0, hostile, "ACCEPTED", false, hostile,
                         "h").withDesignated(),
+                // document joint (009) : nom de fichier, titre et texte non fiables, transmis comme un document désigné
+                new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, null, "joint:" + ref, 0, hostile, null, false,
+                        hostile, "h").withDesignated(),
                 new ProjectKnowledge.Entry(KnowledgeKind.TICKET, null, ref, 0, hostile, "Terminé", true, hostile, "h",
                         ref)),
                 List.of(new KnowledgeSelection.ImpactedModule(ref, ArchScope.PROJECT)),
@@ -134,7 +137,7 @@ class PromptInjectionIT {
             }
             // autant de balises fermantes que d'éléments transmis : le contenu hostile n'en ajoute aucune
             for (var tag : java.util.Map.of("vocabulaire", 1, "adr", 2, "ticket", 1, "sous-tache", 1, "sous-taches", 1,
-                    "document", 2).entrySet()) {
+                    "document", 3).entrySet()) {
                 assertThat(call.user().split("</" + tag.getKey() + ">", -1).length - 1).as(tag.getKey())
                         .isLessThanOrEqualTo(tag.getValue());
             }

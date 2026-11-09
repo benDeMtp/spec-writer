@@ -1,6 +1,8 @@
 package dev.specwriter.application.knowledge;
 
+import dev.specwriter.application.attachment.AttachmentDrafts;
 import dev.specwriter.application.specification.DraftValidation;
+import dev.specwriter.domain.attachment.Attachment;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.knowledge.KnowledgeBudget;
@@ -12,6 +14,7 @@ import dev.specwriter.domain.knowledge.MentionKind;
 import dev.specwriter.domain.knowledge.Mentionable;
 import dev.specwriter.domain.knowledge.Mentions;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
+import dev.specwriter.domain.port.AttachmentRepository;
 import dev.specwriter.domain.port.KnowledgeIndex;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
@@ -78,9 +81,19 @@ public class MentionQueries {
     private final SessionRepository sessions;
     private final KnowledgeIndex index;
     private final SelectKnowledge select;
+    /** Documents joints avant le démarrage et ceux des sessions (009) ; null : aucun. */
+    private final AttachmentDrafts drafts;
+    private final AttachmentRepository attachments;
 
     public MentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
             SelectKnowledge select) {
+        this(projects, sessions, index, select, null, null);
+    }
+
+    public MentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
+            SelectKnowledge select, AttachmentDrafts drafts, AttachmentRepository attachments) {
+        this.drafts = drafts;
+        this.attachments = attachments;
         this.projects = projects;
         this.sessions = sessions;
         this.index = index;
@@ -123,6 +136,15 @@ public class MentionQueries {
      * ou s'ajoute aux réponses et à l'instruction.
      */
     public List<MentionState> resolve(UUID projectId, UUID sessionId, List<FieldText> fields) {
+        return resolve(projectId, sessionId, fields, List.of());
+    }
+
+    /**
+     * Comme {@link #resolve(UUID, UUID, List)}, avec les documents joints (009) : ceux de la session,
+     * puis les brouillons reçus (un brouillon expiré est ignoré). Chacun a un état de champ
+     * {@code ATTACHMENT}, placé après les mentions du besoin, dans l'ordre de transmission.
+     */
+    public List<MentionState> resolve(UUID projectId, UUID sessionId, List<FieldText> fields, List<UUID> attachmentIds) {
         Project project = requireProject(projectId);
         String need = null;
         List<String> answers = new ArrayList<>();
@@ -139,22 +161,47 @@ public class MentionQueries {
                 case NEED -> need = f.text();
                 case ANSWER -> answers.add(f.text());
                 case INSTRUCTION -> instruction = f.text();
+                default -> {
+                    // ATTACHMENT n'est pas un champ saisi (refusé par la ressource)
+                }
             }
         }
-        if (!Mentions.mayContain(fields.stream().map(FieldText::text).toArray(String[]::new))) {
+        List<Mentionable> joined = joined(sessionId, attachmentIds);
+        boolean written = Mentions.mayContain(fields.stream().map(FieldText::text).toArray(String[]::new));
+        if (!written && joined.isEmpty()) {
             return List.of();
         }
-        List<Mentionable> catalogue = index.mentionables(project.id());
+        List<Mentionable> catalogue = written ? index.mentionables(project.id()) : List.of();
         Map<String, Integer> owners = owners(catalogue);
-        List<Mentionable> designated = Mentions.designated(need, answers, instruction, catalogue);
+        List<Mentionable> designated = SelectKnowledge.designatedOrder(need, answers, instruction, catalogue, joined);
         KnowledgeBudget budget = select.budget();
         Map<String, MentionState> planned = better(project, designated, owners, budget,
                 plan(project, designated, owners, budget));
         List<MentionState> out = new ArrayList<>();
-        for (FieldText f : fields) {
-            for (Mention m : Mentions.find(f.text(), f.field(), catalogue)) {
-                out.add(state(m, planned, owners));
-            }
+        for (FieldText f : fields.stream().filter(f -> f.field() == MentionField.NEED).toList()) {
+            Mentions.find(f.text(), f.field(), catalogue).forEach(m -> out.add(state(m, planned, owners)));
+        }
+        for (Mentionable j : joined) {
+            MentionState p = planned.get(j.ref());
+            out.add(new MentionState(j.title(), MentionField.ATTACHMENT, p.state(), p.document(), List.of(),
+                    p.transmittedShare(), p.betterModel()));
+        }
+        for (FieldText f : fields.stream().filter(f -> f.field() != MentionField.NEED).toList()) {
+            Mentions.find(f.text(), f.field(), catalogue).forEach(m -> out.add(state(m, planned, owners)));
+        }
+        return out;
+    }
+
+    /** Documents joints de la session puis brouillons reçus, sans leur texte. */
+    private List<Mentionable> joined(UUID sessionId, List<UUID> attachmentIds) {
+        List<Mentionable> out = new ArrayList<>();
+        if (sessionId != null && attachments != null) {
+            attachments.views(sessionId).forEach(v -> out.add(SelectKnowledge.joined(Attachment.REF_PREFIX + v.fileName(),
+                    v.title(), v.fileName(), v.chars())));
+        }
+        if (drafts != null && attachmentIds != null && !attachmentIds.isEmpty()) {
+            drafts.find(attachmentIds).forEach(d -> out.add(SelectKnowledge.joined(d.ref(), d.title(), d.fileName(),
+                    d.text().length())));
         }
         return out;
     }
@@ -281,7 +328,7 @@ public class MentionQueries {
     }
 
     private static Document document(Mentionable m, Map<String, Integer> owners) {
-        return new Document(m.kind(), m.title(), m.path(), insert(m, owners));
+        return new Document(m.kind(), m.title(), m.path(), m.kind() == MentionKind.ATTACHMENT ? null : insert(m, owners));
     }
 
     private Project requireProject(UUID projectId) {

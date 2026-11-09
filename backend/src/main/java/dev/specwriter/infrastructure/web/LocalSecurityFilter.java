@@ -53,7 +53,10 @@ public class LocalSecurityFilter implements ContainerRequestFilter {
             deny(ctx, ErrorCode.FORBIDDEN);
             return;
         }
-        if (unsafe && ctx.hasEntity() && !isJson(ctx.getMediaType())) {
+        // JSON partout ; contenu brut seulement pour l'envoi d'un document joint (009) : un type non
+        // « simple » impose la vérification préalable du navigateur, comme JSON
+        if (unsafe && ctx.hasEntity() && !isJson(ctx.getMediaType())
+                && !(isOctetStream(ctx.getMediaType()) && BodySizeFilter.isUploadPath(method, "/" + normalized))) {
             deny(ctx, ErrorCode.UNSUPPORTED_MEDIA_TYPE);
             return;
         }
@@ -64,6 +67,10 @@ public class LocalSecurityFilter implements ContainerRequestFilter {
         if (cookie == null || !tokens.isValidSession(cookie.getValue())) {
             deny(ctx, ErrorCode.FORBIDDEN);
         }
+    }
+
+    private static boolean isOctetStream(MediaType type) {
+        return type != null && type.isCompatible(MediaType.APPLICATION_OCTET_STREAM_TYPE);
     }
 
     private static boolean isJson(MediaType type) {

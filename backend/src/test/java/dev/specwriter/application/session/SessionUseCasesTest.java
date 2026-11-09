@@ -16,6 +16,11 @@ import dev.specwriter.domain.question.QuestionState;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.session.SessionState;
 import dev.specwriter.support.FixedClock;
+import dev.specwriter.application.attachment.AttachmentDrafts;
+import dev.specwriter.application.knowledge.SessionKnowledge;
+import dev.specwriter.domain.attachment.Attachment;
+import dev.specwriter.domain.port.AttachmentReader;
+import dev.specwriter.support.InMemoryAttachments;
 import dev.specwriter.support.InMemoryConsents;
 import dev.specwriter.support.InMemoryProjects;
 import dev.specwriter.support.InMemorySessions;
@@ -113,6 +118,49 @@ class SessionUseCasesTest {
         assertThatThrownBy(() -> start.run(NEED, null)).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.LLM_UNAVAILABLE));
         assertThat(sessions.list()).isEmpty();
+    }
+
+    // 009 : documents joints sur l'écran du besoin, rattachés au démarrage (research.md R3)
+
+    final InMemoryAttachments attachments = new InMemoryAttachments();
+    final AttachmentReader reader = (name, content) -> AttachmentReader.Reading.of(null,
+            new String(content, java.nio.charset.StandardCharsets.UTF_8));
+    final AttachmentDrafts drafts = new AttachmentDrafts(reader, clock, ids);
+
+    StartSession withAttachments() {
+        return new StartSession(sessions, projects, llm, policy, clock, ids, null, null,
+                SessionKnowledge.sheetOnly(projects), drafts, attachments);
+    }
+
+    UUID draft(String name, String text) {
+        return drafts.create(name, text.getBytes(java.nio.charset.StandardCharsets.UTF_8)).id();
+    }
+
+    @Test
+    void documentsJointsRattachesAuDemarrageDansLOrdre() {
+        UUID b = draft("B.pdf", "Texte B");
+        UUID a = draft("A.docx", "Texte A");
+        llm.questions.add(batch(QuestionTheme.GOAL));
+        SessionSnapshot s = withAttachments().run(NEED, null, List.of(b, a));
+
+        assertThat(attachments.list(s.session().id())).extracting(Attachment::fileName, Attachment::ordinal)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("B.pdf", 1), org.assertj.core.groups.Tuple.tuple("A.docx", 2));
+        assertThat(drafts.find(List.of(a, b))).isEmpty();
+        assertThat(sessions.find(s.session().id())).isPresent();
+    }
+
+    @Test
+    void echecDuDemarrageAvecDocumentsJointsAucuneSessionEtBrouillonsGardes() {
+        UUID a = draft("A.pdf", "Texte A");
+        assertThatThrownBy(() -> withAttachments().run(NEED, null, List.of(a)))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.LLM_UNAVAILABLE));
+        assertThat(sessions.list()).isEmpty();
+        assertThat(drafts.find(List.of(a))).hasSize(1);
+        int asked = llm.questionRequests.size();
+        // un document joint expiré est refusé avant tout envoi
+        assertThatThrownBy(() -> withAttachments().run(NEED, null, List.of(UUID.randomUUID())))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+        assertThat(llm.questionRequests).hasSize(asked);
     }
 
     @Test

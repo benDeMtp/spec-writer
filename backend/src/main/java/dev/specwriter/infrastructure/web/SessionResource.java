@@ -40,7 +40,8 @@ import java.util.stream.Collectors;
 @Produces(MediaType.APPLICATION_JSON)
 public class SessionResource {
 
-    public record CreateRequest(String need, String name) {
+    /** {@code attachmentIds} : documents joints sur l'écran du besoin, dans l'ordre d'ajout (009). */
+    public record CreateRequest(String need, String name, List<String> attachmentIds) {
     }
 
     public record AnswerRequest(String value, Boolean skip) {
@@ -105,7 +106,9 @@ public class SessionResource {
         if (request == null) {
             throw new DomainException(ErrorCode.NEED_TOO_SHORT);
         }
-        SessionSnapshot snapshot = startSession.run(request.need(), request.name());
+        List<UUID> attachments = request.attachmentIds() == null ? List.of()
+                : request.attachmentIds().stream().map(Ids::draft).toList();
+        SessionSnapshot snapshot = startSession.run(request.need(), request.name(), attachments);
         return Response.status(Response.Status.CREATED).entity(SessionViews.detail(snapshot, 0, null)).build();
     }
 

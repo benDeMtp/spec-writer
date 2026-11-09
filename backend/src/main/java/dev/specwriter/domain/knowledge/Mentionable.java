@@ -101,7 +101,7 @@ public record Mentionable(MentionKind kind, String ref, String title, String pat
     /** Nom montré et inséré par défaut : fichier sans extension, titre d'une page, « ADR-n ». */
     public String name() {
         return switch (kind) {
-            case DOCUMENT -> withoutExtension(fileName(path));
+            case DOCUMENT, ATTACHMENT -> withoutExtension(fileName(path));
             case PAGE -> title;
             case ADR -> {
                 OptionalInt number = AdrNumber.of(ref, title);

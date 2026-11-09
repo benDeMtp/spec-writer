@@ -20,10 +20,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Dossier de documents sur le poste (006, research.md R1 à R4, R7) : parcours récursif sans suivre
@@ -90,37 +86,13 @@ public final class LocalDocumentFolder implements DocumentFolder {
         } catch (IOException e) {
             return Reading.failed(UnreadReason.UNREADABLE);
         }
-        CompletableFuture<Extracted> extraction = new CompletableFuture<>();
-        Thread worker = Thread.ofVirtual().name("document").start(() -> {
-            try {
-                extraction.complete(extract(file, format));
-            } catch (ExtractionException | RuntimeException e) {
-                extraction.completeExceptionally(e);
-            }
-        });
-        try {
-            Extracted doc = extraction.get(limits.fileTimeout().toNanos(), TimeUnit.NANOSECONDS);
-            String ref = DocumentFolder.ref(source, path);
-            return Reading.of(new Page(ref, doc.title(), doc.text(), Sections.ofText(ref, doc.title(), doc.text())));
-        } catch (TimeoutException e) {
-            worker.interrupt();
-            return Reading.failed(UnreadReason.UNAVAILABLE);
-        } catch (ExecutionException e) {
-            return Reading.failed(e.getCause() instanceof ExtractionException x ? x.reason() : UnreadReason.UNREADABLE);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            worker.interrupt();
-            return Reading.failed(UnreadReason.UNAVAILABLE);
+        DocumentExtraction.Result result = DocumentExtraction.extract(file, format, limits);
+        if (result.failure() != null) {
+            return Reading.failed(result.failure());
         }
-    }
-
-    private Extracted extract(Path file, String format) throws ExtractionException {
-        return switch (format) {
-            case "docx" -> OoxmlText.docx(file, limits.maxChars());
-            case "xlsx" -> OoxmlText.xlsx(file, limits.maxChars());
-            case "pdf" -> PdfText.read(file, limits.maxChars());
-            default -> HtmlText.read(file, limits.maxChars());
-        };
+        Extracted doc = result.document();
+        String ref = DocumentFolder.ref(source, path);
+        return Reading.of(new Page(ref, doc.title(), doc.text(), Sections.ofText(ref, doc.title(), doc.text())));
     }
 
     /** Nom du fichier, vide pour une racine sans nom. */

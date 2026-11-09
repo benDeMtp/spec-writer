@@ -1,5 +1,6 @@
 package dev.specwriter.application.knowledge;
 
+import dev.specwriter.domain.attachment.Attachment;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.knowledge.AdrNumber;
 import dev.specwriter.domain.knowledge.AdrStatus;
@@ -14,6 +15,7 @@ import dev.specwriter.domain.knowledge.Mentionable;
 import dev.specwriter.domain.knowledge.Mentions;
 import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
+import dev.specwriter.domain.port.AttachmentRepository;
 import dev.specwriter.domain.port.DocSourceRepository;
 import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.domain.port.DocumentationReader;
@@ -93,10 +95,13 @@ public class SelectKnowledge implements SessionKnowledge {
     private final DocumentFolder folder;
     /** Capacité du modèle choisi, d'où le budget de chaque sélection (008, research.md R2). */
     private final ModelCapacities capacities;
+    /** Documents joints aux sessions (009) ; sans eux (null), aucun document joint n'est transmis. */
+    private final AttachmentRepository attachments;
 
     public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
             AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
-            ModelCapacities capacities) {
+            ModelCapacities capacities, AttachmentRepository attachments) {
+        this.attachments = attachments;
         this.projects = projects;
         this.index = index;
         this.embedding = embedding;
@@ -105,6 +110,12 @@ public class SelectKnowledge implements SessionKnowledge {
         this.docSources = docSources;
         this.folder = folder;
         this.capacities = capacities;
+    }
+
+    public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
+            ModelCapacities capacities) {
+        this(projects, index, embedding, analyze, families, docSources, folder, capacities, null);
     }
 
     public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
@@ -155,7 +166,7 @@ public class SelectKnowledge implements SessionKnowledge {
         List<ProjectKnowledge.Entry> entries = new ArrayList<>(roles(session.projectId(), budget));
         // les documents désignés avec @ passent avant la recherche, après la fiche générale (007)
         List<ProjectKnowledge.Entry> mentioned = mentioned(session.projectId(), session.need().text(),
-                answers.stream().map(QuestionAndAnswer::answer).toList(), instruction, budget,
+                answers.stream().map(QuestionAndAnswer::answer).toList(), instruction, attached(session.id()), budget,
                 Math.min(budget.mentionedText(), left(budget, sheet, entries)));
         entries.addAll(mentioned);
         Set<String> designated = new LinkedHashSet<>(mentioned.stream().map(ProjectKnowledge.Entry::ref).toList());
@@ -220,11 +231,16 @@ public class SelectKnowledge implements SessionKnowledge {
      * recomposée de ses sections.
      */
     List<ProjectKnowledge.Entry> mentioned(UUID projectId, String need, List<String> answers, String instruction,
-            KnowledgeBudget sizes, int budget) {
-        if (budget <= 0 || !Mentions.mayContain(need, instruction) && !Mentions.mayContain(answers.toArray(String[]::new))) {
+            List<Attachment> joined, KnowledgeBudget sizes, int budget) {
+        boolean written = Mentions.mayContain(need, instruction) || Mentions.mayContain(answers.toArray(String[]::new));
+        if (budget <= 0 || !written && joined.isEmpty()) {
             return List.of();
         }
-        List<Mentionable> designated = Mentions.designated(need, answers, instruction, index.mentionables(projectId));
+        List<Mentionable> designated = designatedOrder(need, answers, instruction,
+                written ? index.mentionables(projectId) : List.of(),
+                joined.stream().map(a -> joined(a.ref(), a.title(), a.fileName(), a.chars())).toList());
+        Map<String, Attachment> byRef = new HashMap<>();
+        joined.forEach(a -> byRef.put(a.ref(), a));
         List<KnowledgeItem> adrs = designated.stream().anyMatch(d -> d.kind() == MentionKind.ADR)
                 ? index.all(projectId, KnowledgeKind.ADR) : List.of();
         List<ProjectKnowledge.Entry> chosen = new ArrayList<>();
@@ -232,8 +248,11 @@ public class SelectKnowledge implements SessionKnowledge {
         int left = budget;
         for (Mentionable d : designated) {
             int part = mentionPart(sizes, chosen.isEmpty(), left);
-            Optional<ProjectKnowledge.Entry> entry = d.kind() == MentionKind.ADR ? designatedAdr(d, adrs, part)
-                    : document(projectId, d.ref(), part);
+            Optional<ProjectKnowledge.Entry> entry = switch (d.kind()) {
+                case ADR -> designatedAdr(d, adrs, part);
+                case ATTACHMENT -> attachment(byRef.get(d.ref()), part);
+                default -> document(projectId, d.ref(), part);
+            };
             if (entry.isEmpty() || !seen.add(entry.get().ref())) {
                 continue;
             }
@@ -248,6 +267,44 @@ public class SelectKnowledge implements SessionKnowledge {
             }
         }
         return chosen;
+    }
+
+    /** Documents joints de la session, dans l'ordre d'ajout (009). */
+    private List<Attachment> attached(UUID sessionId) {
+        return attachments == null ? List.of() : attachments.list(sessionId);
+    }
+
+    /**
+     * Ordre des documents désignés (009, clarification 4) : mentions du besoin, documents joints dans
+     * l'ordre d'ajout, puis mentions des réponses et de l'instruction. Partagé avec l'état annoncé.
+     */
+    static List<Mentionable> designatedOrder(String need, List<String> answers, String instruction,
+            List<Mentionable> catalogue, List<Mentionable> joined) {
+        List<Mentionable> all = catalogue.isEmpty() ? List.of() : Mentions.designated(need, answers, instruction, catalogue);
+        List<Mentionable> fromNeed = catalogue.isEmpty() ? List.of() : Mentions.designated(need, List.of(), null, catalogue);
+        List<Mentionable> out = new ArrayList<>(fromNeed);
+        out.addAll(joined);
+        all.stream().filter(d -> !fromNeed.contains(d)).forEach(out::add);
+        return out;
+    }
+
+    /** Document joint vu comme un document désigné : référence {@code joint:<nom>}, chemin = nom du fichier. */
+    static Mentionable joined(String ref, String title, String fileName, int chars) {
+        return new Mentionable(MentionKind.ATTACHMENT, ref, title, fileName, chars);
+    }
+
+    /** Document joint, coupé à une section au-delà de {@code part} (titre compris), comme un document relu. */
+    private static Optional<ProjectKnowledge.Entry> attachment(Attachment a, int part) {
+        if (a == null) {
+            return Optional.empty();
+        }
+        int room = part - a.title().length();
+        String kept = a.text().length() <= room ? a.text() : cut(a.text(), room, DOCUMENT_TRUNCATED);
+        if (kept.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, null, a.ref(), 0, a.title(), null,
+                false, kept, KnowledgeItem.hash(a.title(), kept)));
     }
 
     /** ADR désigné, ou son successeur s'il est remplacé ; rien s'il est obsolète. */
