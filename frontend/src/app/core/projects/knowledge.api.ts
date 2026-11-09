@@ -76,12 +76,20 @@ export class KnowledgeApi {
     );
   }
 
-  /** État des mentions des champs en cours de saisie (007), avec la session si elle existe. */
-  resolveMentions(projectId: string, sessionId: string | null, fields: { field: MentionField; text: string }[]): Promise<MentionState[]> {
+  /**
+   * État des mentions des champs en cours de saisie (007), avec la session si elle existe, et des
+   * documents joints avant le démarrage (009).
+   */
+  resolveMentions(
+    projectId: string,
+    sessionId: string | null,
+    fields: { field: MentionField; text: string }[],
+    attachmentIds: string[] = [],
+  ): Promise<MentionState[]> {
     return firstValueFrom(
       this.http.post<MentionState[]>(
         `${this.base(projectId)}/mentions/resolve`,
-        { sessionId, fields },
+        attachmentIds.length ? { sessionId, fields, attachmentIds } : { sessionId, fields },
         { headers: new HttpHeaders({ 'X-Sw-Silent': '1' }) },
       ),
     );

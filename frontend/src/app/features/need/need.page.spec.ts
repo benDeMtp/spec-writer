@@ -91,4 +91,25 @@ describe('NeedPage', () => {
     ctrl.expectNone('/api/sessions');
     expect(el.textContent).toContain("Sans votre accord, le besoin n'est pas envoyé");
   });
+
+  it('joint un document avant le démarrage et le rattache à la session', async () => {
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    type(NEED);
+    const input = el.querySelector('sw-attachments input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [new File(['x'], 'CR COPIL.pdf')], configurable: true });
+    input.dispatchEvent(new Event('change'));
+    await settle(fixture);
+    ctrl
+      .expectOne((r) => r.method === 'POST' && r.url === '/api/attachment-drafts')
+      .flush({ id: 'd1', title: 'CR COPIL', fileName: 'CR COPIL.pdf', format: 'PDF', chars: 12 });
+    await settle(fixture);
+    expect(el.textContent).toContain('CR COPIL.pdf');
+    submit();
+    ctrl.expectOne('/api/settings').flush({ copilot: { state: 'CONNECTED', consent: true }, jira: null });
+    await settle(fixture);
+    const post = ctrl.expectOne({ method: 'POST', url: '/api/sessions' });
+    expect(post.request.body).toEqual({ need: NEED, attachmentIds: ['d1'] });
+    post.flush({ id: 's1' });
+    await settle(fixture);
+  });
 });

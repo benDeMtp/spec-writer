@@ -6,6 +6,32 @@ import { MENTION_DELAYS } from './mention.directive';
 
 const NUMBER = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
 
+/** Libellé de l'état d'une mention ou d'un document joint (007, 009). */
+export function mentionLabel(m: MentionState): string {
+  switch (m.state) {
+    case 'TRANSMITTED':
+      return 'transmis à l’IA';
+    case 'PARTIAL':
+      return `transmis en partie (environ ${m.transmittedShare} %)`;
+    case 'NO_ROOM':
+      return 'non transmis : plus de place';
+    case 'AMBIGUOUS':
+      return 'ambigu : précisez le document';
+    case 'NOT_FOUND':
+      return 'introuvable';
+    case 'SUPERSEDED':
+      return 'ADR remplacé, son successeur est transmis';
+    case 'DEPRECATED':
+      return 'ADR obsolète, non transmis';
+  }
+}
+
+/** Suggestion seulement (008, US3) : le modèle se choisit dans la configuration. */
+export function betterModelLabel(b: BetterModel): string {
+  const cost = b.multiplier === null ? 'coût inconnu' : `×${NUMBER.format(b.multiplier)}`;
+  return `— transmis en entier avec ${b.name} (${cost})`;
+}
+
 /**
  * État de chaque mention @ d'un champ, avant la génération (007, US3) : transmise, en partie, faute
  * de place, ambiguë (avec les documents possibles), introuvable, ADR remplacé ou obsolète. Aucune
@@ -115,28 +141,11 @@ export class MentionStatusComponent implements OnDestroy {
   }
 
   protected label(m: MentionState): string {
-    switch (m.state) {
-      case 'TRANSMITTED':
-        return 'transmis à l’IA';
-      case 'PARTIAL':
-        return `transmis en partie (environ ${m.transmittedShare} %)`;
-      case 'NO_ROOM':
-        return 'non transmis : plus de place';
-      case 'AMBIGUOUS':
-        return 'ambigu : précisez le document';
-      case 'NOT_FOUND':
-        return 'introuvable';
-      case 'SUPERSEDED':
-        return 'ADR remplacé, son successeur est transmis';
-      case 'DEPRECATED':
-        return 'ADR obsolète, non transmis';
-    }
+    return mentionLabel(m);
   }
 
-  /** Suggestion seulement (008, US3) : le modèle se choisit dans la configuration. */
   protected betterLabel(b: BetterModel): string {
-    const cost = b.multiplier === null ? 'coût inconnu' : `×${NUMBER.format(b.multiplier)}`;
-    return `— transmis en entier avec ${b.name} (${cost})`;
+    return betterModelLabel(b);
   }
 
   /** Réécrit la mention ambiguë avec le chemin du document choisi (research.md R2). */
@@ -146,6 +155,6 @@ export class MentionStatusComponent implements OnDestroy {
     if (at < 0) {
       return;
     }
-    this.replaced.emit(text.slice(0, at) + c.insert + text.slice(at + m.text.length));
+    this.replaced.emit(text.slice(0, at) + (c.insert ?? m.text) + text.slice(at + m.text.length));
   }
 }

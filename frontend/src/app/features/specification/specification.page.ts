@@ -23,6 +23,7 @@ import {
   UseCase,
   VersionSummary,
 } from '../../core/sessions/sessions.model';
+import { AttachmentsComponent } from '../../shared/ui/attachments.component';
 import { ConfirmData, ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ScenarioComponent } from '../../shared/ui/scenario.component';
@@ -58,12 +59,16 @@ const SYNC: Record<SyncState, string> = {
   CONFLICT: 'en conflit avec Jira',
 };
 
+/** Référence d'un document joint (009) : cité par son nom, sans lien ni extrait. */
+const ATTACHMENT_REF = 'joint:';
+
 /** Version de spécification : résumé, use cases, scénarios, hypothèses et exigences (FR-010). */
 @Component({
   selector: 'sw-specification-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AiEditPanelComponent,
+    AttachmentsComponent,
     DatePipe,
     MarkdownComponent,
     MatButtonModule,
@@ -177,6 +182,9 @@ const SYNC: Record<SyncState, string> = {
           </p>
         }
         <p role="status" aria-live="polite" class="announce">{{ status() }}</p>
+        @if (session(); as s) {
+          <sw-attachments [projectId]="s.projectId" [sessionId]="s.id" [disabled]="locked()" />
+        }
         @if (editing() && !locked()) {
           <sw-ai-edit-panel
             [sessionId]="id()"
@@ -830,6 +838,9 @@ export class SpecificationPage {
       case 'JIRA_ISSUE':
         return 'Ticket';
       case 'DOC_PAGE':
+        if (s.ref?.startsWith(ATTACHMENT_REF)) {
+          return 'Document joint';
+        }
         return ADR_NAME.test(this.pageName(s.ref ?? '')) ? 'ADR' : 'Page';
       case 'ARCH_ELEMENT':
         return "Élément d'architecture";
@@ -846,6 +857,9 @@ export class SpecificationPage {
 
   protected refText(uc: UseCase): string {
     const s = uc.source;
+    if (s?.kind === 'DOC_PAGE' && s.ref?.startsWith(ATTACHMENT_REF)) {
+      return s.ref.slice(ATTACHMENT_REF.length);
+    }
     return s?.kind === 'DOC_PAGE' ? this.pageName(s.ref ?? '') : (s?.ref ?? '');
   }
 
