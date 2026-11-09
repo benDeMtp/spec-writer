@@ -216,7 +216,7 @@ un écran utile.
 - [X] T029 Revue d'ergonomie avec la compétence `web-design-guidelines` sur les écrans de conversation, de spécifications et le menu (FR-023, SC-008). Écarts corrigés ou justifiés dans `specs/010-agent-conversationnel/checklists/ux-review.md`.
 - [X] T030 [P] Contrats `specs/002-projets-contexte-mcp/contracts/openapi.yaml` (conversations, tour, SSE, brouillon, `conversationId` des mentions), README (conversation, recherche, incohérences, rédaction, confidentialité), mise à jour de la feature en cours dans `CLAUDE.md`.
 - [X] T031 Gates avant commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests`, `npm --prefix e2e test`.
-- [ ] T032 Évaluation réelle `./mvnw -pl backend verify -Peval`, **avec l'accord du mainteneur** (prompts et `infrastructure/llm` modifiés), puis `bash ci/check-eval.sh` vert.
+- [X] T032 Évaluation réelle `./mvnw -pl backend verify -Peval`, **avec l'accord du mainteneur** (prompts et `infrastructure/llm` modifiés), puis `bash ci/check-eval.sh` vert.
 - [ ] T033 Essai manuel par l'utilisateur (quickstart.md, « Essai manuel ») ; résultat dans `specs/010-agent-conversationnel/checklists/validation.md`.
 
 ---

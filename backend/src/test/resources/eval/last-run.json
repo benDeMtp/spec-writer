@@ -1,150 +1,161 @@
 {
-  "date" : "2026-11-07T09:43:16Z",
-  "fingerprint" : "b1ca3498c2b6b4ecfcbaa51ddd7e5c9132fa0b8972718679784673de5a18c96e",
+  "date" : "2026-11-09T21:12:10Z",
+  "fingerprint" : "34d265fb3152cb94f4ad6000698ccdbd839a12285904cc54ac212dc2ba5b639c",
   "model" : "défaut du compte",
   "copilotSdk" : "1.0.28-preview.0",
   "copilotCli" : "embarqué",
   "runs" : 3,
   "scores" : {
     "scenarioStructure" : 1.0,
-    "questionRelevance" : 0.9784
+    "questionRelevance" : 0.9634,
+    "conversationCitation" : 1.0,
+    "conversationAbstention" : 1.0,
+    "inconsistencyRecall" : 1.0
   },
   "details" : [ {
     "case" : "01-reservation-salle",
     "run" : 1,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 6,
+    "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 1,
-    "questions" : 10,
+    "questions" : 9,
     "irrelevant" : [ {
-      "question" : "Les frais de traitement sont-ils bien à la charge du client, et comment sont-ils calculés et affichés ?",
-      "reason" : "Reformule la question 1 sur les frais de traitement, dont la réponse a déjà été donnée ; le marquage de contradiction ne change rien car elle a déjà été tranchée à la question 1.",
-      "verdict" : "REDONDANTE"
+      "verdict" : "REDONDANTE",
+      "question" : "Qui supporte les frais de traitement : sont-ils facturés au client en plus du panier, ou absorbés par la boutique ? Comment sont-ils calculés et affichés ?",
+      "reason" : "Reformule la question 1 sur la prise en charge des frais, déjà tranchée par la réponse précédente (aucun frais facturé)."
     } ],
-    "scenarios" : 5,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "03-export-comptable",
-    "run" : 1,
-    "questions" : 7,
-    "irrelevant" : [ ],
     "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
-    "case" : "04-facturation-avec-contexte",
+    "case" : "03-export-comptable",
     "run" : 1,
     "questions" : 5,
     "irrelevant" : [ ],
     "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
-    "case" : "05-conges-avec-contexte",
+    "case" : "04-facturation-avec-contexte",
     "run" : 1,
     "questions" : 7,
     "irrelevant" : [ ],
     "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
-    "case" : "06-api-avec-contexte-technique",
+    "case" : "05-conges-avec-contexte",
     "run" : 1,
     "questions" : 6,
     "irrelevant" : [ ],
     "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
+    "case" : "06-api-avec-contexte-technique",
+    "run" : 1,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 9,
+    "structureViolations" : [ ]
+  }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 1,
-    "questions" : 6,
+    "questions" : 8,
     "irrelevant" : [ ],
-    "scenarios" : 8,
+    "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "01-reservation-salle",
     "run" : 2,
     "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 7,
+    "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 2,
-    "questions" : 10,
+    "questions" : 7,
     "irrelevant" : [ {
-      "question" : "Les frais de traitement sont-ils facturés au client (ajoutés au total du panier) ou absorbés par la boutique ? Comment sont-ils calculés (montant fixe, pourcentage) et affichés ?",
-      "reason" : "Reformule la question 1, dont la réponse (aucun frais) est déjà donnée.",
-      "verdict" : "REDONDANTE"
+      "verdict" : "REDONDANTE",
+      "question" : "Qui supporte les frais de traitement : sont-ils facturés au client en plus du panier, ou absorbés par la boutique ? Comment sont-ils calculés et affichés ?",
+      "reason" : "Reformule la question 1 dont la réponse (aucun frais) est déjà donnée, et n'est pas marquée comme contradiction."
+    }, {
+      "verdict" : "REDONDANTE",
+      "question" : "Quels acteurs interviennent dans le paiement : le client doit-il être connecté ou peut-il payer en invité, et qui d'autre (administrateur, support, prestataire de paiement) est concerné ?",
+      "reason" : "La partie client connecté ou invité reformule la question 3 déjà posée, dont la réponse était qu'elle n'est pas précisée ; le reste (acteurs) est mineur et déjà couvert."
     } ],
-    "scenarios" : 5,
+    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
     "run" : 2,
-    "questions" : 6,
+    "questions" : 5,
     "irrelevant" : [ ],
-    "scenarios" : 6,
+    "scenarios" : 4,
     "structureViolations" : [ ]
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 2,
-    "questions" : 6,
+    "questions" : 5,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 2,
-    "questions" : 6,
+    "questions" : 5,
     "irrelevant" : [ ],
-    "scenarios" : 6,
+    "scenarios" : 9,
     "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
     "run" : 2,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 9,
+    "scenarios" : 10,
     "structureViolations" : [ ]
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 2,
-    "questions" : 6,
-    "irrelevant" : [ ],
-    "scenarios" : 9,
+    "questions" : 9,
+    "irrelevant" : [ {
+      "verdict" : "REDONDANTE",
+      "question" : "Que doit-il se passer si l'appel à la comptabilité expire alors que l'avoir a peut-être déjà été enregistré côté comptabilité ?",
+      "reason" : "Le cas d'une expiration avec enregistrement incertain côté comptabilité est déjà couvert par la question 3 sur l'échec ou l'expiration de l'appel."
+    } ],
+    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
     "case" : "01-reservation-salle",
     "run" : 3,
     "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 9,
+    "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
+    "run" : 3,
+    "questions" : 11,
+    "irrelevant" : [ {
+      "verdict" : "REDONDANTE",
+      "question" : "Les frais de traitement sont-ils facturés au client (ajoutés au total du panier) ou supportés par la boutique ? Comment sont-ils calculés (montant fixe, pourcentage, plafond) et affichés ?",
+      "reason" : "Reprend la question sur les frais déjà posée (et déjà tranchée) en y ajoutant calcul et affichage ; la réponse figure déjà dans la réponse 1."
+    } ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 3,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "04-facturation-avec-contexte",
     "run" : 3,
     "questions" : 9,
     "irrelevant" : [ ],
-    "scenarios" : 7,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "03-export-comptable",
-    "run" : 3,
-    "questions" : 8,
-    "irrelevant" : [ ],
-    "scenarios" : 4,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "04-facturation-avec-contexte",
-    "run" : 3,
-    "questions" : 8,
-    "irrelevant" : [ {
-      "question" : "Que se passe-t-il si la facture est déjà totalement avoirée (restant dû à 0 €), ou si le montant saisi est nul ou négatif ?",
-      "reason" : "Le cas restant dû à 0 € est déjà évoqué à la question 4 (facture déjà totalement avoirée), et le dépassement du restant dû est couvert ; seul montant nul/négatif est nouveau, mais la question recouvre pour l'essentiel la précédente.",
-      "verdict" : "REDONDANTE"
-    } ],
     "scenarios" : 9,
     "structureViolations" : [ ]
   }, {
@@ -157,16 +168,197 @@
   }, {
     "case" : "06-api-avec-contexte-technique",
     "run" : 3,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 9,
+    "scenarios" : 10,
     "structureViolations" : [ ]
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 3,
-    "questions" : 0,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 4,
+    "scenarios" : 5,
     "structureViolations" : [ ]
+  } ],
+  "conversation" : [ {
+    "case" : "citation-avoir",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "AUR-12" ]
+  }, {
+    "case" : "citation-numerotation",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/factures.html#numerotation" ]
+  }, {
+    "case" : "citation-relances",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/adr/adr-004.html", "AUR-40" ]
+  }, {
+    "case" : "citation-echeances-spec",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html" ]
+  }, {
+    "case" : "abstention-paie",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ ]
+  }, {
+    "case" : "abstention-tva",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ ]
+  }, {
+    "case" : "abstention-sso",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ ]
+  }, {
+    "case" : "incoherence-lettrage",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/lettrage.html#delai", "AUR-31" ]
+  }, {
+    "case" : "incoherence-relances",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/adr/adr-004.html", "AUR-40" ]
+  }, {
+    "case" : "incoherence-echeances",
+    "run" : 1,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html" ]
+  }, {
+    "case" : "citation-avoir",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "AUR-12" ]
+  }, {
+    "case" : "citation-numerotation",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/factures.html#numerotation", "AUR-12" ]
+  }, {
+    "case" : "citation-relances",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/adr/adr-004.html", "AUR-40" ]
+  }, {
+    "case" : "citation-echeances-spec",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html" ]
+  }, {
+    "case" : "abstention-paie",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ ]
+  }, {
+    "case" : "abstention-tva",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ ]
+  }, {
+    "case" : "abstention-sso",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ ]
+  }, {
+    "case" : "incoherence-lettrage",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/lettrage.html#delai", "AUR-31" ]
+  }, {
+    "case" : "incoherence-relances",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/adr/adr-004.html", "AUR-40" ]
+  }, {
+    "case" : "incoherence-echeances",
+    "run" : 2,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html" ]
+  }, {
+    "case" : "citation-avoir",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "AUR-12" ]
+  }, {
+    "case" : "citation-numerotation",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/factures.html#numerotation", "AUR-12" ]
+  }, {
+    "case" : "citation-relances",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/adr/adr-004.html", "AUR-40" ]
+  }, {
+    "case" : "citation-echeances-spec",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html" ]
+  }, {
+    "case" : "abstention-paie",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ ]
+  }, {
+    "case" : "abstention-tva",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ ]
+  }, {
+    "case" : "abstention-sso",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ ]
+  }, {
+    "case" : "incoherence-lettrage",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/lettrage.html#delai", "AUR-31" ]
+  }, {
+    "case" : "incoherence-relances",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "https://docs.aurora.example/adr/adr-004.html", "AUR-40" ]
+  }, {
+    "case" : "incoherence-echeances",
+    "run" : 3,
+    "passed" : true,
+    "state" : "COMPLETE",
+    "cited" : [ "spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html" ]
   } ]
 }

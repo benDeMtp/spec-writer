@@ -276,6 +276,9 @@ public final class EvalRuns {
             d.put("passed", c.passed());
             d.put("state", c.state());
             d.put("cited", c.cited());
+            if (!c.passed()) {
+                d.put("excerpt", c.excerpt());
+            }
             if (c.error() != null) {
                 d.put("error", c.error());
             }

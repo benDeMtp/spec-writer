@@ -40,6 +40,8 @@ import tools.jackson.databind.json.JsonMapper;
 final class ConversationRuns {
 
     static final Path CASES = Path.of("src/test/resources/eval/conversation/cases.json");
+    /** Début de la réponse gardé dans last-run.json pour comprendre un échec (données fictives). */
+    static final int EXCERPT = 400;
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     enum Kind {
@@ -48,7 +50,7 @@ final class ConversationRuns {
 
     /** Résultat d'une question : sources citées et état de la réponse. */
     record CaseRun(String caseName, Kind kind, int run, List<String> expected, List<String> cited, String state,
-            String error) {
+            String error, String excerpt) {
 
         boolean passed() {
             if (error != null || !"COMPLETE".equals(state)) {
@@ -105,7 +107,8 @@ final class ConversationRuns {
                 .filter(m -> m.id().equals(started.turnId())).findFirst().orElseThrow();
         List<String> cited = conversations.sources(answer.id()).stream().map(s -> s.ref()).toList();
         String error = answer.text().isBlank() ? "SANS_REPONSE" : null;
-        return new CaseRun(name, kind, run, expected, cited, answer.state().name(), error);
+        String excerpt = answer.text().length() <= EXCERPT ? answer.text() : answer.text().substring(0, EXCERPT) + "…";
+        return new CaseRun(name, kind, run, expected, cited, answer.state().name(), error, excerpt);
     }
 
     /** Part des cas réussis d'une sorte, moyenne des exécutions. */
