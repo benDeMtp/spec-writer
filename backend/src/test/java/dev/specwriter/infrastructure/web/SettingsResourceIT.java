@@ -6,6 +6,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static dev.specwriter.support.LocalApi.api;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -155,6 +156,21 @@ class SettingsResourceIT {
         String other = api().get("/api/settings").then().extract().path("copilot.availableModels[0]");
         api().body(Map.of("model", other)).put("/api/settings/copilot/model").then().statusCode(204);
         api().get("/api/settings").then().body("copilot.model", equalTo(other));
+
+        // 008 : capacité, coût et place de la connaissance de chaque modèle (modèles simulés)
+        api().get("/api/settings").then()
+                .body("copilot.models.id", contains("model-a", "model-b", "model-c"))
+                .body("copilot.models[0].promptTokens", nullValue())
+                .body("copilot.models[0].multiplier", nullValue())
+                .body("copilot.models[0].knowledgeChars", equalTo(35_000))
+                .body("copilot.models[1].promptTokens", equalTo(32_000))
+                .body("copilot.models[1].multiplier", equalTo(0.33f))
+                .body("copilot.models[2].name", equalTo("Grand modèle"))
+                .body("copilot.models[2].contextTokens", equalTo(200_000))
+                .body("copilot.models[2].knowledgeChars", equalTo(162_000))
+                .body("copilot.knowledgeChars", equalTo(35_000));
+        api().body(Map.of("model", "model-c")).put("/api/settings/copilot/model").then().statusCode(204);
+        api().get("/api/settings").then().body("copilot.knowledgeChars", equalTo(162_000));
 
         api().delete("/api/settings/copilot").then().statusCode(204);
         api().get("/api/settings").then().body("copilot.state", equalTo("NOT_CONFIGURED"))

@@ -19,6 +19,20 @@ export interface CopilotSettings {
   consent: boolean;
   model: string | null;
   availableModels: string[];
+  /** Capacité, coût et place de la connaissance de chaque modèle autorisé (008). */
+  models: ModelInfo[];
+  /** Total de la connaissance transmise avec le modèle choisi, en caractères. */
+  knowledgeChars: number;
+}
+
+/** Modèle autorisé : limites en tokens et coefficient de facturation nuls s'ils sont inconnus. */
+export interface ModelInfo {
+  id: string;
+  name: string;
+  promptTokens: number | null;
+  contextTokens: number | null;
+  multiplier: number | null;
+  knowledgeChars: number;
 }
 
 export interface JiraSettings {

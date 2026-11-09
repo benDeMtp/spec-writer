@@ -1,5 +1,6 @@
 package dev.specwriter.domain.port;
 
+import dev.specwriter.domain.settings.ModelCapacity;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +40,19 @@ public interface GitHubAuthenticator {
         ERROR
     }
 
-    record ModelOption(String id, String name, boolean enabled) {
+    /**
+     * Modèle du compte ; limites en tokens et coefficient de facturation nuls s'ils sont inconnus
+     * (008, research.md R1).
+     */
+    record ModelOption(String id, String name, boolean enabled, Integer promptTokens, Integer contextTokens,
+            Double multiplier) {
+
+        public ModelOption(String id, String name, boolean enabled) {
+            this(id, name, enabled, null, null, null);
+        }
+
+        public ModelCapacity capacity() {
+            return new ModelCapacity(id, name, promptTokens, contextTokens, multiplier);
+        }
     }
 }

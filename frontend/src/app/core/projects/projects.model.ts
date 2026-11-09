@@ -205,4 +205,12 @@ export interface MentionState {
   document: MentionDocument | null;
   candidates: MentionDocument[];
   transmittedShare: number;
+  /** Modèle autorisé le moins coûteux qui transmettrait le document en entier (008), s'il y en a un. */
+  betterModel?: BetterModel | null;
+}
+
+export interface BetterModel {
+  id: string;
+  name: string;
+  multiplier: number | null;
 }

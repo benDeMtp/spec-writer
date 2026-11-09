@@ -18,7 +18,8 @@ public record CopilotSettings(
         List<String> availableModels,
         List<String> modelPreference,
         Instant tokenExpiresAt,
-        SecretPersistence secretPersistence) {
+        SecretPersistence secretPersistence,
+        List<ModelCapacity> capacities) {
 
     /** Préférence par défaut : modèles observés et autorisés pendant le spike S1. */
     public static final List<String> DEFAULT_PREFERENCE =
@@ -36,11 +37,19 @@ public record CopilotSettings(
     }
 
     public CopilotSettings {
+        capacities = capacities == null ? List.of() : List.copyOf(capacities);
         availableModels = List.copyOf(availableModels);
         modelPreference = List.copyOf(modelPreference);
         if (model != null && !availableModels.contains(model)) {
             throw new DomainException(ErrorCode.MODEL_UNAVAILABLE);
         }
+    }
+
+    public CopilotSettings(String connectedLogin, SubscriptionState subscriptionState, AuthMode authMode, String model,
+            List<String> availableModels, List<String> modelPreference, Instant tokenExpiresAt,
+            SecretPersistence secretPersistence) {
+        this(connectedLogin, subscriptionState, authMode, model, availableModels, modelPreference, tokenExpiresAt,
+                secretPersistence, List.of());
     }
 
     public static CopilotSettings initial() {
@@ -50,18 +59,28 @@ public record CopilotSettings(
 
     /** Après connexion : modèles autorisés relus ; le modèle choisi est conservé s'il reste disponible. */
     public CopilotSettings connected(String login, List<String> models) {
+        return connected(login, models, List.of());
+    }
+
+    /** Après connexion, avec la capacité de chaque modèle autorisé (008, research.md R1). */
+    public CopilotSettings connected(String login, List<String> models, List<ModelCapacity> modelCapacities) {
         if (models.isEmpty()) {
             return new CopilotSettings(login, SubscriptionState.NO_COPILOT, authMode, null, List.of(), modelPreference,
-                    tokenExpiresAt, secretPersistence);
+                    tokenExpiresAt, secretPersistence, List.of());
         }
         String keep = model != null && models.contains(model) ? model : defaultModel(models, modelPreference).orElse(null);
         return new CopilotSettings(login, SubscriptionState.ACTIVE, authMode, keep, models, modelPreference,
-                tokenExpiresAt, secretPersistence);
+                tokenExpiresAt, secretPersistence, modelCapacities);
+    }
+
+    /** Capacité du modèle choisi, si elle est connue. */
+    public Optional<ModelCapacity> capacity() {
+        return model == null ? Optional.empty() : capacities.stream().filter(c -> c.id().equals(model)).findFirst();
     }
 
     public CopilotSettings disconnected() {
         return new CopilotSettings(null, SubscriptionState.UNKNOWN, authMode, null, List.of(), modelPreference, null,
-                secretPersistence);
+                secretPersistence, List.of());
     }
 
     /** Choix explicite de l'utilisateur (FR-030c) ; refusé si le modèle n'est pas autorisé. */
@@ -70,7 +89,7 @@ public record CopilotSettings(
             throw new DomainException(ErrorCode.MODEL_UNAVAILABLE);
         }
         return new CopilotSettings(connectedLogin, subscriptionState, authMode, chosen, availableModels,
-                modelPreference, tokenExpiresAt, secretPersistence);
+                modelPreference, tokenExpiresAt, secretPersistence, capacities);
     }
 
     /** Premier modèle de la préférence présent dans les modèles autorisés, sinon le premier autorisé. */

@@ -12,12 +12,14 @@ import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.knowledge.KnowledgeBudget;
 import dev.specwriter.domain.port.GitHubAuthenticator.ConnectionStart;
 import dev.specwriter.domain.port.GitHubAuthenticator.State;
 import dev.specwriter.domain.port.SecretStore;
 import dev.specwriter.domain.port.SettingsRepository;
 import dev.specwriter.domain.settings.CopilotSettings;
 import dev.specwriter.domain.settings.JiraSettings;
+import dev.specwriter.domain.settings.ModelCapacity;
 import dev.specwriter.domain.settings.SecretPersistence;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -31,14 +33,29 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.time.Instant;
 import java.util.List;
+import java.util.OptionalInt;
 
 /** {@code /api/settings/**} (contracts/openapi.yaml). Aucun secret n'est jamais renvoyé (FR-033). */
 @Path("/api/settings")
 @Produces(MediaType.APPLICATION_JSON)
 public class SettingsResource {
 
+    /**
+     * Vue Copilot ; {@code models} donne la capacité, le coefficient et la place de la connaissance
+     * de chaque modèle autorisé, {@code knowledgeChars} celle du modèle choisi (008, contracts/api.md).
+     */
     public record CopilotView(String state, String login, SecretPersistence secretPersistence, boolean consent,
-            String model, List<String> availableModels) {
+            String model, List<String> availableModels, List<ModelView> models, int knowledgeChars) {
+    }
+
+    /** Capacité d'un modèle : valeurs nulles si inconnues. */
+    public record ModelView(String id, String name, Integer promptTokens, Integer contextTokens, Double multiplier,
+            int knowledgeChars) {
+
+        static ModelView of(ModelCapacity c) {
+            return new ModelView(c.id(), c.name(), c.promptTokens(), c.contextTokens(), c.multiplier(),
+                    KnowledgeBudget.forPromptTokens(c.prompt()).total());
+        }
     }
 
     public record LastTestView(Instant at, String result) {
@@ -178,8 +195,13 @@ public class SettingsResource {
         } else {
             state = "CONNECTED";
         }
+        List<ModelView> models = c.availableModels().stream().map(id -> ModelView.of(c.capacities().stream()
+                .filter(m -> m.id().equals(id)).findFirst().orElseGet(() -> new ModelCapacity(id, null, null, null, null))))
+                .toList();
+        int knowledge = KnowledgeBudget.forPromptTokens(c.capacity().map(ModelCapacity::prompt)
+                .orElse(OptionalInt.empty())).total();
         return new CopilotView(state, c.connectedLogin(), SecretPersistence.from(secrets.persistence()),
-                consents.isGranted(ConsentService.COPILOT), c.model(), c.availableModels());
+                consents.isGranted(ConsentService.COPILOT), c.model(), c.availableModels(), models, knowledge);
     }
 
     private JiraView jiraView(JiraSettings j) {

@@ -4,10 +4,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Subscription } from 'rxjs';
-import { ConnectionStart, FlowState } from '../../core/settings/settings.model';
+import { ConnectionStart, FlowState, ModelInfo } from '../../core/settings/settings.model';
 import { SettingsStore } from '../../core/settings/settings.store';
 
 type Step = 'idle' | 'starting' | 'ready' | 'waiting' | FlowState;
+
+const NUMBER = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
+/** Conversion prudente pour le français, celle du budget de la connaissance (research.md R2). */
+const CHARS_PER_TOKEN = 3;
 
 /** Signification des permissions GitHub demandées par le runtime Copilot (FR-030a). */
 const SCOPE_LABELS: Record<string, string> = {
@@ -19,7 +23,7 @@ const SCOPE_LABELS: Record<string, string> = {
   'write:plugin_gateway_connections': 'gérer les connexions des extensions Copilot',
 };
 
-/** Connexion GitHub Copilot : autorisation dans le navigateur, puis choix du modèle (US1). */
+/** Connexion GitHub Copilot : autorisation dans le navigateur, puis choix du modèle (US1), avec sa capacité et son coût (008). */
 @Component({
   selector: 'sw-copilot-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,12 +38,14 @@ const SCOPE_LABELS: Record<string, string> = {
         <mat-form-field appearance="outline" class="model">
           <mat-label>Modèle utilisé</mat-label>
           <mat-select [value]="c!.model" (selectionChange)="selectModel($event.value)">
-            @for (m of c!.availableModels; track m) {
-              <mat-option [value]="m">{{ m }}</mat-option>
+            <mat-select-trigger>{{ chosenName() }}</mat-select-trigger>
+            @for (m of c!.models; track m.id) {
+              <mat-option [value]="m.id">{{ m.name }} <span class="model-capacity">{{ capacity(m) }}</span></mat-option>
             }
           </mat-select>
           <mat-hint>Seuls les modèles autorisés pour votre compte sont proposés.</mat-hint>
         </mat-form-field>
+        <p class="knowledge">Connaissance transmise : jusqu’à {{ chars(c!.knowledgeChars) }} caractères</p>
         <mat-slide-toggle [checked]="c!.consent" (change)="store.setConsent('COPILOT', $event.checked)">
           Envoyer mes besoins et mes réponses à GitHub Copilot
         </mat-slide-toggle>
@@ -95,6 +101,17 @@ const SCOPE_LABELS: Record<string, string> = {
     </section>
   `,
   styleUrl: './settings-card.scss',
+  styles: `
+    .model-capacity {
+      margin-left: 0.25rem;
+      font-size: 0.8125rem;
+      opacity: 0.8;
+    }
+    .knowledge {
+      margin: 0 0 0.75rem;
+      font-size: 0.875rem;
+    }
+  `,
 })
 export class CopilotCardComponent {
   protected readonly store = inject(SettingsStore);
@@ -107,6 +124,12 @@ export class CopilotCardComponent {
   protected readonly noCopilotMessage =
     "Ce compte GitHub n'a pas d'abonnement Copilot actif. Connectez-vous avec un compte qui en dispose, " +
     'ou demandez un accès à votre administrateur GitHub.';
+
+  /** Nom du modèle choisi, sans sa capacité, dans le champ fermé. */
+  protected readonly chosenName = computed(() => {
+    const c = this.store.copilot();
+    return c?.models.find((m) => m.id === c.model)?.name ?? c?.model ?? '';
+  });
 
   protected readonly outcomeMessage = computed(() => {
     switch (this.step()) {
@@ -125,6 +148,20 @@ export class CopilotCardComponent {
 
   constructor() {
     this.destroyRef.onDestroy(() => this.watch?.unsubscribe());
+  }
+
+  /** « environ N tokens (≈ M caractères) · ×coefficient », ou ce qui est inconnu (008, FR-002). */
+  protected capacity(m: ModelInfo): string {
+    const size =
+      m.promptTokens === null
+        ? 'capacité inconnue'
+        : `environ ${NUMBER.format(m.promptTokens)} tokens (≈ ${NUMBER.format(m.promptTokens * CHARS_PER_TOKEN)} caractères)`;
+    const cost = m.multiplier === null ? 'coût inconnu' : `×${NUMBER.format(m.multiplier)}`;
+    return `${size} · ${cost}`;
+  }
+
+  protected chars(n: number): string {
+    return NUMBER.format(n);
   }
 
   protected scopeLabel(scope: string): string {

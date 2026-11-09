@@ -19,12 +19,15 @@ import java.util.Set;
  */
 public record ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List<Entry> entries,
         List<ImpactedModule> modules, List<Exchange> exchanges, List<DeploymentFact> deploymentFacts,
-        Subtasks subtasks) {
+        Subtasks subtasks, int budget) {
 
     public static final ProjectKnowledge EMPTY = new ProjectKnowledge("", null, List.of(), List.of(), List.of(),
             List.of());
 
-    /** Taille maximale de la fiche générale, et du tout transmis (35 000 caractères). */
+    /**
+     * Taille maximale de la fiche générale, et du tout transmis avec un modèle de capacité inconnue
+     * (35 000 caractères, {@link KnowledgeBudget#STANDARD}).
+     */
     public static final int MAX_SHEET = 20_000;
     public static final int MAX_TOTAL = 35_000;
 
@@ -85,6 +88,13 @@ public record ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List
         exchanges = exchanges == null ? List.of() : List.copyOf(exchanges);
         deploymentFacts = deploymentFacts == null ? List.of() : List.copyOf(deploymentFacts);
         subtasks = subtasks == null ? Subtasks.NONE : subtasks;
+        budget = budget <= 0 ? MAX_TOTAL : budget;
+    }
+
+    public ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List<Entry> entries,
+            List<ImpactedModule> modules, List<Exchange> exchanges, List<DeploymentFact> deploymentFacts,
+            Subtasks subtasks) {
+        this(generalSheet, sheetUpdatedAt, entries, modules, exchanges, deploymentFacts, subtasks, MAX_TOTAL);
     }
 
     public ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List<Entry> entries,
@@ -105,13 +115,20 @@ public record ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List
     /** La même connaissance, avec les faits d'architecture calculés. */
     public ProjectKnowledge withArchitecture(List<ImpactedModule> newModules, List<Exchange> newExchanges,
             List<DeploymentFact> facts) {
-        return new ProjectKnowledge(generalSheet, sheetUpdatedAt, entries, newModules, newExchanges, facts, subtasks);
+        return new ProjectKnowledge(generalSheet, sheetUpdatedAt, entries, newModules, newExchanges, facts, subtasks,
+                budget);
     }
 
     /** La même connaissance, avec les sous-tâches de la story. */
     public ProjectKnowledge withSubtasks(Subtasks newSubtasks) {
         return new ProjectKnowledge(generalSheet, sheetUpdatedAt, entries, modules, exchanges, deploymentFacts,
-                newSubtasks);
+                newSubtasks, budget);
+    }
+
+    /** La même connaissance, sélectionnée avec le budget total donné (008, selon le modèle choisi). */
+    public ProjectKnowledge withBudget(int newBudget) {
+        return new ProjectKnowledge(generalSheet, sheetUpdatedAt, entries, modules, exchanges, deploymentFacts,
+                subtasks, newBudget);
     }
 
     public boolean hasArchitecture() {
@@ -147,7 +164,8 @@ public record ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List
 
     /**
      * Empreinte de la connaissance pour {@code InputFingerprint} : vide sans connaissance (empreinte
-     * de 001), sinon le SHA-256 de la fiche, des références et empreintes retenues et des faits.
+     * de 001), sinon le SHA-256 de la fiche, des références et empreintes retenues et des faits ;
+     * le budget seulement s'il n'est pas celui d'aujourd'hui (008, research.md R3).
      */
     public String fingerprint() {
         if (isEmpty()) {
@@ -170,6 +188,9 @@ public record ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List
             out.append("\nstory=").append(subtasks.storyKey());
             subtasks.items().forEach(t -> out.append("\nsubtask=").append(t.ref()).append('|').append(t.status())
                     .append('|').append(t.title()));
+        }
+        if (budget != MAX_TOTAL) {
+            out.append("\nbudget=").append(budget);
         }
         return sha256(out.toString());
     }

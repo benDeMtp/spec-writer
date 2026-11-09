@@ -37,6 +37,9 @@ public enum ErrorCode {
             + "spec-writer.", ErrorAction.NONE),
     COPILOT_CLI_OUTDATED(503, "Le Copilot CLI installé est trop ancien. Lancez « copilot update », puis relancez "
             + "spec-writer.", ErrorAction.NONE),
+    COPILOT_KEYCHAIN_DENIED(409, "Le trousseau de votre poste refuse de supprimer le jeton GitHub : il a été rangé par "
+            + "un autre programme (une autre installation du Copilot CLI). Lancez « copilot logout » dans un terminal, "
+            + "ou supprimez l'élément « copilot-cli » dans Trousseaux d'accès, puis réessayez.", ErrorAction.NONE),
     LLM_INVALID_OUTPUT(502, "La génération n'a pas produit une spécification valide. Réessayez.", ErrorAction.RETRY),
     MODEL_UNAVAILABLE(422, "Le modèle choisi n'est plus disponible pour votre compte. Choisissez-en un autre.",
             ErrorAction.OPEN_SETTINGS),

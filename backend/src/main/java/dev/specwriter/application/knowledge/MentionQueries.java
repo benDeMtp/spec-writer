@@ -3,6 +3,7 @@ package dev.specwriter.application.knowledge;
 import dev.specwriter.application.specification.DraftValidation;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.knowledge.KnowledgeBudget;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.Mention;
@@ -17,6 +18,7 @@ import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.settings.ModelCapacity;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -50,9 +52,26 @@ public class MentionQueries {
     public record Document(MentionKind kind, String title, String path, String insert) {
     }
 
-    /** État d'une mention (research.md R8) ; {@code transmittedShare} est une estimation sur l'index. */
+    /** Modèle autorisé qui transmettrait le document en entier (008, research.md R5). */
+    public record BetterModel(String id, String name, Double multiplier) {
+    }
+
+    /**
+     * État d'une mention (research.md R8) ; {@code transmittedShare} est une estimation sur l'index.
+     * Pour une mention coupée, {@code betterModel} est le modèle le moins coûteux qui la transmettrait
+     * en entier, s'il y en a un (008).
+     */
     public record MentionState(String text, MentionField field, State state, Document document,
-            List<Document> candidates, int transmittedShare) {
+            List<Document> candidates, int transmittedShare, BetterModel betterModel) {
+
+        public MentionState(String text, MentionField field, State state, Document document, List<Document> candidates,
+                int transmittedShare) {
+            this(text, field, state, document, candidates, transmittedShare, null);
+        }
+
+        MentionState withBetterModel(BetterModel better) {
+            return new MentionState(text, field, state, document, candidates, transmittedShare, better);
+        }
     }
 
     private final ProjectRepository projects;
@@ -127,8 +146,10 @@ public class MentionQueries {
         }
         List<Mentionable> catalogue = index.mentionables(project.id());
         Map<String, Integer> owners = owners(catalogue);
-        Map<String, MentionState> planned = plan(project, Mentions.designated(need, answers, instruction, catalogue),
-                owners);
+        List<Mentionable> designated = Mentions.designated(need, answers, instruction, catalogue);
+        KnowledgeBudget budget = select.budget();
+        Map<String, MentionState> planned = better(project, designated, owners, budget,
+                plan(project, designated, owners, budget));
         List<MentionState> out = new ArrayList<>();
         for (FieldText f : fields) {
             for (Mention m : Mentions.find(f.text(), f.field(), catalogue)) {
@@ -147,13 +168,54 @@ public class MentionQueries {
                     m.matches().stream().map(d -> document(d, owners)).toList(), 0);
         }
         MentionState p = planned.get(m.matches().getFirst().ref());
-        return new MentionState(m.text(), m.field(), p.state(), p.document(), List.of(), p.transmittedShare());
+        return new MentionState(m.text(), m.field(), p.state(), p.document(), List.of(), p.transmittedShare(),
+                p.betterModel());
+    }
+
+    /**
+     * Pour chaque mention coupée (en partie ou sans place), le modèle autorisé le moins coûteux qui la
+     * transmettrait en entier : coefficient inconnu compté comme le plus cher, puis la plus petite
+     * limite (research.md R5). Rien n'est changé dans les réglages.
+     */
+    private Map<String, MentionState> better(Project project, List<Mentionable> designated, Map<String, Integer> owners,
+            KnowledgeBudget current, Map<String, MentionState> planned) {
+        List<String> cut = planned.entrySet().stream()
+                .filter(e -> e.getValue().state() == State.PARTIAL || e.getValue().state() == State.NO_ROOM)
+                .map(Map.Entry::getKey).toList();
+        if (cut.isEmpty()) {
+            return planned;
+        }
+        List<ModelCapacity> candidates = select.models().stream().filter(c -> c.promptTokens() != null)
+                .sorted(Comparator.comparingDouble(ModelCapacity::cost).thenComparingInt(ModelCapacity::promptTokens))
+                .toList();
+        Map<String, MentionState> out = new HashMap<>(planned);
+        Map<String, BetterModel> found = new HashMap<>();
+        for (ModelCapacity c : candidates) {
+            KnowledgeBudget budget = KnowledgeBudget.forPromptTokens(c.prompt());
+            if (budget.total() <= current.total()) {
+                continue;
+            }
+            Map<String, MentionState> other = plan(project, designated, owners, budget);
+            for (String ref : cut) {
+                MentionState there = other.get(ref);
+                if (!found.containsKey(ref) && there != null && there.state() != State.NO_ROOM
+                        && there.transmittedShare() >= 100) {
+                    found.put(ref, new BetterModel(c.id(), c.name(), c.multiplier()));
+                }
+            }
+            if (found.size() == cut.size()) {
+                break;
+            }
+        }
+        found.forEach((ref, model) -> out.put(ref, out.get(ref).withBetterModel(model)));
+        return out;
     }
 
     /** Place de chaque document désigné, dans l'ordre et avec les règles de la génération. */
-    private Map<String, MentionState> plan(Project project, List<Mentionable> designated, Map<String, Integer> owners) {
+    private Map<String, MentionState> plan(Project project, List<Mentionable> designated, Map<String, Integer> owners,
+            KnowledgeBudget budget) {
         ProjectContext context = project.context();
-        int left = select.mentionBudget(project.id(), context.markdown());
+        int left = select.mentionBudget(project.id(), context.markdown(), budget);
         List<KnowledgeItem> adrs = designated.stream().anyMatch(d -> d.kind() == MentionKind.ADR)
                 ? index.all(project.id(), KnowledgeKind.ADR) : List.of();
         Map<String, MentionState> out = new HashMap<>();
@@ -178,7 +240,7 @@ public class MentionQueries {
                 }
             }
             int size = shown.title().length() + shown.size();
-            int part = SelectKnowledge.mentionPart(transmitted == 0, left);
+            int part = SelectKnowledge.mentionPart(budget, transmitted == 0, left);
             int sent = Math.min(size, part);
             if (full || transmitted == SelectKnowledge.MAX_MENTIONED || sent <= 0 || sent > left) {
                 full = true;

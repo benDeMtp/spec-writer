@@ -5,6 +5,7 @@ import dev.specwriter.domain.knowledge.AdrNumber;
 import dev.specwriter.domain.knowledge.AdrStatus;
 import dev.specwriter.domain.knowledge.ArchitectureModel.DeploymentFact;
 import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
+import dev.specwriter.domain.knowledge.KnowledgeBudget;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.KnowledgeSelection.ImpactedModule;
@@ -18,9 +19,11 @@ import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.domain.port.DocumentationReader;
 import dev.specwriter.domain.port.EmbeddingPort;
 import dev.specwriter.domain.port.KnowledgeIndex;
+import dev.specwriter.domain.port.ModelCapacities;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.settings.ModelCapacity;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -39,11 +42,13 @@ import org.jboss.logging.Logger;
  * vocabulaire et la vue d'ensemble (3 000 caractères) ; 4 ADR au plus (6 000), un ADR remplacé
  * l'étant par son successeur et un ADR obsolète écarté ; 3 tickets (3 000) ; pour une
  * spécification, les faits d'architecture (3 000) ; 2 documents d'un dossier synchronisé, relus
- * entiers (8 000, 006). Le tout tient en 35 000 caractères. La recherche part du besoin et des
- * réponses : la sélection suit leurs changements.
+ * entiers (8 000, 006). Le tout tient en 35 000 caractères. Avec un modèle de plus grande capacité,
+ * tous ces plafonds grandissent dans la même proportion (008, {@link KnowledgeBudget}). La recherche
+ * part du besoin et des réponses : la sélection suit leurs changements.
  */
 public class SelectKnowledge implements SessionKnowledge {
 
+    // plafonds d'aujourd'hui, ceux de KnowledgeBudget.STANDARD : un grand modèle les agrandit tous (008)
     static final int MAX_ROLES = 3_000;
     static final int MAX_ADRS = 4;
     static final int MAX_ADR_TEXT = 12_000;
@@ -86,9 +91,12 @@ public class SelectKnowledge implements SessionKnowledge {
     /** Sans eux (null), un document n'est pas relu : ses passages indexés servent. */
     private final DocSourceRepository docSources;
     private final DocumentFolder folder;
+    /** Capacité du modèle choisi, d'où le budget de chaque sélection (008, research.md R2). */
+    private final ModelCapacities capacities;
 
     public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
-            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder) {
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
+            ModelCapacities capacities) {
         this.projects = projects;
         this.index = index;
         this.embedding = embedding;
@@ -96,6 +104,12 @@ public class SelectKnowledge implements SessionKnowledge {
         this.families = families;
         this.docSources = docSources;
         this.folder = folder;
+        this.capacities = capacities;
+    }
+
+    public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder) {
+        this(projects, index, embedding, analyze, families, docSources, folder, ModelCapacities.UNKNOWN);
     }
 
     public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
@@ -126,6 +140,7 @@ public class SelectKnowledge implements SessionKnowledge {
 
     private ProjectKnowledge select(Session session, List<QuestionAndAnswer> answers, String instruction,
             String currentMarkdown, boolean architecture) {
+        KnowledgeBudget budget = budget();
         ProjectKnowledge sheet = SessionKnowledge.sheet(projects, session);
         String query = query(instruction, session.need().text(), answers);
         Set<Integer> cited = cited(session.need().text(), answers, instruction, currentMarkdown);
@@ -137,29 +152,29 @@ public class SelectKnowledge implements SessionKnowledge {
         List<Search> searches = instruction == null || instruction.isBlank() ? List.of(combined)
                 : List.of(search(query(instruction, "", List.of())), combined);
         StoryFamily.Family family = families.of(session);
-        List<ProjectKnowledge.Entry> entries = new ArrayList<>(roles(session.projectId()));
+        List<ProjectKnowledge.Entry> entries = new ArrayList<>(roles(session.projectId(), budget));
         // les documents désignés avec @ passent avant la recherche, après la fiche générale (007)
         List<ProjectKnowledge.Entry> mentioned = mentioned(session.projectId(), session.need().text(),
-                answers.stream().map(QuestionAndAnswer::answer).toList(), instruction,
-                Math.min(MAX_MENTIONED_TEXT, left(sheet, entries)));
+                answers.stream().map(QuestionAndAnswer::answer).toList(), instruction, budget,
+                Math.min(budget.mentionedText(), left(budget, sheet, entries)));
         entries.addAll(mentioned);
         Set<String> designated = new LinkedHashSet<>(mentioned.stream().map(ProjectKnowledge.Entry::ref).toList());
         // la fiche générale l'emporte : les ADR prennent ce qui reste sous le plafond (004, FR-017)
-        int adrBudget = Math.min(MAX_ADR_TEXT, left(sheet, entries));
-        entries.addAll(adrs(session, searches, cited, adrBudget, designated));
+        int adrBudget = Math.min(budget.adrText(), left(budget, sheet, entries));
+        entries.addAll(adrs(session, searches, cited, budget.adrPart(), adrBudget, designated));
         // les documents prennent ce que laissent la fiche et les ADR (006, research.md R6)
-        int documentBudget = Math.min(MAX_DOCUMENT_TEXT, left(sheet, entries));
-        entries.addAll(documents(session, searches, documentBudget, designated));
-        entries.addAll(tickets(session, family, searches));
+        int documentBudget = Math.min(budget.documentText(), left(budget, sheet, entries));
+        entries.addAll(documents(session, searches, budget.documentPart(), documentBudget, designated));
+        entries.addAll(tickets(session, family, searches, budget.ticketText()));
         ProjectKnowledge selected = new ProjectKnowledge(sheet.generalSheet(), sheet.sheetUpdatedAt(), entries,
-                List.of(), List.of(), List.of(), subtasks(session, family));
+                List.of(), List.of(), List.of(), subtasks(session, family, budget.subtaskText()), budget.total());
         if (!architecture) {
             return selected;
         }
         try {
             AnalyzeArchitecture.Analysis a = analyze.run(session.id(), session.projectId(), session.language(),
                     session.need().text(), answers, query, vector, model);
-            return bounded(selected.withArchitecture(a.modules(), a.exchanges(), a.facts()));
+            return bounded(selected.withArchitecture(a.modules(), a.exchanges(), a.facts()), budget.architecture());
         } catch (DomainException e) {
             // la rédaction continue sans les faits d'architecture ; l'analyse sera retentée
             LOG.warnf("Connaissance : analyse d'architecture indisponible (%s)", e.code());
@@ -171,30 +186,41 @@ public class SelectKnowledge implements SessionKnowledge {
      * Place des documents désignés pour une fiche générale donnée, calculée comme à la génération :
      * l'état annoncé des mentions correspond à leur transmission (007, research.md R8).
      */
-    int mentionBudget(UUID projectId, String generalSheet) {
-        return Math.min(MAX_MENTIONED_TEXT, left(ProjectKnowledge.sheet(generalSheet, null), roles(projectId)));
+    int mentionBudget(UUID projectId, String generalSheet, KnowledgeBudget budget) {
+        return Math.min(budget.mentionedText(),
+                left(budget, ProjectKnowledge.sheet(generalSheet, null), roles(projectId, budget)));
+    }
+
+    /** Budget de la connaissance avec le modèle choisi (008). */
+    KnowledgeBudget budget() {
+        return capacities.budget();
+    }
+
+    /** Capacités des modèles autorisés, pour suggérer un modèle qui transmettrait tout (008, US3). */
+    List<ModelCapacity> models() {
+        return capacities.all();
     }
 
     /** Taille au plus d'un document désigné : le premier coupé à la place restante, les suivants entiers ou rien. */
-    static int mentionPart(boolean first, int left) {
-        return first ? Math.min(MAX_MENTIONED_PART, left) : MAX_MENTIONED_PART;
+    static int mentionPart(KnowledgeBudget budget, boolean first, int left) {
+        return first ? Math.min(budget.mentionedPart(), left) : budget.mentionedPart();
     }
 
     /** Place restante sous le plafond, réserves d'architecture, de tickets et de sous-tâches déduites. */
-    private static int left(ProjectKnowledge sheet, List<ProjectKnowledge.Entry> entries) {
-        return ProjectKnowledge.MAX_TOTAL - MAX_ARCHITECTURE - sheet.generalSheet().length() - size(entries)
-                - MAX_TICKET_TEXT - MAX_SUBTASK_TEXT;
+    private static int left(KnowledgeBudget budget, ProjectKnowledge sheet, List<ProjectKnowledge.Entry> entries) {
+        return budget.total() - budget.architecture() - sheet.generalSheet().length() - size(entries)
+                - budget.ticketText() - budget.subtaskText();
     }
 
     /**
      * Documents désignés avec @ dans le besoin, les réponses puis l'instruction (007, research.md
-     * R6) : {@link #MAX_MENTIONED} au plus, {@link #MAX_MENTIONED_PART} chacun, le premier coupé s'il
+     * R6) : {@link #MAX_MENTIONED} au plus, la part du budget chacun, le premier coupé s'il
      * le faut, les suivants seulement s'ils tiennent. Un ADR suit la voie des ADR (successeur d'un
      * remplacé, rien pour un obsolète) ; un document de dossier est relu (006) ; une page Antora est
      * recomposée de ses sections.
      */
     List<ProjectKnowledge.Entry> mentioned(UUID projectId, String need, List<String> answers, String instruction,
-            int budget) {
+            KnowledgeBudget sizes, int budget) {
         if (budget <= 0 || !Mentions.mayContain(need, instruction) && !Mentions.mayContain(answers.toArray(String[]::new))) {
             return List.of();
         }
@@ -205,7 +231,7 @@ public class SelectKnowledge implements SessionKnowledge {
         Set<String> seen = new LinkedHashSet<>();
         int left = budget;
         for (Mentionable d : designated) {
-            int part = mentionPart(chosen.isEmpty(), left);
+            int part = mentionPart(sizes, chosen.isEmpty(), left);
             Optional<ProjectKnowledge.Entry> entry = d.kind() == MentionKind.ADR ? designatedAdr(d, adrs, part)
                     : document(projectId, d.ref(), part);
             if (entry.isEmpty() || !seen.add(entry.get().ref())) {
@@ -272,10 +298,10 @@ public class SelectKnowledge implements SessionKnowledge {
                 .map(items::get).toList();
     }
 
-    /** Vocabulaire et vue d'ensemble, toujours transmis (FR-042), dans la limite de 3 000 caractères. */
-    private List<ProjectKnowledge.Entry> roles(UUID projectId) {
+    /** Vocabulaire et vue d'ensemble, toujours transmis (FR-042), dans la limite du budget (3 000 caractères aujourd'hui). */
+    private List<ProjectKnowledge.Entry> roles(UUID projectId, KnowledgeBudget budget) {
         List<ProjectKnowledge.Entry> out = new ArrayList<>();
-        int left = MAX_ROLES;
+        int left = budget.roles();
         for (KnowledgeItem item : index.withRole(projectId)) {
             int room = left - item.title().length();
             if (room <= 0) {
@@ -291,11 +317,11 @@ public class SelectKnowledge implements SessionKnowledge {
     /**
      * ADR cités (004, US4), puis ADR en vigueur les plus proches ; un remplacé cède la place à son
      * successeur, un obsolète est écarté (FR-036). Chaque ADR est transmis entier, morceaux dans
-     * l'ordre (004, research.md R4) : {@link #MAX_ADR_PART} au plus par ADR, {@link #MAX_ADR_TEXT} au
-     * total ; le premier qui ne tient plus arrête la liste.
+     * l'ordre (004, research.md R4) : {@code part} au plus par ADR, {@code budget} au total ; le
+     * premier qui ne tient plus arrête la liste.
      */
-    private List<ProjectKnowledge.Entry> adrs(Session session, List<Search> searches, Set<Integer> cited, int budget,
-            Set<String> designated) {
+    private List<ProjectKnowledge.Entry> adrs(Session session, List<Search> searches, Set<Integer> cited, int part,
+            int budget, Set<String> designated) {
         List<KnowledgeItem> hits = hits(session, searches, KnowledgeKind.ADR, ADR_CANDIDATES);
         if (hits.isEmpty() && cited.isEmpty()) {
             return List.of();
@@ -317,7 +343,7 @@ public class SelectKnowledge implements SessionKnowledge {
             }
             // le premier ADR passe toujours, coupé s'il le faut ; les suivants seulement entiers
             ProjectKnowledge.Entry entry = whole(current.get(), all,
-                    chosen.isEmpty() ? Math.min(MAX_ADR_PART, left) : MAX_ADR_PART);
+                    chosen.isEmpty() ? Math.min(part, left) : part);
             int size = entry.title().length() + entry.text().length();
             if (size > left || entry.text().isEmpty()) {
                 break;
@@ -344,11 +370,11 @@ public class SelectKnowledge implements SessionKnowledge {
 
     /**
      * Documents des dossiers synchronisés dont un passage est retenu, regroupés par document : chacun
-     * relu entier dans son dossier, sinon recomposé de ses passages indexés ; {@link #MAX_DOCUMENT_PART}
-     * au plus par document, le premier coupé s'il le faut, le suivant seulement s'il tient. Un ADR de
+     * relu entier dans son dossier, sinon recomposé de ses passages indexés ; {@code part} au plus
+     * par document, le premier coupé s'il le faut, le suivant seulement s'il tient. Un ADR de
      * ces dossiers suit la voie des ADR.
      */
-    private List<ProjectKnowledge.Entry> documents(Session session, List<Search> searches, int budget,
+    private List<ProjectKnowledge.Entry> documents(Session session, List<Search> searches, int part, int budget,
             Set<String> designated) {
         if (budget <= 0) {
             return List.of();
@@ -360,7 +386,7 @@ public class SelectKnowledge implements SessionKnowledge {
         int left = budget;
         for (String ref : refs) {
             Optional<ProjectKnowledge.Entry> doc = document(session.projectId(), ref,
-                    chosen.isEmpty() ? Math.min(MAX_DOCUMENT_PART, left) : MAX_DOCUMENT_PART);
+                    chosen.isEmpty() ? Math.min(part, left) : part);
             if (doc.isEmpty()) {
                 continue;
             }
@@ -401,8 +427,9 @@ public class SelectKnowledge implements SessionKnowledge {
         if (kept.isBlank()) {
             return Optional.empty();
         }
-        // l'empreinte suit le texte transmis : un document modifié change la connaissance
-        String hash = KnowledgeItem.docSection(projectId, ref, 0, title, kept, null, null, null).contentHash();
+        // l'empreinte suit le texte transmis : un document modifié change la connaissance ; le texte
+        // d'un grand modèle dépasse la taille d'un élément de l'index (008)
+        String hash = KnowledgeItem.hash(title, kept);
         return Optional.of(new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, null, ref, 0, title, null, false,
                 kept, hash));
     }
@@ -500,21 +527,22 @@ public class SelectKnowledge implements SessionKnowledge {
      * Tickets les plus proches, hors famille de la story liée : ses sous-tâches et son parent ne sont
      * pas des travaux concurrents (FR-045). Un ticket lié explicitement à la story porte ce lien.
      */
-    private List<ProjectKnowledge.Entry> tickets(Session session, StoryFamily.Family family, List<Search> searches) {
+    private List<ProjectKnowledge.Entry> tickets(Session session, StoryFamily.Family family, List<Search> searches,
+            int ticketText) {
         int excluded = family.isEmpty() ? 0 : 2 + family.subtasks().size();
         List<KnowledgeItem> items = hits(session, searches, KnowledgeKind.TICKET, TICKET_CANDIDATES + excluded).stream()
                 .filter(i -> !family.contains(i.ref())).limit(MAX_TICKETS).toList();
-        return bounded(items, MAX_TICKET_TEXT / MAX_TICKETS).stream().map(e -> e.withLink(family.link(e.ref())))
+        return bounded(items, ticketText / MAX_TICKETS).stream().map(e -> e.withLink(family.link(e.ref())))
                 .toList();
     }
 
     /** Sous-tâches de la story liée, titres seuls : 15 au plus, 1 500 caractères en tout (research.md R29). */
-    private ProjectKnowledge.Subtasks subtasks(Session session, StoryFamily.Family family) {
+    private ProjectKnowledge.Subtasks subtasks(Session session, StoryFamily.Family family, int subtaskText) {
         if (family.isEmpty() || family.subtasks().isEmpty()) {
             return ProjectKnowledge.Subtasks.NONE;
         }
         List<ProjectKnowledge.Subtask> out = new ArrayList<>();
-        int left = MAX_SUBTASK_TEXT;
+        int left = subtaskText;
         for (String key : family.subtasks()) {
             if (out.size() == MAX_SUBTASKS) {
                 break;
@@ -550,12 +578,12 @@ public class SelectKnowledge implements SessionKnowledge {
                 item.closed(), text, item.contentHash());
     }
 
-    /** Faits d'architecture dans la limite de 3 000 caractères : modules, puis échanges, puis constats. */
-    private static ProjectKnowledge bounded(ProjectKnowledge k) {
-        if (architectureSize(k) <= MAX_ARCHITECTURE) {
+    /** Faits d'architecture dans la limite du budget (3 000 caractères aujourd'hui) : modules, puis échanges, puis constats. */
+    private static ProjectKnowledge bounded(ProjectKnowledge k, int architecture) {
+        if (architectureSize(k) <= architecture) {
             return k;
         }
-        int left = MAX_ARCHITECTURE;
+        int left = architecture;
         List<ImpactedModule> modules = new ArrayList<>();
         for (ImpactedModule m : k.modules()) {
             left -= m.name().length() + ARCHITECTURE_MARKUP;

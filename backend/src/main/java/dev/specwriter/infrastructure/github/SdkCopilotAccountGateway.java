@@ -17,11 +17,15 @@ import com.github.copilot.generated.rpc.SessionAccountsLoginBeginResult;
 import com.github.copilot.generated.rpc.SessionAccountsLoginCancelParams;
 import com.github.copilot.rpc.GetAuthStatusResponse;
 import com.github.copilot.rpc.ModelInfo;
+import com.github.copilot.rpc.ModelLimits;
+import dev.specwriter.domain.error.DomainException;
+import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.GitHubAuthenticator.ModelOption;
 import dev.specwriter.infrastructure.llm.CopilotRuntime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -121,11 +125,20 @@ public class SdkCopilotAccountGateway implements CopilotAccountGateway {
     @Override
     public List<ModelOption> models() {
         List<ModelInfo> models = await(runtime.client().listModels(), 60);
-        return models.stream()
-                .map(m -> new ModelOption(m.getId(), m.getName(),
-                        m.getPolicy() == null || m.getPolicy().getState() == null
-                                || "enabled".equalsIgnoreCase(m.getPolicy().getState())))
-                .toList();
+        return models.stream().map(SdkCopilotAccountGateway::option).toList();
+    }
+
+    /** Limites et coefficient lus sans planter s'ils manquent : inconnus (008, research.md R1). */
+    static ModelOption option(ModelInfo m) {
+        boolean enabled = m.getPolicy() == null || m.getPolicy().getState() == null
+                || "enabled".equalsIgnoreCase(m.getPolicy().getState());
+        ModelLimits limits = m.getCapabilities() == null ? null : m.getCapabilities().getLimits();
+        Integer prompt = limits == null ? null : limits.getMaxPromptTokens();
+        Integer context = limits == null || limits.getMaxContextWindowTokens() <= 0 ? null
+                : limits.getMaxContextWindowTokens();
+        OptionalDouble multiplier = m.getBilling() == null ? OptionalDouble.empty() : m.getBilling().getMultiplierOpt();
+        return new ModelOption(m.getId(), m.getName(), enabled, prompt, context,
+                multiplier.isPresent() ? multiplier.getAsDouble() : null);
     }
 
     @Override
@@ -133,8 +146,30 @@ public class SdkCopilotAccountGateway implements CopilotAccountGateway {
         CopilotClient client = runtime.client();
         List<AccountAllUsers> users = await(client.getRpc().account.getAllUsers(), 30);
         for (AccountAllUsers user : users) {
-            await(client.getRpc().account.logout(new AccountLogoutParams(user.selectionId(), user.authInfo())), 30);
+            CompletableFuture<?> logout = client.getRpc().account.logout(
+                    new AccountLogoutParams(user.selectionId(), user.authInfo()));
+            try {
+                logout.get(30, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw logoutFailure(e);
+            }
         }
+    }
+
+    /**
+     * Le jeton rangé dans le trousseau par un autre programme ne peut pas être supprimé (008, essai
+     * manuel) : la marche à suivre plutôt que « Copilot ne répond pas ».
+     */
+    static RuntimeException logoutFailure(Exception e) {
+        if (e instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t.getMessage() != null && t.getMessage().contains("Keychain error")) {
+                return new DomainException(ErrorCode.COPILOT_KEYCHAIN_DENIED);
+            }
+        }
+        return CopilotRuntime.classify(e);
     }
 
     private static void closeAndDelete(CopilotClient client, CopilotSession session) {

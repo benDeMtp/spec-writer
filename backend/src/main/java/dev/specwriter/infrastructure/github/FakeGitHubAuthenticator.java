@@ -66,6 +66,9 @@ public class FakeGitHubAuthenticator implements GitHubAuthenticator {
 
     @Override
     public List<ModelOption> listModels() {
-        return List.of(new ModelOption("model-a", "Model A", true), new ModelOption("model-b", "Model B", true));
+        // 008 : un modèle sans limite connue (choisi par défaut), un petit et un grand
+        return List.of(new ModelOption("model-a", "Model A", true),
+                new ModelOption("model-b", "Model B", true, 32_000, 64_000, 0.33),
+                new ModelOption("model-c", "Grand modèle", true, 128_000, 200_000, 1.0));
     }
 }

@@ -28,6 +28,7 @@ import dev.specwriter.application.session.ChangeStatus;
 import dev.specwriter.application.session.EvolveSpecification;
 import dev.specwriter.application.session.ResolveRelatedIssue;
 import dev.specwriter.application.jira.RetryRelatedLink;
+import dev.specwriter.domain.port.ModelCapacities;
 import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.domain.port.DocumentFileStates;
@@ -70,6 +71,7 @@ import dev.specwriter.application.specification.ProposeAiEdit;
 import dev.specwriter.application.settings.DeleteJiraSettings;
 import dev.specwriter.application.settings.DisconnectCopilot;
 import dev.specwriter.application.settings.PollCopilotConnection;
+import dev.specwriter.application.settings.RefreshModelCapacities;
 import dev.specwriter.application.settings.SaveJiraSettings;
 import dev.specwriter.application.settings.SelectModel;
 import dev.specwriter.application.settings.StartCopilotConnection;
@@ -145,6 +147,12 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
+    RefreshModelCapacities refreshModelCapacities(GitHubAuthenticator authenticator, SettingsRepository settings) {
+        return new RefreshModelCapacities(authenticator, settings);
+    }
+
+    @Produces
+    @ApplicationScoped
     DisconnectCopilot disconnectCopilot(GitHubAuthenticator authenticator, SettingsRepository settings,
             SecretStore secrets) {
         return new DisconnectCopilot(authenticator, settings, secrets);
@@ -174,20 +182,22 @@ public class UseCaseProducer {
         return new AnalyzeArchitecture(index, llm, consent);
     }
 
-    /** Connaissance transmise aux opérations de l'IA (research.md R24). */
+    /** Connaissance transmise aux opérations de l'IA (research.md R24), selon le modèle choisi (008). */
     @Produces
     @ApplicationScoped
     SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
-            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder) {
-        return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder);
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
+            ModelCapacities capacities) {
+        return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder, capacities);
     }
 
     /** Mentions @ d'un document (007) : suggestions et état, avec la place calculée comme à la génération. */
     @Produces
     @ApplicationScoped
     MentionQueries mentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
-            EmbeddingPort embedding, AnalyzeArchitecture analyze) {
-        return new MentionQueries(projects, sessions, index, new SelectKnowledge(projects, index, embedding, analyze));
+            EmbeddingPort embedding, AnalyzeArchitecture analyze, ModelCapacities capacities) {
+        return new MentionQueries(projects, sessions, index,
+                new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), null, null, capacities));
     }
 
     /** Sous-tâches de la story liée, rattachées aux cas d'usage d'une version (research.md R29). */

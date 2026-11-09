@@ -51,4 +51,15 @@ class CopilotSettingsTest {
         assertThat(s.availableModels()).isEmpty();
         assertThat(s.model()).isNull();
     }
+
+    @Test
+    void capacitesGardeesAuChoixDuModeleEtPerduesALaDeconnexion() {
+        CopilotSettings s = CopilotSettings.initial().connected("ada", List.of("a", "b"),
+                List.of(new ModelCapacity("a", "A", 128_000, null, 1.0), new ModelCapacity("b", "B", 32_000, null, 0.33)));
+        assertThat(s.withModel("b").capacity()).hasValueSatisfying(c -> assertThat(c.promptTokens()).isEqualTo(32_000));
+        assertThat(s.withModel("b").capacities()).hasSize(2);
+        assertThat(s.disconnected().capacities()).isEmpty();
+        assertThat(CopilotSettings.initial().capacity()).isEmpty();
+        assertThat(s.connected("ada", List.of()).capacities()).isEmpty();
+    }
 }
