@@ -20,4 +20,13 @@ final class Ids {
             throw new DomainException(ErrorCode.NOT_FOUND);
         }
     }
+
+    /** Identifiant d'un document joint reçu dans un corps : inconnu ou mal formé, la saisie est refusée. */
+    static UUID draft(String raw) {
+        try {
+            return UUID.fromString(raw == null ? "" : raw);
+        } catch (IllegalArgumentException e) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "Document joint inconnu : joignez-le à nouveau.");
+        }
+    }
 }

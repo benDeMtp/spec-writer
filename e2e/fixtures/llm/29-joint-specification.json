@@ -1,0 +1,23 @@
+{
+  "operation": "generate-specification",
+  "userContains": ["lettrer les virements", "<document ref=\"joint:Regles lettrage.html\"", "Le délai de lettrage est de 3 jours ouvrés"],
+  "response": {
+    "title": "Lettrage des virements reçus",
+    "summary": "Les comptables lettrent chaque matin les virements reçus avec les factures émises.",
+    "useCases": [
+      {"title": "Lettrer les virements du jour", "actor": "comptable", "goal": "Rapprocher chaque virement de sa facture",
+       "preconditions": ["Les relevés bancaires du jour sont importés"], "nominalFlow": ["Lancer le lettrage", "Contrôler les écarts"],
+       "alternatives": ["Un virement sans facture reste à lettrer"],
+       "source": {"kind": "DOC_PAGE", "questionId": "", "excerpt": "Le délai de lettrage est de 3 jours ouvrés", "ref": "joint:Regles lettrage.html"}}
+    ],
+    "scenarios": [
+      {"useCaseIndex": 0, "title": "Virement lettré dans le délai", "kind": "NOMINAL", "asA": "comptable",
+       "given": ["un virement de 120 € reçu lundi pour la facture F-12"], "when": ["je lance le lettrage mardi matin"],
+       "then": ["le virement est lettré avec la facture F-12"], "assumption": false}
+    ],
+    "assumptions": [],
+    "requirements": [
+      {"category": "FUNCTIONAL", "statement": "Un virement est lettré au plus tard trois jours ouvrés après sa réception."}
+    ]
+  }
+}

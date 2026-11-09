@@ -21,6 +21,7 @@ import { ProgressComponent } from './progress.component';
 import { QuestionCardComponent } from './question-card.component';
 import { RelatedChoice, RelatedIssuesComponent } from './related-issues.component';
 import { count } from '../../shared/text';
+import { AttachmentsComponent } from '../../shared/ui/attachments.component';
 
 /** Questionnaire : lots de questions, conclusion à tout moment, génération (US2). */
 @Component({
@@ -34,6 +35,7 @@ import { count } from '../../shared/text';
     ProgressComponent,
     QuestionCardComponent,
     RelatedIssuesComponent,
+    AttachmentsComponent,
   ],
   template: `
     @if (session(); as s) {
@@ -43,6 +45,7 @@ import { count } from '../../shared/text';
           <summary>Besoin initial</summary>
           <p>{{ s.need }}</p>
         </details>
+        <sw-attachments [projectId]="s.projectId" [sessionId]="s.id" [disabled]="locked()" />
         <sw-progress [answered]="s.progress.answered" [skipped]="s.progress.skipped" [total]="s.progress.total" />
 
         @for (w of s.warnings; track w) {

@@ -1,5 +1,6 @@
 package dev.specwriter.domain.specification;
 
+import dev.specwriter.domain.attachment.Attachment;
 import dev.specwriter.domain.knowledge.ArchScope;
 import dev.specwriter.domain.knowledge.ArchitectureModel.DeploymentFact;
 import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
@@ -34,7 +35,7 @@ public final class MarkdownRenderer {
             String when, String then, String and, String none, String colon, String ticket, String page, String element, String architecture, String modules,
             String exchanges, String own, String common, String missing, String existing, String via,
             String deviations, String decision, String deviation, String efforts, String notDeployed,
-            String multiple, String cross, String shared) {
+            String multiple, String cross, String shared, String attachment) {
     }
 
     private static final Labels FR = new Labels("Résumé", "Détails", "Use cases", "Scénarios d'acceptation", "Hypothèses",
@@ -45,7 +46,7 @@ public final class MarkdownRenderer {
             "commun", "flux manquant, à créer", "flux existant", "via", "Écarts aux ADR", "Décision", "Écart",
             "Efforts supplémentaires (déploiement)", "aucune instance en production, à déployer",
             "plusieurs instances en production", "traverse des infrastructures (ouverture réseau ou exposition à prévoir)",
-            "dépend d'une infrastructure partagée");
+            "dépend d'une infrastructure partagée", "document joint");
     private static final Labels EN = new Labels("Summary", "Details", "Use cases", "Acceptance scenarios", "Assumptions",
             "Functional requirements", "Technical requirements", "Actor", "Goal", "Preconditions", "Main flow",
             "Alternatives", "Source", "need excerpt", "answer", "Assumption", "project context", "As a", "Given", "When", "Then", "And",
@@ -53,7 +54,8 @@ public final class MarkdownRenderer {
             "Impacted modules", "Flows", "project-specific", "shared", "missing flow, to be created", "existing flow", "via",
             "ADR deviations", "Decision", "Deviation", "Additional effort (deployment)",
             "no production instance, to be deployed", "several production instances",
-            "crosses infrastructures (network opening or exposure to plan)", "depends on a shared infrastructure");
+            "crosses infrastructures (network opening or exposure to plan)", "depends on a shared infrastructure",
+            "attached document");
 
     private MarkdownRenderer() {
     }
@@ -86,7 +88,7 @@ public final class MarkdownRenderer {
             list(md, l.alternatives(), uc.alternatives(), false, l);
             if (uc.source() != null) {
                 md.append("- **").append(l.source()).append("**" + l.colon()).append(sourceLabel(uc.source(), l));
-                if (uc.source().excerpt() != null && !uc.source().excerpt().isBlank()) {
+                if (!uc.source().attachment() && uc.source().excerpt() != null && !uc.source().excerpt().isBlank()) {
                     md.append(" « ").append(escape(uc.source().excerpt())).append(" »");
                 }
                 md.append('\n');
@@ -241,7 +243,9 @@ public final class MarkdownRenderer {
             case ASSUMPTION -> l.assumption().toLowerCase(java.util.Locale.ROOT);
             case PROJECT_CONTEXT -> l.projectContext();
             case JIRA_ISSUE -> l.ticket() + " " + escape(source.ref());
-            case DOC_PAGE -> l.page() + " " + escape(source.ref());
+            case DOC_PAGE -> source.attachment()
+                    ? l.attachment() + " " + escape(source.ref().substring(Attachment.REF_PREFIX.length()))
+                    : l.page() + " " + escape(source.ref());
             case ARCH_ELEMENT -> l.element() + " " + escape(source.ref());
         };
     }

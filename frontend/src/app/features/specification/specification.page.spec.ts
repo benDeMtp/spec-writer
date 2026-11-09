@@ -50,7 +50,12 @@ const SPEC: Specification = {
   title: 'Saisir un avoir',
   summary: 'Résumé',
   details: '',
-  useCases: [useCase('UC-1', 'JIRA_ISSUE', 'FACT-7'), useCase('UC-2', 'DOC_PAGE', ADR), useCase('UC-3', 'ARCH_ELEMENT', 'Avoirs')],
+  useCases: [
+    useCase('UC-1', 'JIRA_ISSUE', 'FACT-7'),
+    useCase('UC-2', 'DOC_PAGE', ADR),
+    useCase('UC-3', 'ARCH_ELEMENT', 'Avoirs'),
+    useCase('UC-4', 'DOC_PAGE', 'joint:CR COPIL.pdf'),
+  ],
   scenarios: [],
   assumptions: [],
   requirements: [],
@@ -122,6 +127,21 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(sources[2].textContent).toContain("Élément d'architecture");
     expect(sources[2].textContent).toContain('Avoirs');
     expect(sources[2].querySelector('a')).toBeNull();
+    // document joint (009) : cité par son nom, sans lien
+    expect(text(sources[3])).toContain('Document joint CR COPIL.pdf');
+    expect(sources[3].querySelector('a')).toBeNull();
+  });
+
+  it('documents joints de la session : liste, ajout désactivé sur une feature implémentée', async () => {
+    await open(implemented, [{ number: 1 }]);
+    ctrl
+      .expectOne('/api/sessions/s1/attachments')
+      .flush([{ id: 'a1', title: 'CR COPIL', fileName: 'CR COPIL.pdf', format: 'PDF', chars: 12 }]);
+    await settle();
+    const attachments = el.querySelector('sw-attachments')!;
+    expect(attachments.textContent).toContain('CR COPIL.pdf');
+    expect(button('Joindre un document').disabled).toBe(true);
+    expect((attachments.querySelector('button[aria-label="Retirer CR COPIL"]') as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('affiche les rubriques Architecture, Écarts aux ADR et Efforts supplémentaires', async () => {

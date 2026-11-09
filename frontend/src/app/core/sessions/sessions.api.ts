@@ -60,8 +60,11 @@ export class SessionsApi {
     return firstValueFrom(this.http.get<VersionSummary[]>(`/api/sessions/${encodeURIComponent(id)}/versions`));
   }
 
-  create(need: string): Promise<SessionDetail> {
-    return firstValueFrom(this.http.post<SessionDetail>('/api/sessions', { need }));
+  /** Les documents joints avant le démarrage (009) sont rattachés avant le premier lot de questions. */
+  create(need: string, attachmentIds: string[] = []): Promise<SessionDetail> {
+    return firstValueFrom(
+      this.http.post<SessionDetail>('/api/sessions', attachmentIds.length ? { need, attachmentIds } : { need }),
+    );
   }
 
   get(id: string): Promise<SessionDetail> {

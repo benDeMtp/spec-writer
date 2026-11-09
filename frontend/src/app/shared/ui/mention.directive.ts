@@ -44,7 +44,7 @@ export function mentionAt(text: string, caret: number): { start: number; query: 
   return { start: at, query };
 }
 
-const KIND_LABELS: Record<MentionKind, string> = { DOCUMENT: 'Document', PAGE: 'Page de documentation', ADR: 'ADR' };
+const KIND_LABELS: Record<MentionKind, string> = { DOCUMENT: 'Document', PAGE: 'Page de documentation', ADR: 'ADR', ATTACHMENT: 'Document joint' };
 
 let nextId = 0;
 

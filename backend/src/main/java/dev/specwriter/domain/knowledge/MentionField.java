@@ -4,5 +4,7 @@ package dev.specwriter.domain.knowledge;
 public enum MentionField {
     NEED,
     ANSWER,
-    INSTRUCTION
+    INSTRUCTION,
+    /** Document joint à la session (009) : pas un champ de saisie, un document désigné par son ajout. */
+    ATTACHMENT
 }

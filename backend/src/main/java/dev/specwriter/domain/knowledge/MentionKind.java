@@ -6,5 +6,7 @@ public enum MentionKind {
     DOCUMENT,
     /** Page entière d'une documentation Antora. */
     PAGE,
-    ADR
+    ADR,
+    /** Document joint à la session (009) : jamais proposé après @, désigné par son ajout. */
+    ATTACHMENT
 }

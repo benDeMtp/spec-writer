@@ -7,6 +7,9 @@ import dev.specwriter.application.knowledge.MentionQueries.FieldText;
 import dev.specwriter.application.knowledge.MentionQueries.MentionState;
 import dev.specwriter.application.knowledge.MentionQueries.State;
 import dev.specwriter.application.knowledge.MentionQueries.Suggestion;
+import dev.specwriter.application.attachment.AttachmentDrafts;
+import dev.specwriter.domain.attachment.Attachment;
+import dev.specwriter.domain.attachment.AttachmentDraft;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.knowledge.AdrStatus;
@@ -14,6 +17,7 @@ import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.MentionField;
 import dev.specwriter.domain.knowledge.MentionKind;
 import dev.specwriter.domain.llm.ProposedQuestion;
+import dev.specwriter.domain.port.AttachmentReader;
 import dev.specwriter.domain.port.ModelCapacities;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectContext;
@@ -23,8 +27,12 @@ import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.settings.ModelCapacity;
 import dev.specwriter.support.FakeEmbedding;
+import dev.specwriter.support.FixedClock;
+import dev.specwriter.support.InMemoryAttachments;
 import dev.specwriter.support.InMemoryKnowledgeIndex;
 import dev.specwriter.support.JiraWorld;
+import dev.specwriter.support.SequentialIdGenerator;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.OptionalInt;
@@ -256,5 +264,60 @@ class MentionQueriesTest {
         MentionState gros = states(with(models(32_000, GRAND)), "@FAQ_Aurora_Features @Gros").get(1);
         assertThat(gros.state()).isIn(State.PARTIAL, State.NO_ROOM);
         assertThat(gros.betterModel()).isEqualTo(new MentionQueries.BetterModel("grand", "Grand modèle", 1.0));
+    }
+
+    // 009 : état des documents joints, dans l'ordre de transmission (contracts/api.md)
+
+    final InMemoryAttachments attachments = new InMemoryAttachments();
+    final AttachmentDrafts drafts = new AttachmentDrafts(
+            (name, content) -> AttachmentReader.Reading.of(null, new String(content, StandardCharsets.UTF_8)),
+            new FixedClock(), new SequentialIdGenerator());
+
+    MentionQueries withAttachments() {
+        AnalyzeArchitecture analyze = new AnalyzeArchitecture(index, w.llm, w.policy);
+        return new MentionQueries(w.projects, w.sessions, index,
+                new SelectKnowledge(w.projects, index, new FakeEmbedding(), analyze, StoryFamily.none(), null, null,
+                        ModelCapacities.UNKNOWN, attachments), drafts, attachments);
+    }
+
+    @Test
+    void brouillonsAnnoncesCommeDesMentionsApresLeBesoin() {
+        for (int i = 1; i <= 4; i++) {
+            doc("Lot/D" + i + ".docx", "D" + i, 2_000);
+        }
+        AttachmentDraft j1 = drafts.create("CR COPIL.pdf", "c".repeat(1_000).getBytes(StandardCharsets.UTF_8));
+        AttachmentDraft j2 = drafts.create("Annexe.docx", "a".repeat(1_000).getBytes(StandardCharsets.UTF_8));
+
+        List<MentionState> found = withAttachments().resolve(P, null,
+                List.of(new FieldText(MentionField.NEED, "voir @D1 et @D2"), new FieldText(MentionField.ANSWER, "@D3 @D4")),
+                List.of(j1.id(), j2.id()));
+
+        assertThat(found).extracting(MentionState::field).containsExactly(MentionField.NEED, MentionField.NEED,
+                MentionField.ATTACHMENT, MentionField.ATTACHMENT, MentionField.ANSWER, MentionField.ANSWER);
+        assertThat(found).extracting(MentionState::state).containsExactly(State.TRANSMITTED, State.TRANSMITTED,
+                State.TRANSMITTED, State.TRANSMITTED, State.NO_ROOM, State.NO_ROOM);
+        assertThat(found.get(2).document()).satisfies(d -> {
+            assertThat(d.kind()).isEqualTo(MentionKind.ATTACHMENT);
+            assertThat(d.title()).isEqualTo("CR COPIL");
+            assertThat(d.path()).isEqualTo("CR COPIL.pdf");
+            assertThat(d.insert()).isNull();
+        });
+        // sans aucune mention, les documents joints ont quand même leur état ; un brouillon expiré est ignoré
+        assertThat(withAttachments().resolve(P, null, List.of(), List.of(j1.id(), UUID.randomUUID())))
+                .singleElement().satisfies(m -> assertThat(m.transmittedShare()).isEqualTo(100));
+    }
+
+    @Test
+    void documentsJointsDeLaSessionEtLongDocumentEnPartie() {
+        Session session = Session.start(UUID.randomUUID(), P, Need.of("Le gestionnaire doit planifier ses activités du jour, en tenant compte des absences et des priorités."), null, T);
+        w.sessions.save(session, Questionnaire.empty());
+        attachments.add(Attachment.create(UUID.randomUUID(), session.id(), 1, null, "Long.pdf", "l".repeat(40_000), T));
+
+        MentionState state = withAttachments().resolve(P, session.id(), List.of(), List.of()).getFirst();
+
+        assertThat(state.field()).isEqualTo(MentionField.ATTACHMENT);
+        assertThat(state.state()).isEqualTo(State.PARTIAL);
+        assertThat(state.transmittedShare()).isBetween(1, 99);
+        assertThat(state.text()).isEqualTo("Long");
     }
 }

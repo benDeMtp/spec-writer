@@ -196,6 +196,13 @@ paths:
               type: object
               properties:
                 sessionId: { type: string, format: uuid }
+                attachmentIds:
+                  type: array
+                  maxItems: 5
+                  description: >-
+                    Documents joints avant le démarrage (009) ; avec une session, ses documents comptent aussi.
+                    Chacun a un état de champ ATTACHMENT, placé après les mentions du besoin
+                  items: { type: string, format: uuid }
                 fields:
                   type: array
                   maxItems: 40
@@ -453,10 +460,13 @@ components:
     MentionDocument:
       type: object
       properties:
-        kind: { enum: [DOCUMENT, PAGE, ADR] }
+        kind: { enum: [DOCUMENT, PAGE, ADR, ATTACHMENT] }
         title: { type: string }
-        path: { type: string }
-        insert: { type: string, description: "Mention à écrire : @nom, ou @chemin si le nom est partagé" }
+        path: { type: string, description: Chemin du document, ou nom du fichier d'un document joint (009) }
+        insert:
+          type: string
+          nullable: true
+          description: "Mention à écrire : @nom, ou @chemin si le nom est partagé ; nulle pour un document joint"
     MentionSuggestion:
       type: object
       properties:
@@ -467,8 +477,8 @@ components:
     MentionState:
       type: object
       properties:
-        text: { type: string }
-        field: { enum: [NEED, ANSWER, INSTRUCTION] }
+        text: { type: string, description: Mention écrite, ou titre d'un document joint }
+        field: { enum: [NEED, ANSWER, INSTRUCTION, ATTACHMENT] }
         state: { enum: [TRANSMITTED, PARTIAL, NO_ROOM, AMBIGUOUS, NOT_FOUND, SUPERSEDED, DEPRECATED] }
         document: { $ref: '#/components/schemas/MentionDocument' }
         candidates: { type: array, items: { $ref: '#/components/schemas/MentionDocument' } }

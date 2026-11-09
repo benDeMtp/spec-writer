@@ -148,6 +148,18 @@ class MarkdownRendererTest {
                 .contains("- **Source** : élément d'architecture Facturation/Service Avoirs\n");
     }
 
+    @Test
+    void documentJointCiteParSonNomSansExtrait() {
+        SpecificationContent c = new SpecificationContent("T", "R", List.of(
+                Specs.useCase("UC-01", SourceRef.knowledge(SourceRef.Kind.DOC_PAGE, "joint:CR COPIL.pdf",
+                        "Le délai de rétractation est de 14 jours."))),
+                List.of(), List.of(), List.of());
+        assertThat(MarkdownRenderer.render(c, Language.FR)).contains("- **Source** : document joint CR COPIL.pdf\n")
+                .doesNotContain("rétractation");
+        assertThat(MarkdownRenderer.render(c, Language.EN)).contains("- **Source**: attached document CR COPIL.pdf\n")
+                .doesNotContain("rétractation");
+    }
+
     static final KnowledgeSelection FACTS = new KnowledgeSelection("h", List.of(),
             List.of(new KnowledgeSelection.ImpactedModule("Facturation/Service Avoirs", ArchScope.PROJECT),
                     new KnowledgeSelection.ImpactedModule("Comptabilité", ArchScope.COMMON)),

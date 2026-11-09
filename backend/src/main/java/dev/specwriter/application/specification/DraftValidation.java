@@ -90,8 +90,11 @@ public final class DraftValidation {
             Set<String> citable = new LinkedHashSet<>();
             s.kind().knowledgeKinds().forEach(k -> citable.addAll(knowledge.citable(k)));
             String ref = Citations.resolver(citable).resolve(s.ref());
-            return ref == null || ref.equals(s.ref()) ? uc : new UseCase(uc.code(), uc.title(), uc.actor(), uc.goal(),
-                    uc.preconditions(), uc.nominalFlow(), uc.alternatives(), s.withRef(ref));
+            SourceRef kept = ref == null ? s : s.withRef(ref);
+            // l'extrait d'un document joint ne sort jamais de l'outil (009, research.md R6)
+            kept = kept.attachment() ? kept.withoutExcerpt() : kept;
+            return kept.equals(s) ? uc : new UseCase(uc.code(), uc.title(), uc.actor(), uc.goal(),
+                    uc.preconditions(), uc.nominalFlow(), uc.alternatives(), kept);
         }).toList();
         Citations.Resolver adrs = Citations.resolver(knowledge.citable(KnowledgeKind.ADR));
         List<SpecificationContent.AdrDeviation> deviations = content.adrDeviations().stream()

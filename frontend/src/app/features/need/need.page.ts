@@ -9,6 +9,7 @@ import { firstValueFrom } from 'rxjs';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import { SettingsStore } from '../../core/settings/settings.store';
+import { AttachmentsComponent } from '../../shared/ui/attachments.component';
 import { ConsentDialogComponent } from '../../shared/ui/consent-dialog.component';
 import { MentionStatusComponent } from '../../shared/ui/mention-status.component';
 import { MentionDirective } from '../../shared/ui/mention.directive';
@@ -20,7 +21,15 @@ export const MIN_WORDS = 10;
 @Component({
   selector: 'sw-need-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MentionDirective, MentionStatusComponent],
+  imports: [
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MentionDirective,
+    MentionStatusComponent,
+    AttachmentsComponent,
+  ],
   template: `
     <h1>Nouveau besoin</h1>
     <div class="sheet">
@@ -45,6 +54,7 @@ export const MIN_WORDS = 10;
           <mat-hint align="end">{{ length() }} / {{ max }}</mat-hint>
         </mat-form-field>
         <sw-mention-status [projectId]="projectId()" field="NEED" [text]="text()" (replaced)="text.set($event)" />
+        <sw-attachments [projectId]="projectId()" [fields]="needFields()" (changed)="attachmentIds.set($event)" />
         @if (showError()) {
           <p class="status warn" role="alert">
             Décrivez votre besoin en au moins 10 mots, pour que les questions portent sur votre cas.
@@ -139,6 +149,9 @@ export class NeedPage {
   protected readonly submitted = signal(false);
   protected readonly sending = signal(false);
   protected readonly refused = signal(false);
+  /** Documents joints avant le démarrage (009) : brouillons rattachés à la session au démarrage. */
+  protected readonly attachmentIds = signal<string[]>([]);
+  protected readonly needFields = computed(() => [{ field: 'NEED' as const, text: this.text() }]);
 
   protected readonly length = computed(() => this.text().length);
   protected readonly words = computed(() => {
@@ -171,7 +184,7 @@ export class NeedPage {
     }
     this.sending.set(true);
     try {
-      const session = await this.api.create(this.text().trim());
+      const session = await this.api.create(this.text().trim(), this.attachmentIds());
       await this.router.navigate(['/sessions', session.id]);
     } catch {
       // Le bandeau affiche la cause ; le texte saisi est conservé (FR-023a).

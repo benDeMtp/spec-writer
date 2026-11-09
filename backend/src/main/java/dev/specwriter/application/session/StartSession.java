@@ -1,13 +1,16 @@
 package dev.specwriter.application.session;
 
+import dev.specwriter.application.attachment.AttachmentDrafts;
 import dev.specwriter.application.knowledge.SessionKnowledge;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.application.knowledge.FindRelatedIssues;
 import dev.specwriter.application.knowledge.RelatedIssues;
 import dev.specwriter.application.knowledge.RelatedIssuesStore;
 import dev.specwriter.application.project.CurrentProject;
+import dev.specwriter.domain.attachment.AttachmentDraft;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
+import dev.specwriter.domain.port.AttachmentRepository;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.LlmClient;
@@ -17,6 +20,7 @@ import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Crée une session à partir d'un besoin, dans le projet courant (FR-004 de 002), et calcule le
@@ -36,6 +40,9 @@ public class StartSession {
     private final FindRelatedIssues findRelated;
     private final RelatedIssuesStore related;
     private final SessionKnowledge knowledge;
+    /** Documents joints sur l'écran du besoin (009) ; absents, le démarrage est celui d'avant. */
+    private final AttachmentDrafts drafts;
+    private final AttachmentRepository attachments;
 
     public StartSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
             ClockPort clock, IdGenerator ids) {
@@ -54,6 +61,15 @@ public class StartSession {
     public StartSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
             ClockPort clock, IdGenerator ids, FindRelatedIssues findRelated, RelatedIssuesStore related,
             SessionKnowledge knowledge) {
+        this(sessions, projects, llm, consent, clock, ids, findRelated, related, knowledge, null, null);
+    }
+
+    /** Avec les documents joints avant le démarrage (009, research.md R3). */
+    public StartSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm, ConsentPolicy consent,
+            ClockPort clock, IdGenerator ids, FindRelatedIssues findRelated, RelatedIssuesStore related,
+            SessionKnowledge knowledge, AttachmentDrafts drafts, AttachmentRepository attachments) {
+        this.drafts = drafts;
+        this.attachments = attachments;
         this.knowledge = knowledge;
         this.sessions = sessions;
         this.projects = projects;
@@ -69,11 +85,44 @@ public class StartSession {
         return run(needText, name, CurrentProject.resolve(projects));
     }
 
+    /** Avec les documents joints sur l'écran du besoin, dans l'ordre d'ajout (009). */
+    public SessionSnapshot run(String needText, String name, List<UUID> attachmentIds) {
+        return run(needText, name, CurrentProject.resolve(projects), attachmentIds);
+    }
+
     /** Dans un projet donné : une évolution reste dans le projet de sa spécification d'origine. */
     public SessionSnapshot run(String needText, String name, Project project) {
+        return run(needText, name, project, List.of());
+    }
+
+    /**
+     * Les documents joints sont rangés avec la session avant le premier lot, qui les reçoit ; si le
+     * démarrage échoue, la session et ses documents sont supprimés, et les brouillons restent.
+     */
+    public SessionSnapshot run(String needText, String name, Project project, List<UUID> attachmentIds) {
         Need need = Need.of(needText);
+        List<AttachmentDraft> joined = drafts == null ? List.of() : drafts.get(attachmentIds);
         Session session = Session.start(ids.next(), project.id(), need, name, clock.now());
         consent.requireGranted(ConsentService.COPILOT);
+        if (joined.isEmpty()) {
+            return start(session, project);
+        }
+        sessions.save(session, Questionnaire.empty());
+        for (int i = 0; i < joined.size(); i++) {
+            attachments.add(joined.get(i).attach(session.id(), i + 1, clock.now()));
+        }
+        SessionSnapshot started;
+        try {
+            started = start(session, project);
+        } catch (RuntimeException e) {
+            sessions.delete(session.id());
+            throw e;
+        }
+        drafts.forget(attachmentIds);
+        return started;
+    }
+
+    private SessionSnapshot start(Session session, Project project) {
         if (findRelated != null) {
             RelatedIssues found = findRelated.find(session, project);
             related.save(session.id(), found);

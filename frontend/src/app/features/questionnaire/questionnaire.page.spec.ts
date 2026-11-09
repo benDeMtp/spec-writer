@@ -97,6 +97,28 @@ describe('QuestionnairePage', () => {
     expect(bar.getAttribute('aria-valuetext')).toBe('1 question traitée sur 3');
   });
 
+  it('joint un document depuis le questionnaire', async () => {
+    await open(session());
+    ctrl.expectOne('/api/sessions/s1/attachments').flush([]);
+    await settle(fixture);
+    const input = el.querySelector('sw-attachments input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [new File(['x'], 'CR COPIL.pdf')], configurable: true });
+    input.dispatchEvent(new Event('change'));
+    await settle(fixture);
+    ctrl
+      .expectOne((r) => r.method === 'POST' && r.url === '/api/sessions/s1/attachments')
+      .flush({ id: 'a1', title: 'CR COPIL', fileName: 'CR COPIL.pdf', format: 'PDF', chars: 12 });
+    await settle(fixture);
+    expect(el.querySelector('sw-attachments')?.textContent).toContain('CR COPIL.pdf');
+  });
+
+  it('implémentée : rien ne se joint', async () => {
+    await open(session({ implementation: { status: 'IMPLEMENTED', implementedAt: '2026-11-02T08:00:00Z', evolvedFromSessionId: null } }));
+    ctrl.expectOne('/api/sessions/s1/attachments').flush([]);
+    await settle(fixture);
+    expect(button(el, 'Joindre un document')?.disabled).toBe(true);
+  });
+
   it('place le focus sur la première question du lot', async () => {
     await open(session());
     expect(document.activeElement?.textContent).toBe('Question q2 ?');

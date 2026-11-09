@@ -175,10 +175,10 @@ export interface KnowledgeHit {
 }
 
 /** Sorte d'un document mentionnable avec @ (007). */
-export type MentionKind = 'DOCUMENT' | 'PAGE' | 'ADR';
+export type MentionKind = 'DOCUMENT' | 'PAGE' | 'ADR' | 'ATTACHMENT';
 
 /** Champ où une mention est écrite (007). */
-export type MentionField = 'NEED' | 'ANSWER' | 'INSTRUCTION';
+export type MentionField = 'NEED' | 'ANSWER' | 'INSTRUCTION' | 'ATTACHMENT';
 
 /** Suggestion après @ : la mention à insérer garde le nom, ou le chemin s'il est partagé. */
 export interface MentionSuggestion {
@@ -194,7 +194,8 @@ export interface MentionDocument {
   kind: MentionKind;
   title: string;
   path: string;
-  insert: string;
+  /** Mention à insérer ; nulle pour un document joint (009), qui ne se mentionne pas. */
+  insert: string | null;
 }
 
 /** État d'une mention avant la génération, estimé sur l'index (007, research.md R8). */

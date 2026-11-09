@@ -143,6 +143,13 @@ paths:
               properties:
                 need: { type: string, minLength: 1, maxLength: 10000 }
                 name: { type: string, maxLength: 120 }
+                attachmentIds:
+                  type: array
+                  maxItems: 5
+                  description: >-
+                    Documents joints sur l'écran du besoin (009) : rattachés à la session avant le premier lot
+                    de questions ; un brouillon inconnu ou expiré donne 422 VALIDATION_FAILED
+                  items: { type: string, format: uuid }
       responses:
         '201': { content: { application/json: { schema: { $ref: '#/components/schemas/SessionDetail' } } } }
         '422': { $ref: '#/components/responses/Problem' }
@@ -181,6 +188,52 @@ paths:
       responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SessionDetail' } } } } }
 
   # ---------- Génération et versions (User Stories 2 et 3) ----------
+  /api/attachment-drafts:
+    post:
+      summary: >-
+        Document joint avant le démarrage (009) : contenu brut du fichier, lu aussitôt dans un fichier
+        temporaire supprimé ; seul le texte extrait est gardé, en mémoire 60 minutes
+      parameters: [{ $ref: '#/components/parameters/AttachmentName' }]
+      requestBody: { $ref: '#/components/requestBodies/AttachmentContent' }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Attachment' } } } }
+        '413': { description: Fichier de plus de 20 Mo (PAYLOAD_TOO_LARGE), $ref: '#/components/responses/Problem' }
+        '422':
+          description: >-
+            UNSUPPORTED_FORMAT (autre que .docx, .xlsx, .pdf, .html, .htm), DOCUMENT_UNREADABLE (protégé, sans
+            texte, trop volumineux, illisible), VALIDATION_FAILED (nom vide ou de plus de 255 caractères)
+          $ref: '#/components/responses/Problem'
+  /api/attachment-drafts/{draftId}:
+    parameters: [{ name: draftId, in: path, required: true, schema: { type: string, format: uuid } }]
+    delete:
+      summary: Oublie un document joint avant le démarrage (009)
+      responses: { '204': { description: Brouillon oublié } }
+  /api/sessions/{id}/attachments:
+    parameters: [{ $ref: '#/components/parameters/SessionId' }]
+    get:
+      summary: Documents joints à la session, dans l'ordre d'ajout, sans leur texte (009)
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Attachment' } } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      summary: Joint un document depuis le questionnaire ou la spécification (009, US3)
+      parameters: [{ $ref: '#/components/parameters/AttachmentName' }]
+      requestBody: { $ref: '#/components/requestBodies/AttachmentContent' }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Attachment' } } } }
+        '409': { description: Feature implémentée (SPECIFICATION_LOCKED), $ref: '#/components/responses/Problem' }
+        '413': { description: Fichier de plus de 20 Mo, $ref: '#/components/responses/Problem' }
+        '422': { description: Comme un brouillon, plus ATTACHMENT_LIMIT (5) et ATTACHMENT_DUPLICATE, $ref: '#/components/responses/Problem' }
+  /api/sessions/{id}/attachments/{attachmentId}:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+      - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      summary: Retire un document joint ; les versions existantes ne changent pas (009)
+      responses:
+        '204': { description: Document retiré }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { description: Feature implémentée (SPECIFICATION_LOCKED), $ref: '#/components/responses/Problem' }
   /api/sessions/{id}/versions:
     parameters: [{ $ref: '#/components/parameters/SessionId' }]
     get:
@@ -353,11 +406,34 @@ components:
   parameters:
     SessionId: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     VersionNumber: { name: n, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    AttachmentName:
+      name: name
+      in: query
+      required: true
+      description: Nom du fichier choisi, sans chemin (le navigateur n'en donne pas)
+      schema: { type: string, minLength: 1, maxLength: 255 }
+  requestBodies:
+    AttachmentContent:
+      required: true
+      description: >-
+        Contenu brut du fichier (20 Mo au plus) ; seul type accepté hors JSON, et sur ces routes seulement
+        (la limite de 256 Ko reste partout ailleurs)
+      content: { application/octet-stream: { schema: { type: string, format: binary } } }
   responses:
     Problem:
       description: Erreur au format RFC 9457
       content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
   schemas:
+    Attachment:
+      type: object
+      description: Document joint (009) ; son texte extrait n'est jamais renvoyé
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        fileName: { type: string }
+        format: { enum: [DOCX, XLSX, PDF, HTML] }
+        chars: { type: integer, description: Caractères extraits }
+        addedAt: { type: string, format: date-time }
     Problem:
       type: object
       required: [code, userMessage]

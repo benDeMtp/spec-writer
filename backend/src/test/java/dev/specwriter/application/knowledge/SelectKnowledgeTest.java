@@ -2,6 +2,7 @@ package dev.specwriter.application.knowledge;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.specwriter.domain.attachment.Attachment;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.jira.TicketLink;
 import dev.specwriter.domain.knowledge.AdrStatus;
@@ -28,6 +29,7 @@ import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.settings.ModelCapacity;
 import dev.specwriter.support.FakeDocumentFolder;
+import dev.specwriter.support.InMemoryAttachments;
 import dev.specwriter.support.FakeEmbedding;
 import dev.specwriter.support.InMemoryKnowledgeIndex;
 import dev.specwriter.support.JiraWorld;
@@ -881,5 +883,81 @@ class SelectKnowledgeTest {
         ProjectKnowledge k = select.forSpecification(session, List.of());
         assertThat(k.withBudget(162_000).fingerprint()).isNotEqualTo(k.fingerprint());
         assertThat(k.withBudget(162_000).withBudget(ProjectKnowledge.MAX_TOTAL).fingerprint()).isEqualTo(k.fingerprint());
+    }
+
+    // 009 : documents joints, transmis comme des documents désignés (research.md R5, clarification 4)
+
+    final InMemoryAttachments attachments = new InMemoryAttachments();
+
+    SelectKnowledge withAttachments() {
+        w.docSources.save(documents);
+        return new SelectKnowledge(w.projects, index, embedding, analyze, StoryFamily.none(), w.docSources, w.folder,
+                ModelCapacities.UNKNOWN, attachments);
+    }
+
+    Attachment join(Session s, int ordinal, String fileName, String text) {
+        Attachment a = Attachment.create(UUID.randomUUID(), s.id(), ordinal, null, fileName, text, T);
+        attachments.add(a);
+        return a;
+    }
+
+    @Test
+    void documentJointTransmisCommeUnDocumentDesigne() {
+        Attachment cr = join(session, 1, "CR COPIL.pdf", "Le délai de rétractation est de 14 jours.");
+
+        ProjectKnowledge k = withAttachments().forSpecification(session, List.of());
+
+        assertThat(designated(k)).singleElement().satisfies(e -> {
+            assertThat(e.kind()).isEqualTo(KnowledgeKind.DOC_SECTION);
+            assertThat(e.role()).isNull();
+            assertThat(e.ref()).isEqualTo("joint:CR COPIL.pdf").isEqualTo(cr.ref());
+            assertThat(e.title()).isEqualTo("CR COPIL");
+            assertThat(e.text()).isEqualTo("Le délai de rétractation est de 14 jours.");
+        });
+        int position = k.entries().indexOf(designated(k).getFirst());
+        assertThat(k.entries().subList(0, position)).allMatch(e -> e.role() != null);
+        // pour les questions et la modification aussi
+        assertThat(designated(withAttachments().forQuestions(session, List.of()))).hasSize(1);
+        assertThat(designated(withAttachments().forEdit(session, List.of(), "Ajoute un cas d'erreur.", ""))).hasSize(1);
+        // sans dépôt de documents joints, rien ne change
+        assertThat(designated(select.forSpecification(session, List.of()))).isEmpty();
+    }
+
+    @Test
+    void ordreMentionsDuBesoinDocumentsJointsPuisReponsesQuatreAuPlus() {
+        document("Need1.docx", "Need1", List.of("Partie"), 500, true);
+        document("Need2.docx", "Need2", List.of("Partie"), 500, true);
+        document("Reponse.docx", "Reponse", List.of("Partie"), 500, true);
+        Session s = sessionWith(NEED + " Voir @Need1 et @Need2.");
+        join(s, 1, "J1.pdf", "Premier document joint.");
+        join(s, 2, "J2.pdf", "Deuxième document joint.");
+        join(s, 3, "J3.pdf", "Troisième document joint.");
+
+        List<ProjectKnowledge.Entry> sent = designated(withAttachments().forSpecification(s,
+                List.of(answer("q1", "voir aussi @Reponse"))));
+
+        assertThat(sent).extracting(ProjectKnowledge.Entry::title).containsExactly("Need1", "Need2", "J1", "J2");
+    }
+
+    @Test
+    void documentJointLongCoupeAUneSection() {
+        String text = "# Contexte\n\n" + text("Contexte : l'avoir.", 5_000) + "\n\n# Règles\n\n"
+                + text("Règles : la facture.", 5_000) + "\n\n# Annexes\n\n" + text("Annexes.", 5_000);
+        join(session, 1, "Long.docx", text);
+
+        ProjectKnowledge.Entry e = designated(withAttachments().forSpecification(session, List.of())).getFirst();
+
+        assertThat(e.title().length() + e.text().length()).isLessThanOrEqualTo(SelectKnowledge.MAX_MENTIONED_PART);
+        assertThat(e.text()).startsWith("# Contexte").doesNotContain("# Annexes").endsWith("[document tronqué]");
+    }
+
+    @Test
+    void lEmpreinteSuitLeTexteDuDocumentJoint() {
+        Attachment a = join(session, 1, "CR.pdf", "Version 1 du compte rendu.");
+        String before = withAttachments().forSpecification(session, List.of()).fingerprint();
+        assertThat(withAttachments().forSpecification(session, List.of()).fingerprint()).isEqualTo(before);
+        attachments.remove(session.id(), a.id());
+        join(session, 1, "CR.pdf", "Version 2 du compte rendu.");
+        assertThat(withAttachments().forSpecification(session, List.of()).fingerprint()).isNotEqualTo(before);
     }
 }

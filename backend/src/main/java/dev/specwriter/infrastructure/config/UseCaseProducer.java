@@ -1,9 +1,5 @@
 package dev.specwriter.infrastructure.config;
 
-import dev.specwriter.domain.port.AgentAccessRepository;
-import dev.specwriter.domain.port.AgentEndpoint;
-import dev.specwriter.domain.port.DocumentationReader;
-import dev.specwriter.domain.port.DocSourceRepository;
 import dev.specwriter.application.agent.AgentChangeStatus;
 import dev.specwriter.application.agent.AgentJournal;
 import dev.specwriter.application.agent.FeatureKnowledge;
@@ -12,38 +8,11 @@ import dev.specwriter.application.agent.ListFeatures;
 import dev.specwriter.application.agent.ListProjectsForAgent;
 import dev.specwriter.application.agent.ManageAgentAccess;
 import dev.specwriter.application.agent.SearchKnowledgeForAgent;
-import dev.specwriter.application.context.ManageDocSources;
-import dev.specwriter.application.context.EditContext;
-import dev.specwriter.application.knowledge.AnalyzeArchitecture;
-import dev.specwriter.application.knowledge.ManageEmbeddingSettings;
-import dev.specwriter.application.knowledge.ReportSubtasks;
-import dev.specwriter.application.knowledge.SelectKnowledge;
-import dev.specwriter.application.knowledge.StoryFamily;
-import dev.specwriter.application.knowledge.SessionKnowledge;
-import dev.specwriter.application.knowledge.Indexations;
-import dev.specwriter.application.knowledge.CompareWithIssue;
-import dev.specwriter.application.knowledge.FindRelatedIssues;
-import dev.specwriter.application.knowledge.RelatedIssuesStore;
-import dev.specwriter.application.session.ChangeStatus;
-import dev.specwriter.application.session.EvolveSpecification;
-import dev.specwriter.application.session.ResolveRelatedIssue;
-import dev.specwriter.application.jira.RetryRelatedLink;
-import dev.specwriter.domain.port.ModelCapacities;
-import dev.specwriter.domain.port.SessionRelationRepository;
-import dev.specwriter.application.knowledge.KnowledgeQueries;
-import dev.specwriter.domain.port.DocumentFileStates;
-import dev.specwriter.domain.port.DocumentFiles;
-import dev.specwriter.domain.port.DocumentFolder;
-import dev.specwriter.application.knowledge.ReadDocFile;
-import dev.specwriter.application.knowledge.ListAdrs;
-import dev.specwriter.application.knowledge.ManageArchitectureSource;
-import dev.specwriter.application.knowledge.MentionQueries;
-import dev.specwriter.application.knowledge.SynchronizeKnowledge;
-import dev.specwriter.domain.port.ArchitectureReader;
-import dev.specwriter.domain.port.EmbeddingPort;
-import dev.specwriter.domain.port.KnowledgeIndex;
-import dev.specwriter.domain.port.KnowledgeSourceRepository;
+import dev.specwriter.application.attachment.AttachmentDrafts;
+import dev.specwriter.application.attachment.ManageAttachments;
 import dev.specwriter.application.consent.UpdateConsent;
+import dev.specwriter.application.context.EditContext;
+import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.jira.CreateJiraTicket;
 import dev.specwriter.application.jira.GetJiraIssue;
 import dev.specwriter.application.jira.ImportJiraIssue;
@@ -51,6 +20,23 @@ import dev.specwriter.application.jira.JiraAccess;
 import dev.specwriter.application.jira.ListProjectIssues;
 import dev.specwriter.application.jira.PreviewJiraTicket;
 import dev.specwriter.application.jira.PushToJira;
+import dev.specwriter.application.jira.RetryRelatedLink;
+import dev.specwriter.application.knowledge.AnalyzeArchitecture;
+import dev.specwriter.application.knowledge.CompareWithIssue;
+import dev.specwriter.application.knowledge.FindRelatedIssues;
+import dev.specwriter.application.knowledge.Indexations;
+import dev.specwriter.application.knowledge.KnowledgeQueries;
+import dev.specwriter.application.knowledge.ListAdrs;
+import dev.specwriter.application.knowledge.ManageArchitectureSource;
+import dev.specwriter.application.knowledge.ManageEmbeddingSettings;
+import dev.specwriter.application.knowledge.MentionQueries;
+import dev.specwriter.application.knowledge.ReadDocFile;
+import dev.specwriter.application.knowledge.RelatedIssuesStore;
+import dev.specwriter.application.knowledge.ReportSubtasks;
+import dev.specwriter.application.knowledge.SelectKnowledge;
+import dev.specwriter.application.knowledge.SessionKnowledge;
+import dev.specwriter.application.knowledge.StoryFamily;
+import dev.specwriter.application.knowledge.SynchronizeKnowledge;
 import dev.specwriter.application.project.CheckJiraProjectKey;
 import dev.specwriter.application.project.CreateProject;
 import dev.specwriter.application.project.DeleteProject;
@@ -59,15 +45,12 @@ import dev.specwriter.application.project.SelectCurrentProject;
 import dev.specwriter.application.project.UpdateProject;
 import dev.specwriter.application.search.UnifiedSearch;
 import dev.specwriter.application.session.AnswerQuestion;
+import dev.specwriter.application.session.ChangeStatus;
 import dev.specwriter.application.session.ConcludeQuestionnaire;
+import dev.specwriter.application.session.EvolveSpecification;
 import dev.specwriter.application.session.ManageSessions;
+import dev.specwriter.application.session.ResolveRelatedIssue;
 import dev.specwriter.application.session.StartSession;
-import dev.specwriter.application.specification.AcceptAiEdit;
-import dev.specwriter.application.specification.GenerateSpecification;
-import dev.specwriter.application.specification.DeleteVersion;
-import dev.specwriter.application.specification.OperationRegistry;
-import dev.specwriter.application.specification.ProposalStore;
-import dev.specwriter.application.specification.ProposeAiEdit;
 import dev.specwriter.application.settings.DeleteJiraSettings;
 import dev.specwriter.application.settings.DisconnectCopilot;
 import dev.specwriter.application.settings.PollCopilotConnection;
@@ -76,18 +59,39 @@ import dev.specwriter.application.settings.SaveJiraSettings;
 import dev.specwriter.application.settings.SelectModel;
 import dev.specwriter.application.settings.StartCopilotConnection;
 import dev.specwriter.application.settings.TestJiraConnection;
+import dev.specwriter.application.specification.AcceptAiEdit;
+import dev.specwriter.application.specification.DeleteVersion;
+import dev.specwriter.application.specification.GenerateSpecification;
+import dev.specwriter.application.specification.OperationRegistry;
+import dev.specwriter.application.specification.ProposalStore;
+import dev.specwriter.application.specification.ProposeAiEdit;
 import dev.specwriter.domain.consent.ConsentPolicy;
+import dev.specwriter.domain.port.AgentAccessRepository;
+import dev.specwriter.domain.port.AgentEndpoint;
+import dev.specwriter.domain.port.ArchitectureReader;
+import dev.specwriter.domain.port.AttachmentReader;
+import dev.specwriter.domain.port.AttachmentRepository;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.ConsentRepository;
+import dev.specwriter.domain.port.DocSourceRepository;
+import dev.specwriter.domain.port.DocumentFileStates;
+import dev.specwriter.domain.port.DocumentFiles;
+import dev.specwriter.domain.port.DocumentFolder;
+import dev.specwriter.domain.port.DocumentationReader;
+import dev.specwriter.domain.port.EmbeddingPort;
 import dev.specwriter.domain.port.GitHubAuthenticator;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.IssueTracker;
+import dev.specwriter.domain.port.KnowledgeIndex;
+import dev.specwriter.domain.port.KnowledgeSourceRepository;
 import dev.specwriter.domain.port.LinkedTicketRepository;
-import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.port.LocalSearch;
-import dev.specwriter.domain.port.SessionRepository;
+import dev.specwriter.domain.port.ModelCapacities;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SecretStore;
+import dev.specwriter.domain.port.SessionRelationRepository;
+import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SettingsRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.port.TextDiff;
@@ -101,6 +105,21 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 /** Câblage des cas d'usage, qui restent sans dépendance au framework (plan.md, architecture hexagonale). */
 @ApplicationScoped
 public class UseCaseProducer {
+
+    /** Documents joints avant le démarrage, en mémoire (009, research.md R3). */
+    @Produces
+    @ApplicationScoped
+    AttachmentDrafts attachmentDrafts(AttachmentReader reader, ClockPort clock, IdGenerator ids) {
+        return new AttachmentDrafts(reader, clock, ids);
+    }
+
+    /** Documents joints d'une session démarrée (009, US3). */
+    @Produces
+    @ApplicationScoped
+    ManageAttachments manageAttachments(SessionRepository sessions, AttachmentRepository attachments,
+            AttachmentReader reader, ClockPort clock, IdGenerator ids) {
+        return new ManageAttachments(sessions, attachments, reader, clock, ids);
+    }
 
     @Produces
     @ApplicationScoped
@@ -172,8 +191,10 @@ public class UseCaseProducer {
     @ApplicationScoped
     StartSession startSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm,
             ConsentPolicy consent, ClockPort clock, IdGenerator ids, FindRelatedIssues findRelated,
-            RelatedIssuesStore related, SessionKnowledge knowledge) {
-        return new StartSession(sessions, projects, llm, consent, clock, ids, findRelated, related, knowledge);
+            RelatedIssuesStore related, SessionKnowledge knowledge, AttachmentDrafts drafts,
+            AttachmentRepository attachments) {
+        return new StartSession(sessions, projects, llm, consent, clock, ids, findRelated, related, knowledge, drafts,
+                attachments);
     }
 
     @Produces
@@ -187,17 +208,19 @@ public class UseCaseProducer {
     @ApplicationScoped
     SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
             AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
-            ModelCapacities capacities) {
-        return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder, capacities);
+            ModelCapacities capacities, AttachmentRepository attachments) {
+        return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder, capacities,
+                attachments);
     }
 
     /** Mentions @ d'un document (007) : suggestions et état, avec la place calculée comme à la génération. */
     @Produces
     @ApplicationScoped
     MentionQueries mentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
-            EmbeddingPort embedding, AnalyzeArchitecture analyze, ModelCapacities capacities) {
+            EmbeddingPort embedding, AnalyzeArchitecture analyze, ModelCapacities capacities, AttachmentDrafts drafts, AttachmentRepository attachments) {
         return new MentionQueries(projects, sessions, index,
-                new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), null, null, capacities));
+                new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), null, null, capacities,
+                        attachments), drafts, attachments);
     }
 
     /** Sous-tâches de la story liée, rattachées aux cas d'usage d'une version (research.md R29). */
