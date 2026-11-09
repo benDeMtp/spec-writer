@@ -31,6 +31,5 @@
 
 ## Notes
 
-- Choix par défaut à confirmer par `/speckit-clarify` : plafond de 5 documents par session, place des
-  documents joints dans l'ordre des documents désignés (FR-008), texte gardé dans la session (choix de
-  la conception non discuté), absence du texte dans l'export et dans Jira.
+- Choix par défaut confirmés par `/speckit-clarify` (2026-11-09) : texte gardé dans la session,
+  écrans où joindre, texte jamais sorti de l'outil, ordre des documents désignés, plafond de 5.

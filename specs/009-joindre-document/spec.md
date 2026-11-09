@@ -13,6 +13,16 @@ Prolonge `specs/008-budget-selon-modele/` (budget selon le modèle), `specs/007-
 bornes), dont les décisions restent valables. Le morceau 3 de la conception (classeur en base de la
 spécification) a été abandonné par le mainteneur le 2026-11-09.
 
+## Clarifications
+
+### Session 2026-11-09
+
+- Q: L'outil garde-t-il le texte extrait d'un document joint dans les données de la session ? → A: Oui : le texte extrait est gardé avec la session, sur le poste, et supprimé avec elle ; ni le fichier ni son chemin ne sont gardés.
+- Q: Depuis quels écrans peut-on joindre ou retirer un document ? → A: Depuis l'écran du besoin avant le démarrage, puis depuis le questionnaire et l'écran de la spécification pendant toute la vie de la session ; refusé sur une feature implémentée.
+- Q: Le texte d'un document joint sort-il de l'outil (export, Jira, passerelle des agents) ? → A: Jamais : seul le titre du document, cité comme source, apparaît dans la spécification, l'export, Jira et la passerelle des agents.
+- Q: Dans quel ordre passent documents joints et documents mentionnés quand la place manque ? → A: Mentions du besoin, puis documents joints dans l'ordre d'ajout, puis mentions des réponses, puis de l'instruction ; les 4 premiers documents désignés sont transmis, comptés ensemble.
+- Q: Combien de documents peut-on joindre au plus à une session ? → A: 5.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Joindre un document au besoin (Priority: P1) 🎯 MVP
@@ -129,8 +139,10 @@ transmis ; le retirer puis régénérer : il ne l'est plus, et la version préc�
   sa raison et ne garde rien.
 - **FR-003**: Une session MUST accepter au plus 5 documents joints ; un doublon (même contenu) est
   refusé.
-- **FR-004**: L'utilisateur MUST pouvoir retirer un document joint avant le démarrage et pendant la
-  vie de la session (US3), sauf sur une spécification verrouillée.
+- **FR-004**: L'utilisateur MUST pouvoir joindre et retirer un document depuis l'écran du besoin
+  avant le démarrage, puis depuis le questionnaire et l'écran de la spécification pendant toute la
+  vie de la session (US3) ; joindre ou retirer est refusé sur une spécification verrouillée (feature
+  implémentée).
 
 **Garder**
 
@@ -140,16 +152,18 @@ transmis ; le retirer puis régénérer : il ne l'est plus, et la version préc�
 - **FR-006**: Le texte d'un document joint MUST être supprimé avec la session (suppression locale de
   la 002) et MUST ne jamais entrer dans l'index du projet, la recherche, la passerelle des agents ni
   une autre session.
-- **FR-007**: Le texte d'un document joint MUST ne jamais apparaître dans les journaux ni les messages
-  d'erreur.
+- **FR-007**: Le texte d'un document joint MUST ne jamais apparaître dans les journaux, les messages
+  d'erreur, l'export Markdown, l'envoi vers Jira ni la passerelle des agents ; seul son titre y
+  figure, quand la spécification le cite comme source.
 
 **Transmettre**
 
 - **FR-008**: Un document joint MUST être transmis à l'IA comme un document désigné avec @ (007) :
   après la fiche générale, avant les documents trouvés par la recherche, dans la part des documents
   désignés du budget du modèle choisi (008), coupé à une section s'il dépasse sa part ; documents
-  désignés comptés ensemble, dans l'ordre : mentions du besoin, documents joints (ordre d'ajout),
-  mentions des réponses, puis de l'instruction.
+  désignés comptés ensemble (4 au plus, comme en 007), dans l'ordre : mentions du besoin, documents
+  joints (ordre d'ajout), mentions des réponses, puis de l'instruction ; un document au-delà est
+  affiché « non transmis : plus de place ».
 - **FR-009**: Un document joint MUST être transmis à toutes les opérations qui reçoivent la
   connaissance du projet (questions, spécification, modification), et entrer dans l'empreinte de la
   génération : à documents joints identiques, une régénération réutilise la version existante.
@@ -190,14 +204,12 @@ transmis ; le retirer puis régénérer : il ne l'est plus, et la version préc�
 
 - Un seul rôle : « Référence ». Le rôle « Base de la spec » et le morceau 3 de la conception sont
   abandonnés.
-- Le plafond de 5 documents joints par session est un choix par défaut, cohérent avec les 4 documents
-  désignés transmis au plus (007) : au-delà, la place manque de toute façon.
+- Le plafond de 5 documents joints par session (confirmé, Clarifications) laisse un document de
+  réserve au-delà des 4 documents désignés transmis au plus (007).
 - Le texte d'un document joint est gardé comme le besoin et les réponses : localement, dans les
-  données de l'outil, pour la vie de la session ; ce n'est pas une copie du fichier (conception, choix
-  à confirmer par le mainteneur).
+  données de l'outil, pour la vie de la session ; ce n'est pas une copie du fichier (confirmé par le
+  mainteneur, Clarifications).
 - Le consentement à l'envoi vers GitHub Copilot (001) couvre les documents joints, comme le besoin.
-- L'export Markdown et l'envoi vers Jira ne contiennent pas le texte des documents joints ; la
-  traçabilité cite le document par son titre.
 - Hors périmètre : reconnaissance de caractères (OCR), formats anciens (`.doc`, `.xls`), PowerPoint,
   joindre un document à une seule réponse ou à une seule instruction (le document appartient à la
   session), rôle « Base de la spec ».
