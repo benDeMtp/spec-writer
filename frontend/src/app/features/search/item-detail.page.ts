@@ -27,7 +27,7 @@ import { ConsentGate } from '../../shared/ui/consent-gate.service';
         </p>
         <div class="actions">
           <button mat-flat-button type="button" [disabled]="importing()" (click)="evolve()">Faire évoluer avec l'IA</button>
-          <a mat-button routerLink="/">Retour à la recherche</a>
+          <a mat-button routerLink="/sessions">Retour aux spécifications</a>
         </div>
         <p role="status" aria-live="polite" class="announce">{{ status() }}</p>
       </header>
@@ -39,7 +39,7 @@ import { ConsentGate } from '../../shared/ui/consent-gate.service';
         }
       </article>
     } @else if (failed()) {
-      <p>Ce ticket n'a pas pu être lu. <a routerLink="/">Retour à la recherche</a></p>
+      <p>Ce ticket n'a pas pu être lu. <a routerLink="/sessions">Retour aux spécifications</a></p>
     } @else {
       <p role="status" aria-live="polite">Chargement du ticket…</p>
     }

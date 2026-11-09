@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { LaunchTokenService } from './core/launch/launch-token.service';
@@ -21,9 +21,8 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
         }
         <nav aria-label="Navigation principale">
           <ul>
-            <li><a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page">Recherche</a></li>
-            <li><a routerLink="/nouveau" routerLinkActive="active" ariaCurrentWhenActive="page">Nouveau besoin</a></li>
-            <li><a routerLink="/sessions" routerLinkActive="active" ariaCurrentWhenActive="page">Sessions</a></li>
+            <li><a routerLink="/" [class.active]="conversation()" [attr.aria-current]="conversation() ? 'page' : null">Conversation</a></li>
+            <li><a routerLink="/sessions" routerLinkActive="active" ariaCurrentWhenActive="page">Spécifications</a></li>
             <li><a routerLink="/jira" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page">Tickets Jira</a></li>
             <li><a routerLink="/projets" routerLinkActive="active" ariaCurrentWhenActive="page">Projets</a></li>
             <li><a routerLink="/journal" routerLinkActive="active" ariaCurrentWhenActive="page">Journal</a></li>
@@ -134,12 +133,16 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 export class App {
   protected readonly launch = inject(LaunchTokenService);
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
+  /** Accueil ou conversation ouverte : l'entrée « Conversation » du menu est la page courante. */
+  protected readonly conversation = signal(false);
 
   constructor() {
     // Gestion du focus : après chaque navigation, le focus va au contenu principal.
     inject(Router)
       .events.pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe((e) => {
+        const path = (e as NavigationEnd).urlAfterRedirects.split(/[?#]/)[0];
+        this.conversation.set(path === '/' || path.startsWith('/conversations/'));
         if ((e as NavigationEnd).id > 1) {
           queueMicrotask(() => this.main().nativeElement.focus());
         }

@@ -3,7 +3,18 @@ import { copilotRequiredGuard } from './core/settings/copilot-required.guard';
 
 /** Une route chargée à la demande par dossier de features/ (tâche T037). */
 export const routes: Routes = [
-  { path: '', title: 'Recherche · spec-writer', loadComponent: () => import('./features/search/search.page').then((m) => m.SearchPage) },
+  {
+    path: '',
+    title: 'Conversation · spec-writer',
+    loadComponent: () => import('./features/conversation/conversation.page').then((m) => m.ConversationPage),
+  },
+  {
+    path: 'conversations/:cid',
+    title: 'Conversation · spec-writer',
+    loadComponent: () => import('./features/conversation/conversation.page').then((m) => m.ConversationPage),
+  },
+  // la recherche est dans l'écran des spécifications (010, US5) ; l'ancienne adresse mène à l'accueil
+  { path: 'recherche', redirectTo: '' },
   {
     path: 'jira',
     pathMatch: 'full',
@@ -15,7 +26,7 @@ export const routes: Routes = [
     title: 'Ticket Jira · spec-writer',
     loadComponent: () => import('./features/search/item-detail.page').then((m) => m.ItemDetailPage),
   },
-  { path: 'nouveau', title: 'Nouveau besoin · spec-writer', canActivate: [copilotRequiredGuard], loadComponent: () => import('./features/need/need.page').then((m) => m.NeedPage) },
+  { path: 'nouveau', title: 'Nouvelle spécification · spec-writer', canActivate: [copilotRequiredGuard], loadComponent: () => import('./features/need/need.page').then((m) => m.NeedPage) },
   {
     path: 'sessions/:id',
     title: 'Questionnaire · spec-writer',
@@ -26,7 +37,7 @@ export const routes: Routes = [
     title: 'Spécification · spec-writer',
     loadComponent: () => import('./features/specification/specification.page').then((m) => m.SpecificationPage),
   },
-  { path: 'sessions', title: 'Sessions · spec-writer', loadComponent: () => import('./features/sessions/sessions.page').then((m) => m.SessionsPage) },
+  { path: 'sessions', title: 'Spécifications · spec-writer', loadComponent: () => import('./features/sessions/sessions.page').then((m) => m.SessionsPage) },
   {
     path: 'projets/:id/contexte/adr',
     title: 'ADR · spec-writer',

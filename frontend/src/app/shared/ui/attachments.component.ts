@@ -4,18 +4,20 @@ import {
   Component,
   ElementRef,
   OnDestroy,
+  computed,
   effect,
   inject,
   input,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { KnowledgeApi } from '../../core/projects/knowledge.api';
 import { MentionField, MentionState } from '../../core/projects/projects.model';
 import { isProblem } from '../../core/http/problem';
-import { AttachmentView, AttachmentsApi } from '../../core/sessions/attachments.api';
+import { AttachmentOwner, AttachmentView, AttachmentsApi } from '../../core/sessions/attachments.api';
 import { MENTION_DELAYS } from './mention.directive';
 import { betterModelLabel, mentionLabel } from './mention-status.component';
 
@@ -132,6 +134,8 @@ export class AttachmentsComponent implements OnDestroy {
   readonly projectId = input<string | null>(null);
   /** Session démarrée : ses documents ; sinon, des brouillons. */
   readonly sessionId = input<string | null>(null);
+  /** Conversation (010) : ses documents, lus par l'agent et repris dans la spécification. */
+  readonly conversationId = input<string | null>(null);
   /** Champs en cours de saisie : leurs mentions passent avant ou après les documents joints. */
   readonly fields = input<{ field: MentionField; text: string }[]>([]);
   /** Feature implémentée : rien ne s'ajoute ni ne se retire. */
@@ -151,18 +155,32 @@ export class AttachmentsComponent implements OnDestroy {
   protected readonly busy = signal(false);
   protected readonly message = signal('');
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private owned = false;
   private request = 0;
+
+  /** Session ou conversation qui porte les documents ; aucune : des brouillons. */
+  private readonly owner = computed<[AttachmentOwner, string] | null>(() => {
+    const sessionId = this.sessionId();
+    const conversationId = this.conversationId();
+    return sessionId ? ['sessions', sessionId] : conversationId ? ['conversations', conversationId] : null;
+  });
 
   constructor() {
     effect(() => {
-      const sessionId = this.sessionId();
-      if (sessionId) {
-        void this.load(sessionId);
+      const owner = this.owner();
+      if (owner) {
+        this.owned = true;
+        void this.load(owner);
+      } else if (this.owned) {
+        // nouvelle conversation : plus de documents
+        this.owned = false;
+        untracked(() => this.items.set([]));
       }
     });
     effect(() => {
       const projectId = this.projectId();
       const sessionId = this.sessionId();
+      const conversationId = this.conversationId();
       const fields = this.fields();
       const items = this.items();
       clearTimeout(this.timer);
@@ -171,10 +189,10 @@ export class AttachmentsComponent implements OnDestroy {
         this.states.set([]);
         return;
       }
-      const drafts = sessionId ? [] : items.map((a) => a.id);
+      const drafts = this.owner() ? [] : items.map((a) => a.id);
       this.timer = setTimeout(async () => {
         try {
-          const states = await this.knowledge.resolveMentions(projectId, sessionId, fields, drafts);
+          const states = await this.knowledge.resolveMentions(projectId, sessionId, fields, drafts, conversationId);
           if (request === this.request) {
             this.states.set(states.filter((s) => s.field === 'ATTACHMENT'));
           }
@@ -221,8 +239,8 @@ export class AttachmentsComponent implements OnDestroy {
     this.busy.set(true);
     this.message.set(`Lecture de « ${file.name} »…`);
     try {
-      const sessionId = this.sessionId();
-      const added = sessionId ? await this.api.add(sessionId, file) : await this.api.draft(file);
+      const owner = this.owner();
+      const added = owner ? await this.api.add(owner[1], file, owner[0]) : await this.api.draft(file);
       this.items.update((list) => [...list, added]);
       this.message.set(`« ${added.title} » est joint.`);
       this.emit();
@@ -234,10 +252,10 @@ export class AttachmentsComponent implements OnDestroy {
   }
 
   protected async remove(a: AttachmentView): Promise<void> {
-    const sessionId = this.sessionId();
+    const owner = this.owner();
     try {
-      if (sessionId) {
-        await this.api.remove(sessionId, a.id);
+      if (owner) {
+        await this.api.remove(owner[1], a.id, owner[0]);
       } else {
         await this.api.forgetDraft(a.id).catch(() => undefined);
       }
@@ -249,9 +267,9 @@ export class AttachmentsComponent implements OnDestroy {
     }
   }
 
-  private async load(sessionId: string): Promise<void> {
+  private async load([owner, id]: [AttachmentOwner, string]): Promise<void> {
     try {
-      this.items.set(await this.api.list(sessionId));
+      this.items.set(await this.api.list(id, owner));
     } catch {
       this.items.set([]);
     }

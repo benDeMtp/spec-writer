@@ -85,11 +85,17 @@ export class KnowledgeApi {
     sessionId: string | null,
     fields: { field: MentionField; text: string }[],
     attachmentIds: string[] = [],
+    conversationId: string | null = null,
   ): Promise<MentionState[]> {
     return firstValueFrom(
       this.http.post<MentionState[]>(
         `${this.base(projectId)}/mentions/resolve`,
-        attachmentIds.length ? { sessionId, fields, attachmentIds } : { sessionId, fields },
+        {
+          sessionId,
+          fields,
+          ...(attachmentIds.length ? { attachmentIds } : {}),
+          ...(conversationId ? { conversationId } : {}),
+        },
         { headers: new HttpHeaders({ 'X-Sw-Silent': '1' }) },
       ),
     );

@@ -75,7 +75,7 @@ describe('SessionsPage', () => {
     await settle(fixture);
     ctrl.expectOne('/api/sessions').flush([LIST[0], { ...LIST[1], name: 'Paiement en ligne' }]);
     await settle(fixture);
-    expect(el.querySelector('[role="status"]')?.textContent).toContain('Session renommée en « Paiement en ligne »');
+    expect(el.querySelector('.sheet .announce')?.textContent).toContain('Spécification renommée en « Paiement en ligne »');
   });
 
   it('supprime après confirmation dans un dialogue', async () => {
@@ -96,5 +96,13 @@ describe('SessionsPage', () => {
     ctrl.expectOne('/api/sessions').flush(LIST.slice(1));
     await settle(fixture);
     expect(el.querySelectorAll('li')).toHaveLength(2);
+  });
+
+  it('« Spécifications » : nouvelle spécification et recherche dans le même écran', async () => {
+    expect(el.querySelector('h1')?.textContent).toContain('Spécifications');
+    expect(el.querySelector('a[href="/nouveau"]')?.textContent).toContain('Nouvelle spécification');
+    expect(el.querySelector('form[role="search"]')).toBeTruthy();
+    expect(el.querySelector('#search-title')?.tagName).toBe('H2');
+    expect(el.querySelector('#list-title')?.textContent).toContain('Vos spécifications');
   });
 });

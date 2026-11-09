@@ -14,7 +14,8 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { ConversationsApi } from '../../core/conversations/conversations.api';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import { RelatedIssues, SessionDetail } from '../../core/sessions/sessions.model';
 import { ProgressComponent } from './progress.component';
@@ -36,10 +37,14 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
     QuestionCardComponent,
     RelatedIssuesComponent,
     AttachmentsComponent,
+    RouterLink,
   ],
   template: `
     @if (session(); as s) {
       <h1>{{ s.name }}</h1>
+      @if (origin(); as o) {
+        <p class="origin">Issue de la conversation <a [routerLink]="['/conversations', o.id]">{{ o.name }}</a></p>
+      }
       <div class="sheet">
         <details class="need">
           <summary>Besoin initial</summary>
@@ -137,6 +142,10 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
     }
   `,
   styles: `
+    .origin {
+      margin: -0.5rem 0 1rem;
+      color: var(--sw-ink-soft);
+    }
     h1 {
       margin: 0 0 1.5rem;
       font-family: var(--sw-font-doc);
@@ -232,11 +241,14 @@ export class QuestionnairePage implements OnInit {
   private readonly api = inject(SessionsApi);
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
+  private readonly conversations = inject(ConversationsApi);
 
   /** Identifiant de session, lu dans l'URL. */
   readonly id = input.required<string>();
 
   protected readonly session = signal<SessionDetail | null>(null);
+  /** Conversation dont vient la spécification (010, US2). */
+  protected readonly origin = signal<{ id: string; name: string } | null>(null);
   /** Implémentée : verrouillée, aucune écriture possible (FR-026a de 002). */
   protected readonly locked = computed(() => this.session()?.implementation?.status === 'IMPLEMENTED');
   protected readonly busy = signal(false);
@@ -250,6 +262,7 @@ export class QuestionnairePage implements OnInit {
   private readonly firstPendingId = computed(() => this.session()?.currentBatch[0]?.id ?? null);
 
   async ngOnInit(): Promise<void> {
+    void this.conversations.origin(this.id()).then((o) => this.origin.set(o), () => undefined);
     const detail = await this.api.get(this.id());
     if (detail.state === 'QUESTIONING' && !detail.currentBatch.length && !detail.answeredQuestions.length) {
       // session créée sans questions : des tickets proches attendent peut-être un choix
