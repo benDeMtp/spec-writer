@@ -1,5 +1,6 @@
 package dev.specwriter.infrastructure.web;
 
+import dev.specwriter.application.conversation.ConversationSuggestions;
 import dev.specwriter.application.conversation.Converse;
 import dev.specwriter.application.conversation.ManageConversations;
 import dev.specwriter.domain.conversation.Conversation;
@@ -24,9 +25,19 @@ public class ProjectConversationResource {
     @Inject
     ManageConversations manage;
 
+    @Inject
+    ConversationSuggestions suggestions;
+
     @GET
     public List<Conversation> list(@PathParam("id") String id) {
         return manage.list(ProjectResource.projectId(id));
+    }
+
+    /** Exemples de questions tirés de la connaissance du projet ; vide s'il n'a rien d'indexé. */
+    @GET
+    @Path("/suggestions")
+    public List<String> suggestions(@PathParam("id") String id) {
+        return suggestions.of(ProjectResource.projectId(id));
     }
 
     @POST

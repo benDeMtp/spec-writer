@@ -432,6 +432,13 @@ paths:
       responses:
         '201': { description: La conversation }
         '404': { description: Projet inconnu }
+  /api/projects/{id}/conversations/suggestions:
+    get:
+      summary: >-
+        Exemples de questions de l'accueil (010), tirés de la connaissance indexée du projet sans appel
+        à l'IA : un ADR en vigueur (sinon un élément d'architecture), un ticket ouvert, une page
+      responses:
+        '200': { description: "3 textes au plus ; aucun si rien n'est indexé" }
   /api/conversations/{cid}:
     get:
       summary: "Conversation : messages (étapes, sources citées avec leur adresse) et spécifications liées"

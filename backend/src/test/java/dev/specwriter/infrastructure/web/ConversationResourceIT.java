@@ -3,6 +3,7 @@ package dev.specwriter.infrastructure.web;
 import static dev.specwriter.support.LocalApi.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 import dev.specwriter.domain.project.Project;
 import io.quarkus.test.junit.QuarkusTest;
@@ -78,6 +79,8 @@ class ConversationResourceIT {
         api().delete("/api/conversations/" + id + "/turns/" + UUID.randomUUID()).then().statusCode(404);
         api().get("/api/conversations/pas-un-id").then().statusCode(404);
         api().post("/api/projects/" + UUID.randomUUID() + "/conversations").then().statusCode(404);
+        // exemples tirés de la connaissance du projet : une liste, vide tant que rien n'est indexé
+        api().get(BASE + "/suggestions").then().statusCode(200).body("size()", lessThanOrEqualTo(3));
         consent(false);
         api().body(Map.of("text", "IT-AGENT Bonjour ?")).post("/api/conversations/" + id + "/messages").then()
                 .statusCode(428);

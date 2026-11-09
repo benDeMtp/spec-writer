@@ -47,12 +47,6 @@ const KINDS: Record<SourceKind, string> = {
   ATTACHMENT: 'Document joint',
 };
 
-const EXAMPLES = [
-  'Comment est organisée l’architecture du projet ?',
-  'Quels tickets parlent des avoirs ?',
-  'La documentation et les tickets sont-ils cohérents sur les règles de lettrage ?',
-];
-
 /**
  * Conversation avec l'agent, écran d'accueil (010, US1, US4) : la réponse est une note rédigée, qui
  * appelle ses sources par leur numéro et les liste en notes ; les recherches de l'agent forment un
@@ -107,12 +101,14 @@ const EXAMPLES = [
               Posez une question sur le projet{{ projectName() ? ' ' + projectName() : '' }}. L’agent cherche dans ses
               tickets, sa documentation, ses ADR et ses spécifications, puis répond en citant ses sources.
             </p>
-            <p class="hint">Par exemple :</p>
-            <ul class="examples">
-              @for (e of examples; track e) {
-                <li><button mat-button type="button" (click)="useExample(e)">{{ e }}</button></li>
-              }
-            </ul>
+            @if (examples().length) {
+              <p class="hint">D’après ce que l’agent sait du projet, par exemple :</p>
+              <ul class="examples">
+                @for (e of examples(); track e) {
+                  <li><button mat-button type="button" (click)="useExample(e)">{{ e }}</button></li>
+                }
+              </ul>
+            }
           </div>
         }
 
@@ -262,6 +258,14 @@ const EXAMPLES = [
       margin: 0 0 1.5rem;
       padding: 0;
     }
+    .examples button {
+      /* un exemple cite un titre réel : il passe à la ligne au lieu de déborder */
+      height: auto;
+      padding-block: 0.4rem;
+      line-height: 1.4;
+      text-align: start;
+      white-space: normal;
+    }
     .log {
       list-style: none;
       margin: 0;
@@ -394,7 +398,8 @@ export class ConversationPage implements OnDestroy {
   private readonly composer = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
 
   protected readonly max = MAX_MESSAGE;
-  protected readonly examples = EXAMPLES;
+  /** Exemples tirés de la connaissance du projet courant ; aucun tant que rien n'est indexé. */
+  protected readonly examples = signal<string[]>([]);
   protected readonly projectId = this.projects.currentId;
   protected readonly projectName = computed(() => this.projects.current()?.name ?? '');
   protected readonly threads = signal<ConversationSummary[]>([]);
@@ -659,10 +664,15 @@ export class ConversationPage implements OnDestroy {
     this.stream = null;
     this.problem.set('');
     this.draft.set(null);
+    this.examples.set([]);
     if (!projectId) {
       return;
     }
     await this.refreshThreads(projectId);
+    void this.api.suggestions(projectId).then(
+      (list) => this.examples.set(list),
+      () => this.examples.set([]),
+    );
     if (!cid) {
       this.detail.set(null);
       this.messages.set([]);

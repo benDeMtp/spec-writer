@@ -15,6 +15,7 @@ import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ManageDocSources;
 import dev.specwriter.application.conversation.ConversationSearch;
 import dev.specwriter.application.conversation.ConversationAttachments;
+import dev.specwriter.application.conversation.ConversationSuggestions;
 import dev.specwriter.application.conversation.Converse;
 import dev.specwriter.application.conversation.DesignatedDocuments;
 import dev.specwriter.application.conversation.DraftNeed;
@@ -151,6 +152,12 @@ public class UseCaseProducer {
     ManageConversations manageConversations(ProjectRepository projects, ConversationRepository conversations,
             SessionRepository sessions, JiraAccess jira, OperationRegistry operations) {
         return new ManageConversations(projects, conversations, sessions, jira, operations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConversationSuggestions conversationSuggestions(KnowledgeIndex index) {
+        return new ConversationSuggestions(index);
     }
 
     @Produces

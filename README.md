@@ -95,7 +95,9 @@ L'outil s'ouvre sur la conversation du projet courant. Posez une question : l'ag
 recherches dans la connaissance du projet (tickets, pages, ADR, documents, architecture) et dans la
 dernière version de ses spécifications, chacune affichée comme une étape, puis rédige sa réponse au
 fil de l'eau. Il cite ses sources par numéro, `[1]`, listées sous la réponse ; une spécification
-citée s'ouvre sur sa version. Sans source, il dit qu'il ne sait pas.
+citée s'ouvre sur sa version. Sans source, il dit qu'il ne sait pas. Les exemples de questions de
+l'accueil sont tirés de la connaissance du projet (un ADR, un ticket ouvert, une page de
+documentation) ; tant que rien n'est indexé, il n'y en a pas.
 
 - **Recherche documentaire** : « Quels tickets parlent des avoirs ? ».
 - **Incohérences** : « La documentation et les tickets sont-ils d'accord sur le délai de lettrage ? ».

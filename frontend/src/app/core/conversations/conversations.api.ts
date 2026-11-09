@@ -50,6 +50,15 @@ export class ConversationsApi {
     );
   }
 
+  /** Exemples de questions tirés de la connaissance du projet ; vide s'il n'a rien d'indexé. */
+  suggestions(projectId: string): Promise<string[]> {
+    return firstValueFrom(
+      this.http.get<string[]>(`/api/projects/${encodeURIComponent(projectId)}/conversations/suggestions`, {
+        headers: SILENT,
+      }),
+    );
+  }
+
   create(projectId: string): Promise<ConversationSummary> {
     return firstValueFrom(
       this.http.post<ConversationSummary>(`/api/projects/${encodeURIComponent(projectId)}/conversations`, {}),

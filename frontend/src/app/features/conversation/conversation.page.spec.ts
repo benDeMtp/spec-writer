@@ -53,6 +53,7 @@ describe('ConversationPage', () => {
   let consent: boolean;
 
   beforeEach(() => {
+    suggestions = ['Où en est AUR-31 « Lettrage manuel », et qu’en dit la documentation ?'];
     opened = [];
     consent = true;
     TestBed.configureTestingModule({
@@ -78,6 +79,8 @@ describe('ConversationPage', () => {
     TestBed.inject(ProjectsStore).current.set({ id: P, name: 'Aurora' } as never);
   });
 
+  let suggestions: string[];
+
   async function open(cid?: string): Promise<void> {
     fixture = TestBed.createComponent(ConversationPage);
     if (cid) {
@@ -88,6 +91,8 @@ describe('ConversationPage', () => {
     await settle(fixture);
     ctrl.expectOne(`/api/projects/${P}/conversations`).flush([{ id: 'c1', projectId: P, name: 'Avoirs',
       createdAt: '2026-11-09T09:00:00Z', updatedAt: '2026-11-09T09:00:00Z' }]);
+    await settle(fixture);
+    ctrl.expectOne(`/api/projects/${P}/conversations/suggestions`).flush(suggestions);
     await settle(fixture);
   }
 
@@ -106,6 +111,8 @@ describe('ConversationPage', () => {
     await open();
     expect(el.querySelector('h1')?.textContent).toContain('Conversation');
     expect(el.textContent).toContain('Posez une question sur le projet Aurora');
+    // les exemples viennent de la connaissance du projet
+    expect(el.querySelector('.examples')?.textContent).toContain('AUR-31 « Lettrage manuel »');
     expect(el.querySelector('nav[aria-labelledby="threads-title"]')?.textContent).toContain('Avoirs');
 
     type('Comment sont émis les avoirs ?');
@@ -177,6 +184,13 @@ describe('ConversationPage', () => {
     ctrl.expectOne({ method: 'POST', url: '/api/conversations/c1/messages/u1/retry' }).flush({ userMessageId: 'u1', turnId: 'a1' });
     await settle(fixture);
     expect(opened.length).toBe(2);
+  });
+
+  it('projet sans connaissance indexée : aucun exemple', async () => {
+    suggestions = [];
+    await open();
+    expect(el.querySelector('.examples')).toBeNull();
+    expect(el.textContent).not.toContain('par exemple');
   });
 
   it('refus annoncés : accord refusé, Copilot indisponible ; conversation d’un autre projet', async () => {
