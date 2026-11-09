@@ -1,0 +1,25 @@
+{
+  "sheet": "Aurora est l'outil de facturation d'une entreprise de services : factures, avoirs, lettrage des paiements et relances.",
+  "corpus": [
+    {"kind": "TICKET", "ref": "AUR-12", "title": "Émettre un avoir sur une facture", "text": "[Terminé] Le gestionnaire de facturation émet un avoir total ou partiel sur une facture émise. L'avoir reçoit un numéro de la série AV et annule le restant dû à hauteur de son montant."},
+    {"kind": "DOC_SECTION", "ref": "https://docs.aurora.example/lettrage.html#delai", "title": "Lettrage > Délai", "text": "Un paiement reçu est lettré automatiquement sous 48 heures ouvrées. Au-delà, il passe dans la file des paiements à lettrer à la main."},
+    {"kind": "TICKET", "ref": "AUR-31", "title": "Lettrage manuel des paiements", "text": "[En cours] Les paiements non lettrés au bout de 72 heures sont présentés au comptable pour un lettrage manuel."},
+    {"kind": "ADR", "ref": "https://docs.aurora.example/adr/adr-004.html", "title": "ADR 004 : relances par courriel seulement", "text": "Statut : accepté. Les relances de paiement sont envoyées par courriel uniquement ; l'envoi postal est abandonné pour des raisons de coût."},
+    {"kind": "TICKET", "ref": "AUR-40", "title": "Relance postale des gros montants", "text": "[À faire] Pour les factures de plus de 10 000 €, la troisième relance est envoyée par courrier recommandé."},
+    {"kind": "DOC_SECTION", "ref": "https://docs.aurora.example/factures.html#numerotation", "title": "Factures > Numérotation", "text": "Les factures sont numérotées sans trou par exercice comptable, au format FA-AAAA-NNNNN."},
+    {"kind": "SPECIFICATION", "ref": "spec:aurora-echeances@v2", "title": "Échéancier de paiement", "text": "(feature implémentée) Le client peut payer une facture en trois échéances au plus ; chaque échéance a sa date et son montant."},
+    {"kind": "DOC_SECTION", "ref": "https://docs.aurora.example/echeances.html", "title": "Échéances", "text": "Une facture peut être réglée en quatre échéances au plus, à la demande du client."}
+  ],
+  "cases": [
+    {"name": "citation-avoir", "kind": "CITATION", "question": "Comment est émis un avoir dans Aurora ?", "expected": ["AUR-12"]},
+    {"name": "citation-numerotation", "kind": "CITATION", "question": "Quel est le format des numéros de facture ?", "expected": ["https://docs.aurora.example/factures.html#numerotation"]},
+    {"name": "citation-relances", "kind": "CITATION", "question": "Par quel canal partent les relances de paiement, et pourquoi ?", "expected": ["https://docs.aurora.example/adr/adr-004.html"]},
+    {"name": "citation-echeances-spec", "kind": "CITATION", "question": "Que dit la spécification de l'échéancier de paiement ?", "expected": ["spec:aurora-echeances@v2"]},
+    {"name": "abstention-paie", "kind": "ABSTENTION", "question": "Comment Aurora calcule-t-il les fiches de paie des salariés ?"},
+    {"name": "abstention-tva", "kind": "ABSTENTION", "question": "Quel taux de TVA Aurora applique-t-il aux prestations vendues en Suisse ?"},
+    {"name": "abstention-sso", "kind": "ABSTENTION", "question": "Quel fournisseur d'identité gère la connexion unique à Aurora ?"},
+    {"name": "incoherence-lettrage", "kind": "INCONSISTENCY", "question": "Les sources sont-elles cohérentes sur le délai avant lettrage manuel d'un paiement ?", "expected": ["https://docs.aurora.example/lettrage.html#delai", "AUR-31"]},
+    {"name": "incoherence-relances", "kind": "INCONSISTENCY", "question": "Les relances postales sont-elles cohérentes avec les décisions du projet ?", "expected": ["https://docs.aurora.example/adr/adr-004.html", "AUR-40"]},
+    {"name": "incoherence-echeances", "kind": "INCONSISTENCY", "question": "Combien d'échéances au plus pour une facture ? Vérifie que la documentation et les spécifications concordent.", "expected": ["spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html"]}
+  ]
+}

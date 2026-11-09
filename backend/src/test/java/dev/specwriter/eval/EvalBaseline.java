@@ -11,6 +11,12 @@ public record EvalBaseline(double tolerance, Map<String, Double> minimum, Map<St
 
     public static final String QUESTION_RELEVANCE = "questionRelevance";
     public static final String SCENARIO_STRUCTURE = "scenarioStructure";
+    /** 010 : réponses qui citent la source attendue. */
+    public static final String CONVERSATION_CITATION = "conversationCitation";
+    /** 010 : questions hors de la connaissance du projet auxquelles l'agent ne répond rien de sourcé. */
+    public static final String CONVERSATION_ABSTENTION = "conversationAbstention";
+    /** 010 : paires contradictoires signalées avec leurs deux sources. */
+    public static final String INCONSISTENCY_RECALL = "inconsistencyRecall";
 
     private static final double EPSILON = 1e-9;
 

@@ -1,8 +1,10 @@
 package dev.specwriter.infrastructure.llm;
 
 import dev.langchain4j.model.chat.ChatModel;
+import dev.specwriter.domain.port.ConversationLlm;
 import dev.specwriter.infrastructure.platform.ProxySettings;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 
@@ -36,6 +38,12 @@ public final class EvalCopilot implements AutoCloseable {
     /** Modèle utilisé par l'application ; {@code model} vide pour le modèle par défaut du compte. */
     public ChatModel chatModel(Optional<String> model) {
         return new CopilotSdkChatModel(runtime, () -> model);
+    }
+
+    /** Agent conversationnel (010) : plan par schéma, réponse en flux, comme dans l'application. */
+    public ConversationLlm conversationLlm(Optional<String> model) {
+        return new LangChainConversationLlm(chatModel(model), new CopilotConversationStream(runtime, () -> model),
+                Duration.ofMinutes(3));
     }
 
     /** Version du Copilot CLI utilisé, telle qu'il l'affiche ; « embarqué » s'il vient du SDK. */
