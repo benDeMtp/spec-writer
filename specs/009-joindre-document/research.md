@@ -26,7 +26,10 @@ brut `application/octet-stream`, le nom du fichier en paramètre `name` ; aucun 
 transmis (le navigateur ne le donne pas). Limite de corps : `quarkus.http.limits.max-body-size` porté
 à 21 Mo, et un filtre de route (`BodySizeFilter`, Vert.x) refuse au-delà de 256 Ko toute requête
 qui n'est pas un envoi de document joint (en-tête `Content-Length`, corps sans longueur refusés hors
-de ces routes) : la protection d'aujourd'hui reste entière pour le reste de l'API.
+de ces routes) : la protection d'aujourd'hui reste entière pour le reste de l'API. `LocalSecurityFilter`
+n'accepte que JSON pour les requêtes qui modifient (protection contre les requêtes d'un autre site) ;
+`application/octet-stream` est accepté seulement sur ces deux routes : ce type n'est pas « simple »,
+il impose donc la même vérification préalable du navigateur, et l'origine reste contrôlée.
 
 **Rationale** : un seul fichier par requête, sans dépendance ; le filtre garde la borne de 256 Ko
 partout ailleurs.

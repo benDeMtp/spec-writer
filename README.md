@@ -136,6 +136,26 @@ Quand un document est coupé et qu'un autre modèle autorisé le transmettrait e
 le nomme, le moins coûteux d'abord (« transmis en entier avec Claude Sonnet 5.5 (×1) ») ; le
 modèle se change dans la configuration.
 
+### Joindre un document
+
+Un document reçu par mail ou téléchargé, hors du dossier synchronisé, se joint à une spécification :
+**Joindre un document** sous le besoin, dans le questionnaire ou sur la page de la spécification.
+Word (`.docx`), Excel (`.xlsx`), PDF et HTML, avec les mêmes limites que le dossier synchronisé
+(20 Mo par fichier, 200 000 caractères extraits) ; 5 documents au plus par spécification. Un
+fichier protégé par un mot de passe, un PDF scanné sans texte ou un ancien format (`.doc`, `.xls`)
+est refusé avec la raison.
+
+Le document joint est transmis à l'IA comme un document mentionné avec @ : après les mentions du
+besoin, avant celles des réponses, 4 documents au plus en tout, dans la place du modèle choisi. Son
+état s'affiche comme celui d'une mention (transmis, en partie, plus de place). Il ne sert qu'à
+cette spécification et n'entre pas dans l'index du projet.
+
+spec-writer ne garde ni le fichier ni son chemin : seulement le texte extrait, avec la session,
+supprimé avec elle. Une régénération reste donc possible si le fichier est déplacé ou supprimé. Ce
+texte ne sort pas de l'outil : la spécification, l'export, Jira et les agents de code ne voient que
+le nom du fichier, cité comme « Document joint <nom> », sans extrait. Une feature implémentée est
+verrouillée : rien ne s'y joint ni ne s'en retire.
+
 ### Choisir le modèle selon la taille de la connaissance
 
 **Configuration › GitHub Copilot › Modèle utilisé** montre, pour chaque modèle, sa limite

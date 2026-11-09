@@ -1,0 +1,11 @@
+{
+  "operation": "propose-questions",
+  "userContains": ["lettrer les virements", "<document ref=\"joint:Regles lettrage.html\"", "Le délai de lettrage est de 3 jours ouvrés"],
+  "response": {
+    "questions": [
+      {"theme": "BUSINESS_RULES", "label": "Quand le lettrage doit-il être lancé ?", "rationale": "Le document joint fixe un délai, pas le moment du traitement",
+       "suggestions": ["Chaque matin", "En fin de journée"], "defaultValue": "Chaque matin", "dependsOnQuestionIds": []}
+    ],
+    "contradictions": [], "coveredThemes": ["ACTORS", "NOMINAL_FLOW"]
+  }
+}
