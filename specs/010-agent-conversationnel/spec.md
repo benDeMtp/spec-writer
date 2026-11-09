@@ -22,6 +22,10 @@ rédaction d'une spécification.
 
 - Q: Par quel chemin la conversation mène-t-elle à une spécification ? → A: Par le questionnaire actuel, besoin prérempli ; les questions auxquelles la conversation a déjà répondu ne sont pas reposées.
 - Q: Que deviennent les entrées « Recherche » et « Nouveau besoin » du menu ? → A: Elles quittent le menu et vont dans l'écran des spécifications (bouton « Nouvelle spécification », recherche dans la liste).
+- Q: Sous quelle forme ce que la conversation a établi passe-t-il dans la spécification ? → A: L'agent propose le besoin et une liste de points établis (question → réponse), relus, corrigés ou retirés par l'utilisateur ; ils entrent dans le questionnaire comme réponses déjà données, sources citables.
+- Q: Pour une question, l'agent fait-il une seule recherche dans la connaissance ou plusieurs ? → A: Plusieurs, 5 au plus par réponse, chacune affichée comme une étape avant la réponse.
+- Q: La réponse s'affiche-t-elle au fil de l'écriture ou d'un bloc ? → A: Au fil de l'écriture ; le lecteur d'écran annonce la réponse complète à la fin ; une réponse interrompue garde son texte partiel, marqué incomplet.
+- Q: L'agent connaît-il les spécifications déjà rédigées dans le projet ? → A: Oui : la dernière version de chaque spécification du projet est cherchable et citable, comme un ticket ou une page.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -54,8 +58,11 @@ vérifier la réponse, les sources citées et que la relance s'appuie sur l'éch
    **Then** l'agent tient compte de l'échange précédent.
 5. **Given** l'accord Copilot non donné, **When** l'utilisateur envoie son premier message, **Then**
    l'accord est demandé avant tout envoi, comme pour un besoin.
-6. **Given** une réponse en cours, **When** l'agent travaille, **Then** l'écran annonce qu'il
-   cherche puis qu'il répond, et l'utilisateur peut arrêter la réponse.
+6. **Given** une réponse en cours, **When** l'agent travaille, **Then** chaque recherche qu'il lance
+   s'affiche comme une étape (ce qui est cherché, nombre d'éléments trouvés), puis la réponse, et
+   l'utilisateur peut arrêter à tout moment ; le texte de la réponse apparaît au fil de son écriture.
+7. **Given** une question transverse, **When** l'agent a fait 5 recherches, **Then** il répond avec ce
+   qu'il a trouvé et dit que sa recherche s'est arrêtée là.
 
 ---
 
@@ -75,14 +82,19 @@ proposé, sa correction, puis le démarrage de la spécification et ce qu'elle r
 **Acceptance Scenarios**:
 
 1. **Given** une conversation sur un sujet, **When** l'utilisateur demande de rédiger une
-   spécification, **Then** l'agent propose un besoin rédigé, modifiable, sans rien démarrer.
-2. **Given** le besoin proposé, **When** l'utilisateur le valide, **Then** une
-   spécification démarre dans le questionnaire actuel avec ce besoin, et les questions auxquelles la
-   conversation a déjà répondu ne sont pas reposées.
-3. **Given** une spécification démarrée depuis une conversation, **When** l'utilisateur la consulte,
+   spécification, **Then** l'agent propose un besoin rédigé et la liste des points établis par
+   l'échange (question → réponse), tous modifiables, sans rien démarrer.
+2. **Given** les points établis proposés, **When** l'utilisateur en corrige un et en retire un autre,
+   **Then** seuls les points gardés, dans leur version corrigée, seront repris.
+3. **Given** le besoin et les points proposés, **When** l'utilisateur les valide, **Then** une
+   spécification démarre dans le questionnaire actuel avec ce besoin ; les points gardés y figurent
+   comme questions déjà répondues, et une question qu'ils couvrent n'est pas reposée.
+4. **Given** une règle de la spécification venue d'un point établi, **When** l'utilisateur consulte
+   sa source, **Then** elle cite ce point comme une réponse du questionnaire.
+5. **Given** une spécification démarrée depuis une conversation, **When** l'utilisateur la consulte,
    **Then** elle indique la conversation dont elle vient, et la conversation montre le lien vers la
    spécification.
-4. **Given** des documents mentionnés avec @ ou joints dans la conversation, **When** la
+6. **Given** des documents mentionnés avec @ ou joints dans la conversation, **When** la
    spécification démarre, **Then** ils sont repris comme documents désignés de la spécification.
 
 ---
@@ -107,9 +119,12 @@ analyse de cohérence ; vérifier que la contradiction est signalée avec les de
    ce que dit chacune.
 2. **Given** des sources cohérentes, **When** l'utilisateur demande l'analyse, **Then** l'agent dit
    n'avoir trouvé aucune incohérence, en citant les sources comparées.
-3. **Given** plus de sources que la place transmise à l'IA, **When** l'analyse est faite, **Then**
+3. **Given** une spécification existante du projet et un ticket qui la contredit, **When**
+   l'utilisateur demande l'analyse sur ce sujet, **Then** l'agent signale l'écart en citant la
+   spécification (version) et le ticket.
+4. **Given** plus de sources que la place transmise à l'IA, **When** l'analyse est faite, **Then**
    l'agent dit quelles sources n'ont pas été comparées.
-4. **Given** un document désigné avec @ ou joint, **When** l'utilisateur demande s'il est cohérent
+5. **Given** un document désigné avec @ ou joint, **When** l'utilisateur demande s'il est cohérent
    avec le reste du projet, **Then** l'agent compare ce document au reste de la connaissance.
 
 ---
@@ -172,8 +187,8 @@ existants ne doivent pas devenir introuvables.
 - Message très long ou collé depuis un document : borné, l'utilisateur est prévenu de la limite.
 - Conversation très longue : les échanges les plus anciens ne sont plus tous transmis à l'IA ;
   l'outil le signale, et la conversation reste entière à l'écran.
-- Réponse interrompue (arrêt demandé, panne de Copilot, fermeture) : la réponse partielle est
-  marquée comme incomplète ; le message de l'utilisateur n'est pas perdu et peut être renvoyé.
+- Réponse interrompue (arrêt demandé, panne de Copilot, fermeture) : le texte déjà écrit est gardé
+  et marqué incomplet ; le message de l'utilisateur n'est pas perdu et peut être renvoyé.
 - Contenu hostile dans la connaissance du projet ou dans un document joint (« ignore tes
   consignes ») : il reste une donnée et ne change pas le comportement de l'agent.
 - Source citée par l'agent introuvable dans le projet : la citation n'est pas montrée comme une
@@ -189,8 +204,15 @@ existants ne doivent pas devenir introuvables.
 - **FR-001**: L'écran d'accueil de l'outil DOIT être la conversation avec l'agent, sur le projet
   courant affiché et modifiable depuis cet écran.
 - **FR-002**: L'agent DOIT répondre à partir de la connaissance du projet courant (fiche générale,
-  tickets, pages, ADR, documents des dossiers synchronisés, architecture), recherchée à chaque
-  message selon la question et l'échange en cours.
+  tickets, pages, ADR, documents des dossiers synchronisés, architecture, et la dernière version de
+  chaque spécification du projet). Pour une réponse, il PEUT
+  enchaîner jusqu'à 5 recherches dans cette connaissance, chacune choisie d'après la question,
+  l'échange et les résultats précédents ; au-delà, il répond avec ce qu'il a trouvé et le dit.
+- **FR-002a**: Chaque recherche DOIT s'afficher comme une étape de la réponse, avec ce qui est
+  cherché et le nombre d'éléments trouvés (« Recherche : règles de lettrage, 6 éléments »), annoncée
+  de façon accessible ; les étapes restent consultables une fois la réponse donnée.
+- **FR-002b**: Une spécification citée DOIT s'ouvrir depuis sa citation, sur la version citée ; une
+  spécification supprimée cesse d'être cherchable, et une feature implémentée est signalée comme telle.
 - **FR-003**: Chaque réponse DOIT citer les éléments de la connaissance sur lesquels elle s'appuie ;
   seules les références existant dans le projet sont montrées comme sources ; un ticket, une page
   ou un ADR s'ouvre depuis sa citation.
@@ -202,20 +224,24 @@ existants ne doivent pas devenir introuvables.
 - **FR-006**: L'utilisateur DOIT pouvoir désigner des documents avec @ (007) et joindre des
   documents (009) dans la conversation ; leur état (transmis, en partie, plus de place) DOIT
   s'afficher comme aujourd'hui.
-- **FR-007**: Pendant une réponse, l'écran DOIT annoncer l'avancement (recherche, rédaction) de
-  façon accessible, et l'utilisateur DOIT pouvoir l'arrêter ; une réponse arrêtée ou en échec est
+- **FR-007**: La réponse DOIT s'afficher au fil de son écriture ; les lecteurs d'écran DOIVENT
+  recevoir la réponse complète une fois terminée, pas chaque fragment. Pendant une réponse, l'écran
+  DOIT annoncer l'avancement (étapes de recherche, rédaction) de façon accessible, et l'utilisateur DOIT pouvoir l'arrêter ; une réponse arrêtée ou en échec est
   marquée incomplète et le message peut être renvoyé.
 - **FR-008**: Aucun message NE DOIT être envoyé à Copilot sans l'accord de l'utilisateur ; l'accord
   est demandé au premier envoi s'il manque.
 
 **Spécification**
 
-- **FR-009**: Sur demande de l'utilisateur, l'agent DOIT proposer un besoin rédigé à partir de la
-  conversation, que l'utilisateur relit, modifie et valide ; rien ne démarre sans cette validation.
+- **FR-009**: Sur demande de l'utilisateur, l'agent DOIT proposer un besoin rédigé et une liste de
+  points établis par la conversation (chacun une question et sa réponse), que l'utilisateur relit,
+  modifie, retire et valide ; rien ne démarre sans cette validation. Un point ne DOIT reprendre que
+  ce que l'utilisateur a dit ou confirmé dans l'échange, ou ce qu'une source citée établit.
 - **FR-010**: La validation DOIT démarrer une spécification dans le projet courant par le
-  questionnaire actuel, avec le besoin validé ; ce que la conversation a établi est transmis à l'IA,
-  et une question dont la réponse est déjà connue par la conversation NE DOIT PAS être posée
-  (constitution, principe I). Les documents désignés et joints de la conversation sont repris.
+  questionnaire actuel, avec le besoin validé ; les points gardés y entrent comme questions déjà
+  répondues, citables comme sources (constitution, principe II), et une question qu'ils couvrent NE
+  DOIT PAS être posée (principe I). La conversation brute n'est pas transmise à la rédaction. Les
+  documents désignés et joints de la conversation sont repris.
 - **FR-011**: Une spécification démarrée depuis une conversation DOIT garder le lien vers elle, et
   la conversation DOIT montrer le lien vers la spécification.
 - **FR-012**: Les règles de rédaction existantes restent valables : scénarios structurés, traçabilité
@@ -274,10 +300,15 @@ existants ne doivent pas devenir introuvables.
   elle.
 - **Message** : tour de parole de l'utilisateur ou de l'agent ; texte, date, état (complet,
   incomplet), et pour l'agent les sources citées.
+- **Étape de recherche** : recherche lancée par l'agent pendant une réponse ; ce qui est cherché,
+  nombre d'éléments trouvés ; 5 au plus par réponse.
 - **Source citée** : élément de la connaissance du projet sur lequel une réponse s'appuie (ticket,
-  page, ADR, document, élément d'architecture, document joint), avec sa référence.
+  page, ADR, document, élément d'architecture, document joint, spécification du projet), avec sa
+  référence.
 - **Besoin proposé** : besoin rédigé par l'agent à partir de la conversation, modifiable, à valider
-  avant de démarrer une spécification.
+  avant de démarrer une spécification ; accompagné de ses points établis.
+- **Point établi** : question et réponse tirées de la conversation, relues par l'utilisateur ; devient
+  une réponse du questionnaire de la spécification démarrée.
 - **Incohérence** : écart entre deux sources ou plus sur un même sujet ; sources, ce que dit chacune,
   nature de l'écart.
 
@@ -297,7 +328,8 @@ existants ne doivent pas devenir introuvables.
 - **SC-005**: Passer d'une conversation à une spécification démarrée demande au plus 3 actions de
   l'utilisateur après la demande de rédaction.
 - **SC-006**: Le premier signe d'activité de l'agent apparaît en moins d'une seconde après l'envoi ;
-  une réponse courte est complète en moins de 20 secondes avec un modèle courant.
+  une réponse avec une seule recherche est complète en moins de 20 secondes avec un modèle courant,
+  et chaque recherche supplémentaire s'affiche dès qu'elle commence.
 - **SC-007**: Une conversation de 50 échanges se rouvre et se poursuit après un redémarrage sans
   perte de message.
 - **SC-008**: La critique d'ergonomie et l'audit d'accessibilité automatisé ne relèvent aucun écart
