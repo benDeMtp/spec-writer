@@ -110,13 +110,13 @@ test.describe.serial('US9 suppression locale', () => {
 
   test('P9 : supprimer une spécification liée à FACT-1 prévient que Jira n’est pas modifié, et n’y touche pas', async () => {
     await page.goto('/sessions');
-    await page.getByRole('button', { name: `Supprimer la session ${linkedName}` }).click();
-    const dialog = page.getByRole('dialog', { name: 'Supprimer cette session ?' });
+    await page.getByRole('button', { name: `Supprimer la spécification ${linkedName}` }).click();
+    const dialog = page.getByRole('dialog', { name: 'Supprimer cette spécification ?' });
     await expect(dialog).toContainText("Elle est liée au ticket FACT-1 : Jira n'est pas modifié.");
     await dialogOpen();
     await expectNoA11yViolations(page);
     await dialog.getByRole('button', { name: 'Supprimer définitivement' }).click();
-    await expect(page.getByText(`Session « ${linkedName} » supprimée.`)).toBeVisible();
+    await expect(page.getByText(`Spécification « ${linkedName} » supprimée.`)).toBeVisible();
     await expect(page.getByRole('link', { name: linkedName })).toHaveCount(0);
     expect((await page.request.get(`/api/sessions/${linked}`)).status()).toBe(404);
     const found = await (await page.request.get(`/api/search?q=${encodeURIComponent('contrôle des lignes')}`)).json();

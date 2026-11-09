@@ -52,7 +52,7 @@ test.describe.serial('US3 reprise et révision', () => {
     page = await context.newPage();
 
     await page.goto('/sessions');
-    await expect(page.getByRole('heading', { level: 1, name: 'Sessions' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Spécifications' })).toBeVisible();
     await expectNoA11yViolations(page);
     const item = page.getByRole('listitem').filter({ hasText: 'Les employés doivent pouvoir réserver une place' });
     await expect(item).toContainText('Questionnaire en cours');
@@ -112,17 +112,17 @@ test.describe.serial('US3 reprise et révision', () => {
     await page.goto('/sessions');
     const item = page.getByRole('listitem').filter({ hasText: 'réserver une place' });
     await item.getByRole('button', { name: 'Renommer' }).click();
-    await page.getByLabel('Nom de la session').fill('Parking du siège');
+    await page.getByLabel('Nom de la spécification').fill('Parking du siège');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
-    await expect(page.getByRole('status')).toContainText('Session renommée en « Parking du siège »');
+    await expect(page.getByRole('status')).toContainText('Spécification renommée en « Parking du siège »');
 
     const renamed = page.getByRole('listitem').filter({ hasText: 'Parking du siège' });
-    await renamed.getByRole('button', { name: 'Supprimer la session Parking du siège' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Supprimer cette session ?' });
+    await renamed.getByRole('button', { name: 'Supprimer la spécification Parking du siège' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Supprimer cette spécification ?' });
     await waitForAnimation(page);
     await expectNoA11yViolations(page);
     await dialog.getByRole('button', { name: 'Supprimer définitivement' }).click();
-    await expect(page.getByRole('status')).toContainText('Session « Parking du siège » supprimée');
+    await expect(page.getByRole('status')).toContainText('Spécification « Parking du siège » supprimée');
     await expect(page.getByRole('listitem').filter({ hasText: 'Parking du siège' })).toHaveCount(0);
   });
 });
