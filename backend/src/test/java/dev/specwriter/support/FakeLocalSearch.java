@@ -11,6 +11,7 @@ public class FakeLocalSearch implements LocalSearch {
 
     public final List<Hit> hits = new ArrayList<>();
     public final List<String> queries = new ArrayList<>();
+    public final List<SpecHit> specs = new ArrayList<>();
 
     @Override
     public List<Hit> search(UUID projectId, String terms, int limit) {
@@ -32,6 +33,12 @@ public class FakeLocalSearch implements LocalSearch {
     @Override
     public boolean matches(UUID projectId, String terms, UUID sessionId) {
         return hits.stream().anyMatch(h -> h.sessionId().equals(sessionId));
+    }
+
+    @Override
+    public List<SpecHit> byRelevance(UUID projectId, String terms, int limit) {
+        queries.add(terms);
+        return specs.stream().limit(limit).toList();
     }
 
     private List<Hit> sorted() {

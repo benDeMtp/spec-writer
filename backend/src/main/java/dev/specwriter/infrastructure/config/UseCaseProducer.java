@@ -13,6 +13,14 @@ import dev.specwriter.application.attachment.ManageAttachments;
 import dev.specwriter.application.consent.UpdateConsent;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ManageDocSources;
+import dev.specwriter.application.conversation.ConversationSearch;
+import dev.specwriter.application.conversation.ConversationAttachments;
+import dev.specwriter.application.conversation.Converse;
+import dev.specwriter.application.conversation.DesignatedDocuments;
+import dev.specwriter.application.conversation.DraftNeed;
+import dev.specwriter.application.conversation.ManageConversations;
+import dev.specwriter.application.conversation.StartFromConversation;
+import dev.specwriter.application.conversation.TurnEvents;
 import dev.specwriter.application.jira.CreateJiraTicket;
 import dev.specwriter.application.jira.GetJiraIssue;
 import dev.specwriter.application.jira.ImportJiraIssue;
@@ -73,6 +81,9 @@ import dev.specwriter.domain.port.AttachmentReader;
 import dev.specwriter.domain.port.AttachmentRepository;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.ConsentRepository;
+import dev.specwriter.domain.port.ConversationAttachmentRepository;
+import dev.specwriter.domain.port.ConversationLlm;
+import dev.specwriter.domain.port.ConversationRepository;
 import dev.specwriter.domain.port.DocSourceRepository;
 import dev.specwriter.domain.port.DocumentFileStates;
 import dev.specwriter.domain.port.DocumentFiles;
@@ -111,6 +122,56 @@ public class UseCaseProducer {
     @ApplicationScoped
     AttachmentDrafts attachmentDrafts(AttachmentReader reader, ClockPort clock, IdGenerator ids) {
         return new AttachmentDrafts(reader, clock, ids);
+    }
+
+    /** Événements des tours de l'agent, en mémoire (010, research.md R2). */
+    @Produces
+    @ApplicationScoped
+    TurnEvents turnEvents(ClockPort clock) {
+        return new TurnEvents(clock);
+    }
+
+    /** Agent conversationnel (010) : chaque tour tourne sur un fil virtuel. */
+    @Produces
+    @ApplicationScoped
+    Converse converse(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
+            KnowledgeIndex index, EmbeddingPort embedding, LocalSearch specifications, ModelCapacities capacities,
+            ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
+            AnalyzeArchitecture analyze, DocSourceRepository docSources, DocumentFolder folder,
+            ConversationAttachmentRepository attachments) {
+        SelectKnowledge select = new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), docSources,
+                folder, capacities);
+        return new Converse(projects, conversations, llm, new ConversationSearch(index, embedding, specifications),
+                new DesignatedDocuments(select, attachments), capacities, consent, operations, events, clock, ids,
+                task -> Thread.ofVirtual().name("conversation").start(task));
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageConversations manageConversations(ProjectRepository projects, ConversationRepository conversations,
+            SessionRepository sessions, JiraAccess jira, OperationRegistry operations) {
+        return new ManageConversations(projects, conversations, sessions, jira, operations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DraftNeed draftNeed(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
+            ModelCapacities capacities, ConsentPolicy consent) {
+        return new DraftNeed(projects, conversations, llm, capacities, consent);
+    }
+
+    @Produces
+    @ApplicationScoped
+    StartFromConversation startFromConversation(ConversationRepository conversations, ProjectRepository projects,
+            StartSession startSession, ConversationAttachments attachments) {
+        return new StartFromConversation(conversations, projects, startSession, attachments::copies);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConversationAttachments conversationAttachments(ConversationRepository conversations,
+            ConversationAttachmentRepository attachments, AttachmentReader reader, ClockPort clock, IdGenerator ids) {
+        return new ConversationAttachments(conversations, attachments, reader, clock, ids);
     }
 
     /** Documents joints d'une session démarrée (009, US3). */
@@ -217,10 +278,11 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     MentionQueries mentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
-            EmbeddingPort embedding, AnalyzeArchitecture analyze, ModelCapacities capacities, AttachmentDrafts drafts, AttachmentRepository attachments) {
+            EmbeddingPort embedding, AnalyzeArchitecture analyze, ModelCapacities capacities, AttachmentDrafts drafts,
+            AttachmentRepository attachments, ConversationAttachmentRepository conversationAttachments) {
         return new MentionQueries(projects, sessions, index,
                 new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), null, null, capacities,
-                        attachments), drafts, attachments);
+                        attachments), drafts, attachments, conversationAttachments);
     }
 
     /** Sous-tâches de la story liée, rattachées aux cas d'usage d'une version (research.md R29). */

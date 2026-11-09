@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentRecord;
 import dev.specwriter.domain.consent.ConsentService;
+import dev.specwriter.domain.conversation.EstablishedPoint;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.llm.ProposeQuestionsResult;
@@ -76,6 +77,35 @@ class SessionUseCasesTest {
         assertThat(llm.questionRequests.getFirst().known()).isEmpty();
         assertThat(llm.questionRequests.getFirst().remainingThemes()).contains(QuestionTheme.ACTORS);
         assertThat(s.questionnaire().remainingThemes()).doesNotContain(QuestionTheme.ACTORS);
+    }
+
+    @Test
+    void depuisUneConversationLesPointsSontDesReponsesDejaDonnees() {
+        llm.questions.add(batch(QuestionTheme.GOAL, QuestionTheme.ACTORS));
+        Project project = projects.find(Project.DEFAULT_ID).orElseThrow();
+        var points = List.of(new EstablishedPoint(QuestionTheme.ACTORS, "Qui réserve ?", "Les employés.",
+                EstablishedPoint.Basis.USER, null));
+
+        SessionSnapshot s = start.fromConversation(NEED, points, project, List.of());
+
+        assertThat(s.questionnaire().treated()).singleElement().satisfies(q -> {
+            assertThat(q.state()).isEqualTo(QuestionState.ANSWERED);
+            assertThat(q.batch()).isZero();
+            assertThat(q.rationale()).isEqualTo(StartSession.ESTABLISHED);
+            assertThat(q.answer().value()).isEqualTo("Les employés.");
+        });
+        assertThat(llm.questionRequests.getFirst().known()).extracting(k -> k.answer()).containsExactly("Les employés.");
+        assertThat(llm.questionRequests.getFirst().remainingThemes()).doesNotContain(QuestionTheme.ACTORS);
+        assertThat(s.questionnaire().currentBatch()).extracting(q -> q.batch()).containsOnly(1);
+
+        // l'IA échoue : rien n'est gardé
+        assertThatThrownBy(() -> start.fromConversation(NEED, points, project, List.of()))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(sessions.list()).hasSize(1);
+        var eleven = java.util.Collections.nCopies(11, points.getFirst());
+        assertThatThrownBy(() -> start.fromConversation(NEED, eleven, project, List.of()))
+                .isInstanceOfSatisfying(DomainException.class,
+                        e -> assertThat(e.code()).isEqualTo(ErrorCode.NEED_DRAFT_INVALID));
     }
 
     @Test

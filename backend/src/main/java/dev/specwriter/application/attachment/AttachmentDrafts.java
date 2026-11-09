@@ -56,7 +56,7 @@ public class AttachmentDrafts {
     }
 
     /** Lecture d'un fichier reçu, refusée sans texte ; partagée avec l'ajout à une session en cours. */
-    static AttachmentReader.Reading read(AttachmentReader reader, String fileName, byte[] content) {
+    public static AttachmentReader.Reading read(AttachmentReader reader, String fileName, byte[] content) {
         AttachmentReader.Reading reading = reader.read(fileName, content);
         if (!reading.ok()) {
             throw Attachments.unreadable(reading.failure());

@@ -3,7 +3,10 @@ package dev.specwriter.infrastructure.llm;
 import com.github.copilot.CopilotClient;
 import com.github.copilot.CopilotSession;
 import com.github.copilot.SystemMessageMode;
+import com.github.copilot.generated.AssistantMessageDeltaEvent;
 import com.github.copilot.generated.AssistantMessageEvent;
+import com.github.copilot.generated.SessionErrorEvent;
+import com.github.copilot.generated.SessionIdleEvent;
 import com.github.copilot.rpc.CopilotClientOptions;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
@@ -27,6 +30,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import jakarta.inject.Inject;
 import dev.specwriter.infrastructure.logging.SafeThrowable;
@@ -189,6 +194,68 @@ public class CopilotRuntime implements CopilotSdkGateway {
         } catch (Exception e) {
             throw classify(e, phase + ", modèle " + (model == null ? "par défaut" : model) + ", après " + elapsedMs(start)
                     + " ms (délai " + (sessionId == null ? 60 : timeout.toSeconds()) + " s)");
+        } finally {
+            closeQuietly(session);
+            deleteQuietly(c, sessionId);
+        }
+    }
+
+    /**
+     * Réponse en flux (010, research.md R2) : session sans outil en mode streaming ; chaque
+     * {@code assistant.message_delta} est transmis, la fin arrive avec {@code session.idle}. Un arrêt
+     * demandé abandonne la requête ; la session est supprimée comme pour {@link #complete}.
+     */
+    @Override
+    public String stream(String model, String systemPrompt, String userPrompt, Consumer<String> deltas,
+            BooleanSupplier cancelled) {
+        CopilotClient c = client();
+        String sessionId = null;
+        String phase = "la création de la session";
+        long start = System.nanoTime();
+        Duration timeout = CallTimeout.current();
+        CopilotSession session = null;
+        StringBuilder text = new StringBuilder();
+        CompletableFuture<Void> idle = new CompletableFuture<>();
+        try {
+            session = c.createSession(toolLessSession(model, systemPrompt).setStreaming(true)).get(60, TimeUnit.SECONDS);
+            sessionId = session.getSessionId();
+            try (var _ = session.on(AssistantMessageDeltaEvent.class, e -> {
+                        String delta = e.getData() == null ? null : e.getData().deltaContent();
+                        if (delta != null && !delta.isEmpty() && !idle.isDone()) {
+                            text.append(delta);
+                            deltas.accept(delta);
+                        }
+                    });
+                    var _ = session.on(SessionIdleEvent.class, e -> idle.complete(null));
+                    var _ = session.on(SessionErrorEvent.class, e -> idle.completeExceptionally(
+                            new IllegalStateException(e.getData() == null ? "session.error" : e.getData().errorType())))) {
+                phase = "l'envoi du message";
+                session.send(new MessageOptions().setPrompt(userPrompt)).get(60, TimeUnit.SECONDS);
+                phase = "la rédaction de la réponse";
+                long deadline = System.nanoTime() + timeout.toNanos();
+                while (!idle.isDone()) {
+                    if (cancelled.getAsBoolean() || Thread.currentThread().isInterrupted()) {
+                        abortQuietly(session);
+                        break;
+                    }
+                    if (System.nanoTime() > deadline) {
+                        abortQuietly(session);
+                        throw new TimeoutException("réponse en flux");
+                    }
+                    try {
+                        idle.get(200, TimeUnit.MILLISECONDS);
+                    } catch (TimeoutException e) {
+                        // on vérifie l'arrêt demandé, puis on attend encore
+                        continue;
+                    }
+                }
+            }
+            return text.toString();
+        } catch (GatewayException e) {
+            throw e;
+        } catch (Exception e) {
+            throw classify(e, phase + ", modèle " + (model == null ? "par défaut" : model) + ", après " + elapsedMs(start)
+                    + " ms (délai " + timeout.toSeconds() + " s)");
         } finally {
             closeQuietly(session);
             deleteQuietly(c, sessionId);

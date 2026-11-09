@@ -15,11 +15,20 @@ import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.conversation.EstablishedPoint;
+import dev.specwriter.domain.conversation.NeedDraft;
+import dev.specwriter.domain.error.DomainException;
+import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.SessionRepository;
+import dev.specwriter.domain.question.Answer;
+import dev.specwriter.domain.question.Question;
+import dev.specwriter.domain.question.QuestionState;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Need;
 import dev.specwriter.domain.session.Session;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -30,6 +39,9 @@ import java.util.UUID;
  * échoue, aucune session n'est créée et le texte reste dans le formulaire.
  */
 public class StartSession {
+
+    /** Raison des questions tirées d'une conversation. */
+    public static final String ESTABLISHED = "Établi dans la conversation";
 
     private final SessionRepository sessions;
     private final ProjectRepository projects;
@@ -122,16 +134,56 @@ public class StartSession {
         return started;
     }
 
+    /**
+     * Depuis une conversation (010, US2) : les points établis relus par l'utilisateur sont des
+     * réponses déjà données (lot 0), que le premier lot ne repose pas ; les documents joints à la
+     * conversation suivent la spécification. Si le démarrage échoue, rien n'est gardé.
+     */
+    public SessionSnapshot fromConversation(String needText, List<EstablishedPoint> points, Project project,
+            List<AttachmentDraft> joined) {
+        Need need = Need.of(needText);
+        if (points.size() > NeedDraft.MAX_POINTS) {
+            throw new DomainException(ErrorCode.NEED_DRAFT_INVALID, "10 points établis au plus.");
+        }
+        Session session = Session.start(ids.next(), project.id(), need, null, clock.now());
+        consent.requireGranted(ConsentService.COPILOT);
+        Questionnaire established = established(points);
+        sessions.save(session, established);
+        try {
+            for (int i = 0; i < joined.size(); i++) {
+                attachments.add(joined.get(i).attach(session.id(), i + 1, clock.now()));
+            }
+            return start(session, project, established);
+        } catch (RuntimeException e) {
+            sessions.delete(session.id());
+            throw e;
+        }
+    }
+
+    private Questionnaire established(List<EstablishedPoint> points) {
+        List<Question> answered = new ArrayList<>();
+        for (EstablishedPoint p : points) {
+            UUID id = ids.next();
+            answered.add(new Question(id, answered.size() + 1, p.theme(), 0, p.question(), ESTABLISHED, List.of(), null,
+                    List.of(), QuestionState.ANSWERED, new Answer(id, p.answer(), false, clock.now())));
+        }
+        return new Questionnaire(answered, Set.of());
+    }
+
     private SessionSnapshot start(Session session, Project project) {
+        return start(session, project, Questionnaire.empty());
+    }
+
+    private SessionSnapshot start(Session session, Project project, Questionnaire initial) {
         if (findRelated != null) {
             RelatedIssues found = findRelated.find(session, project);
             related.save(session.id(), found);
             if (found.awaitingDecision()) {
-                sessions.save(session, Questionnaire.empty());
-                return new SessionSnapshot(session, Questionnaire.empty(), List.of());
+                sessions.save(session, initial);
+                return new SessionSnapshot(session, initial, List.of());
             }
         }
-        Questionnaire questionnaire = NextBatch.ask(llm, ids, session, Questionnaire.empty(), knowledge);
+        Questionnaire questionnaire = NextBatch.ask(llm, ids, session, initial, knowledge);
         if (questionnaire.pending().isEmpty()) {
             session = session.readyToGenerate(clock.now());
         }

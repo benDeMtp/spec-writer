@@ -1,6 +1,8 @@
 package dev.specwriter.infrastructure.llm;
 
 import java.util.Map;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 /**
  * Enveloppe minimale du Copilot SDK Java utilisée par l'adaptateur LLM (research.md R3, R4).
@@ -15,6 +17,16 @@ public interface CopilotSdkGateway {
      * @param responseSchema schéma JSON strict de la réponse, ou {@code null} pour du texte libre
      */
     String complete(String model, String systemPrompt, String userPrompt, Map<String, Object> responseSchema);
+
+    /**
+     * Réponse en texte libre, rédigée en flux (010, research.md R2) : chaque morceau est passé à
+     * {@code deltas} ; la requête est abandonnée dès que {@code cancelled} est vrai. Renvoie le texte
+     * reçu.
+     */
+    default String stream(String model, String systemPrompt, String userPrompt, Consumer<String> deltas,
+            BooleanSupplier cancelled) {
+        throw new UnsupportedOperationException("Flux non pris en charge");
+    }
 
     /** Erreur du SDK, classée pour être convertie en erreur métier. */
     final class GatewayException extends RuntimeException {

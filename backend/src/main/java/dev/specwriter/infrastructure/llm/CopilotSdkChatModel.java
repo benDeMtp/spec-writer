@@ -50,16 +50,20 @@ public class CopilotSdkChatModel implements ChatModel {
             String text = gateway.complete(model, String.join("\n\n", system), String.join("\n\n", user), schema);
             return ChatResponse.builder().aiMessage(AiMessage.from(text)).modelName(model).build();
         } catch (CopilotSdkGateway.GatewayException e) {
-            ErrorCode code = switch (e.kind()) {
-                case NOT_CONNECTED -> ErrorCode.COPILOT_NOT_CONNECTED;
-                case MODEL_UNAVAILABLE -> ErrorCode.MODEL_UNAVAILABLE;
-                case QUOTA_EXHAUSTED -> ErrorCode.QUOTA_EXHAUSTED;
-                case CLI_OUTDATED -> ErrorCode.COPILOT_CLI_OUTDATED;
-                case UNAVAILABLE -> ErrorCode.LLM_UNAVAILABLE;
-            };
-            // la cause, sans contenu (SafeThrowable), donne au journal la phase et la pile
-            throw new DomainException(code, code.defaultMessage(), e);
+            throw toDomain(e);
         }
+    }
+
+    /** Erreur métier d'une erreur du SDK ; la cause, sans contenu (SafeThrowable), donne au journal la phase et la pile. */
+    static DomainException toDomain(CopilotSdkGateway.GatewayException e) {
+        ErrorCode code = switch (e.kind()) {
+            case NOT_CONNECTED -> ErrorCode.COPILOT_NOT_CONNECTED;
+            case MODEL_UNAVAILABLE -> ErrorCode.MODEL_UNAVAILABLE;
+            case QUOTA_EXHAUSTED -> ErrorCode.QUOTA_EXHAUSTED;
+            case CLI_OUTDATED -> ErrorCode.COPILOT_CLI_OUTDATED;
+            case UNAVAILABLE -> ErrorCode.LLM_UNAVAILABLE;
+        };
+        return new DomainException(code, code.defaultMessage(), e);
     }
 
     private static Map<String, Object> schema(ResponseFormat format) {

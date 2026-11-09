@@ -1,0 +1,2 @@
+{"operation": "converse-plan", "userContains": ["IT-AGENT", "<recherches-restantes>5</recherches-restantes>"],
+ "response": {"action": "SEARCH", "query": "avoirs émission", "kinds": []}}

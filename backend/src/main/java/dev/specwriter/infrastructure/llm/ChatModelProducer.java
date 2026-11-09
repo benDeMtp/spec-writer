@@ -1,10 +1,12 @@
 package dev.specwriter.infrastructure.llm;
 
 import dev.langchain4j.model.chat.ChatModel;
+import dev.specwriter.domain.port.ConversationLlm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -21,6 +23,9 @@ public class ChatModelProducer {
     @Inject
     ModelSelection modelSelection;
 
+    @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s")
+    Duration timeout;
+
     @Produces
     @ApplicationScoped
     ChatModel chatModel() {
@@ -28,5 +33,15 @@ public class ChatModelProducer {
             return new ReplayChatModel(Path.of(replayDir.get()));
         }
         return new CopilotSdkChatModel(runtime, modelSelection);
+    }
+
+    /** Agent conversationnel (010) : même modèle pour le plan, flux de Copilot ou rejeu pour la réponse. */
+    @Produces
+    @ApplicationScoped
+    ConversationLlm conversationLlm(ChatModel model) {
+        ConversationStream stream = replayDir.filter(d -> !d.isBlank()).isPresent()
+                ? new ReplayConversationStream(new ReplayChatModel(Path.of(replayDir.get())))
+                : new CopilotConversationStream(runtime, modelSelection);
+        return new LangChainConversationLlm(model, stream, timeout);
     }
 }

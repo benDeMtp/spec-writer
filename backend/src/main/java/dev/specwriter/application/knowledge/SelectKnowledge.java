@@ -230,7 +230,7 @@ public class SelectKnowledge implements SessionKnowledge {
      * remplacé, rien pour un obsolète) ; un document de dossier est relu (006) ; une page Antora est
      * recomposée de ses sections.
      */
-    List<ProjectKnowledge.Entry> mentioned(UUID projectId, String need, List<String> answers, String instruction,
+    public List<ProjectKnowledge.Entry> mentioned(UUID projectId, String need, List<String> answers, String instruction,
             List<Attachment> joined, KnowledgeBudget sizes, int budget) {
         boolean written = Mentions.mayContain(need, instruction) || Mentions.mayContain(answers.toArray(String[]::new));
         if (budget <= 0 || !written && joined.isEmpty()) {
