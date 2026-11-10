@@ -18,11 +18,21 @@ La feature 010 a introduit l'agent conversationnel : recherches dans la connaiss
 réponses citées, incohérences, mémoire, réflexion visible. Cette feature applique cet agent à une
 spécification existante : on en discute, puis on demande une nouvelle version.
 
+## Clarifications
+
+### Session 2026-11-10
+
+- Q: Quand l'utilisateur consulte une version plus ancienne, sur quelle version porte la discussion ? → A: Toujours la dernière version ; le panneau le signale quand on consulte une version plus ancienne.
+- Q: Que deviennent les discussions d'une spécification supprimée ? → A: Au choix de l'utilisateur dans la confirmation (case « Supprimer aussi ses discussions »).
+- Q: Quel libellé pour le bouton qui ouvre la discussion ? → A: « Discuter avec l'IA », sur l'écran de la spécification et sur celui d'un ticket Jira.
+- Q: Comment les discussions de spécification apparaissent-elles dans la liste des conversations ? → A: Dans la même liste, par date, avec la mention « Spécification : <nom> ».
+- Q: Au clic sur « Proposer une nouvelle version », l'utilisateur peut-il ajouter une précision ? → A: Non : la proposition se fonde sur la discussion seule ; une précision passe par un message.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Discuter d'une spécification à côté du document (Priority: P1) 🎯 MVP
 
-Sur l'écran d'une spécification, l'utilisateur ouvre la discussion avec « Faire évoluer avec
+Sur l'écran d'une spécification, l'utilisateur ouvre la discussion avec « Discuter avec
 l'IA ». Un panneau s'ouvre à côté du document ; il indique que l'agent connaît la spécification
 (« Contexte : <nom>, version N »). L'utilisateur pose des questions sur la spécification
 (« Que se passe-t-il si la salle est déjà prise ? », « Ce scénario contredit-il un ADR ? »).
@@ -40,7 +50,7 @@ une autre source du projet, sans quitter l'écran de la spécification.
 
 **Acceptance Scenarios**:
 
-1. **Given** une spécification en version 3, **When** l'utilisateur clique « Faire évoluer avec
+1. **Given** une spécification en version 3, **When** l'utilisateur clique « Discuter avec
    l'IA », **Then** un panneau de discussion s'ouvre à côté du document, avec le repère
    « Contexte : <nom>, version 3 », et le champ de saisie a le focus.
 2. **Given** la discussion ouverte, **When** l'utilisateur demande « Quels scénarios couvrent
@@ -55,7 +65,7 @@ une autre source du projet, sans quitter l'écran de la spécification.
 5. **Given** un petit écran, **When** la discussion est ouverte, **Then** le panneau passe sous le
    document, et le document reste lisible.
 6. **Given** une spécification implémentée (verrouillée), **When** l'utilisateur affiche la
-   spécification, **Then** « Faire évoluer avec l'IA » est indisponible et l'écran indique
+   spécification, **Then** « Discuter avec l'IA » est indisponible et l'écran indique
    comment faire évoluer (« Créer une évolution »).
 
 ---
@@ -124,26 +134,29 @@ dans la liste des conversations.
 3. **Given** la liste des conversations, **When** l'utilisateur ouvre une discussion de
    spécification, **Then** l'écran Conversation l'affiche avec son contexte et un lien vers la
    spécification.
-4. **Given** une spécification supprimée, **When** la suppression est confirmée, **Then** ses
-   discussions sont supprimées avec elle, et la confirmation le dit.
+4. **Given** une spécification qui a des discussions, **When** l'utilisateur demande sa
+   suppression, **Then** la confirmation propose la case « Supprimer aussi ses discussions »,
+   cochée par défaut ; cochée, les discussions sont supprimées avec la spécification ; décochée,
+   elles restent dans la liste des conversations, marquées « spécification supprimée », lisibles
+   et continuables sans le contexte de la spécification.
 
 ---
 
-### User Story 4 - Faire évoluer un ticket Jira par la discussion (Priority: P3)
+### User Story 4 - Discuter d'un ticket Jira importé (Priority: P3)
 
-Depuis l'écran d'un ticket Jira, « Faire évoluer avec l'IA » importe le ticket comme
+Depuis l'écran d'un ticket Jira, « Discuter avec l'IA » importe le ticket comme
 spécification (comme aujourd'hui), puis ouvre cette spécification avec la discussion prête.
 
 **Why this priority**: c'est le second point d'entrée de la fonction actuelle ; il doit suivre le
 même parcours, mais il sert moins souvent.
 
-**Independent Test**: depuis un ticket Jira simulé, cliquer « Faire évoluer avec l'IA », vérifier
+**Independent Test**: depuis un ticket Jira simulé, cliquer « Discuter avec l'IA », vérifier
 l'import, puis l'ouverture de la spécification avec la discussion ouverte sur la version
 importée.
 
 **Acceptance Scenarios**:
 
-1. **Given** un ticket Jira affiché, **When** l'utilisateur clique « Faire évoluer avec l'IA »,
+1. **Given** un ticket Jira affiché, **When** l'utilisateur clique « Discuter avec l'IA »,
    **Then** le ticket est importé comme spécification liée, sans rien écrire dans Jira, et la
    spécification s'ouvre avec la discussion ouverte.
 2. **Given** un ticket déjà importé, **When** l'utilisateur clique de nouveau, **Then** la
@@ -180,7 +193,8 @@ importée.
 
 **Discussion**
 
-- **FR-001**: L'écran d'une spécification non verrouillée DOIT offrir « Faire évoluer avec l'IA »,
+- **FR-001**: L'écran d'une spécification non verrouillée DOIT offrir « Discuter avec l'IA » (à la
+  place de « Faire évoluer avec l'IA », de même sur l'écran d'un ticket Jira),
   qui ouvre un panneau de discussion à côté du document ; sur un petit écran, le panneau passe sous
   le document. La consigne en un coup de la fonction actuelle disparaît.
 - **FR-002**: La discussion DOIT offrir tout ce qu'offre l'écran Conversation (010) : recherches
@@ -191,7 +205,9 @@ importée.
   recherche. Les documents joints à la spécification (009) DOIVENT être disponibles comme sources.
 - **FR-004**: Le panneau DOIT montrer sur quelle spécification et quelle version porte la
   discussion (« Contexte : <nom>, version N »), et un repère dans le fil à chaque changement de
-  version.
+  version. La discussion porte toujours sur la dernière version ; quand l'utilisateur consulte une
+  version plus ancienne, le panneau DOIT le signaler, et une proposition part toujours de la
+  dernière version.
 - **FR-005**: Une citation de la spécification DOIT mener à la section citée du document affiché.
 - **FR-006**: L'agent DOIT signaler les incohérences entre la spécification et le reste du projet
   (tickets, documentation, ADR, autres spécifications) avec leurs sources, et NE DOIT PAS inventer
@@ -206,6 +222,8 @@ importée.
   par la discussion (dit ou confirmé par l'utilisateur) ou à une source citée ; sinon il DOIT être
   marqué comme hypothèse (constitution, principe II). La proposition DOIT passer le contrôle de
   structure des scénarios avant d'être présentée.
+- **FR-008a**: « Proposer une nouvelle version » NE DOIT demander aucune saisie : la proposition se
+  fonde sur la discussion seule ; une précision se donne par un message avant de proposer.
 - **FR-009**: Si la discussion n'a établi aucun changement, l'agent DOIT le dire au lieu de
   proposer une version.
 - **FR-010**: La proposition DOIT être relue comme aujourd'hui (différences avec la version
@@ -222,18 +240,24 @@ importée.
 - **FR-014**: « Nouvelle discussion » DOIT démarrer une discussion vide sur la même spécification ;
   l'ancienne DOIT rester dans la liste des conversations du projet, avec le nom de sa
   spécification.
+- **FR-014a**: Les discussions de spécification DOIVENT figurer dans la liste des conversations du
+  projet, triées par date avec les autres, avec la mention « Spécification : <nom> » (y compris la
+  discussion suivie).
 - **FR-015**: Une discussion de spécification ouverte depuis la liste des conversations DOIT
   s'afficher avec son contexte et un lien vers la spécification ; la proposition d'une nouvelle
   version se fait depuis l'écran de la spécification.
-- **FR-016**: Supprimer une spécification DOIT supprimer ses discussions ; la confirmation de la
-  suppression DOIT le dire.
+- **FR-016**: La confirmation de suppression d'une spécification qui a des discussions DOIT
+  proposer la case « Supprimer aussi ses discussions », cochée par défaut. Cochée, les discussions
+  sont supprimées avec la spécification ; décochée, elles deviennent des conversations ordinaires
+  du projet, marquées « spécification supprimée », lisibles et continuables sans le contexte de la
+  spécification.
 
 **Autres parcours**
 
 - **FR-017**: « Nouveau besoin » et son questionnaire NE DOIVENT PAS changer.
 - **FR-018**: La fusion par l'IA d'un conflit avec Jira DOIT rester une proposition directe,
   relue de la même façon, sans discussion.
-- **FR-019**: « Faire évoluer avec l'IA » depuis un ticket Jira DOIT importer le ticket comme
+- **FR-019**: « Discuter avec l'IA » depuis un ticket Jira DOIT importer le ticket comme
   aujourd'hui, puis ouvrir la spécification avec sa discussion ; un ticket déjà importé ouvre la
   spécification existante.
 - **FR-020**: Une spécification verrouillée NE DOIT PAS pouvoir être discutée ni modifiée ; ses
@@ -287,12 +311,8 @@ importée.
 
 - La feature 010 (agent conversationnel, PR #12) est fusionnée avant l'implémentation ; cette
   feature réutilise sa conversation, sa mémoire, sa réflexion et son chronomètre.
-- Le bouton garde son libellé « Faire évoluer avec l'IA » sur l'écran de la spécification et sur
-  celui d'un ticket Jira.
-- La discussion porte sur la dernière version de la spécification, même quand l'utilisateur
-  consulte une version plus ancienne.
-- Supprimer une spécification supprime ses discussions : elles n'ont pas de sens sans elle, et la
-  règle limite les données confidentielles gardées.
+- La case « Supprimer aussi ses discussions » est cochée par défaut : elle limite les données
+  confidentielles gardées ; l'utilisateur la décoche pour garder une analyse utile.
 - Copilot reste le seul fournisseur d'IA ; la place de la spécification dans les sources suit le
   modèle choisi (008).
 - L'agent ne modifie ni Jira ni les sources du projet ; l'envoi vers Jira reste une action de
