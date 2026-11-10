@@ -16,6 +16,7 @@ import { ConversationsApi } from '../../core/conversations/conversations.api';
 import { EstablishedPoint, NeedDraft } from '../../core/conversations/conversations.model';
 import { isProblem } from '../../core/http/problem';
 import { THEMES } from '../questionnaire/question-card.component';
+import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 
 /**
  * Brouillon proposé par l'agent (010, US2) : l'utilisateur corrige le besoin, corrige ou retire les
@@ -25,13 +26,13 @@ import { THEMES } from '../questionnaire/question-card.component';
 @Component({
   selector: 'sw-need-draft',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule],
+  imports: [ElapsedComponent, FormsModule, MatButtonModule],
   template: `
     <section class="draft" aria-labelledby="draft-title">
       <h2 id="draft-title" tabindex="-1" #title>Rédiger une spécification</h2>
       <p class="hint">
-        Relisez ce que l’agent a retenu de la conversation. Les points gardés seront des réponses déjà données : le
-        questionnaire ne les reposera pas.
+        Relisez ce que l’agent a retenu de la conversation. Les points gardés seront des réponses
+        déjà données : le questionnaire ne les reposera pas.
       </p>
       <form (ngSubmit)="start()" novalidate>
         <label for="draft-need">Besoin à spécifier</label>
@@ -47,7 +48,9 @@ import { THEMES } from '../questionnaire/question-card.component';
           [attr.aria-describedby]="needMissing() ? 'draft-need-error' : null"
         ></textarea>
         @if (needMissing()) {
-          <p id="draft-need-error" class="field-error">Décrivez le besoin à spécifier : qui doit pouvoir faire quoi.</p>
+          <p id="draft-need-error" class="field-error">
+            Décrivez le besoin à spécifier : qui doit pouvoir faire quoi.
+          </p>
         }
 
         @if (points().length) {
@@ -76,7 +79,11 @@ import { THEMES } from '../questionnaire/question-card.component';
                     autocomplete="off"
                   ></textarea>
                   <div class="bar">
-                    <span class="hint">{{ p.basis === 'SOURCE' ? 'Établi par la source ' + p.sourceRef : 'Dit dans la conversation' }}</span>
+                    <span class="hint">{{
+                      p.basis === 'SOURCE'
+                        ? 'Établi par la source ' + p.sourceRef
+                        : 'Dit dans la conversation'
+                    }}</span>
                     <button mat-button type="button" (click)="remove(i)">
                       Retirer ce point<span class="sw-visually-hidden"> : {{ p.question }}</span>
                     </button>
@@ -96,7 +103,10 @@ import { THEMES } from '../questionnaire/question-card.component';
           <button mat-flat-button type="submit" [disabled]="busy()">
             {{ busy() ? 'Démarrage…' : 'Démarrer la spécification' }}
           </button>
-          <button mat-button type="button" [disabled]="busy()" (click)="cancelled.emit()">Annuler</button>
+          <button mat-button type="button" [disabled]="busy()" (click)="cancelled.emit()">
+            Annuler
+          </button>
+          <sw-elapsed class="hint" [running]="busy()" />
         </div>
       </form>
     </section>
@@ -221,7 +231,10 @@ export class NeedDraftComponent implements AfterViewInit {
     this.problem.set('');
     try {
       const points = this.points().filter((p) => p.question.trim() && p.answer.trim());
-      const session = await this.api.specify(this.conversationId(), { need: this.need().trim(), points });
+      const session = await this.api.specify(this.conversationId(), {
+        need: this.need().trim(),
+        points,
+      });
       this.started.emit(session.id);
     } catch (e) {
       this.problem.set(

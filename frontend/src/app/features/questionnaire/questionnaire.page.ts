@@ -23,12 +23,14 @@ import { QuestionCardComponent } from './question-card.component';
 import { RelatedChoice, RelatedIssuesComponent } from './related-issues.component';
 import { count } from '../../shared/text';
 import { AttachmentsComponent } from '../../shared/ui/attachments.component';
+import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 
 /** Questionnaire : lots de questions, conclusion à tout moment, génération (US2). */
 @Component({
   selector: 'sw-questionnaire-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    ElapsedComponent,
     FormsModule,
     MatButtonModule,
     MatFormFieldModule,
@@ -43,7 +45,9 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
     @if (session(); as s) {
       <h1>{{ s.name }}</h1>
       @if (origin(); as o) {
-        <p class="origin">Issue de la conversation <a [routerLink]="['/conversations', o.id]">{{ o.name }}</a></p>
+        <p class="origin">
+          Issue de la conversation <a [routerLink]="['/conversations', o.id]">{{ o.name }}</a>
+        </p>
       }
       <div class="sheet">
         <details class="need">
@@ -51,15 +55,20 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
           <p>{{ s.need }}</p>
         </details>
         <sw-attachments [projectId]="s.projectId" [sessionId]="s.id" [disabled]="locked()" />
-        <sw-progress [answered]="s.progress.answered" [skipped]="s.progress.skipped" [total]="s.progress.total" />
+        <sw-progress
+          [answered]="s.progress.answered"
+          [skipped]="s.progress.skipped"
+          [total]="s.progress.total"
+        />
 
         @for (w of s.warnings; track w) {
           <p class="status warn" role="alert">{{ w }}</p>
         }
         @if (locked()) {
           <p class="status warn">
-            Cette spécification est implémentée : ses réponses ne peuvent plus changer, et aucune nouvelle version
-            n'est possible. Rétablissez un statut antérieur, ou créez une évolution, depuis la spécification.
+            Cette spécification est implémentée : ses réponses ne peuvent plus changer, et aucune
+            nouvelle version n'est possible. Rétablissez un statut antérieur, ou créez une
+            évolution, depuis la spécification.
           </p>
         }
 
@@ -77,8 +86,17 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
             />
           }
           <div class="conclude">
-            <p class="hint">Vous pouvez terminer à tout moment : les questions restantes seront passées.</p>
-            <button mat-stroked-button type="button" [disabled]="busy() || locked()" (click)="conclude()">Terminer le questionnaire</button>
+            <p class="hint">
+              Vous pouvez terminer à tout moment : les questions restantes seront passées.
+            </p>
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="busy() || locked()"
+              (click)="conclude()"
+            >
+              Terminer le questionnaire
+            </button>
           </div>
         } @else {
           <section class="ready" aria-labelledby="ready-title">
@@ -86,19 +104,36 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
               {{ s.state === 'GENERATED' ? 'Spécification générée' : 'Questionnaire terminé' }}
             </h2>
             <p>
-              {{ s.progress.answered }} réponse{{ s.progress.answered > 1 ? 's' : '' }} et {{ s.progress.skipped }}
-              hypothèse{{ s.progress.skipped > 1 ? 's' : '' }} serviront à rédiger la spécification.
+              {{ s.progress.answered }} réponse{{ s.progress.answered > 1 ? 's' : '' }} et
+              {{ s.progress.skipped }} hypothèse{{ s.progress.skipped > 1 ? 's' : '' }} serviront à
+              rédiger la spécification.
             </p>
-            <button mat-flat-button type="button" [disabled]="busy() || locked()" (click)="generate()">
-              {{ busy() ? 'Rédaction en cours…' : s.latestVersion ? 'Générer à nouveau' : 'Générer la spécification' }}
+            <button
+              mat-flat-button
+              type="button"
+              [disabled]="busy() || locked()"
+              (click)="generate()"
+            >
+              {{
+                busy()
+                  ? 'Rédaction en cours…'
+                  : s.latestVersion
+                    ? 'Générer à nouveau'
+                    : 'Générer la spécification'
+              }}
             </button>
             @if (s.latestVersion) {
-              <button mat-button type="button" (click)="openVersion(s.latestVersion)">Voir la version {{ s.latestVersion }}</button>
+              <button mat-button type="button" (click)="openVersion(s.latestVersion)">
+                Voir la version {{ s.latestVersion }}
+              </button>
             }
           </section>
         }
         @if (busy()) {
-          <p class="hint" role="status" aria-live="polite">{{ busyMessage() }}</p>
+          <p class="hint">
+            <span role="status" aria-live="polite">{{ busyMessage() }}</span>
+            <sw-elapsed [running]="busy()" />
+          </p>
         }
 
         <p class="announce" role="status" aria-live="polite">{{ revisionMessage() }}</p>
@@ -113,10 +148,21 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
                   @if (editing() === q.id) {
                     <mat-form-field appearance="outline" class="edit">
                       <mat-label>Nouvelle réponse</mat-label>
-                      <textarea matInput rows="3" maxlength="5000" [ngModel]="draft()" (ngModelChange)="draft.set($event)"></textarea>
+                      <textarea
+                        matInput
+                        rows="3"
+                        maxlength="5000"
+                        [ngModel]="draft()"
+                        (ngModelChange)="draft.set($event)"
+                      ></textarea>
                     </mat-form-field>
                     <div class="edit-actions">
-                      <button mat-flat-button type="button" [disabled]="busy() || locked() || !draft().trim()" (click)="revise(q.id)">
+                      <button
+                        mat-flat-button
+                        type="button"
+                        [disabled]="busy() || locked() || !draft().trim()"
+                        (click)="revise(q.id)"
+                      >
                         Enregistrer la modification
                       </button>
                       <button mat-button type="button" (click)="editing.set(null)">Annuler</button>
@@ -128,8 +174,15 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
                         <span class="badge">Hypothèse</span>
                       }
                     </p>
-                    <button mat-button type="button" [disabled]="busy() || locked()" (click)="startEdit(q.id, q.answer)"
-                      [attr.aria-label]="'Modifier la réponse à : ' + q.label">Modifier</button>
+                    <button
+                      mat-button
+                      type="button"
+                      [disabled]="busy() || locked()"
+                      (click)="startEdit(q.id, q.answer)"
+                      [attr.aria-label]="'Modifier la réponse à : ' + q.label"
+                    >
+                      Modifier
+                    </button>
                   }
                 </li>
               }
@@ -250,7 +303,9 @@ export class QuestionnairePage implements OnInit {
   /** Conversation dont vient la spécification (010, US2). */
   protected readonly origin = signal<{ id: string; name: string } | null>(null);
   /** Implémentée : verrouillée, aucune écriture possible (FR-026a de 002). */
-  protected readonly locked = computed(() => this.session()?.implementation?.status === 'IMPLEMENTED');
+  protected readonly locked = computed(
+    () => this.session()?.implementation?.status === 'IMPLEMENTED',
+  );
   protected readonly busy = signal(false);
   protected readonly busyMessage = signal('');
   protected readonly editing = signal<string | null>(null);
@@ -262,15 +317,24 @@ export class QuestionnairePage implements OnInit {
   private readonly firstPendingId = computed(() => this.session()?.currentBatch[0]?.id ?? null);
 
   async ngOnInit(): Promise<void> {
-    void this.conversations.origin(this.id()).then((o) => this.origin.set(o), () => undefined);
+    void this.conversations.origin(this.id()).then(
+      (o) => this.origin.set(o),
+      () => undefined,
+    );
     const detail = await this.api.get(this.id());
-    if (detail.state === 'QUESTIONING' && !detail.currentBatch.length && !detail.answeredQuestions.length) {
+    if (
+      detail.state === 'QUESTIONING' &&
+      !detail.currentBatch.length &&
+      !detail.answeredQuestions.length
+    ) {
       // session créée sans questions : des tickets proches attendent peut-être un choix
       const related = await this.api.relatedIssues(this.id()).catch(() => null);
       if (related && related.decision === null && related.issues.length) {
         this.awaiting.set(related);
         this.session.set(detail);
-        afterNextRender(() => document.getElementById('related-title')?.focus(), { injector: this.injector });
+        afterNextRender(() => document.getElementById('related-title')?.focus(), {
+          injector: this.injector,
+        });
         return;
       }
     }
@@ -281,9 +345,12 @@ export class QuestionnairePage implements OnInit {
   protected async onDecided(choice: RelatedChoice): Promise<void> {
     if (choice.decision === 'SAME') {
       const proposal = choice.outcome.proposal;
-      await this.router.navigate(['/sessions', choice.outcome.sessionId, 'versions', proposal?.baseVersion ?? 1], {
-        state: proposal ? { proposal } : {},
-      });
+      await this.router.navigate(
+        ['/sessions', choice.outcome.sessionId, 'versions', proposal?.baseVersion ?? 1],
+        {
+          state: proposal ? { proposal } : {},
+        },
+      );
       return;
     }
     this.awaiting.set(null);
@@ -350,10 +417,15 @@ export class QuestionnairePage implements OnInit {
     return (this.session()?.currentBatch.length ?? 0) <= 1;
   }
 
-  private async run(action: () => Promise<SessionDetail>, waitsForNextBatch: boolean): Promise<void> {
+  private async run(
+    action: () => Promise<SessionDetail>,
+    waitsForNextBatch: boolean,
+  ): Promise<void> {
     const before = this.firstPendingId();
     this.busy.set(true);
-    this.busyMessage.set(waitsForNextBatch ? 'GitHub Copilot prépare les questions suivantes…' : 'Enregistrement…');
+    this.busyMessage.set(
+      waitsForNextBatch ? 'GitHub Copilot prépare les questions suivantes…' : 'Enregistrement…',
+    );
     try {
       const updated = await action();
       this.show(updated, updated.currentBatch[0]?.id !== before);
@@ -393,10 +465,14 @@ export function summarize(revision: { removed: string[]; added: string[] } | und
   }
   const parts: string[] = [];
   if (removed.length) {
-    parts.push(`${count(removed.length, 'question retirée', 'questions retirées')} : ${removed.join(' ; ')}`);
+    parts.push(
+      `${count(removed.length, 'question retirée', 'questions retirées')} : ${removed.join(' ; ')}`,
+    );
   }
   if (added.length) {
-    parts.push(`${count(added.length, 'question ajoutée', 'questions ajoutées')} : ${added.join(' ; ')}`);
+    parts.push(
+      `${count(added.length, 'question ajoutée', 'questions ajoutées')} : ${added.join(' ; ')}`,
+    );
   }
   return `Réponse modifiée. ${parts.join('. ')}.`;
 }

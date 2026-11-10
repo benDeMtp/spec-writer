@@ -27,17 +27,26 @@ import {
   ConversationSummary,
   NeedDraft,
   SourceKind,
+  ThinkingPart,
+  ThinkingStage,
   TurnEvent,
 } from '../../core/conversations/conversations.model';
 import { isProblem } from '../../core/http/problem';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { AttachmentsComponent } from '../../shared/ui/attachments.component';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
+import { ElapsedComponent, formatDuration } from '../../shared/ui/elapsed.component';
 import { MentionDirective } from '../../shared/ui/mention.directive';
 import { ConversationListComponent } from './conversation-list.component';
 import { NeedDraftComponent } from './need-draft.component';
 
 export const MAX_MESSAGE = 8_000;
+
+const STAGES: Record<ThinkingStage, string> = {
+  MEMORY: 'Résumé des échanges anciens',
+  PLAN: 'Choix d’une recherche',
+  ANSWER: 'Rédaction de la réponse',
+};
 
 const KINDS: Record<SourceKind, string> = {
   TICKET: 'Ticket',
@@ -60,6 +69,7 @@ const KINDS: Record<SourceKind, string> = {
   imports: [
     AttachmentsComponent,
     ConversationListComponent,
+    ElapsedComponent,
     FormsModule,
     MatButtonModule,
     MatProgressBarModule,
@@ -83,16 +93,25 @@ const KINDS: Record<SourceKind, string> = {
         <header class="head">
           <h1 id="thread-title">{{ detail()?.name ?? 'Conversation' }}</h1>
           @if (detail() && messages().length && !draft()) {
-            <button mat-stroked-button type="button" [disabled]="running() || drafting()" (click)="proposeNeed()">
-              {{ drafting() ? 'L’agent prépare le besoin…' : 'Rédiger une spécification' }}
-            </button>
+            <span class="draft-action">
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="running() || drafting()"
+                (click)="proposeNeed()"
+              >
+                {{ drafting() ? 'L’agent prépare le besoin…' : 'Rédiger une spécification' }}
+              </button>
+              <sw-elapsed class="hint" [running]="drafting()" />
+            </span>
           }
         </header>
         @if (detail()?.sessions?.length) {
           <p class="linked">
             Spécifications issues de cette conversation :
             @for (s of detail()!.sessions; track s.sessionId; let last = $last) {
-              <a [routerLink]="['/sessions', s.sessionId]">{{ s.name }}</a>{{ last ? '' : ', ' }}
+              <a [routerLink]="['/sessions', s.sessionId]">{{ s.name }}</a
+              >{{ last ? '' : ', ' }}
             }
           </p>
         }
@@ -100,14 +119,17 @@ const KINDS: Record<SourceKind, string> = {
         @if (!messages().length) {
           <div class="welcome">
             <p class="lead">
-              Posez une question sur le projet{{ projectName() ? ' ' + projectName() : '' }}. L’agent cherche dans ses
-              tickets, sa documentation, ses ADR et ses spécifications, puis répond en citant ses sources.
+              Posez une question sur le projet{{ projectName() ? ' ' + projectName() : '' }}.
+              L’agent cherche dans ses tickets, sa documentation, ses ADR et ses spécifications,
+              puis répond en citant ses sources.
             </p>
             @if (examples().length) {
               <p class="hint">D’après ce que l’agent sait du projet, par exemple :</p>
               <ul class="examples">
                 @for (e of examples(); track e) {
-                  <li><button mat-button type="button" (click)="useExample(e)">{{ e }}</button></li>
+                  <li>
+                    <button mat-button type="button" (click)="useExample(e)">{{ e }}</button>
+                  </li>
                 }
               </ul>
             }
@@ -123,14 +145,55 @@ const KINDS: Record<SourceKind, string> = {
                 </li>
               } @else {
                 <li class="answer" [attr.aria-busy]="m.state === 'RUNNING'">
+                  @if (m.state === 'RUNNING' || m.thinking?.parts?.length) {
+                    <details class="thinking" [class.live]="m.state === 'RUNNING'">
+                      <summary>
+                        <span class="activity">{{
+                          m.state === 'RUNNING' ? activity(m) : 'Réflexion de l’agent'
+                        }}</span>
+                        @if (m.state === 'RUNNING') {
+                          <sw-elapsed [since]="turnStart()" />
+                        } @else if (m.thinking) {
+                          <span class="took">{{ took(m.thinking.durationMs) }}</span>
+                        }
+                      </summary>
+                      <div class="reasoning">
+                        <div>
+                          @for (part of shownParts(m); track $index) {
+                            <h3>{{ stageLabel(part.stage) }}</h3>
+                            @if (part.text) {
+                              <p>{{ part.text }}</p>
+                            } @else {
+                              <p class="hint">
+                                Le modèle n’a pas encore partagé sa réflexion pour cette étape.
+                              </p>
+                            }
+                          } @empty {
+                            <p class="hint">Le modèle n’a pas encore partagé sa réflexion.</p>
+                          }
+                          <p class="hint about">
+                            Résumé de sa réflexion rédigé par le modèle, souvent en anglais.
+                          </p>
+                        </div>
+                      </div>
+                    </details>
+                  } @else if (m.thinking) {
+                    <p class="took-alone">Répondu en {{ took(m.thinking.durationMs) }}</p>
+                  }
                   @if (m.steps.length) {
                     <details class="steps" [open]="m.state === 'RUNNING'">
                       <summary>
-                        {{ m.steps.length }} recherche{{ m.steps.length > 1 ? 's' : '' }} dans la connaissance du projet
+                        {{ m.steps.length }} recherche{{ m.steps.length > 1 ? 's' : '' }} dans la
+                        connaissance du projet
                       </summary>
                       <ol>
                         @for (s of m.steps; track s.ordinal) {
-                          <li>« {{ s.query }} » : {{ s.hits }} élément{{ s.hits > 1 ? 's' : '' }} trouvé{{ s.hits > 1 ? 's' : '' }}</li>
+                          <li>
+                            « {{ s.query }} » : {{ s.hits }} élément{{
+                              s.hits > 1 ? 's' : ''
+                            }}
+                            trouvé{{ s.hits > 1 ? 's' : '' }}
+                          </li>
                         }
                       </ol>
                     </details>
@@ -139,24 +202,24 @@ const KINDS: Record<SourceKind, string> = {
                     <article class="note">
                       <markdown [data]="rendered(m)" />
                     </article>
-                  } @else if (m.state === 'RUNNING') {
-                    @if (compacting() === m.id) {
-                      <div class="working memory">
-                        <p>L’agent résume les échanges les plus anciens pour garder le fil de la conversation…</p>
-                        <mat-progress-bar mode="indeterminate" aria-hidden="true" />
-                      </div>
-                    } @else {
-                      <p class="working">{{ m.steps.length ? 'L’agent rédige sa réponse…' : 'L’agent cherche dans le projet…' }}</p>
-                    }
+                  } @else if (m.state === 'RUNNING' && compacting() === m.id) {
+                    <div class="memory">
+                      <p>Pour garder le fil, l’agent résume les échanges les plus anciens.</p>
+                      <mat-progress-bar mode="indeterminate" aria-hidden="true" />
+                    </div>
                   }
                   @if (m.state === 'INCOMPLETE') {
                     <p class="incomplete">
                       Réponse incomplète.
-                      <button mat-button type="button" [disabled]="running()" (click)="retry(m)">Réessayer</button>
+                      <button mat-button type="button" [disabled]="running()" (click)="retry(m)">
+                        Réessayer
+                      </button>
                     </p>
                   }
                   @if (m.historyTruncated) {
-                    <p class="hint">Les échanges les plus anciens n’ont pas tous été transmis à l’agent.</p>
+                    <p class="hint">
+                      Les échanges les plus anciens n’ont pas tous été transmis à l’agent.
+                    </p>
                   }
                   @if (m.sources.length) {
                     <ol class="sources" aria-label="Sources de la réponse">
@@ -167,7 +230,8 @@ const KINDS: Record<SourceKind, string> = {
                             <a [routerLink]="path">{{ s.title }}</a>
                           } @else if (s.url) {
                             <a [href]="s.url" target="_blank" rel="noopener noreferrer"
-                              >{{ s.title }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+                              >{{ s.title
+                              }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
                             >
                           } @else {
                             {{ s.title }}
@@ -217,7 +281,11 @@ const KINDS: Record<SourceKind, string> = {
             (keydown)="onKey($event)"
           ></textarea>
           @if (detail(); as d) {
-            <sw-attachments [projectId]="projectId()" [conversationId]="d.id" [fields]="composerFields()" />
+            <sw-attachments
+              [projectId]="projectId()"
+              [conversationId]="d.id"
+              [fields]="composerFields()"
+            />
           }
           <div class="bar">
             <span id="composer-help" class="hint">
@@ -355,8 +423,81 @@ const KINDS: Record<SourceKind, string> = {
     .sources .kind {
       margin-right: 0.4rem;
     }
+    .thinking {
+      margin: 0 0 0.75rem;
+      color: var(--sw-ink-soft);
+      font-size: var(--sw-step--1);
+    }
+    .thinking summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0 0.6rem;
+      cursor: pointer;
+    }
+    .thinking summary::before {
+      content: '▸';
+      transition: transform 120ms ease-out;
+    }
+    .thinking[open] summary::before {
+      transform: rotate(90deg);
+    }
+    .thinking summary::-webkit-details-marker {
+      display: none;
+    }
+    .thinking.live .activity {
+      color: var(--sw-ink);
+    }
+    .thinking.live .activity::after {
+      content: '…';
+    }
+    .thinking sw-elapsed,
+    .took {
+      color: var(--sw-ink-soft);
+    }
+    /* la réflexion arrive par le bas : la colonne inversée garde la fin visible sans script */
+    .reasoning {
+      display: flex;
+      flex-direction: column-reverse;
+      max-height: 18rem;
+      overflow-y: auto;
+      margin: 0.5rem 0 0;
+      padding: 0.25rem 0.9rem 0.5rem;
+      border-left: 2px solid var(--sw-rule);
+    }
+    .reasoning h3 {
+      margin: 0.6rem 0 0.2rem;
+      font-size: inherit;
+      font-weight: 600;
+    }
+    .reasoning p {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.55;
+    }
+    .reasoning .about {
+      margin-top: 0.6rem;
+      font-style: italic;
+    }
+    .took-alone {
+      margin: 0 0 0.5rem;
+      color: var(--sw-ink-soft);
+      font-size: var(--sw-step--1);
+    }
+    .draft-action {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.6rem;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .thinking summary::before {
+        transition: none;
+      }
+    }
     .memory {
       max-width: 36rem;
+      color: var(--sw-ink-soft);
     }
     .memory p {
       margin: 0 0 0.4rem;
@@ -384,7 +525,6 @@ const KINDS: Record<SourceKind, string> = {
       margin: 0;
       text-align: center;
     }
-    .working,
     .hint {
       color: var(--sw-ink-soft);
     }
@@ -452,11 +592,17 @@ export class ConversationPage implements OnDestroy {
   protected readonly announce = signal('');
   protected readonly problem = signal('');
   /** La question en cours : ses mentions @ comptent avec les documents joints. */
-  protected readonly composerFields = computed(() => [{ field: 'NEED' as const, text: this.text() }]);
+  protected readonly composerFields = computed(() => [
+    { field: 'NEED' as const, text: this.text() },
+  ]);
   protected readonly draft = signal<NeedDraft | null>(null);
   protected readonly drafting = signal(false);
   /** Tour dont l'agent résume les échanges anciens (compactage de la mémoire). */
   protected readonly compacting = signal<string | null>(null);
+  /** Début du tour en cours (heure du serveur quand elle est connue), pour le chronomètre. */
+  protected readonly turnStart = signal<number | null>(null);
+  /** Tâche en cours de l'agent, qui donne son titre au panneau de réflexion. */
+  protected readonly stage = signal<ThinkingStage | null>(null);
   protected readonly running = computed(() => this.messages().some((m) => m.state === 'RUNNING'));
   private stream: TurnStream | null = null;
 
@@ -479,6 +625,37 @@ export class ConversationPage implements OnDestroy {
   /** Adresse dans l'outil (version d'une spécification) : ouverte par le routeur. */
   protected internal(s: CitedSource): string | null {
     return s.url?.startsWith('/') ? s.url : null;
+  }
+
+  /** Titre du panneau de réflexion pendant le tour : ce que fait l'agent à cet instant. */
+  protected activity(m: ConversationMessage): string {
+    const last = m.steps.at(-1);
+    switch (this.stage()) {
+      case 'MEMORY':
+        return 'L’agent résume les échanges anciens';
+      case 'PLAN':
+        return last
+          ? `L’agent examine les résultats de « ${last.query} »`
+          : 'L’agent analyse la question';
+      case 'ANSWER':
+        return 'L’agent rédige sa réponse';
+      default:
+        return 'L’agent lit la question';
+    }
+  }
+
+  protected stageLabel(stage: ThinkingStage): string {
+    return STAGES[stage];
+  }
+
+  /** Étapes déjà réfléchies, et l'étape en cours même sans réflexion encore. */
+  protected shownParts(m: ConversationMessage): ThinkingPart[] {
+    const parts = m.thinking?.parts ?? [];
+    return parts.filter((p, i) => p.text || (m.state === 'RUNNING' && i === parts.length - 1));
+  }
+
+  protected took(ms: number): string {
+    return formatDuration(ms);
   }
 
   protected sourceId(m: ConversationMessage, s: CitedSource): string {
@@ -588,6 +765,7 @@ export class ConversationPage implements OnDestroy {
         this.detail.set(conversation);
         this.location.replaceState(`/conversations/${created.id}`);
       }
+      this.turnStart.set(Date.now());
       const started = await this.api.send(conversation.id, text);
       this.text.set('');
       this.messages.update((list) => [
@@ -619,8 +797,16 @@ export class ConversationPage implements OnDestroy {
     }
     this.problem.set('');
     try {
+      this.turnStart.set(Date.now());
       const started = await this.api.retry(conversation.id, question.id);
-      this.patch(started.turnId, (x) => ({ ...x, text: '', state: 'RUNNING', steps: [], sources: [] }));
+      this.patch(started.turnId, (x) => ({
+        ...x,
+        text: '',
+        state: 'RUNNING',
+        steps: [],
+        sources: [],
+        thinking: null,
+      }));
       this.follow(conversation.id, started.turnId);
     } catch (e) {
       this.problem.set(reason(e));
@@ -657,17 +843,55 @@ export class ConversationPage implements OnDestroy {
 
   private follow(conversationId: string, turnId: string): void {
     this.stream?.close();
+    this.stage.set(null);
     this.announce.set('L’agent cherche dans le projet.');
-    this.stream = this.api.follow(conversationId, turnId, (event) => this.onEvent(conversationId, turnId, event));
+    this.stream = this.api.follow(conversationId, turnId, (event) =>
+      this.onEvent(conversationId, turnId, event),
+    );
   }
 
   private onEvent(conversationId: string, turnId: string, event: TurnEvent): void {
     switch (event.type) {
+      case 'started':
+        this.turnStart.set(Date.parse(event.at));
+        break;
+      case 'stage':
+        this.stage.set(event.stage);
+        this.patch(turnId, (m) => ({
+          ...m,
+          thinking: {
+            parts: [...(m.thinking?.parts ?? []), { stage: event.stage, text: '' }],
+            durationMs: 0,
+          },
+        }));
+        if (event.stage === 'ANSWER') {
+          this.announce.set('L’agent rédige sa réponse.');
+        }
+        break;
+      case 'reasoning':
+        this.patch(turnId, (m) => {
+          const parts = m.thinking?.parts ?? [];
+          const last = parts.at(-1);
+          return last
+            ? {
+                ...m,
+                thinking: {
+                  parts: [...parts.slice(0, -1), { ...last, text: last.text + event.text }],
+                  durationMs: 0,
+                },
+              }
+            : m;
+        });
+        break;
       case 'step':
         this.patch(turnId, (m) =>
-          m.steps.some((s) => s.ordinal === event.step.ordinal) ? m : { ...m, steps: [...m.steps, event.step] },
+          m.steps.some((s) => s.ordinal === event.step.ordinal)
+            ? m
+            : { ...m, steps: [...m.steps, event.step] },
         );
-        this.announce.set(`Recherche : ${event.step.query}, ${event.step.hits} élément${event.step.hits > 1 ? 's' : ''}.`);
+        this.announce.set(
+          `Recherche : ${event.step.query}, ${event.step.hits} élément${event.step.hits > 1 ? 's' : ''}.`,
+        );
         break;
       case 'delta':
         this.patch(turnId, (m) => ({ ...m, text: m.text + event.text }));
@@ -698,6 +922,7 @@ export class ConversationPage implements OnDestroy {
     this.stream?.close();
     this.stream = null;
     this.compacting.set(null);
+    this.stage.set(null);
     const detail = await this.api.get(conversationId).catch(() => null);
     if (detail && this.detail()?.id === conversationId) {
       this.detail.set(detail);
@@ -745,12 +970,16 @@ export class ConversationPage implements OnDestroy {
       this.messages.set(detail.messages);
       const running = detail.messages.find((m) => m.state === 'RUNNING');
       if (running) {
+        // l'heure de début arrive avec le flux rejoué
+        this.turnStart.set(null);
         this.follow(detail.id, running.id);
       }
     } catch {
       this.detail.set(null);
       this.messages.set([]);
-      this.problem.set('Cette conversation n’existe plus : choisissez-en une autre dans la liste, ou posez une nouvelle question.');
+      this.problem.set(
+        'Cette conversation n’existe plus : choisissez-en une autre dans la liste, ou posez une nouvelle question.',
+      );
     }
   }
 
@@ -759,14 +988,32 @@ export class ConversationPage implements OnDestroy {
   }
 }
 
-function message(id: string, role: 'USER' | 'AGENT', text: string, state: 'COMPLETE' | 'RUNNING'): ConversationMessage {
-  return { id, ordinal: 0, role, text, state, historyTruncated: false, createdAt: new Date().toISOString(), steps: [],
-    sources: [] };
+function message(
+  id: string,
+  role: 'USER' | 'AGENT',
+  text: string,
+  state: 'COMPLETE' | 'RUNNING',
+): ConversationMessage {
+  return {
+    id,
+    ordinal: 0,
+    role,
+    text,
+    state,
+    historyTruncated: false,
+    createdAt: new Date().toISOString(),
+    steps: [],
+    sources: [],
+    thinking: null,
+  };
 }
 
 /** Texte annoncé : sans les marques Markdown, que le lecteur d'écran lirait telles quelles. */
 function plain(markdown: string): string {
-  return markdown.replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
+  return markdown
+    .replace(/[*_`#>]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function reason(e: unknown, fallback = 'Le message n’a pas pu être envoyé. Réessayez.'): string {

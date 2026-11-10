@@ -1,5 +1,14 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -30,12 +39,19 @@ import { ScenarioComponent } from '../../shared/ui/scenario.component';
 import { AiEditPanelComponent } from '../ai-edit/ai-edit.panel';
 import { SettingsStore } from '../../core/settings/settings.store';
 import { ConflictDialogComponent } from '../jira/conflict-dialog.component';
-import { CreateTicketDialogComponent, CreateTicketDialogData } from '../jira/create-ticket-dialog.component';
+import {
+  CreateTicketDialogComponent,
+  CreateTicketDialogData,
+} from '../jira/create-ticket-dialog.component';
 import { PushDialogComponent, PushDialogData } from '../jira/push-dialog.component';
-import { MoveSessionData, MoveSessionDialogComponent } from '../projects/move-session-dialog.component';
+import {
+  MoveSessionData,
+  MoveSessionDialogComponent,
+} from '../projects/move-session-dialog.component';
 import { ExportService } from './export.service';
 import { SubtasksPanelComponent } from './subtasks-panel.component';
 import { VersionsPanelComponent } from './versions-panel.component';
+import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 
 const EFFORTS: Record<DeploymentFact['kind'], string> = {
   NOT_DEPLOYED: 'aucune instance en production, à déployer',
@@ -67,6 +83,7 @@ const ATTACHMENT_REF = 'joint:';
   selector: 'sw-specification-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    ElapsedComponent,
     AiEditPanelComponent,
     AttachmentsComponent,
     DatePipe,
@@ -92,12 +109,16 @@ const ATTACHMENT_REF = 'joint:';
         @if (session()?.linkedTicket; as t) {
           <p class="ticket">
             Liée au ticket
-            <a [href]="t.issueUrl" target="_blank" rel="noopener noreferrer">{{ t.issueKey }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a>,
-            <span [class]="'sync ' + t.syncState">{{ syncLabel(t.syncState) }}</span>.
+            <a [href]="t.issueUrl" target="_blank" rel="noopener noreferrer"
+              >{{ t.issueKey }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+            >, <span [class]="'sync ' + t.syncState">{{ syncLabel(t.syncState) }}</span
+            >.
           </p>
         }
         @if (session()?.implementation?.evolvedFromSessionId; as origin) {
-          <p class="meta">Évolution d'une <a [routerLink]="['/sessions', origin]">spécification d'origine</a>.</p>
+          <p class="meta">
+            Évolution d'une <a [routerLink]="['/sessions', origin]">spécification d'origine</a>.
+          </p>
         }
         @for (w of warnings(); track $index) {
           <p class="warning">{{ w }}</p>
@@ -106,7 +127,10 @@ const ATTACHMENT_REF = 'joint:';
           <div class="implementation">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Statut d'implémentation</mat-label>
-              <mat-select [value]="s.implementation.status" (selectionChange)="changeStatus($event.value)">
+              <mat-select
+                [value]="s.implementation.status"
+                (selectionChange)="changeStatus($event.value)"
+              >
                 @for (o of statusOptions; track o.value) {
                   <mat-option [value]="o.value">{{ o.label }}</mat-option>
                 }
@@ -114,10 +138,14 @@ const ATTACHMENT_REF = 'joint:';
             </mat-form-field>
             @if (locked()) {
               <p id="locked-reason" class="hint">
-                Implémentée le {{ s.implementation.implementedAt | date: 'd MMMM y' }} : cette spécification est
-                verrouillée. Rétablissez un statut antérieur, ou créez une évolution.
+                Implémentée le {{ s.implementation.implementedAt | date: 'd MMMM y' }} : cette
+                spécification est verrouillée. Rétablissez un statut antérieur, ou créez une
+                évolution.
               </p>
-              <button mat-flat-button type="button" (click)="evolve()">Créer une évolution</button>
+              <button mat-flat-button type="button" [disabled]="evolving()" (click)="evolve()">
+                {{ evolving() ? 'Création de l’évolution…' : 'Créer une évolution' }}
+              </button>
+              <sw-elapsed class="hint" [running]="evolving()" />
             }
           </div>
         }
@@ -132,7 +160,12 @@ const ATTACHMENT_REF = 'joint:';
           >
             Faire évoluer avec l'IA
           </button>
-          <button mat-stroked-button type="button" [disabled]="exporting()" (click)="exportMarkdown(v.number)">
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="exporting()"
+            (click)="exportMarkdown(v.number)"
+          >
             Exporter en Markdown
           </button>
           @if (session()?.linkedTicket) {
@@ -150,7 +183,9 @@ const ATTACHMENT_REF = 'joint:';
               mat-stroked-button
               type="button"
               [disabled]="!jiraReady() || pushing() || locked()"
-              [attr.aria-describedby]="locked() ? 'locked-reason' : jiraReady() ? null : 'jira-missing'"
+              [attr.aria-describedby]="
+                locked() ? 'locked-reason' : jiraReady() ? null : 'jira-missing'
+              "
               (click)="createTicket(v.number)"
             >
               Créer un ticket Jira
@@ -172,7 +207,9 @@ const ATTACHMENT_REF = 'joint:';
             >
               Supprimer cette version
             </button>
-            <button mat-button type="button" (click)="removeSpecification()">Supprimer la spécification</button>
+            <button mat-button type="button" (click)="removeSpecification()">
+              Supprimer la spécification
+            </button>
           }
         </div>
         @if (session() && !session()?.linkedTicket && !jiraReady()) {
@@ -182,6 +219,7 @@ const ATTACHMENT_REF = 'joint:';
           </p>
         }
         <p role="status" aria-live="polite" class="announce">{{ status() }}</p>
+        <sw-elapsed class="hint" [running]="pushing()" />
         @if (session(); as s) {
           <sw-attachments [projectId]="s.projectId" [sessionId]="s.id" [disabled]="locked()" />
         }
@@ -196,156 +234,209 @@ const ATTACHMENT_REF = 'joint:';
         }
       </header>
       <div class="layout">
-      <div class="sheet document">
-        <section aria-labelledby="summary">
-          <h2 id="summary">Résumé</h2>
-          <markdown class="rich" [data]="v.summary" />
-        </section>
-
-        @if (v.details) {
-          <section aria-labelledby="details">
-            <h2 id="details">Détails</h2>
-            <markdown class="rich" [data]="v.details" />
+        <div class="sheet document">
+          <section aria-labelledby="summary">
+            <h2 id="summary">Résumé</h2>
+            <markdown class="rich" [data]="v.summary" />
           </section>
-        }
 
-        <section aria-labelledby="use-cases">
-          <h2 id="use-cases">Use cases</h2>
-          @for (uc of v.useCases; track uc.code) {
-            <article class="use-case" [id]="uc.code">
-              <h3><span class="code">{{ uc.code }}</span> {{ uc.title }}</h3>
-              <dl class="facts">
-                <dt>Acteur</dt>
-                <dd>{{ uc.actor }}</dd>
-                <dt>Objectif</dt>
-                <dd>{{ uc.goal }}</dd>
-                @if (uc.preconditions.length) {
-                  <dt>Préconditions</dt>
-                  <dd><ul>@for (p of uc.preconditions; track $index) {<li>{{ p }}</li>}</ul></dd>
-                }
-                <dt>Déroulement nominal</dt>
-                <dd><ol>@for (step of uc.nominalFlow; track $index) {<li>{{ step }}</li>}</ol></dd>
-                @if (uc.alternatives.length) {
-                  <dt>Alternatives</dt>
-                  <dd><ul>@for (a of uc.alternatives; track $index) {<li>{{ a }}</li>}</ul></dd>
-                }
-                <dt>Source</dt>
-                <dd class="source">
-                  {{ sourceLabel(uc) }}
-                  @if (sourceLink(uc); as href) {
-                    <a [href]="href" target="_blank" rel="noopener noreferrer">{{ refText(uc) }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a>
-                  } @else if (uc.source?.ref) {
-                    {{ refText(uc) }}
-                  }
-                </dd>
-              </dl>
-            </article>
-          }
-        </section>
-
-        <section aria-labelledby="scenarios">
-          <h2 id="scenarios">Scénarios d'acceptation</h2>
-          @for (uc of v.useCases; track uc.code) {
-            <h3><span class="code">{{ uc.code }}</span> {{ uc.title }}</h3>
-            @for (sc of scenariosOf(uc.code); track sc.code) {
-              <sw-scenario [scenario]="sc" [language]="language()" />
-            }
-          }
-        </section>
-
-        <section aria-labelledby="assumptions">
-          <h2 id="assumptions">Hypothèses</h2>
-          @if (v.assumptions.length) {
-            <ul class="assumptions">
-              @for (h of v.assumptions; track h.code) {
-                <li><span class="code">{{ h.code }}</span> {{ h.statement }}</li>
-              }
-            </ul>
-          } @else {
-            <p>Aucune : tout provient du besoin et de vos réponses.</p>
-          }
-        </section>
-
-        <section aria-labelledby="functional">
-          <h2 id="functional">Exigences fonctionnelles</h2>
-          <ul>@for (r of functional(); track r.code) {<li><span class="code">{{ r.code }}</span> {{ r.statement }}</li>} @empty {<li>Aucune.</li>}</ul>
-        </section>
-        <section aria-labelledby="technical">
-          <h2 id="technical">Exigences techniques</h2>
-          <ul>@for (r of technical(); track r.code) {<li><span class="code">{{ r.code }}</span> {{ r.statement }}</li>} @empty {<li>Aucune.</li>}</ul>
-        </section>
-
-        @if (v.architecture; as a) {
-          @if (a.modules.length || a.exchanges.length) {
-            <section aria-labelledby="architecture">
-              <h2 id="architecture">Architecture</h2>
-              @if (a.modules.length) {
-                <h3>Modules impactés</h3>
-                <ul>
-                  @for (m of a.modules; track m.name) {
-                    <li>{{ m.name }} <span class="scope">({{ m.scope === 'PROJECT' ? 'propre au projet' : 'commun' }})</span></li>
-                  }
-                </ul>
-              }
-              @if (a.exchanges.length) {
-                <h3>Flux</h3>
-                <ul>
-                  @for (x of a.exchanges; track $index) {
-                    <li>
-                      {{ x.source }} → {{ x.destination }} :
-                      @if (x.kind === 'MISSING') {
-                        <strong>flux manquant, à créer</strong>
-                      } @else {
-                        flux existant{{ x.via ? ', via ' + x.via : '' }}
-                      }
-                    </li>
-                  }
-                </ul>
-              }
+          @if (v.details) {
+            <section aria-labelledby="details">
+              <h2 id="details">Détails</h2>
+              <markdown class="rich" [data]="v.details" />
             </section>
           }
-        }
-        @if (v.adrDeviations?.length) {
-          <section aria-labelledby="deviations">
-            <h2 id="deviations">Écarts aux ADR</h2>
-            <ul class="deviations">
-              @for (d of v.adrDeviations; track d.adrRef) {
-                <li>
-                  @if (v.links?.[d.adrRef]; as href) {
-                    <a [href]="href" target="_blank" rel="noopener noreferrer">{{ pageName(d.adrRef) }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a>
-                  } @else {
-                    <strong>{{ d.adrRef }}</strong>
+
+          <section aria-labelledby="use-cases">
+            <h2 id="use-cases">Use cases</h2>
+            @for (uc of v.useCases; track uc.code) {
+              <article class="use-case" [id]="uc.code">
+                <h3>
+                  <span class="code">{{ uc.code }}</span> {{ uc.title }}
+                </h3>
+                <dl class="facts">
+                  <dt>Acteur</dt>
+                  <dd>{{ uc.actor }}</dd>
+                  <dt>Objectif</dt>
+                  <dd>{{ uc.goal }}</dd>
+                  @if (uc.preconditions.length) {
+                    <dt>Préconditions</dt>
+                    <dd>
+                      <ul>
+                        @for (p of uc.preconditions; track $index) {
+                          <li>{{ p }}</li>
+                        }
+                      </ul>
+                    </dd>
                   }
-                  <dl>
-                    @if (d.decision) {
-                      <dt>Décision</dt>
-                      <dd>{{ d.decision }}</dd>
+                  <dt>Déroulement nominal</dt>
+                  <dd>
+                    <ol>
+                      @for (step of uc.nominalFlow; track $index) {
+                        <li>{{ step }}</li>
+                      }
+                    </ol>
+                  </dd>
+                  @if (uc.alternatives.length) {
+                    <dt>Alternatives</dt>
+                    <dd>
+                      <ul>
+                        @for (a of uc.alternatives; track $index) {
+                          <li>{{ a }}</li>
+                        }
+                      </ul>
+                    </dd>
+                  }
+                  <dt>Source</dt>
+                  <dd class="source">
+                    {{ sourceLabel(uc) }}
+                    @if (sourceLink(uc); as href) {
+                      <a [href]="href" target="_blank" rel="noopener noreferrer"
+                        >{{ refText(uc)
+                        }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+                      >
+                    } @else if (uc.source?.ref) {
+                      {{ refText(uc) }}
                     }
-                    <dt>Écart</dt>
-                    <dd>{{ d.deviation }}</dd>
-                  </dl>
-                </li>
-              }
-            </ul>
+                  </dd>
+                </dl>
+              </article>
+            }
           </section>
-        }
-        @if (v.architecture?.deploymentFacts?.length) {
-          <section aria-labelledby="efforts">
-            <h2 id="efforts">Efforts supplémentaires (déploiement)</h2>
+
+          <section aria-labelledby="scenarios">
+            <h2 id="scenarios">Scénarios d'acceptation</h2>
+            @for (uc of v.useCases; track uc.code) {
+              <h3>
+                <span class="code">{{ uc.code }}</span> {{ uc.title }}
+              </h3>
+              @for (sc of scenariosOf(uc.code); track sc.code) {
+                <sw-scenario [scenario]="sc" [language]="language()" />
+              }
+            }
+          </section>
+
+          <section aria-labelledby="assumptions">
+            <h2 id="assumptions">Hypothèses</h2>
+            @if (v.assumptions.length) {
+              <ul class="assumptions">
+                @for (h of v.assumptions; track h.code) {
+                  <li>
+                    <span class="code">{{ h.code }}</span> {{ h.statement }}
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p>Aucune : tout provient du besoin et de vos réponses.</p>
+            }
+          </section>
+
+          <section aria-labelledby="functional">
+            <h2 id="functional">Exigences fonctionnelles</h2>
             <ul>
-              @for (f of v.architecture?.deploymentFacts; track $index) {
-                <li>{{ f.element }}{{ f.other ? ' → ' + f.other : '' }} : {{ effortLabel(f.kind) }}</li>
+              @for (r of functional(); track r.code) {
+                <li>
+                  <span class="code">{{ r.code }}</span> {{ r.statement }}
+                </li>
+              } @empty {
+                <li>Aucune.</li>
               }
             </ul>
           </section>
+          <section aria-labelledby="technical">
+            <h2 id="technical">Exigences techniques</h2>
+            <ul>
+              @for (r of technical(); track r.code) {
+                <li>
+                  <span class="code">{{ r.code }}</span> {{ r.statement }}
+                </li>
+              } @empty {
+                <li>Aucune.</li>
+              }
+            </ul>
+          </section>
+
+          @if (v.architecture; as a) {
+            @if (a.modules.length || a.exchanges.length) {
+              <section aria-labelledby="architecture">
+                <h2 id="architecture">Architecture</h2>
+                @if (a.modules.length) {
+                  <h3>Modules impactés</h3>
+                  <ul>
+                    @for (m of a.modules; track m.name) {
+                      <li>
+                        {{ m.name }}
+                        <span class="scope"
+                          >({{ m.scope === 'PROJECT' ? 'propre au projet' : 'commun' }})</span
+                        >
+                      </li>
+                    }
+                  </ul>
+                }
+                @if (a.exchanges.length) {
+                  <h3>Flux</h3>
+                  <ul>
+                    @for (x of a.exchanges; track $index) {
+                      <li>
+                        {{ x.source }} → {{ x.destination }} :
+                        @if (x.kind === 'MISSING') {
+                          <strong>flux manquant, à créer</strong>
+                        } @else {
+                          flux existant{{ x.via ? ', via ' + x.via : '' }}
+                        }
+                      </li>
+                    }
+                  </ul>
+                }
+              </section>
+            }
+          }
+          @if (v.adrDeviations?.length) {
+            <section aria-labelledby="deviations">
+              <h2 id="deviations">Écarts aux ADR</h2>
+              <ul class="deviations">
+                @for (d of v.adrDeviations; track d.adrRef) {
+                  <li>
+                    @if (v.links?.[d.adrRef]; as href) {
+                      <a [href]="href" target="_blank" rel="noopener noreferrer"
+                        >{{ pageName(d.adrRef)
+                        }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+                      >
+                    } @else {
+                      <strong>{{ d.adrRef }}</strong>
+                    }
+                    <dl>
+                      @if (d.decision) {
+                        <dt>Décision</dt>
+                        <dd>{{ d.decision }}</dd>
+                      }
+                      <dt>Écart</dt>
+                      <dd>{{ d.deviation }}</dd>
+                    </dl>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+          @if (v.architecture?.deploymentFacts?.length) {
+            <section aria-labelledby="efforts">
+              <h2 id="efforts">Efforts supplémentaires (déploiement)</h2>
+              <ul>
+                @for (f of v.architecture?.deploymentFacts; track $index) {
+                  <li>
+                    {{ f.element }}{{ f.other ? ' → ' + f.other : '' }} : {{ effortLabel(f.kind) }}
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+          <sw-subtasks-panel [sessionId]="id()" [versionNumber]="v.number" />
+        </div>
+        @if (versions().length > 1) {
+          <aside class="side">
+            <sw-versions-panel [sessionId]="id()" [versions]="versions()" [current]="v.number" />
+          </aside>
         }
-        <sw-subtasks-panel [sessionId]="id()" [versionNumber]="v.number" />
-      </div>
-      @if (versions().length > 1) {
-        <aside class="side">
-          <sw-versions-panel [sessionId]="id()" [versions]="versions()" [current]="v.number" />
-        </aside>
-      }
       </div>
     } @else {
       <p role="status" aria-live="polite">Chargement de la spécification…</p>
@@ -519,6 +610,8 @@ export class SpecificationPage {
   protected readonly editing = signal(!!this.passedProposal);
   protected readonly mergeProposal = signal<Proposal | null>(this.passedProposal);
   protected readonly pushing = signal(false);
+  /** Création d'une évolution en cours (appel à l'IA). */
+  protected readonly evolving = signal(false);
   protected readonly exporting = signal(false);
   protected readonly status = signal('');
   /** Avertissements transmis par la page précédente (description Jira tronquée à l'import). */
@@ -540,14 +633,22 @@ export class SpecificationPage {
     return this.projects.projects().filter((p) => p.id !== projectId);
   });
   protected readonly language = computed<Language>(() => this.session()?.language ?? 'fr');
-  protected readonly statusOptions = (Object.keys(IMPLEMENTATION_LABELS) as ImplementationStatus[]).map((value) => ({
+  protected readonly statusOptions = (
+    Object.keys(IMPLEMENTATION_LABELS) as ImplementationStatus[]
+  ).map((value) => ({
     value,
     label: IMPLEMENTATION_LABELS[value],
   }));
   /** Implémentée : aucune nouvelle version, aucun envoi, aucune suppression de version (FR-026a de 002). */
-  protected readonly locked = computed(() => this.session()?.implementation?.status === 'IMPLEMENTED');
-  protected readonly functional = computed(() => this.spec()?.requirements.filter((r) => r.category === 'FUNCTIONAL') ?? []);
-  protected readonly technical = computed(() => this.spec()?.requirements.filter((r) => r.category === 'TECHNICAL') ?? []);
+  protected readonly locked = computed(
+    () => this.session()?.implementation?.status === 'IMPLEMENTED',
+  );
+  protected readonly functional = computed(
+    () => this.spec()?.requirements.filter((r) => r.category === 'FUNCTIONAL') ?? [],
+  );
+  protected readonly technical = computed(
+    () => this.spec()?.requirements.filter((r) => r.category === 'TECHNICAL') ?? [],
+  );
 
   constructor() {
     // la même page affiche chaque version : elle se recharge quand le numéro change dans l'URL
@@ -609,9 +710,12 @@ export class SpecificationPage {
     }
     const target = await firstValueFrom(
       this.dialog
-        .open<MoveSessionDialogComponent, MoveSessionData, string | null>(MoveSessionDialogComponent, {
-          data: { sessionName: session.name, targets: this.moveTargets() },
-        })
+        .open<MoveSessionDialogComponent, MoveSessionData, string | null>(
+          MoveSessionDialogComponent,
+          {
+            data: { sessionName: session.name, targets: this.moveTargets() },
+          },
+        )
         .afterClosed(),
     );
     if (!target) {
@@ -633,7 +737,9 @@ export class SpecificationPage {
     const leaving = session.implementation.status === 'IMPLEMENTED';
     if (leaving) {
       const since = session.implementation.implementedAt
-        ? new Date(session.implementation.implementedAt).toLocaleDateString('fr-FR', { dateStyle: 'long' })
+        ? new Date(session.implementation.implementedAt).toLocaleDateString('fr-FR', {
+            dateStyle: 'long',
+          })
         : '';
       const confirmed = await this.confirm({
         title: 'Rétablir un statut antérieur ?',
@@ -656,11 +762,17 @@ export class SpecificationPage {
   /** Évolution : une nouvelle spécification en brouillon, qui part de cette version (FR-026b de 002). */
   protected async evolve(): Promise<void> {
     const session = this.session();
-    if (!session || !(await this.consent.ensure('COPILOT'))) {
+    if (!session || this.evolving() || !(await this.consent.ensure('COPILOT'))) {
       return;
     }
-    const evolved = await this.api.evolve(session.id);
-    await this.router.navigate(['/sessions', evolved.id]);
+    this.evolving.set(true);
+    this.status.set('Création de l’évolution…');
+    try {
+      const evolved = await this.api.evolve(session.id);
+      await this.router.navigate(['/sessions', evolved.id]);
+    } finally {
+      this.evolving.set(false);
+    }
   }
 
   /** Suppression d'une version, après une confirmation qui la nomme (FR-014 de 002). Jira n'est pas modifié. */
@@ -705,7 +817,8 @@ export class SpecificationPage {
       title: 'Supprimer la spécification ?',
       message:
         `« ${session.name} », ses réponses et ${count > 1 ? `ses ${count} versions` : 'sa version'} seront supprimés ` +
-        'définitivement.' + jiraNotice(session.linkedTicket),
+        'définitivement.' +
+        jiraNotice(session.linkedTicket),
       confirm: 'Supprimer la spécification',
     });
     if (!confirmed) {
@@ -716,7 +829,9 @@ export class SpecificationPage {
   }
 
   private async confirm(data: ConfirmData): Promise<boolean> {
-    const result = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, { data }).afterClosed());
+    const result = await firstValueFrom(
+      this.dialog.open(ConfirmDialogComponent, { data }).afterClosed(),
+    );
     return result === true;
   }
 
@@ -729,10 +844,15 @@ export class SpecificationPage {
     try {
       const data: CreateTicketDialogData = { sessionId: this.id(), versionNumber };
       const ticket = await firstValueFrom(
-        this.dialog.open<CreateTicketDialogComponent, CreateTicketDialogData, LinkedTicket>(CreateTicketDialogComponent, {
-          data,
-          width: '48rem',
-        }).afterClosed(),
+        this.dialog
+          .open<CreateTicketDialogComponent, CreateTicketDialogData, LinkedTicket>(
+            CreateTicketDialogComponent,
+            {
+              data,
+              width: '48rem',
+            },
+          )
+          .afterClosed(),
       );
       if (ticket) {
         this.status.set(`Ticket ${ticket.issueKey} créé depuis la version ${versionNumber}.`);
@@ -753,7 +873,11 @@ export class SpecificationPage {
     try {
       const data: PushDialogData = { sessionId: this.id(), versionNumber };
       const outcome = await firstValueFrom(
-        this.dialog.open<PushDialogComponent, PushDialogData, PushOutcome>(PushDialogComponent, { data, width: '48rem' })
+        this.dialog
+          .open<PushDialogComponent, PushDialogData, PushOutcome>(PushDialogComponent, {
+            data,
+            width: '48rem',
+          })
           .afterClosed(),
       );
       if (outcome) {
@@ -768,8 +892,15 @@ export class SpecificationPage {
     switch (outcome.kind) {
       case 'pushed':
         if (outcome.ticket.linkedVersionNumber !== versionNumber) {
-          this.status.set(`La version Jira est devenue la version ${outcome.ticket.linkedVersionNumber}.`);
-          await this.router.navigate(['/sessions', this.id(), 'versions', String(outcome.ticket.linkedVersionNumber)]);
+          this.status.set(
+            `La version Jira est devenue la version ${outcome.ticket.linkedVersionNumber}.`,
+          );
+          await this.router.navigate([
+            '/sessions',
+            this.id(),
+            'versions',
+            String(outcome.ticket.linkedVersionNumber),
+          ]);
         } else {
           this.status.set(`Version ${versionNumber} envoyée vers ${outcome.ticket.issueKey}.`);
           this.session.set(await this.api.get(this.id()));
@@ -779,7 +910,9 @@ export class SpecificationPage {
       case 'merge':
         this.mergeProposal.set(outcome.proposal);
         this.editing.set(true);
-        this.status.set("Fusion proposée par l'IA : relisez-la, puis appliquez-la avant de l'envoyer.");
+        this.status.set(
+          "Fusion proposée par l'IA : relisez-la, puis appliquez-la avant de l'envoyer.",
+        );
         return;
       case 'conflict':
         await this.resolve(outcome.conflict, versionNumber);
@@ -789,10 +922,12 @@ export class SpecificationPage {
   private async resolve(conflict: JiraConflict, versionNumber: number): Promise<void> {
     this.session.set(await this.api.get(this.id()));
     const resolution = await firstValueFrom(
-      this.dialog.open<ConflictDialogComponent, JiraConflict, ConflictResolution>(ConflictDialogComponent, {
-        data: conflict,
-        width: '64rem',
-      }).afterClosed(),
+      this.dialog
+        .open<ConflictDialogComponent, JiraConflict, ConflictResolution>(ConflictDialogComponent, {
+          data: conflict,
+          width: '64rem',
+        })
+        .afterClosed(),
     );
     if (!resolution) {
       this.status.set("Envoi annulé : le ticket Jira n'a pas été modifié.");
@@ -810,7 +945,11 @@ export class SpecificationPage {
   }
 
   private async load(id: string, n: number): Promise<void> {
-    const [spec, session, versions] = await Promise.all([this.api.version(id, n), this.api.get(id), this.api.versions(id)]);
+    const [spec, session, versions] = await Promise.all([
+      this.api.version(id, n),
+      this.api.get(id),
+      this.api.versions(id),
+    ]);
     this.session.set(session);
     this.versions.set(versions);
     this.spec.set(spec);
@@ -865,7 +1004,12 @@ export class SpecificationPage {
 
   /** Dernier segment d'une adresse de page, sans extension : « adr-005 » pour …/adr/adr-005.html. */
   protected pageName(ref: string): string {
-    const last = ref.replace(/[?#].*$/, '').replace(/\/+$/, '').split('/').pop() ?? ref;
+    const last =
+      ref
+        .replace(/[?#].*$/, '')
+        .replace(/\/+$/, '')
+        .split('/')
+        .pop() ?? ref;
     return last.replace(/\.html?$/, '') || ref;
   }
 

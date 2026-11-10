@@ -2,7 +2,13 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, InjectionToken, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { SessionDetail } from '../sessions/sessions.model';
-import { ConversationDetail, ConversationSummary, NeedDraft, Started, TurnEvent } from './conversations.model';
+import {
+  ConversationDetail,
+  ConversationSummary,
+  NeedDraft,
+  Started,
+  TurnEvent,
+} from './conversations.model';
 
 const SILENT = new HttpHeaders({ 'X-Sw-Silent': '1' });
 
@@ -14,7 +20,18 @@ export interface TurnStream {
 /** Ouvre le flux SSE d'un tour ; remplaçable dans les tests (EventSource n'existe pas hors navigateur). */
 export type TurnStreamOpener = (url: string, onEvent: (event: TurnEvent) => void) => TurnStream;
 
-const NAMES = ['step', 'delta', 'sources', 'memory', 'done', 'error', 'gone'] as const;
+const NAMES = [
+  'started',
+  'stage',
+  'reasoning',
+  'step',
+  'delta',
+  'sources',
+  'memory',
+  'done',
+  'error',
+  'gone',
+] as const;
 
 export const TURN_STREAM = new InjectionToken<TurnStreamOpener>('TURN_STREAM', {
   factory: () => (url, onEvent) => {
@@ -46,42 +63,62 @@ export class ConversationsApi {
 
   list(projectId: string): Promise<ConversationSummary[]> {
     return firstValueFrom(
-      this.http.get<ConversationSummary[]>(`/api/projects/${encodeURIComponent(projectId)}/conversations`),
+      this.http.get<ConversationSummary[]>(
+        `/api/projects/${encodeURIComponent(projectId)}/conversations`,
+      ),
     );
   }
 
   /** Exemples de questions tirés de la connaissance du projet ; vide s'il n'a rien d'indexé. */
   suggestions(projectId: string): Promise<string[]> {
     return firstValueFrom(
-      this.http.get<string[]>(`/api/projects/${encodeURIComponent(projectId)}/conversations/suggestions`, {
-        headers: SILENT,
-      }),
+      this.http.get<string[]>(
+        `/api/projects/${encodeURIComponent(projectId)}/conversations/suggestions`,
+        {
+          headers: SILENT,
+        },
+      ),
     );
   }
 
   create(projectId: string): Promise<ConversationSummary> {
     return firstValueFrom(
-      this.http.post<ConversationSummary>(`/api/projects/${encodeURIComponent(projectId)}/conversations`, {}),
+      this.http.post<ConversationSummary>(
+        `/api/projects/${encodeURIComponent(projectId)}/conversations`,
+        {},
+      ),
     );
   }
 
   get(id: string): Promise<ConversationDetail> {
-    return firstValueFrom(this.http.get<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}`));
+    return firstValueFrom(
+      this.http.get<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}`),
+    );
   }
 
   rename(id: string, name: string): Promise<ConversationSummary> {
     return firstValueFrom(
-      this.http.patch<ConversationSummary>(`/api/conversations/${encodeURIComponent(id)}`, { name }, { headers: SILENT }),
+      this.http.patch<ConversationSummary>(
+        `/api/conversations/${encodeURIComponent(id)}`,
+        { name },
+        { headers: SILENT },
+      ),
     );
   }
 
   delete(id: string): Promise<void> {
-    return firstValueFrom(this.http.delete<void>(`/api/conversations/${encodeURIComponent(id)}`, { headers: SILENT }));
+    return firstValueFrom(
+      this.http.delete<void>(`/api/conversations/${encodeURIComponent(id)}`, { headers: SILENT }),
+    );
   }
 
   send(id: string, text: string): Promise<Started> {
     return firstValueFrom(
-      this.http.post<Started>(`/api/conversations/${encodeURIComponent(id)}/messages`, { text }, { headers: SILENT }),
+      this.http.post<Started>(
+        `/api/conversations/${encodeURIComponent(id)}/messages`,
+        { text },
+        { headers: SILENT },
+      ),
     );
   }
 
@@ -97,32 +134,45 @@ export class ConversationsApi {
 
   stop(id: string, turnId: string): Promise<void> {
     return firstValueFrom(
-      this.http.delete<void>(`/api/conversations/${encodeURIComponent(id)}/turns/${encodeURIComponent(turnId)}`, {
-        headers: SILENT,
-      }),
+      this.http.delete<void>(
+        `/api/conversations/${encodeURIComponent(id)}/turns/${encodeURIComponent(turnId)}`,
+        {
+          headers: SILENT,
+        },
+      ),
     );
   }
 
   /** Besoin et points proposés par l'agent ; rien n'est enregistré. */
   needDraft(id: string): Promise<NeedDraft> {
     return firstValueFrom(
-      this.http.post<NeedDraft>(`/api/conversations/${encodeURIComponent(id)}/need-draft`, {}, { headers: SILENT }),
+      this.http.post<NeedDraft>(
+        `/api/conversations/${encodeURIComponent(id)}/need-draft`,
+        {},
+        { headers: SILENT },
+      ),
     );
   }
 
   /** Démarre la spécification avec le brouillon relu ; elle reste liée à la conversation. */
   specify(id: string, draft: NeedDraft): Promise<SessionDetail> {
     return firstValueFrom(
-      this.http.post<SessionDetail>(`/api/conversations/${encodeURIComponent(id)}/specifications`, draft, {
-        headers: SILENT,
-      }),
+      this.http.post<SessionDetail>(
+        `/api/conversations/${encodeURIComponent(id)}/specifications`,
+        draft,
+        {
+          headers: SILENT,
+        },
+      ),
     );
   }
 
   /** Conversation dont vient une spécification ; `null` si aucune. */
   origin(sessionId: string): Promise<{ id: string; name: string } | null> {
     return firstValueFrom(
-      this.http.get<{ id: string; name: string } | null>(`/api/sessions/${encodeURIComponent(sessionId)}/conversation`),
+      this.http.get<{ id: string; name: string } | null>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/conversation`,
+      ),
     );
   }
 

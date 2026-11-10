@@ -115,6 +115,16 @@ questions ouvertes) et garde ce résumé avec la conversation ; l'écran le mont
 fait, puis un repère dans le fil indique les échanges transmis sous forme de résumé. Dans
 l'historique, les appels `[n]` des réponses passées sont remplacés par le titre de leur source.
 
+**Réflexion et durée** : pendant que l'agent travaille, un panneau replié dit ce qu'il fait (il
+analyse la question, examine les résultats d'une recherche, résume les échanges anciens, rédige sa
+réponse), avec un chronomètre. Déplié, il montre au fil de l'eau la réflexion que le modèle partage,
+un résumé qu'il rédige lui-même, souvent en anglais ; elle reste avec la réponse (20 000 caractères
+au plus), avec la durée du tour. Pour l'obtenir, l'outil demande au modèle une réflexion poussée
+(`specwriter.copilot.reasoning-effort`, `high` par défaut ; Claude Sonnet 5.5 n'en partage aucune
+en dessous) : une réponse prend quelques secondes de plus. Un modèle qui ne propose pas de réflexion
+répond sans. Ailleurs (questionnaire, génération, modification assistée, Jira), un chronomètre
+accompagne chaque attente de l'IA.
+
 **Arrêter** (ou Échap) garde le texte déjà écrit, marqué incomplet ; **Réessayer** le relance. Les
 conversations sont gardées par projet : la liste permet de les rouvrir, de les renommer et de les
 supprimer (les spécifications qui en sont issues restent). La recherche et **Nouvelle

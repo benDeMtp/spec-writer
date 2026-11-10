@@ -6,6 +6,7 @@ import { MarkdownComponent } from 'ngx-markdown';
 import { JiraApi } from '../../core/jira/jira.api';
 import { JiraIssueView } from '../../core/jira/jira.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
+import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 
 /**
  * Ticket Jira non lié (FR-043) : sa description complète, et une seule action. « Faire évoluer
@@ -15,21 +16,28 @@ import { ConsentGate } from '../../shared/ui/consent-gate.service';
 @Component({
   selector: 'sw-item-detail-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MarkdownComponent, MatButtonModule, RouterLink],
+  imports: [ElapsedComponent, DatePipe, MarkdownComponent, MatButtonModule, RouterLink],
   template: `
     @if (issue(); as i) {
       <header class="head">
         <p class="key">{{ i.key }}</p>
         <h1>{{ i.summary }}</h1>
         <p class="meta">
-          Modifié dans Jira le <time [attr.datetime]="i.updated">{{ i.updated | date: 'd MMMM y, HH:mm' }}</time>.
-          <a [href]="i.url" target="_blank" rel="noopener noreferrer">Ouvrir dans Jira<span class="sw-visually-hidden"> (nouvel onglet)</span></a>
+          Modifié dans Jira le
+          <time [attr.datetime]="i.updated">{{ i.updated | date: 'd MMMM y, HH:mm' }}</time
+          >.
+          <a [href]="i.url" target="_blank" rel="noopener noreferrer"
+            >Ouvrir dans Jira<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+          >
         </p>
         <div class="actions">
-          <button mat-flat-button type="button" [disabled]="importing()" (click)="evolve()">Faire évoluer avec l'IA</button>
+          <button mat-flat-button type="button" [disabled]="importing()" (click)="evolve()">
+            Faire évoluer avec l'IA
+          </button>
           <a mat-button routerLink="/sessions">Retour aux spécifications</a>
         </div>
         <p role="status" aria-live="polite" class="announce">{{ status() }}</p>
+        <sw-elapsed class="hint" [running]="importing()" />
       </header>
       <article class="sheet document" aria-label="Description du ticket">
         @if (i.descriptionMarkdown.trim()) {
@@ -118,10 +126,13 @@ export class ItemDetailPage {
     this.status.set("Import du ticket et structuration par l'IA…");
     try {
       const session = await this.api.importIssue(this.key());
-      await this.router.navigate(['/sessions', session.id, 'versions', String(session.latestVersion ?? 1)], {
-        queryParams: { edit: 1 },
-        state: { warnings: session.warnings },
-      });
+      await this.router.navigate(
+        ['/sessions', session.id, 'versions', String(session.latestVersion ?? 1)],
+        {
+          queryParams: { edit: 1 },
+          state: { warnings: session.warnings },
+        },
+      );
     } catch {
       this.status.set('');
     } finally {

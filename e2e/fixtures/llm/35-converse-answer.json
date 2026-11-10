@@ -1,2 +1,2 @@
-{"operation": "converse-answer", "userContains": ["E2E-AGENT"],
+{"reasoning": "No source describes the reservation rule; I must say so.", "operation": "converse-answer", "userContains": ["E2E-AGENT"],
  "text": "Je ne trouve pas de règle écrite sur la réservation des places de parking dans la connaissance du projet. Joignez le document qui la décrit, ou indexez la documentation concernée."}

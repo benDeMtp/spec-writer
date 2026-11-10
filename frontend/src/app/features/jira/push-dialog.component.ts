@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { JiraApi, PushOutcome } from '../../core/jira/jira.api';
 import { PushPreview } from '../../core/jira/jira.model';
+import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 
 export interface PushDialogData {
   sessionId: string;
@@ -16,22 +17,25 @@ export interface PushDialogData {
 @Component({
   selector: 'sw-push-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatDialogModule],
+  imports: [ElapsedComponent, MatButtonModule, MatDialogModule],
   template: `
     <h2 mat-dialog-title>Envoyer la version {{ data.versionNumber }} vers Jira ?</h2>
     <mat-dialog-content>
       @if (preview(); as p) {
         <p>
-          La description du ticket <strong>{{ p.issueKey }}</strong> sera remplacée par ce texte, au format de Jira.
-          Les autres champs du ticket ne changent pas.
+          La description du ticket <strong>{{ p.issueKey }}</strong> sera remplacée par ce texte, au
+          format de Jira. Les autres champs du ticket ne changent pas.
         </p>
-        <pre class="wiki" tabindex="0" aria-label="Description envoyée à Jira">{{ p.descriptionWiki }}</pre>
+        <pre class="wiki" tabindex="0" aria-label="Description envoyée à Jira">{{
+          p.descriptionWiki
+        }}</pre>
       } @else {
         <p role="status" aria-live="polite">Préparation de l'aperçu…</p>
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button type="button" mat-dialog-close [disabled]="sending()">Annuler</button>
+      <sw-elapsed class="hint" [running]="sending()" />
       <button mat-flat-button type="button" [disabled]="!preview() || sending()" (click)="send()">
         {{ sending() ? 'Envoi…' : 'Envoyer vers Jira' }}
       </button>

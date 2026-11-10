@@ -71,6 +71,13 @@ test.describe.serial('010 agent conversationnel', () => {
     conversationUrl = new URL(page.url()).pathname;
     await expect(answers().first().locator('.note')).toContainText('Je ne trouve pas de règle écrite');
     await expect(answers().first().locator('.steps summary')).toContainText('1 recherche');
+    // la réflexion de l'agent reste avec la réponse, repliée, avec la durée du tour
+    const thinking = answers().first().locator('details.thinking');
+    await expect(thinking.locator('summary')).toContainText('Réflexion de l’agent');
+    await expect(thinking.locator('summary')).toContainText(/\d+ s/);
+    await thinking.locator('summary').click();
+    await expect(thinking.locator('.reasoning')).toContainText('search the project for parking reservation rules');
+    await expect(thinking.locator('.reasoning')).toContainText('Rédaction de la réponse');
     await expect(page.getByRole('button', { name: 'Envoyer' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toContainText('E2E-AGENT Que sait-on');
     await expectNoA11yViolations(page);

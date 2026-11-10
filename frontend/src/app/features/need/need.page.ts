@@ -13,6 +13,7 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
 import { ConsentDialogComponent } from '../../shared/ui/consent-dialog.component';
 import { MentionStatusComponent } from '../../shared/ui/mention-status.component';
 import { MentionDirective } from '../../shared/ui/mention.directive';
+import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 
 export const MAX_NEED = 10_000;
 export const MIN_WORDS = 10;
@@ -22,6 +23,7 @@ export const MIN_WORDS = 10;
   selector: 'sw-need-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    ElapsedComponent,
     FormsModule,
     MatButtonModule,
     MatFormFieldModule,
@@ -34,8 +36,8 @@ export const MIN_WORDS = 10;
     <h1>Nouveau besoin</h1>
     <div class="sheet">
       <p class="lead">
-        Décrivez ce que vous voulez obtenir, avec vos mots. spec-writer vous posera ensuite quelques questions
-        pour lever les ambiguïtés, puis rédigera la spécification.
+        Décrivez ce que vous voulez obtenir, avec vos mots. spec-writer vous posera ensuite quelques
+        questions pour lever les ambiguïtés, puis rédigera la spécification.
       </p>
       <form (ngSubmit)="submit()" novalidate>
         <mat-form-field appearance="outline" class="need">
@@ -53,8 +55,17 @@ export const MIN_WORDS = 10;
           <mat-hint id="need-help" align="start">{{ wordsHint() }}</mat-hint>
           <mat-hint align="end">{{ length() }} / {{ max }}</mat-hint>
         </mat-form-field>
-        <sw-mention-status [projectId]="projectId()" field="NEED" [text]="text()" (replaced)="text.set($event)" />
-        <sw-attachments [projectId]="projectId()" [fields]="needFields()" (changed)="attachmentIds.set($event)" />
+        <sw-mention-status
+          [projectId]="projectId()"
+          field="NEED"
+          [text]="text()"
+          (replaced)="text.set($event)"
+        />
+        <sw-attachments
+          [projectId]="projectId()"
+          [fields]="needFields()"
+          (changed)="attachmentIds.set($event)"
+        />
         @if (showError()) {
           <p class="status warn" role="alert">
             Décrivez votre besoin en au moins 10 mots, pour que les questions portent sur votre cas.
@@ -66,7 +77,8 @@ export const MIN_WORDS = 10;
         </details>
         @if (refused()) {
           <p class="status warn" role="status">
-            Sans votre accord, le besoin n'est pas envoyé à GitHub Copilot et le questionnaire ne peut pas démarrer.
+            Sans votre accord, le besoin n'est pas envoyé à GitHub Copilot et le questionnaire ne
+            peut pas démarrer.
           </p>
         }
         <div class="actions">
@@ -75,7 +87,12 @@ export const MIN_WORDS = 10;
           </button>
         </div>
         @if (sending()) {
-          <p class="hint" role="status" aria-live="polite">GitHub Copilot lit votre besoin et prépare les premières questions.</p>
+          <p class="hint">
+            <span role="status" aria-live="polite"
+              >GitHub Copilot lit votre besoin et prépare les premières questions.</span
+            >
+            <sw-elapsed [running]="sending()" />
+          </p>
         }
       </form>
     </div>
@@ -142,7 +159,7 @@ export class NeedPage {
 
   protected readonly max = MAX_NEED;
   protected readonly example =
-    "Les employés doivent pouvoir réserver une salle de réunion pour une durée donnée depuis leur poste, " +
+    'Les employés doivent pouvoir réserver une salle de réunion pour une durée donnée depuis leur poste, ' +
     'et être prévenus si la salle est déjà prise.';
 
   protected readonly text = signal('');
@@ -159,10 +176,14 @@ export class NeedPage {
     return trimmed ? trimmed.split(/\s+/).length : 0;
   });
   protected readonly valid = computed(() => this.words() >= MIN_WORDS && this.length() <= MAX_NEED);
-  protected readonly showError = computed(() => (this.submitted() || this.length() > 0) && this.words() < MIN_WORDS);
+  protected readonly showError = computed(
+    () => (this.submitted() || this.length() > 0) && this.words() < MIN_WORDS,
+  );
   protected readonly wordsHint = computed(() => {
     const missing = MIN_WORDS - this.words();
-    return missing > 0 ? `Encore ${missing} mot${missing > 1 ? 's' : ''} au minimum` : `${this.words()} mots`;
+    return missing > 0
+      ? `Encore ${missing} mot${missing > 1 ? 's' : ''} au minimum`
+      : `${this.words()} mots`;
   });
 
   protected async submit(): Promise<void> {
