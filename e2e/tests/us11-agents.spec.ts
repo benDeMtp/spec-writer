@@ -101,7 +101,7 @@ test.describe.serial('US11 statut et agents', () => {
       'cette spécification est verrouillée',
     );
     for (const name of [
-      "Faire évoluer avec l'IA",
+      "Discuter avec l'IA",
       'Créer un ticket Jira',
       'Supprimer cette version',
     ]) {
@@ -109,16 +109,16 @@ test.describe.serial('US11 statut et agents', () => {
     }
     await expectNoA11yViolations(page);
 
-    // l'API refuse aussi : génération, modification assistée, suppression de version
+    // l'API refuse aussi : génération, discussion (011), suppression de version
     for (const [method, url] of [
       ['POST', `/api/sessions/${specId}/versions`],
-      ['POST', `/api/sessions/${specId}/ai-edits`],
+      ['POST', `/api/sessions/${specId}/discussion`],
       ['DELETE', `/api/sessions/${specId}/versions/1`],
     ] as const) {
       const r = await page.request.fetch(url, {
         method,
         headers,
-        data: method === 'POST' ? { instruction: 'Précise' } : undefined,
+        data: method === 'POST' ? {} : undefined,
       });
       expect(r.status(), `${method} ${url}`).toBe(409);
       expect((await r.json()).code).toBe('SPECIFICATION_LOCKED');
@@ -153,7 +153,7 @@ test.describe.serial('US11 statut et agents', () => {
     await chooseStatus('En cours');
     await page.getByRole('dialog').getByRole('button', { name: 'Rétablir' }).click();
     await expect(page.locator('#locked-reason')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: "Faire évoluer avec l'IA" })).toBeEnabled();
+    await expect(page.getByRole('button', { name: "Discuter avec l'IA" })).toBeEnabled();
   });
 
   /** Projet FACT indexé depuis le Jira simulé, pour search_knowledge. */

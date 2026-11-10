@@ -87,9 +87,9 @@ test.describe.serial('US6 recherche et modification assistée', () => {
     await expectNoA11yViolations(page);
   });
 
-  test("US6-4 et US6-5 : faire évoluer avec l'IA, sans écrire dans Jira", async () => {
-    await page.getByRole('button', { name: "Faire évoluer avec l'IA" }).click();
-    await expect(page).toHaveURL(/\/sessions\/[^/]+\/versions\/1\?edit=1$/);
+  test("US6-4 et US6-5 (011, US4) : discuter avec l'IA depuis le ticket, sans écrire dans Jira", async () => {
+    await page.getByRole('button', { name: "Discuter avec l'IA" }).click();
+    await expect(page).toHaveURL(/\/sessions\/[^/]+\/versions\/1\?discussion=1$/);
     sessionUrl = new URL(page.url()).pathname.replace(/\/versions\/1$/, '');
     await expect(page.getByRole('heading', { level: 1, name: 'Réservation du parking visiteurs' })).toBeVisible();
     await expect(page.getByText('Liée au ticket')).toContainText('PROJ-102');
@@ -103,8 +103,16 @@ test.describe.serial('US6 recherche et modification assistée', () => {
     await expect(details).not.toContainText('||');
     expect(await page.locator('dd', { hasText: 'le jour venu' }).first().innerText()).toBe("Disposer d'une place\nle jour venu");
 
-    await page.getByLabel("Ce que l'IA doit changer").fill("Ajoute l'annulation jusqu'à la veille E2E-EDIT");
-    await page.getByRole('button', { name: 'Proposer une modification' }).click();
+    // la discussion s'ouvre à côté de la spécification importée ; la proposition se fonde sur elle
+    const panel = page.locator('sw-discussion-panel');
+    await expect(panel).toContainText('Contexte : ');
+    const composer = panel.getByLabel('Votre question');
+    await expect(composer).toBeFocused();
+    await composer.fill("Ajoute l'annulation jusqu'à la veille E2E-EDIT");
+    await composer.press('Enter');
+    await expect(panel.locator('li.answer .note').last()).toContainText('C\'est noté');
+    await panel.getByRole('button', { name: 'Proposer une nouvelle version' }).click();
+    await expect(page.getByRole('heading', { name: 'Nouvelle version proposée' })).toBeFocused();
     const diff = page.getByRole('region', { name: 'Différences avec la version actuelle' });
     await expect(diff).toBeVisible();
     await expect(page.getByText(/lignes? ajoutées?/)).toBeVisible();

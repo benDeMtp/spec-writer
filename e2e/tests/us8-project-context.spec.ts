@@ -2,6 +2,7 @@ import { expect, request, test, type APIRequestContext, type BrowserContext, typ
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { expectNoA11yViolations } from './support/a11y';
+import { proposeThroughDiscussion } from './support/discussion';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, jiraURL, stateDir, storageStatePath } from './support/env';
 
@@ -322,7 +323,7 @@ test.describe.serial('US8 connaissance du projet', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Émettre un avoir partiel');
     await expect(page.getByText('Liée au ticket')).toContainText('FACT-9');
     await expect(page.getByRole('heading', { name: 'Proposition de l’IA' })).toBeVisible();
-    await expect(page.locator('sw-ai-edit-panel')).toContainText('Voir ses avoirs');
+    await expect(page.locator('sw-proposal-review')).toContainText('Voir ses avoirs');
   });
 
   test("P7 : la fiche générale l'emporte sur les ADR ; régénérer sans changement réutilise la version", async () => {
@@ -438,12 +439,8 @@ test.describe.serial('US8 connaissance du projet', () => {
     const imported = await page.request.post('/api/jira/issues/FACT-40/import', { headers, data: {} });
     expect(imported.status(), await imported.text()).toBe(201);
     const id = (await imported.json()).id;
-    const proposed = await page.request.post(`/api/sessions/${id}/ai-edits`, {
-      headers,
-      data: { instruction: 'Paiement en trois fois, sans reçu E2E-SUB-TROIS-FOIS' },
-    });
-    expect(proposed.ok(), await proposed.text()).toBe(true);
-    const proposal = await proposed.json();
+    const proposal = await proposeThroughDiscussion(page.request, headers, id,
+      'Paiement en trois fois, sans reçu E2E-SUB-TROIS-FOIS');
     const accepted = await page.request.post(`/api/sessions/${id}/ai-edits/${proposal.proposalId}/accept`, { headers });
     expect(accepted.ok(), await accepted.text()).toBe(true);
     expect((await accepted.json()).number).toBe(2);

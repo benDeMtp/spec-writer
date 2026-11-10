@@ -1,0 +1,57 @@
+{
+  "operation": "revise-specification",
+  "userContains": [
+    "E2E-SUB-TROIS-FOIS",
+    "<sous-taches story=\"FACT-40\">"
+  ],
+  "response": {
+    "changed": true,
+    "reason": "Applique ce que la discussion a établi.",
+    "specification": {
+      "title": "Payer une facture en ligne en trois fois",
+      "summary": "L'acheteur règle une facture émise par carte bancaire, en trois échéances.",
+      "details": "",
+      "useCases": [
+        {
+          "title": "Payer la facture par carte bancaire en trois fois",
+          "actor": "acheteur",
+          "goal": "Régler la facture en ligne en plusieurs échéances",
+          "preconditions": [
+            "La facture est émise"
+          ],
+          "nominalFlow": [
+            "L'acheteur choisit la facture à payer",
+            "Il choisit le paiement en trois fois",
+            "Le prestataire de paiement débite la carte à chaque échéance"
+          ],
+          "alternatives": [],
+          "source": {
+            "kind": "NEED_EXCERPT",
+            "questionId": "",
+            "excerpt": "régler une facture émise par carte bancaire"
+          }
+        }
+      ],
+      "scenarios": [
+        {
+          "useCaseIndex": 0,
+          "title": "Paiement en trois fois",
+          "kind": "NOMINAL",
+          "asA": "acheteur",
+          "given": [
+            "une facture émise de 120 € TTC"
+          ],
+          "when": [
+            "je paie en trois fois"
+          ],
+          "then": [
+            "trois échéances sont prévues"
+          ],
+          "assumption": false
+        }
+      ],
+      "assumptions": [],
+      "requirements": []
+    }
+  }
+}

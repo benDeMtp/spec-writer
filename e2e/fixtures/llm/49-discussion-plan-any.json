@@ -1,0 +1,11 @@
+{
+  "operation": "converse-plan",
+  "userContains": [
+    "<specification-discutee"
+  ],
+  "response": {
+    "action": "ANSWER",
+    "query": "",
+    "kinds": []
+  }
+}
