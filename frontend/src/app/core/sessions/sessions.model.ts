@@ -75,13 +75,23 @@ export interface SessionDetail extends SessionSummary {
 
 export interface VersionSummary {
   number: number;
-  origin: 'GENERATED' | 'AI_EDIT' | 'JIRA_IMPORT' | 'CONFLICT_MERGE';
+  origin: 'GENERATED' | 'AI_EDIT' | 'JIRA_IMPORT' | 'CONFLICT_MERGE' | 'DISCUSSION';
   createdAt: string;
   pushedToJira: boolean;
+  /** Discussion d'où vient une version `DISCUSSION`, tant qu'elle existe (011). */
+  conversationId?: string | null;
 }
 
 export interface SourceRef {
-  kind: 'NEED_EXCERPT' | 'ANSWER' | 'ASSUMPTION' | 'PROJECT_CONTEXT' | 'JIRA_ISSUE' | 'DOC_PAGE' | 'ARCH_ELEMENT';
+  kind:
+    | 'NEED_EXCERPT'
+    | 'ANSWER'
+    | 'ASSUMPTION'
+    | 'PROJECT_CONTEXT'
+    | 'JIRA_ISSUE'
+    | 'DOC_PAGE'
+    | 'ARCH_ELEMENT'
+    | 'DISCUSSION';
   questionId: string | null;
   excerpt: string;
   /** Clé du ticket, page ou ADR, nom de l'élément d'architecture cité (research.md R24 de 002). */
@@ -127,6 +137,8 @@ export interface Requirement {
 export interface Specification {
   number: number;
   origin: string;
+  /** Discussion d'où vient la version ou la proposition (011). */
+  conversationId?: string | null;
   createdAt: string;
   title: string;
   /** Markdown (FR-012b). */

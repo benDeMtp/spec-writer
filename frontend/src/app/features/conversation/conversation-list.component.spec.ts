@@ -44,7 +44,9 @@ describe('ConversationListComponent', () => {
   });
 
   function button(label: string): HTMLButtonElement {
-    return Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+    return Array.from(el.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === label,
+    ) as HTMLButtonElement;
   }
 
   it('liste la plus récente d’abord, marque la conversation ouverte', () => {
@@ -69,7 +71,9 @@ describe('ConversationListComponent', () => {
     patch.flush({ ...THREADS[1], name: 'Émission des avoirs' });
     await settle(fixture);
     expect(changes).toEqual([{}]);
-    expect(el.querySelector('[aria-live="polite"]')?.textContent).toContain('Conversation renommée');
+    expect(el.querySelector('[aria-live="polite"]')?.textContent).toContain(
+      'Conversation renommée',
+    );
 
     button('Supprimer Lettrage').click();
     await settle(fixture);
@@ -92,12 +96,46 @@ describe('ConversationListComponent', () => {
     await settle(fixture);
     button('Supprimer').click();
     await settle(fixture);
-    ctrl.expectOne({ method: 'DELETE', url: '/api/conversations/c1' }).flush(
-      { code: 'OPERATION_IN_PROGRESS', userMessage: 'L’agent répond encore : arrêtez sa réponse.' },
-      { status: 409, statusText: 'Conflict' },
-    );
+    ctrl
+      .expectOne({ method: 'DELETE', url: '/api/conversations/c1' })
+      .flush(
+        {
+          code: 'OPERATION_IN_PROGRESS',
+          userMessage: 'L’agent répond encore : arrêtez sa réponse.',
+        },
+        { status: 409, statusText: 'Conflict' },
+      );
     await settle(fixture);
     expect(el.querySelector('[role="alert"]')?.textContent).toContain('L’agent répond encore');
     expect(changes).toEqual([]);
+  });
+
+  it('mentionne la spécification discutée, ou qu’elle a été supprimée', async () => {
+    fixture.componentRef.setInput('threads', [
+      {
+        id: 'c3',
+        projectId: 'p1',
+        name: 'Discussion : Avoirs',
+        createdAt: 'x',
+        updatedAt: 'x',
+        specification: { sessionId: 's1', name: 'Avoirs' },
+      },
+      {
+        id: 'c4',
+        projectId: 'p1',
+        name: 'Discussion : Lettrage',
+        createdAt: 'x',
+        updatedAt: 'x',
+        specification: { sessionId: null, name: 'Lettrage' },
+      },
+      ...THREADS,
+    ]);
+    await settle(fixture);
+
+    const about = Array.from(el.querySelectorAll('.about')).map((a) => a.textContent?.trim());
+    expect(about).toEqual([
+      'Spécification : Avoirs',
+      'Spécification : Lettrage (spécification supprimée)',
+    ]);
   });
 });

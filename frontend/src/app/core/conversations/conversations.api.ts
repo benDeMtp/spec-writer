@@ -1,10 +1,12 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, InjectionToken, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { Proposal } from '../jira/jira.model';
 import { SessionDetail } from '../sessions/sessions.model';
 import {
   ConversationDetail,
   ConversationSummary,
+  DiscussionView,
   NeedDraft,
   Started,
   TurnEvent,
@@ -180,6 +182,57 @@ export class ConversationsApi {
     return this.opener(
       `/api/conversations/${encodeURIComponent(id)}/turns/${encodeURIComponent(turnId)}/events`,
       onEvent,
+    );
+  }
+
+  /** « Proposer une nouvelle version » (011) : la rédaction se suit par `follow`. */
+  propose(id: string): Promise<{ turnId: string }> {
+    return firstValueFrom(
+      this.http.post<{ turnId: string }>(
+        `/api/conversations/${encodeURIComponent(id)}/proposals`,
+        {},
+        { headers: SILENT },
+      ),
+    );
+  }
+
+  /** Proposition en attente de relecture ; 404 si elle a expiré ou a été prise. */
+  proposal(sessionId: string, proposalId: string): Promise<Proposal> {
+    return firstValueFrom(
+      this.http.get<Proposal>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/proposals/${encodeURIComponent(proposalId)}`,
+        { headers: SILENT },
+      ),
+    );
+  }
+
+  /** Abandon : rien n'est créé. */
+  discardProposal(sessionId: string, proposalId: string): Promise<void> {
+    return firstValueFrom(
+      this.http.delete<void>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/proposals/${encodeURIComponent(proposalId)}`,
+        { headers: SILENT },
+      ),
+    );
+  }
+
+  /** Discussion suivie de la spécification (011) ; `null` s'il n'y en a pas encore. */
+  discussion(sessionId: string): Promise<DiscussionView | null> {
+    return firstValueFrom(
+      this.http.get<DiscussionView | null>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/discussion`,
+      ),
+    );
+  }
+
+  /** Ouvre la discussion suivie (créée au besoin), ou en démarre une nouvelle avec `fresh`. */
+  openDiscussion(sessionId: string, fresh = false): Promise<DiscussionView> {
+    return firstValueFrom(
+      this.http.post<DiscussionView>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/discussion`,
+        { fresh },
+        { headers: SILENT },
+      ),
     );
   }
 }

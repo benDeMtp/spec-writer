@@ -81,6 +81,8 @@ describe('SessionsPage', () => {
   it('supprime après confirmation dans un dialogue', async () => {
     button(el.querySelectorAll('li')[0], 'Supprimer')!.click();
     await settle(fixture);
+    ctrl.expectOne('/api/sessions/s1/discussions/count').flush({ count: 0 });
+    await settle(fixture);
     const dialog = document.querySelector('sw-confirm-dialog')!;
     expect(dialog.textContent).toContain('« Réservation de salles » et toutes ses versions seront supprimées définitivement');
     button(dialog, 'Annuler')!.click();
@@ -89,9 +91,11 @@ describe('SessionsPage', () => {
 
     button(el.querySelectorAll('li')[0], 'Supprimer')!.click();
     await settle(fixture);
+    ctrl.expectOne('/api/sessions/s1/discussions/count').flush({ count: 0 });
+    await settle(fixture);
     button(document.querySelector('sw-confirm-dialog')!, 'Supprimer définitivement')!.click();
     await settle(fixture);
-    ctrl.expectOne({ method: 'DELETE', url: '/api/sessions/s1' }).flush(null);
+    ctrl.expectOne({ method: 'DELETE', url: '/api/sessions/s1?discussions=delete' }).flush(null);
     await settle(fixture);
     ctrl.expectOne('/api/sessions').flush(LIST.slice(1));
     await settle(fixture);

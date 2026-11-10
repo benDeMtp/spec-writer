@@ -49,7 +49,14 @@ const REPORT: SubtaskReport = {
       change: null,
       state: 'CONSISTENT',
     }),
-    subtask({ key: 'FACT-23', title: 'Dépendances', useCase: null, closeness: null, change: null, state: 'UNMATCHED' }),
+    subtask({
+      key: 'FACT-23',
+      title: 'Dépendances',
+      useCase: null,
+      closeness: null,
+      change: null,
+      state: 'UNMATCHED',
+    }),
   ],
 };
 
@@ -57,7 +64,9 @@ describe('SubtasksPanelComponent', () => {
   let ctrl: HttpTestingController;
 
   async function open(body: SubtaskReport | null, status = 200): Promise<HTMLElement> {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     ctrl = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(SubtasksPanelComponent);
     fixture.componentRef.setInput('sessionId', 's1');
@@ -90,7 +99,9 @@ describe('SubtasksPanelComponent', () => {
     ]);
     expect(details.every((d) => !d.open)).toBe(true);
     expect(details[0].textContent).toContain('ou de UC-01 « Payer »');
-    expect(el.querySelector('a')?.getAttribute('href')).toBe('https://jira.example.com/browse/FACT-21');
+    expect(el.querySelector('a')?.getAttribute('href')).toBe(
+      'https://jira.example.com/browse/FACT-21',
+    );
     expect(el.textContent).not.toContain('travaux en cours');
   });
 
@@ -99,7 +110,15 @@ describe('SubtasksPanelComponent', () => {
       ...REPORT,
       matching: 'UNAVAILABLE',
       matchingProblem: 'modèle absent',
-      subtasks: [subtask({ useCase: null, change: null, state: 'UNMATCHED', statusFresh: false, statusDate: '2026-10-01T10:00:00Z' })],
+      subtasks: [
+        subtask({
+          useCase: null,
+          change: null,
+          state: 'UNMATCHED',
+          statusFresh: false,
+          statusDate: '2026-10-01T10:00:00Z',
+        }),
+      ],
     });
     expect(el.textContent).toContain("Rattachement aux cas d'usage indisponible : modèle absent");
     expect(el.textContent).toContain("Jira n'a pas pu être relu");

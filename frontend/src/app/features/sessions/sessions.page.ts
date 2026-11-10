@@ -6,11 +6,10 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import { IMPLEMENTATION_LABELS, SessionState, SessionSummary } from '../../core/sessions/sessions.model';
-import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component';
+import { confirmDeleteSpecification } from '../../shared/ui/confirm-delete-specification';
 import { SearchPage } from '../search/search.page';
 
 const STATES: Record<SessionState, string> = {
@@ -206,23 +205,17 @@ export class SessionsPage {
   }
 
   protected async remove(s: SessionSummary): Promise<void> {
-    const confirmed = await firstValueFrom(
-      this.dialog
-        .open(ConfirmDialogComponent, {
-          data: {
-            title: 'Supprimer cette spécification ?',
-            message:
-              `« ${s.name} » et toutes ses versions seront supprimées définitivement.` +
-              (s.jiraKey ? ` Elle est liée au ticket ${s.jiraKey} : Jira n'est pas modifié.` : ''),
-            confirm: 'Supprimer définitivement',
-          },
-        })
-        .afterClosed(),
-    );
-    if (confirmed !== true) {
+    const confirmed = await confirmDeleteSpecification(this.dialog, this.api, s.id, {
+      title: 'Supprimer cette spécification ?',
+      message:
+        `« ${s.name} » et toutes ses versions seront supprimées définitivement.` +
+        (s.jiraKey ? ` Elle est liée au ticket ${s.jiraKey} : Jira n'est pas modifié.` : ''),
+      confirm: 'Supprimer définitivement',
+    });
+    if (!confirmed) {
       return;
     }
-    await this.api.delete(s.id);
+    await this.api.delete(s.id, confirmed.keepDiscussions);
     this.announce.set(`Spécification « ${s.name} » supprimée.`);
     await this.reload();
   }

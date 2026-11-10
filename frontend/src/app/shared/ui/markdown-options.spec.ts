@@ -25,6 +25,11 @@ describe('markedOptions', () => {
       `<a href="/sessions/${id}/versions/3" title="Saisir un avoir">[2]</a>`,
     );
     expect(render(`[[1]](#source-${id}-1)`)).toContain(`<a href="#source-${id}-1">[1]</a>`);
+    // 011 : une section de la spécification discutée
+    expect(render(`[[4]](/sessions/${id}/versions/3#UC-01 "UC-01")`)).toContain(
+      `<a href="/sessions/${id}/versions/3#UC-01" title="UC-01">[4]</a>`,
+    );
+    expect(render(`[x](/sessions/${id}/versions/3#"onclick)`)).not.toContain('<a');
     const html = render('[ailleurs](/configuration) et [ancre](#haut) et [proche](//evil.example/x)');
     expect(html).not.toContain('<a');
   });

@@ -37,10 +37,6 @@ export class JiraApi {
     return firstValueFrom(this.http.post<SessionDetail>(`/api/jira/issues/${encodeURIComponent(key)}/import`, {}));
   }
 
-  proposeEdit(sessionId: string, instruction: string): Promise<Proposal> {
-    return firstValueFrom(this.http.post<Proposal>(`${session(sessionId)}/ai-edits`, { instruction }));
-  }
-
   acceptEdit(sessionId: string, proposalId: string): Promise<Specification> {
     return firstValueFrom(
       this.http.post<Specification>(`${session(sessionId)}/ai-edits/${encodeURIComponent(proposalId)}/accept`, {}),

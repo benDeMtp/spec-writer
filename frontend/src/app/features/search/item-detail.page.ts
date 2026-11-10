@@ -9,9 +9,9 @@ import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 
 /**
- * Ticket Jira non lié (FR-043) : sa description complète, et une seule action. « Faire évoluer
- * avec l'IA » importe le ticket en session liée, sans écrire dans Jira, puis ouvre la modification
- * assistée sur la spécification créée (US6-5).
+ * Ticket Jira (FR-043) : sa description complète, et une seule action. « Discuter avec l'IA »
+ * importe le ticket en session liée, sans écrire dans Jira, puis ouvre la discussion de la
+ * spécification (011, US4) ; un ticket déjà lié ouvre la discussion de sa spécification.
  */
 @Component({
   selector: 'sw-item-detail-page',
@@ -32,7 +32,7 @@ import { ElapsedComponent } from '../../shared/ui/elapsed.component';
         </p>
         <div class="actions">
           <button mat-flat-button type="button" [disabled]="importing()" (click)="evolve()">
-            Faire évoluer avec l'IA
+            Discuter avec l'IA
           </button>
           <a mat-button routerLink="/sessions">Retour aux spécifications</a>
         </div>
@@ -129,7 +129,7 @@ export class ItemDetailPage {
       await this.router.navigate(
         ['/sessions', session.id, 'versions', String(session.latestVersion ?? 1)],
         {
-          queryParams: { edit: 1 },
+          queryParams: { discussion: 1 },
           state: { warnings: session.warnings },
         },
       );

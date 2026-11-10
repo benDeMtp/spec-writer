@@ -60,7 +60,9 @@ const SPEC: Specification = {
   assumptions: [],
   requirements: [],
   markdown: '# Saisir un avoir',
-  adrDeviations: [{ adrRef: ADR, decision: 'Les avoirs passent par Kafka', deviation: 'Appel direct demandé' }],
+  adrDeviations: [
+    { adrRef: ADR, decision: 'Les avoirs passent par Kafka', deviation: 'Appel direct demandé' },
+  ],
   architecture: {
     modules: [
       { name: 'Avoirs', scope: 'PROJECT' },
@@ -141,7 +143,10 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     const attachments = el.querySelector('sw-attachments')!;
     expect(attachments.textContent).toContain('CR COPIL.pdf');
     expect(button('Joindre un document').disabled).toBe(true);
-    expect((attachments.querySelector('button[aria-label="Retirer CR COPIL"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (attachments.querySelector('button[aria-label="Retirer CR COPIL"]') as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
   });
 
   it('affiche les rubriques Architecture, Écarts aux ADR et Efforts supplémentaires', async () => {
@@ -165,7 +170,9 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
   });
 
   function button(label: string): HTMLButtonElement {
-    return Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.trim() === label)!;
+    return Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === label,
+    )!;
   }
 
   /** Bouton de la boîte de confirmation ouverte : « Supprimer la spécification » existe aussi sur la page. */
@@ -183,8 +190,96 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
 
   const linked = {
     ...SESSION,
-    linkedTicket: { issueKey: 'FACT-20', issueUrl: 'http://jira/browse/FACT-20', syncState: 'IN_SYNC', linkedVersionNumber: 1 },
+    linkedTicket: {
+      issueKey: 'FACT-20',
+      issueUrl: 'http://jira/browse/FACT-20',
+      syncState: 'IN_SYNC',
+      linkedVersionNumber: 1,
+    },
   } as SessionDetail;
+
+  it('discussion avec l’IA à côté du document : contexte, version récente, citation d’une section', async () => {
+    await open(SESSION, [{ number: 1 }, { number: 2 }]);
+    // le focus ne se vérifie que sur un élément du document
+    document.body.appendChild(el);
+    const discuss = button("Discuter avec l'IA");
+    expect(discuss.getAttribute('aria-expanded')).toBe('false');
+    discuss.click();
+    await settle();
+
+    ctrl
+      .expectOne({ method: 'POST', url: '/api/sessions/s1/discussion' })
+      .flush({ conversationId: 'c1', specificationName: 'Avoirs', version: 2 });
+    await settle();
+    ctrl.expectOne('/api/conversations/c1').flush({
+      id: 'c1',
+      projectId: 'p1',
+      name: 'Discussion : Avoirs',
+      createdAt: 'x',
+      updatedAt: 'x',
+      sessions: [],
+      memoryUntil: null,
+      specification: { sessionId: 's1', name: 'Avoirs' },
+      messages: [
+        {
+          id: 'u1',
+          ordinal: 1,
+          role: 'USER',
+          text: 'Qui émet ?',
+          state: 'COMPLETE',
+          historyTruncated: false,
+          createdAt: 'x',
+          steps: [],
+          sources: [],
+        },
+        {
+          id: 'a1',
+          ordinal: 2,
+          role: 'AGENT',
+          text: 'Voir [1].',
+          state: 'COMPLETE',
+          historyTruncated: false,
+          createdAt: 'x',
+          steps: [],
+          specificationVersion: 2,
+          sources: [
+            {
+              n: 1,
+              kind: 'SPECIFICATION',
+              ref: 'spec:s1@v2#UC-1',
+              title: 'Avoirs, UC-1',
+              url: '/sessions/s1/versions/2#UC-1',
+            },
+          ],
+        },
+      ],
+    });
+    await settle();
+    ctrl.match((r) => r.url.includes('/attachments')).forEach((r) => r.flush([]));
+    await settle();
+
+    expect(discuss.getAttribute('aria-expanded')).toBe('true');
+    const panel = el.querySelector('sw-discussion-panel')!;
+    expect(text(panel)).toContain('Contexte : Avoirs, version 2');
+    expect(text(panel)).toContain(
+      'Vous consultez la version 1. La discussion porte sur la version 2, la plus récente.',
+    );
+    expect(text(panel)).toContain('Contexte : version 2 de la spécification');
+    expect(document.activeElement?.id).toBe('composer-text');
+
+    // la citation d'une section fait défiler le document jusqu'à elle, sans changer de page
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    panel.querySelector<HTMLAnchorElement>('.note a')!.click();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(document.activeElement?.id).toBe('UC-1');
+
+    button('Fermer').click();
+    await settle();
+    await settle();
+    expect(el.querySelector('sw-discussion-panel')).toBeNull();
+    expect(document.activeElement).toBe(discuss);
+    el.remove();
+  });
 
   it("supprime une version après une confirmation qui la nomme et prévient que Jira n'est pas modifié", async () => {
     await open(linked, [{ number: 1 }, { number: 3 }]);
@@ -193,8 +288,12 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     await settle();
     const dialog = document.querySelector('mat-dialog-container')!;
     expect(dialog.textContent).toContain('Supprimer la version 1 ?');
-    expect(dialog.textContent).toContain('La version 1 de « Avoirs » sera supprimée définitivement.');
-    expect(dialog.textContent).toContain("Elle est liée au ticket FACT-20 : Jira n'est pas modifié.");
+    expect(dialog.textContent).toContain(
+      'La version 1 de « Avoirs » sera supprimée définitivement.',
+    );
+    expect(dialog.textContent).toContain(
+      "Elle est liée au ticket FACT-20 : Jira n'est pas modifié.",
+    );
 
     // annuler ne supprime rien
     confirmButton('Annuler').click();
@@ -208,7 +307,9 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     ctrl.expectOne({ method: 'DELETE', url: '/api/sessions/s1/versions/1' }).flush(null);
     await settle();
     expect(navigate).toHaveBeenCalledWith(['/sessions', 's1', 'versions', '3']);
-    expect(el.querySelector('.announce')?.textContent).toContain("Version 1 supprimée. Jira n'a pas été modifié.");
+    expect(el.querySelector('.announce')?.textContent).toContain(
+      "Version 1 supprimée. Jira n'a pas été modifié.",
+    );
   });
 
   it('la dernière version supprimée ramène au questionnaire ; la spécification entière à la liste', async () => {
@@ -216,7 +317,9 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     button('Supprimer cette version').click();
     await settle();
-    expect(document.querySelector('mat-dialog-container')?.textContent).toContain('Le besoin et les réponses sont gardés');
+    expect(document.querySelector('mat-dialog-container')?.textContent).toContain(
+      'Le besoin et les réponses sont gardés',
+    );
     confirmButton('Supprimer la version').click();
     await settle();
     ctrl.expectOne({ method: 'DELETE', url: '/api/sessions/s1/versions/1' }).flush(null);
@@ -225,19 +328,32 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
 
     button('Supprimer la spécification').click();
     await settle();
-    expect(document.querySelector('mat-dialog-container')?.textContent).toContain(
-      '« Avoirs », ses réponses et sa version seront supprimés définitivement.',
+    ctrl.expectOne('/api/sessions/s1/discussions/count').flush({ count: 1 });
+    await settle();
+    const dialog = document.querySelector('mat-dialog-container')!;
+    expect(dialog.textContent).toContain(
+      '« Avoirs », ses réponses et sa version seront supprimés définitivement. Elle a une discussion avec l’IA.',
     );
+    // 011 : la case est cochée par défaut ; décochée, la discussion est gardée
+    const keep = dialog.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(keep.checked).toBe(true);
+    expect(dialog.textContent).toContain('Supprimer aussi ses discussions');
+    keep.click();
+    await settle();
     confirmButton('Supprimer la spécification').click();
     await settle();
-    ctrl.expectOne({ method: 'DELETE', url: '/api/sessions/s1' }).flush(null);
+    ctrl.expectOne({ method: 'DELETE', url: '/api/sessions/s1?discussions=keep' }).flush(null);
     await settle();
     expect(navigate).toHaveBeenCalledWith(['/sessions']);
   });
 
   const implemented = {
     ...SESSION,
-    implementation: { status: 'IMPLEMENTED', implementedAt: '2026-11-02T10:00:00Z', evolvedFromSessionId: null },
+    implementation: {
+      status: 'IMPLEMENTED',
+      implementedAt: '2026-11-02T10:00:00Z',
+      evolvedFromSessionId: null,
+    },
   } as SessionDetail;
 
   it('implémentée : actions verrouillées avec leur raison, et « Créer une évolution »', async () => {
@@ -245,8 +361,10 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     await open(implemented, [{ number: 1 }]);
     const reason = el.querySelector('#locked-reason')!;
     // le mois dépend de la locale du test
-    expect(text(reason)).toMatch(/Implémentée le 2 \S+ 2026 : cette spécification est verrouillée\./);
-    for (const label of ["Faire évoluer avec l'IA", 'Créer un ticket Jira', 'Supprimer cette version']) {
+    expect(text(reason)).toMatch(
+      /Implémentée le 2 \S+ 2026 : cette spécification est verrouillée\./,
+    );
+    for (const label of ["Discuter avec l'IA", 'Créer un ticket Jira', 'Supprimer cette version']) {
       expect(button(label).disabled).toBe(true);
       expect(button(label).getAttribute('aria-describedby')).toBe('locked-reason');
     }
@@ -255,7 +373,9 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     button('Créer une évolution').click();
     await settle();
-    ctrl.expectOne({ method: 'POST', url: '/api/sessions/s1/evolutions' }).flush({ ...SESSION, id: 's2' });
+    ctrl
+      .expectOne({ method: 'POST', url: '/api/sessions/s1/evolutions' })
+      .flush({ ...SESSION, id: 's2' });
     await settle();
     expect(navigate).toHaveBeenCalledWith(['/sessions', 's2']);
   });
@@ -264,7 +384,11 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     await open(implemented, [{ number: 1 }]);
     (el.querySelector('.mat-mdc-select-trigger') as HTMLElement).click();
     await settle();
-    (Array.from(document.querySelectorAll('mat-option')).find((o) => o.textContent?.includes('En cours')) as HTMLElement).click();
+    (
+      Array.from(document.querySelectorAll('mat-option')).find((o) =>
+        o.textContent?.includes('En cours'),
+      ) as HTMLElement
+    ).click();
     await settle();
     const dialog = document.querySelector('mat-dialog-container')!;
     expect(dialog.textContent).toContain('Rétablir un statut antérieur ?');
@@ -276,7 +400,7 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     req.flush({ status: 'IN_PROGRESS', implementedAt: null, evolvedFromSessionId: null });
     await settle();
     expect(el.querySelector('#locked-reason')).toBeNull();
-    expect(button("Faire évoluer avec l'IA").disabled).toBe(false);
+    expect(button("Discuter avec l'IA").disabled).toBe(false);
     expect(el.querySelector('.announce')?.textContent).toContain('Statut : En cours.');
   });
 });

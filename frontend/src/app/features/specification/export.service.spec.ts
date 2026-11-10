@@ -4,14 +4,17 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { ExportService, fileNameFrom } from './export.service';
 
-const DISPOSITION = "attachment; filename=\"Reservation-ete-v2.md\"; filename*=UTF-8''R%C3%A9servation-%C3%A9t%C3%A9-v2.md";
+const DISPOSITION =
+  'attachment; filename="Reservation-ete-v2.md"; filename*=UTF-8\'\'R%C3%A9servation-%C3%A9t%C3%A9-v2.md';
 
 describe('ExportService', () => {
   let ctrl: HttpTestingController;
   let doc: Document;
 
   function setup(): ExportService {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     ctrl = TestBed.inject(HttpTestingController);
     doc = TestBed.inject(DOCUMENT);
     return TestBed.inject(ExportService);
@@ -19,7 +22,10 @@ describe('ExportService', () => {
 
   function flush(): void {
     ctrl.expectOne('/api/sessions/s1/versions/2/export').flush('# Spécification\n', {
-      headers: { 'Content-Disposition': DISPOSITION, 'Content-Type': 'text/markdown; charset=UTF-8' },
+      headers: {
+        'Content-Disposition': DISPOSITION,
+        'Content-Type': 'text/markdown; charset=UTF-8',
+      },
     });
   }
 
@@ -38,7 +44,9 @@ describe('ExportService', () => {
     const result = service.exportMarkdown('s1', 2);
     flush();
     expect(await result).toBe('saved');
-    expect(picker).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: 'Réservation-été-v2.md' }));
+    expect(picker).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedName: 'Réservation-été-v2.md' }),
+    );
     const blob = write.mock.calls[0][0] as Blob;
     expect(await blob.text()).toBe('# Spécification\n');
     expect(close).toHaveBeenCalled();
@@ -60,7 +68,9 @@ describe('ExportService', () => {
     const service = setup();
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
       expect(this.download).toBe('Réservation-été-v2.md');
       expect(this.href).toBe('blob:x');
     });

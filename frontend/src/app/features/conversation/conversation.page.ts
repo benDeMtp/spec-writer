@@ -1,11 +1,7 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Location } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
-  HostListener,
-  OnDestroy,
   computed,
   effect,
   inject,
@@ -14,67 +10,37 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Router, RouterLink } from '@angular/router';
-import { MarkdownComponent } from 'ngx-markdown';
-import { ConversationsApi, TurnStream } from '../../core/conversations/conversations.api';
+import { ConversationsApi } from '../../core/conversations/conversations.api';
 import {
-  CitedSource,
   ConversationDetail,
   ConversationMessage,
   ConversationSummary,
   NeedDraft,
-  SourceKind,
-  ThinkingPart,
-  ThinkingStage,
-  TurnEvent,
 } from '../../core/conversations/conversations.model';
-import { isProblem } from '../../core/http/problem';
 import { ProjectsStore } from '../../core/projects/projects.store';
-import { AttachmentsComponent } from '../../shared/ui/attachments.component';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
-import { ElapsedComponent, formatDuration } from '../../shared/ui/elapsed.component';
-import { MentionDirective } from '../../shared/ui/mention.directive';
+import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 import { ConversationListComponent } from './conversation-list.component';
+import { ConversationThreadComponent, reason } from './conversation-thread.component';
 import { NeedDraftComponent } from './need-draft.component';
 
-export const MAX_MESSAGE = 8_000;
-
-const STAGES: Record<ThinkingStage, string> = {
-  MEMORY: 'Résumé des échanges anciens',
-  PLAN: 'Choix d’une recherche',
-  ANSWER: 'Rédaction de la réponse',
-};
-
-const KINDS: Record<SourceKind, string> = {
-  TICKET: 'Ticket',
-  DOC_SECTION: 'Page',
-  ADR: 'ADR',
-  ARCH_ELEMENT: "Élément d'architecture",
-  SPECIFICATION: 'Spécification',
-  ATTACHMENT: 'Document joint',
-};
+export { MAX_MESSAGE } from './conversation-thread.component';
 
 /**
- * Conversation avec l'agent, écran d'accueil (010, US1, US4) : la réponse est une note rédigée, qui
- * appelle ses sources par leur numéro et les liste en notes ; les recherches de l'agent forment un
- * petit journal au-dessus. Le fil n'est pas relu par les lecteurs d'écran : une région séparée
- * annonce l'étape en cours puis la réponse complète (FR-022).
+ * Conversation avec l'agent, écran d'accueil (010, US1, US4) : liste des conversations, en-tête,
+ * exemples de questions, brouillon de besoin ; le fil lui-même est `sw-conversation-thread`, partagé
+ * avec la discussion d'une spécification (011).
  */
 @Component({
   selector: 'sw-conversation-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    AttachmentsComponent,
     ConversationListComponent,
+    ConversationThreadComponent,
     ElapsedComponent,
-    FormsModule,
     MatButtonModule,
-    MatProgressBarModule,
-    MarkdownComponent,
-    MentionDirective,
     NeedDraftComponent,
     RouterLink,
   ],
@@ -106,6 +72,16 @@ const KINDS: Record<SourceKind, string> = {
             </span>
           }
         </header>
+        @if (detail()?.specification; as spec) {
+          <p class="discussed">
+            Discussion de la spécification « {{ spec.name }} »
+            @if (spec.sessionId) {
+              : <a [routerLink]="['/sessions', spec.sessionId]">Ouvrir la spécification</a>
+            } @else {
+              (spécification supprimée)
+            }
+          </p>
+        }
         @if (detail()?.sessions?.length) {
           <p class="linked">
             Spécifications issues de cette conversation :
@@ -136,168 +112,25 @@ const KINDS: Record<SourceKind, string> = {
           </div>
         }
 
-        <div role="log" aria-live="off" aria-label="Échanges avec l’agent">
-          <ol class="log">
-            @for (m of messages(); track m.id) {
-              @if (m.role === 'USER') {
-                <li class="question">
-                  <p>{{ m.text }}</p>
-                </li>
-              } @else {
-                <li class="answer" [attr.aria-busy]="m.state === 'RUNNING'">
-                  @if (m.state === 'RUNNING' || m.thinking?.parts?.length) {
-                    <details class="thinking" [class.live]="m.state === 'RUNNING'">
-                      <summary>
-                        <span class="activity">{{
-                          m.state === 'RUNNING' ? activity(m) : 'Réflexion de l’agent'
-                        }}</span>
-                        @if (m.state === 'RUNNING') {
-                          <sw-elapsed [since]="turnStart()" />
-                        } @else if (m.thinking) {
-                          <span class="took">{{ took(m.thinking.durationMs) }}</span>
-                        }
-                      </summary>
-                      <div class="reasoning">
-                        <div>
-                          @for (part of shownParts(m); track $index) {
-                            <h3>{{ stageLabel(part.stage) }}</h3>
-                            @if (part.text) {
-                              <p>{{ part.text }}</p>
-                            } @else {
-                              <p class="hint">
-                                Le modèle n’a pas encore partagé sa réflexion pour cette étape.
-                              </p>
-                            }
-                          } @empty {
-                            <p class="hint">Le modèle n’a pas encore partagé sa réflexion.</p>
-                          }
-                          <p class="hint about">
-                            Résumé de sa réflexion rédigé par le modèle, souvent en anglais.
-                          </p>
-                        </div>
-                      </div>
-                    </details>
-                  } @else if (m.thinking) {
-                    <p class="took-alone">Répondu en {{ took(m.thinking.durationMs) }}</p>
-                  }
-                  @if (m.steps.length) {
-                    <details class="steps" [open]="m.state === 'RUNNING'">
-                      <summary>
-                        {{ m.steps.length }} recherche{{ m.steps.length > 1 ? 's' : '' }} dans la
-                        connaissance du projet
-                      </summary>
-                      <ol>
-                        @for (s of m.steps; track s.ordinal) {
-                          <li>
-                            « {{ s.query }} » : {{ s.hits }} élément{{
-                              s.hits > 1 ? 's' : ''
-                            }}
-                            trouvé{{ s.hits > 1 ? 's' : '' }}
-                          </li>
-                        }
-                      </ol>
-                    </details>
-                  }
-                  @if (m.text) {
-                    <article class="note">
-                      <markdown [data]="rendered(m)" />
-                    </article>
-                  } @else if (m.state === 'RUNNING' && compacting() === m.id) {
-                    <div class="memory">
-                      <p>Pour garder le fil, l’agent résume les échanges les plus anciens.</p>
-                      <mat-progress-bar mode="indeterminate" aria-hidden="true" />
-                    </div>
-                  }
-                  @if (m.state === 'INCOMPLETE') {
-                    <p class="incomplete">
-                      Réponse incomplète.
-                      <button mat-button type="button" [disabled]="running()" (click)="retry(m)">
-                        Réessayer
-                      </button>
-                    </p>
-                  }
-                  @if (m.historyTruncated) {
-                    <p class="hint">
-                      Les échanges les plus anciens n’ont pas tous été transmis à l’agent.
-                    </p>
-                  }
-                  @if (m.sources.length) {
-                    <ol class="sources" aria-label="Sources de la réponse">
-                      @for (s of m.sources; track s.n) {
-                        <li [value]="s.n" [id]="sourceId(m, s)" tabindex="-1">
-                          <span class="kind">{{ kind(s) }}</span>
-                          @if (internal(s); as path) {
-                            <a [routerLink]="path">{{ s.title }}</a>
-                          } @else if (s.url) {
-                            <a [href]="s.url" target="_blank" rel="noopener noreferrer"
-                              >{{ s.title
-                              }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
-                            >
-                          } @else {
-                            {{ s.title }}
-                          }
-                        </li>
-                      }
-                    </ol>
-                  }
-                </li>
-              }
-              @if (m.ordinal && m.ordinal === detail()?.memoryUntil && !$last) {
-                <li class="memory-mark">
-                  <p>Les échanges ci-dessus sont transmis à l’agent sous forme de résumé.</p>
-                </li>
-              }
-            }
-          </ol>
-        </div>
-
-        @if (draft(); as d) {
-          <sw-need-draft
-            [conversationId]="detail()!.id"
-            [draft]="d"
-            (started)="openSpecification($event)"
-            (cancelled)="draft.set(null)"
-          />
-        }
-
-        <p class="sw-visually-hidden announce" aria-live="polite">{{ announce() }}</p>
-        @if (problem()) {
-          <p class="problem" role="alert">{{ problem() }}</p>
-        }
-
-        <form class="composer" (ngSubmit)="send()" novalidate>
-          <label for="composer-text" class="sw-visually-hidden">Votre question</label>
-          <textarea
-            #composer
-            id="composer-text"
-            name="text"
-            rows="3"
-            [swMention]="projectId()"
-            [(ngModel)]="text"
-            [maxlength]="max"
-            placeholder="Votre question sur le projet…"
-            autocomplete="off"
-            aria-describedby="composer-help"
-            (keydown)="onKey($event)"
-          ></textarea>
-          @if (detail(); as d) {
-            <sw-attachments
-              [projectId]="projectId()"
-              [conversationId]="d.id"
-              [fields]="composerFields()"
+        <sw-conversation-thread
+          #thread
+          [conversationId]="detail()?.id ?? null"
+          [projectId]="projectId()"
+          [memoryUntil]="detail()?.memoryUntil ?? null"
+          [prepare]="create"
+          [(messages)]="messages"
+          (sent)="onSent()"
+          (finished)="onFinished($event)"
+        >
+          @if (draft(); as d) {
+            <sw-need-draft
+              [conversationId]="detail()!.id"
+              [draft]="d"
+              (started)="openSpecification($event)"
+              (cancelled)="draft.set(null)"
             />
           }
-          <div class="bar">
-            <span id="composer-help" class="hint">
-              Entrée envoie, Maj+Entrée va à la ligne. {{ text().length }} / {{ max }}
-            </span>
-            @if (running()) {
-              <button mat-stroked-button type="button" (click)="stop()">Arrêter</button>
-            } @else {
-              <button mat-flat-button type="submit" [disabled]="!text().trim()">Envoyer</button>
-            }
-          </div>
-        </form>
+        </sw-conversation-thread>
       </section>
     </div>
   `,
@@ -348,218 +181,17 @@ const KINDS: Record<SourceKind, string> = {
       text-align: start;
       white-space: normal;
     }
-    .log {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
-    .question {
-      margin: 1.75rem 0 0.75rem;
-      padding-left: 0.9rem;
-      border-left: 3px solid var(--sw-pencil);
-    }
-    .question p {
-      margin: 0;
-      font-weight: 600;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-    .log :focus-visible {
-      /* le champ de saisie reste collé en bas : il ne cache pas l'élément qui a le focus */
-      scroll-margin-bottom: 12rem;
-    }
-    .answer {
-      margin: 0 0 1rem;
-    }
-    .steps {
-      margin: 0 0 0.75rem;
-      color: var(--sw-ink-soft);
-      font-size: var(--sw-step--1);
-    }
-    .steps summary {
-      cursor: pointer;
-    }
-    .steps ol {
-      margin: 0.4rem 0 0;
-      padding-left: 1.5rem;
-    }
-    .note {
-      padding: 1.25rem 1.5rem;
-      background: var(--sw-sheet);
-      border: 1px solid var(--sw-rule);
-      border-radius: var(--sw-radius-sheet);
-      font-family: var(--sw-font-doc);
-      line-height: 1.7;
-      overflow-wrap: anywhere;
-    }
-    .note :first-child {
-      margin-top: 0;
-    }
-    .note :last-child {
-      margin-bottom: 0;
-    }
-    .note a {
-      color: var(--sw-pencil);
-      font-family: var(--sw-font-ui);
-      font-size: 0.8em;
-      vertical-align: super;
-      line-height: 0;
-      text-decoration: none;
-    }
-    .note a:hover,
-    .note a:focus-visible {
-      text-decoration: underline;
-    }
-    .sources {
-      margin: 0.6rem 0 0;
-      padding-left: 2rem;
-      font-size: var(--sw-step--1);
-      color: var(--sw-ink-soft);
-    }
-    .sources li:focus-visible {
-      outline: 2px solid var(--sw-pencil);
-      outline-offset: 2px;
-    }
-    .sources .kind {
-      margin-right: 0.4rem;
-    }
-    .thinking {
-      margin: 0 0 0.75rem;
-      color: var(--sw-ink-soft);
-      font-size: var(--sw-step--1);
-    }
-    .thinking summary {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 0 0.6rem;
-      cursor: pointer;
-    }
-    .thinking summary::before {
-      content: '▸';
-      transition: transform 120ms ease-out;
-    }
-    .thinking[open] summary::before {
-      transform: rotate(90deg);
-    }
-    .thinking summary::-webkit-details-marker {
-      display: none;
-    }
-    .thinking.live .activity {
-      color: var(--sw-ink);
-    }
-    .thinking.live .activity::after {
-      content: '…';
-    }
-    .thinking sw-elapsed,
-    .took {
-      color: var(--sw-ink-soft);
-    }
-    /* la réflexion arrive par le bas : la colonne inversée garde la fin visible sans script */
-    .reasoning {
-      display: flex;
-      flex-direction: column-reverse;
-      max-height: 18rem;
-      overflow-y: auto;
-      margin: 0.5rem 0 0;
-      padding: 0.25rem 0.9rem 0.5rem;
-      border-left: 2px solid var(--sw-rule);
-    }
-    .reasoning h3 {
-      margin: 0.6rem 0 0.2rem;
-      font-size: inherit;
-      font-weight: 600;
-    }
-    .reasoning p {
-      margin: 0;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      line-height: 1.55;
-    }
-    .reasoning .about {
-      margin-top: 0.6rem;
-      font-style: italic;
-    }
-    .took-alone {
-      margin: 0 0 0.5rem;
-      color: var(--sw-ink-soft);
-      font-size: var(--sw-step--1);
-    }
     .draft-action {
       display: inline-flex;
       align-items: baseline;
       gap: 0.6rem;
     }
-    @media (prefers-reduced-motion: reduce) {
-      .thinking summary::before {
-        transition: none;
-      }
-    }
-    .memory {
-      max-width: 36rem;
-      color: var(--sw-ink-soft);
-    }
-    .memory p {
-      margin: 0 0 0.4rem;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .memory mat-progress-bar {
-        display: none;
-      }
-    }
-    .memory-mark {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin: 1.5rem 0;
-      color: var(--sw-ink-soft);
-      font-size: var(--sw-step--1);
-    }
-    .memory-mark::before,
-    .memory-mark::after {
-      content: '';
-      flex: 1;
-      border-top: 1px dashed var(--sw-rule);
-    }
-    .memory-mark p {
-      margin: 0;
-      text-align: center;
-    }
     .hint {
       color: var(--sw-ink-soft);
     }
-    .incomplete {
-      color: var(--sw-outcome);
-    }
-    .problem {
-      padding: 0.5rem 0.75rem;
-      border-left: 4px solid var(--mat-sys-error, #b3261e);
-    }
-    .composer {
-      position: sticky;
-      bottom: 0;
-      margin-top: 1.5rem;
-      padding: 0.75rem 0 1rem;
-      background: var(--sw-paper);
-    }
-    textarea {
-      box-sizing: border-box;
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid var(--sw-rule);
-      border-radius: var(--sw-radius-field);
-      background: var(--sw-sheet);
-      color: var(--sw-ink);
-      font: inherit;
-      resize: vertical;
-    }
-    .bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-top: 0.4rem;
-      font-size: var(--sw-step--1);
+    .discussed {
+      margin: -0.75rem 0 1.25rem;
+      color: var(--sw-ink-soft);
     }
     @media (max-width: 60rem) {
       .conversation {
@@ -568,7 +200,7 @@ const KINDS: Record<SourceKind, string> = {
     }
   `,
 })
-export class ConversationPage implements OnDestroy {
+export class ConversationPage {
   /** Conversation ouverte (`/conversations/:cid`) ; aucune à l'accueil. */
   readonly cid = input<string | undefined>(undefined);
 
@@ -577,10 +209,8 @@ export class ConversationPage implements OnDestroy {
   private readonly consent = inject(ConsentGate);
   private readonly location = inject(Location);
   private readonly router = inject(Router);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly composer = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
+  private readonly thread = viewChild.required<ConversationThreadComponent>('thread');
 
-  protected readonly max = MAX_MESSAGE;
   /** Exemples tirés de la connaissance du projet courant ; aucun tant que rien n'est indexé. */
   protected readonly examples = signal<string[]>([]);
   protected readonly projectId = this.projects.currentId;
@@ -588,23 +218,21 @@ export class ConversationPage implements OnDestroy {
   protected readonly threads = signal<ConversationSummary[]>([]);
   protected readonly detail = signal<ConversationDetail | null>(null);
   protected readonly messages = signal<ConversationMessage[]>([]);
-  protected readonly text = signal('');
-  protected readonly announce = signal('');
-  protected readonly problem = signal('');
-  /** La question en cours : ses mentions @ comptent avec les documents joints. */
-  protected readonly composerFields = computed(() => [
-    { field: 'NEED' as const, text: this.text() },
-  ]);
   protected readonly draft = signal<NeedDraft | null>(null);
   protected readonly drafting = signal(false);
-  /** Tour dont l'agent résume les échanges anciens (compactage de la mémoire). */
-  protected readonly compacting = signal<string | null>(null);
-  /** Début du tour en cours (heure du serveur quand elle est connue), pour le chronomètre. */
-  protected readonly turnStart = signal<number | null>(null);
-  /** Tâche en cours de l'agent, qui donne son titre au panneau de réflexion. */
-  protected readonly stage = signal<ThinkingStage | null>(null);
   protected readonly running = computed(() => this.messages().some((m) => m.state === 'RUNNING'));
-  private stream: TurnStream | null = null;
+
+  /** Premier envoi depuis l'accueil : la conversation est créée, et l'adresse suit. */
+  protected readonly create = async (): Promise<string | null> => {
+    const projectId = this.projectId();
+    if (!projectId) {
+      return null;
+    }
+    const created = await this.api.create(projectId);
+    this.detail.set({ ...created, messages: [], sessions: [], memoryUntil: null });
+    this.location.replaceState(`/conversations/${created.id}`);
+    return created.id;
+  };
 
   constructor() {
     effect(() => {
@@ -614,111 +242,20 @@ export class ConversationPage implements OnDestroy {
     });
   }
 
-  ngOnDestroy(): void {
-    this.stream?.close();
-  }
-
-  protected kind(s: CitedSource): string {
-    return KINDS[s.kind];
-  }
-
-  /** Adresse dans l'outil (version d'une spécification) : ouverte par le routeur. */
-  protected internal(s: CitedSource): string | null {
-    return s.url?.startsWith('/') ? s.url : null;
-  }
-
-  /** Titre du panneau de réflexion pendant le tour : ce que fait l'agent à cet instant. */
-  protected activity(m: ConversationMessage): string {
-    const last = m.steps.at(-1);
-    switch (this.stage()) {
-      case 'MEMORY':
-        return 'L’agent résume les échanges anciens';
-      case 'PLAN':
-        return last
-          ? `L’agent examine les résultats de « ${last.query} »`
-          : 'L’agent analyse la question';
-      case 'ANSWER':
-        return 'L’agent rédige sa réponse';
-      default:
-        return 'L’agent lit la question';
-    }
-  }
-
-  protected stageLabel(stage: ThinkingStage): string {
-    return STAGES[stage];
-  }
-
-  /** Étapes déjà réfléchies, et l'étape en cours même sans réflexion encore. */
-  protected shownParts(m: ConversationMessage): ThinkingPart[] {
-    const parts = m.thinking?.parts ?? [];
-    return parts.filter((p, i) => p.text || (m.state === 'RUNNING' && i === parts.length - 1));
-  }
-
-  protected took(ms: number): string {
-    return formatDuration(ms);
-  }
-
-  protected sourceId(m: ConversationMessage, s: CitedSource): string {
-    return `source-${m.id}-${s.n}`;
-  }
-
-  /**
-   * Les appels de note `[n]` deviennent des liens : vers la source quand elle a une adresse, sinon
-   * vers sa note sous la réponse (document joint, élément d'architecture).
-   */
-  protected rendered(m: ConversationMessage): string {
-    if (!m.sources.length) {
-      return m.text;
-    }
-    return m.text.replace(/\[(\d{1,3})\](?!\()/g, (all, n: string) => {
-      const source = m.sources.find((s) => s.n === Number(n));
-      if (!source) {
-        return all;
-      }
-      const target = source.url ?? `#${this.sourceId(m, source)}`;
-      return `[[${n}]](${target} "${source.title.replace(/"/g, '')}")`;
-    });
-  }
-
-  /**
-   * Lien d'une note : dans l'outil par le routeur, ailleurs dans un nouvel onglet. Écouté sur l'hôte :
-   * Entrée sur un lien produit aussi un clic, le clavier suit le même chemin.
-   */
-  @HostListener('click', ['$event'])
-  protected openLink(event: MouseEvent): void {
-    const link = (event.target as HTMLElement | null)?.closest('.note a');
-    const href = link?.getAttribute('href');
-    if (!href) {
-      return;
-    }
-    event.preventDefault();
-    if (href.startsWith('#')) {
-      const note = this.host.nativeElement.querySelector<HTMLElement>(`[id="${href.slice(1)}"]`);
-      note?.focus();
-    } else if (href.startsWith('/')) {
-      void this.router.navigateByUrl(href);
-    } else {
-      window.open(href, '_blank', 'noopener');
-    }
-  }
-
   protected useExample(example: string): void {
-    this.text.set(example);
-    this.composer()?.nativeElement.focus();
+    this.thread().prefill(example);
   }
 
-  protected onKey(event: KeyboardEvent): void {
-    const target = event.target as HTMLElement;
-    // la liste des mentions @ ouverte garde Entrée pour choisir un document
-    if (event.defaultPrevented || target.getAttribute('aria-controls')) {
-      return;
+  protected onSent(): void {
+    const projectId = this.projectId();
+    if (projectId) {
+      void this.refreshThreads(projectId);
     }
-    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
-      event.preventDefault();
-      void this.send();
-    } else if (event.key === 'Escape' && this.running()) {
-      event.preventDefault();
-      void this.stop();
+  }
+
+  protected onFinished(detail: ConversationDetail): void {
+    if (this.detail()?.id === detail.id) {
+      this.detail.set(detail);
     }
   }
 
@@ -737,80 +274,12 @@ export class ConversationPage implements OnDestroy {
   }
 
   protected async startNew(): Promise<void> {
-    this.stream?.close();
+    this.thread().reset();
     this.detail.set(null);
     this.messages.set([]);
-    this.problem.set('');
     this.location.replaceState('/');
     await this.router.navigateByUrl('/');
-    this.composer()?.nativeElement.focus();
-  }
-
-  protected async send(): Promise<void> {
-    const text = this.text().trim();
-    const projectId = this.projectId();
-    if (!text || this.running() || !projectId) {
-      return;
-    }
-    this.problem.set('');
-    if (!(await this.consent.ensure('COPILOT'))) {
-      this.problem.set('Sans votre accord, la question n’est pas envoyée à GitHub Copilot.');
-      return;
-    }
-    try {
-      let conversation = this.detail();
-      if (!conversation) {
-        const created = await this.api.create(projectId);
-        conversation = { ...created, messages: [], sessions: [], memoryUntil: null };
-        this.detail.set(conversation);
-        this.location.replaceState(`/conversations/${created.id}`);
-      }
-      this.turnStart.set(Date.now());
-      const started = await this.api.send(conversation.id, text);
-      this.text.set('');
-      this.messages.update((list) => [
-        ...list,
-        message(started.userMessageId, 'USER', text, 'COMPLETE'),
-        message(started.turnId, 'AGENT', '', 'RUNNING'),
-      ]);
-      this.follow(conversation.id, started.turnId);
-      void this.refreshThreads(projectId);
-    } catch (e) {
-      this.problem.set(reason(e));
-    }
-  }
-
-  protected async stop(): Promise<void> {
-    const conversation = this.detail();
-    const turn = this.messages().find((m) => m.state === 'RUNNING');
-    if (conversation && turn) {
-      await this.api.stop(conversation.id, turn.id).catch(() => undefined);
-    }
-  }
-
-  protected async retry(m: ConversationMessage): Promise<void> {
-    const conversation = this.detail();
-    const list = this.messages();
-    const question = list[list.indexOf(m) - 1];
-    if (!conversation || !question || this.running()) {
-      return;
-    }
-    this.problem.set('');
-    try {
-      this.turnStart.set(Date.now());
-      const started = await this.api.retry(conversation.id, question.id);
-      this.patch(started.turnId, (x) => ({
-        ...x,
-        text: '',
-        state: 'RUNNING',
-        steps: [],
-        sources: [],
-        thinking: null,
-      }));
-      this.follow(conversation.id, started.turnId);
-    } catch (e) {
-      this.problem.set(reason(e));
-    }
+    this.thread().focus();
   }
 
   /** L'agent propose un besoin et des points établis, que l'utilisateur relit avant de démarrer. */
@@ -819,18 +288,18 @@ export class ConversationPage implements OnDestroy {
     if (!conversation || this.running() || this.drafting()) {
       return;
     }
-    this.problem.set('');
+    this.thread().fail('');
     if (!(await this.consent.ensure('COPILOT'))) {
-      this.problem.set('Sans votre accord, la conversation n’est pas envoyée à GitHub Copilot.');
+      this.thread().fail('Sans votre accord, la conversation n’est pas envoyée à GitHub Copilot.');
       return;
     }
     this.drafting.set(true);
-    this.announce.set('L’agent prépare le besoin.');
+    this.thread().say('L’agent prépare le besoin.');
     try {
       this.draft.set(await this.api.needDraft(conversation.id));
-      this.announce.set('Brouillon du besoin prêt à relire.');
+      this.thread().say('Brouillon du besoin prêt à relire.');
     } catch (e) {
-      this.problem.set(reason(e, 'Le besoin n’a pas pu être préparé. Réessayez.'));
+      this.thread().fail(reason(e, 'Le besoin n’a pas pu être préparé. Réessayez.'));
     } finally {
       this.drafting.set(false);
     }
@@ -841,109 +310,8 @@ export class ConversationPage implements OnDestroy {
     await this.router.navigate(['/sessions', sessionId]);
   }
 
-  private follow(conversationId: string, turnId: string): void {
-    this.stream?.close();
-    this.stage.set(null);
-    this.announce.set('L’agent cherche dans le projet.');
-    this.stream = this.api.follow(conversationId, turnId, (event) =>
-      this.onEvent(conversationId, turnId, event),
-    );
-  }
-
-  private onEvent(conversationId: string, turnId: string, event: TurnEvent): void {
-    switch (event.type) {
-      case 'started':
-        this.turnStart.set(Date.parse(event.at));
-        break;
-      case 'stage':
-        this.stage.set(event.stage);
-        this.patch(turnId, (m) => ({
-          ...m,
-          thinking: {
-            parts: [...(m.thinking?.parts ?? []), { stage: event.stage, text: '' }],
-            durationMs: 0,
-          },
-        }));
-        if (event.stage === 'ANSWER') {
-          this.announce.set('L’agent rédige sa réponse.');
-        }
-        break;
-      case 'reasoning':
-        this.patch(turnId, (m) => {
-          const parts = m.thinking?.parts ?? [];
-          const last = parts.at(-1);
-          return last
-            ? {
-                ...m,
-                thinking: {
-                  parts: [...parts.slice(0, -1), { ...last, text: last.text + event.text }],
-                  durationMs: 0,
-                },
-              }
-            : m;
-        });
-        break;
-      case 'step':
-        this.patch(turnId, (m) =>
-          m.steps.some((s) => s.ordinal === event.step.ordinal)
-            ? m
-            : { ...m, steps: [...m.steps, event.step] },
-        );
-        this.announce.set(
-          `Recherche : ${event.step.query}, ${event.step.hits} élément${event.step.hits > 1 ? 's' : ''}.`,
-        );
-        break;
-      case 'delta':
-        this.patch(turnId, (m) => ({ ...m, text: m.text + event.text }));
-        break;
-      case 'sources':
-        break;
-      case 'memory':
-        this.compacting.set(event.phase === 'STARTED' ? turnId : null);
-        this.announce.set(
-          event.phase === 'STARTED'
-            ? 'L’agent résume les échanges les plus anciens.'
-            : event.phase === 'DONE'
-              ? 'Échanges anciens résumés.'
-              : 'Le résumé des échanges anciens a échoué : l’agent répond sans eux.',
-        );
-        break;
-      case 'error':
-        this.problem.set(event.userMessage);
-        void this.finish(conversationId, turnId);
-        break;
-      default:
-        void this.finish(conversationId, turnId);
-    }
-  }
-
-  /** Fin du tour : la conversation enregistrée fait foi (texte, sources et leurs adresses). */
-  private async finish(conversationId: string, turnId: string): Promise<void> {
-    this.stream?.close();
-    this.stream = null;
-    this.compacting.set(null);
-    this.stage.set(null);
-    const detail = await this.api.get(conversationId).catch(() => null);
-    if (detail && this.detail()?.id === conversationId) {
-      this.detail.set(detail);
-      this.messages.set(detail.messages);
-      const answer = detail.messages.find((m) => m.id === turnId);
-      this.announce.set(
-        answer?.state === 'COMPLETE'
-          ? `Réponse de l’agent : ${plain(answer.text)}`
-          : 'La réponse de l’agent est incomplète.',
-      );
-    }
-  }
-
-  private patch(id: string, change: (m: ConversationMessage) => ConversationMessage): void {
-    this.messages.update((list) => list.map((m) => (m.id === id ? change(m) : m)));
-  }
-
   private async load(projectId: string | null, cid: string | null): Promise<void> {
-    this.stream?.close();
-    this.stream = null;
-    this.problem.set('');
+    this.thread().reset();
     this.draft.set(null);
     this.examples.set([]);
     if (!projectId) {
@@ -970,14 +338,12 @@ export class ConversationPage implements OnDestroy {
       this.messages.set(detail.messages);
       const running = detail.messages.find((m) => m.state === 'RUNNING');
       if (running) {
-        // l'heure de début arrive avec le flux rejoué
-        this.turnStart.set(null);
-        this.follow(detail.id, running.id);
+        this.thread().resume(detail.id, running.id);
       }
     } catch {
       this.detail.set(null);
       this.messages.set([]);
-      this.problem.set(
+      this.thread().fail(
         'Cette conversation n’existe plus : choisissez-en une autre dans la liste, ou posez une nouvelle question.',
       );
     }
@@ -986,39 +352,4 @@ export class ConversationPage implements OnDestroy {
   private async refreshThreads(projectId: string): Promise<void> {
     this.threads.set(await this.api.list(projectId).catch(() => []));
   }
-}
-
-function message(
-  id: string,
-  role: 'USER' | 'AGENT',
-  text: string,
-  state: 'COMPLETE' | 'RUNNING',
-): ConversationMessage {
-  return {
-    id,
-    ordinal: 0,
-    role,
-    text,
-    state,
-    historyTruncated: false,
-    createdAt: new Date().toISOString(),
-    steps: [],
-    sources: [],
-    thinking: null,
-  };
-}
-
-/** Texte annoncé : sans les marques Markdown, que le lecteur d'écran lirait telles quelles. */
-function plain(markdown: string): string {
-  return markdown
-    .replace(/[*_`#>]+/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function reason(e: unknown, fallback = 'Le message n’a pas pu être envoyé. Réessayez.'): string {
-  if (e instanceof HttpErrorResponse && isProblem(e.error)) {
-    return e.error.userMessage;
-  }
-  return fallback;
 }

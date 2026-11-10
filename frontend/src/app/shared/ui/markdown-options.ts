@@ -6,7 +6,8 @@ const SAFE_LINK = /^(?:https?:|mailto:)/i;
  * Liens de l'outil écrits par la conversation (010) : version d'une spécification citée, ou note
  * d'une source sous la réponse. Ils restent dans l'onglet.
  */
-const TOOL_LINK = /^(?:\/sessions\/[0-9a-f-]{36}\/versions\/\d+|#source-[0-9a-f-]{36}-\d+)$/i;
+const TOOL_LINK =
+  /^(?:\/sessions\/[0-9a-f-]{36}\/versions\/\d+(?:#[A-Za-z0-9-]{1,80})?|#source-[0-9a-f-]{36}-\d+)$/i;
 
 function attribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
