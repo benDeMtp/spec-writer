@@ -347,8 +347,8 @@ public class SynchronizeKnowledge {
                 complete = false;
             }
         }
-        // une source illisible ou une lecture bornée ne retire rien : l'index précédent reste ; une
-        // source choisie seule non plus, ses éléments ne disant pas de quelle source ils viennent
+        // chaque source lue en entier a déjà remplacé ses éléments (document) ; ce retrait global,
+        // après une lecture complète de toutes les sources, emporte en plus les éléments sans source
         if (complete && scope.all()) {
             // les éléments des dossiers de documents sont retirés par leur source (documents)
             index.hashes(projectId, KnowledgeKind.DOC_SECTION).keySet().stream().filter(SynchronizeKnowledge::fromFolder)
@@ -431,7 +431,11 @@ public class SynchronizeKnowledge {
         return keys.stream().filter(k -> k.ref().equals(ref) || k.ref().startsWith(ref + "#")).toList();
     }
 
-    /** Lit une source de documentation ; faux si la lecture est incomplète (rien ne sera retiré). */
+    /**
+     * Lit une source de documentation. Lue en entier, elle remplace ses éléments : une page retirée,
+     * renommée ou renumérotée ne laisse pas de reste (010). Faux si la lecture est incomplète : ses
+     * éléments précédents restent.
+     */
     private boolean document(UUID projectId, DocSource source, IndexationProgress progress, Map<Key, String> sections,
             Map<Key, String> adrs, Set<Key> keepSections, Set<Key> keepAdrs) {
         boolean complete = true;
@@ -447,12 +451,14 @@ public class SynchronizeKnowledge {
             }
         });
         checkCancelled(progress);
+        Set<Key> readKeys = new HashSet<>();
         for (DocumentationReader.Page page : read.pages()) {
             for (Section section : page.sections()) {
                 KnowledgeItem item = item(projectId, section);
                 Key key = Key.of(item);
                 boolean adr = item.kind() == KnowledgeKind.ADR;
                 (adr ? keepAdrs : keepSections).add(key);
+                readKeys.add(key);
                 if (!item.contentHash().equals((adr ? adrs : sections).get(key))) {
                     index.save(item, null, null);
                 }
@@ -466,7 +472,10 @@ public class SynchronizeKnowledge {
             complete &= !wholeSource && unread.reason() != DocumentationReader.UnreadReason.LIMIT_REACHED;
             progress.error(new IndexationError(wholeSource ? IndexationError.Kind.SOURCE : IndexationError.Kind.PAGE,
                 unread.location(), unread.reason().name(), unread.httpStatus(), null));
-    }
+        }
+        if (complete) {
+            index.replaceSource(projectId, source.id(), readKeys);
+        }
         return complete;
     }
 

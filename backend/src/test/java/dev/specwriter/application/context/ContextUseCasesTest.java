@@ -5,19 +5,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
-import dev.specwriter.domain.project.DocSource;
-import dev.specwriter.domain.project.Project;
-import dev.specwriter.support.JiraWorld;
+import dev.specwriter.domain.knowledge.AdrStatus;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.port.DocumentFolder;
+import dev.specwriter.domain.port.KnowledgeIndex;
+import dev.specwriter.domain.project.DocSource;
+import dev.specwriter.domain.project.Project;
 import dev.specwriter.support.InMemoryKnowledgeIndex;
+import dev.specwriter.support.JiraWorld;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Fiche générale et sources de documentation d'un projet (FR-008, FR-013 de 002). */
 class ContextUseCasesTest {
@@ -88,8 +91,14 @@ class ContextUseCasesTest {
     void sourcesAjouteesListeesEtSupprimees() {
         DocSource site = sources.add(P, DocSource.Kind.URL, "https://docs.example.com/facturation/");
         assertThat(sources.list(P)).containsExactly(site);
+        // les pages indexées de la source partent avec elle, quel que soit son type
+        KnowledgeItem page = KnowledgeItem.adr(P, "https://docs.example.com/facturation/adr-004.html", 0, "ADR-004", "x",
+                AdrStatus.Statement.of(AdrStatus.ACCEPTED, null), Instant.EPOCH, Instant.EPOCH);
+        index.save(page, null, null);
+        index.replaceSource(P, site.id(), Set.of(KnowledgeIndex.Key.of(page)));
         sources.delete(P, site.id());
         assertThat(sources.list(P)).isEmpty();
+        assertThat(index.count(P, KnowledgeKind.ADR)).isZero();
 
         assertThatThrownBy(() -> sources.delete(P, site.id())).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));

@@ -69,6 +69,22 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
         return gone.size();
     }
 
+    /** Source de chaque élément de documentation, comme la colonne {@code source_id} (V19). */
+    private final Map<UUID, Map<Key, UUID>> owners = new HashMap<>();
+
+    @Override
+    public int replaceSource(UUID projectId, UUID sourceId, Set<Key> keep) {
+        Map<Key, UUID> owned = owners.computeIfAbsent(projectId, p -> new HashMap<>());
+        List<Key> gone = owned.entrySet().stream().filter(e -> e.getValue().equals(sourceId) && !keep.contains(e.getKey()))
+                .map(Map.Entry::getKey).toList();
+        gone.forEach(k -> {
+            of(projectId).remove(k);
+            owned.remove(k);
+        });
+        keep.stream().filter(of(projectId)::containsKey).forEach(k -> owned.put(k, sourceId));
+        return gone.size();
+    }
+
     @Override
     public void delete(UUID projectId, Key key) {
         of(projectId).remove(key);

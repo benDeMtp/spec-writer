@@ -47,6 +47,13 @@ public interface KnowledgeIndex {
      */
     int retainUnder(UUID projectId, String refPrefix, Set<Key> keep);
 
+    /**
+     * Remplace les éléments d'une source de documentation lue en entier : ceux de {@code keep} lui
+     * sont rattachés, ceux qu'elle avait et qui n'y sont plus sont supprimés (page retirée,
+     * renommée, ADR renuméroté). {@code keep} vide purge la source ; renvoie le nombre supprimé.
+     */
+    int replaceSource(UUID projectId, UUID sourceId, Set<Key> keep);
+
     /** Supprime un élément (ticket supprimé dans Jira, par exemple). */
     void delete(UUID projectId, Key key);
 
