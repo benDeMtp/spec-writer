@@ -164,7 +164,7 @@ class ConverseTest {
     }
 
     @Test
-    void lHistoriqueSuitLaPlaceEtLeSignale() {
+    void lHistoriqueDebordantEstResumeEtLeCompactageSuivi() {
         llm.answers.add(List.of("Première réponse."));
         converse.send(conversation.id(), "Première question sur les avoirs ?");
         llm.answers.add(List.of("Deuxième réponse."));
@@ -176,10 +176,31 @@ class ConverseTest {
 
         llm.answers.add(List.of("x".repeat(9_000)));
         converse.send(conversation.id(), "Une réponse très longue ?");
-        converse.send(conversation.id(), "Et après ?");
-        assertThat(llm.answerRequests.getLast().history()).extracting(e -> e.role()).doesNotContain(MessageRole.AGENT)
-                .hasSizeLessThan(6);
-        assertThat(conversations.messages(conversation.id()).getLast().historyTruncated()).isTrue();
+        Converse.Started started = converse.send(conversation.id(), "Et après ?");
+
+        // la réponse de 9 000 caractères déborde : les échanges anciens sont résumés, le résumé transmis
+        assertThat(llm.compactRequests).isNotEmpty();
+        assertThat(llm.answerRequests.getLast().memory()).startsWith("Résumé");
+        assertThat(conversations.messages(conversation.id()).getLast().historyTruncated()).isFalse();
+        // l'écran suit le compactage pendant le tour
+        assertThat(subscribe(started.turnId())).filteredOn(e -> e instanceof Event.Memory)
+                .containsExactly(new Event.Memory(ConversationHistory.Phase.STARTED),
+                        new Event.Memory(ConversationHistory.Phase.DONE));
+    }
+
+    @Test
+    void compactageEnEchecLaReponseContinueSignalee() {
+        llm.answers.add(List.of("x".repeat(9_000)));
+        converse.send(conversation.id(), "Une réponse très longue ?");
+        llm.compactFailure = new DomainException(ErrorCode.LLM_UNAVAILABLE);
+        Converse.Started started = converse.send(conversation.id(), "Et après ?");
+
+        ConversationMessage answer = conversations.messages(conversation.id()).getLast();
+        assertThat(answer.state()).isEqualTo(MessageState.COMPLETE);
+        assertThat(answer.historyTruncated()).isTrue();
+        assertThat(subscribe(started.turnId())).filteredOn(e -> e instanceof Event.Memory)
+                .containsExactly(new Event.Memory(ConversationHistory.Phase.STARTED),
+                        new Event.Memory(ConversationHistory.Phase.FAILED));
     }
 
     @Test

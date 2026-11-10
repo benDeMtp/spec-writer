@@ -2,6 +2,7 @@ package dev.specwriter.domain.port;
 
 import dev.specwriter.domain.conversation.CitedSource;
 import dev.specwriter.domain.conversation.Conversation;
+import dev.specwriter.domain.conversation.ConversationMemory;
 import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.SearchStep;
 import java.util.List;
@@ -49,4 +50,10 @@ public interface ConversationRepository {
 
     /** Au démarrage : un message resté {@code RUNNING} devient {@code INCOMPLETE} ; renvoie leur nombre. */
     int interruptRunning();
+
+    /** Mémoire de la conversation : le résumé des échanges anciens, s'il y en a un. */
+    Optional<ConversationMemory> memory(UUID conversationId);
+
+    /** Remplace la mémoire de la conversation. */
+    void saveMemory(UUID conversationId, ConversationMemory memory);
 }

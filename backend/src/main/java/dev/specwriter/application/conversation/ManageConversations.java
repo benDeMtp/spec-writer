@@ -4,6 +4,7 @@ import dev.specwriter.application.jira.JiraAccess;
 import dev.specwriter.application.specification.OperationRegistry;
 import dev.specwriter.domain.conversation.CitedSource;
 import dev.specwriter.domain.conversation.Conversation;
+import dev.specwriter.domain.conversation.ConversationMemory;
 import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.MessageState;
@@ -30,15 +31,16 @@ public class ManageConversations {
     public record SourceView(int n, SourceKind kind, String ref, String title, String url) {
     }
 
-    public record MessageView(UUID id, MessageRole role, String text, MessageState state, boolean historyTruncated,
-            Instant createdAt, List<SearchStep> steps, List<SourceView> sources) {
+    public record MessageView(UUID id, int ordinal, MessageRole role, String text, MessageState state,
+            boolean historyTruncated, Instant createdAt, List<SearchStep> steps, List<SourceView> sources) {
     }
 
     public record SessionLink(UUID sessionId, String name) {
     }
 
+    /** {@code memoryUntil} : les messages jusqu'à ce numéro d'ordre sont transmis résumés ; nul sans mémoire. */
     public record Detail(UUID id, UUID projectId, String name, Instant createdAt, Instant updatedAt,
-            List<MessageView> messages, List<SessionLink> sessions) {
+            List<MessageView> messages, List<SessionLink> sessions, Integer memoryUntil) {
     }
 
     private final ProjectRepository projects;
@@ -65,7 +67,8 @@ public class ManageConversations {
     public Detail detail(UUID conversationId) {
         Conversation c = require(conversationId);
         List<MessageView> messages = conversations.messages(conversationId).stream()
-                .map(m -> new MessageView(m.id(), m.role(), m.text(), m.state(), m.historyTruncated(), m.createdAt(),
+                .map(m -> new MessageView(m.id(), m.ordinal(), m.role(), m.text(), m.state(), m.historyTruncated(),
+                        m.createdAt(),
                         m.role() == MessageRole.AGENT ? conversations.steps(m.id()) : List.of(),
                         m.role() == MessageRole.AGENT ? conversations.sources(m.id()).stream().map(this::view).toList()
                                 : List.of()))
@@ -73,7 +76,8 @@ public class ManageConversations {
         List<SessionLink> links = conversations.sessions(conversationId).stream()
                 .map(id -> sessions.find(id).map(s -> new SessionLink(id, s.name())))
                 .flatMap(Optional::stream).toList();
-        return new Detail(c.id(), c.projectId(), c.name(), c.createdAt(), c.updatedAt(), messages, links);
+        return new Detail(c.id(), c.projectId(), c.name(), c.createdAt(), c.updatedAt(), messages, links,
+                conversations.memory(conversationId).map(ConversationMemory::coveredUntil).orElse(null));
     }
 
     public Conversation rename(UUID conversationId, String name) {

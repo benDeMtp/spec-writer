@@ -62,6 +62,7 @@ public class Converse {
     private final IdGenerator ids;
     private final Executor executor;
     private final DesignatedDocuments designated;
+    private final ConversationHistory history;
 
     public Converse(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
             ConversationSearch search, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
@@ -76,6 +77,7 @@ public class Converse {
             ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
             Executor executor) {
         this.designated = designated;
+        this.history = new ConversationHistory(conversations, llm, clock);
         this.projects = projects;
         this.conversations = conversations;
         this.llm = llm;
@@ -172,7 +174,8 @@ public class Converse {
             String sheet = project.context().markdown();
             Language language = LanguageDetector.detect(question.text());
             List<ConversationMessage> all = conversations.messages(question.conversationId());
-            History history = history(all, question.ordinal(), budget);
+            ConversationHistory.Prepared history = this.history.prepare(question.conversationId(), all,
+                    question.ordinal(), language, budget, phase -> events.publish(turn, new Event.Memory(phase)));
             answer = answer.finished(MessageState.RUNNING, history.truncated());
 
             Sources sources = new Sources(budget.conversationSources());
@@ -185,8 +188,8 @@ public class Converse {
                     stopped = true;
                     break;
                 }
-                ConversationLlm.Plan plan = llm.plan(new ConversationLlm.PlanRequest(language, sheet, history.exchanges(),
-                        question.text(), sources.all(), SearchStep.MAX_STEPS - steps));
+                ConversationLlm.Plan plan = llm.plan(new ConversationLlm.PlanRequest(language, sheet, history.memory(),
+                        history.exchanges(), question.text(), sources.all(), SearchStep.MAX_STEPS - steps));
                 if (plan.action() == ConversationLlm.Action.ANSWER || plan.query() == null || plan.query().isBlank()) {
                     break;
                 }
@@ -199,8 +202,8 @@ public class Converse {
             if (!events.cancelled(turn)) {
                 ConversationMessage saving = answer;
                 int[] chunks = {0};
-                llm.answer(new ConversationLlm.AnswerRequest(language, sheet, history.exchanges(), question.text(),
-                        sources.all(), sources.notCompared(), stopped), delta -> {
+                llm.answer(new ConversationLlm.AnswerRequest(language, sheet, history.memory(), history.exchanges(),
+                        question.text(), sources.all(), sources.notCompared(), stopped), delta -> {
                             text.append(delta);
                             events.publish(turn, new Event.Delta(delta));
                             if (++chunks[0] % SAVE_EVERY == 0) {
@@ -229,31 +232,6 @@ public class Converse {
         conversations.saveMessage(answer.withText(text.toString()).finished(MessageState.INCOMPLETE,
                 answer.historyTruncated()));
         events.publish(answer.id(), new Event.Error(code.name(), userMessage));
-    }
-
-    /** Échanges les plus récents qui tiennent dans la part de l'historique ; au-delà, le signal. */
-    record History(List<Exchange> exchanges, boolean truncated) {
-    }
-
-    /** Messages qui précèdent {@code before} (numéro d'ordre), du plus récent au plus ancien, dans la part. */
-    static History history(List<ConversationMessage> messages, int before, KnowledgeBudget budget) {
-        List<Exchange> kept = new ArrayList<>();
-        int left = budget.conversationHistory();
-        boolean truncated = false;
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            ConversationMessage m = messages.get(i);
-            if (m.ordinal() >= before || m.text().isBlank()) {
-                continue;
-            }
-            if (m.text().length() > left) {
-                truncated = true;
-                break;
-            }
-            left -= m.text().length();
-            kept.add(new Exchange(m.role(), m.text()));
-        }
-        Collections.reverse(kept);
-        return new History(List.copyOf(kept), truncated);
     }
 
     /** Sources du tour, numérotées dans l'ordre de découverte, dans la part des sources. */

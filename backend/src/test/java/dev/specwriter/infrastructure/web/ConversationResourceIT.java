@@ -161,4 +161,30 @@ class ConversationResourceIT {
         api().delete("/api/sessions/" + sessionId).then().statusCode(204);
         api().delete("/api/conversations/" + id).then().statusCode(204);
     }
+
+    /**
+     * Mémoire : des échanges qui débordent sont résumés pendant le tour, ce que suit le flux. La part
+     * de l'historique dépend du modèle choisi : les échanges s'enchaînent jusqu'au premier résumé.
+     */
+    @Test
+    void echangesAnciensResumesPendantLeTour() {
+        String id = create();
+        String stream = "";
+        int turns = 0;
+        while (!stream.contains("event:memory") && turns < 12) {
+            String turn = api().body(Map.of("text", "IT-COMPACT " + turns + " " + "besoin ".repeat(1_100)))
+                    .post("/api/conversations/" + id + "/messages").then().statusCode(202).extract().path("turnId");
+            stream = api().accept("text/event-stream").get("/api/conversations/" + id + "/turns/" + turn + "/events")
+                    .then().statusCode(200).extract().asString();
+            turns++;
+        }
+        assertThat(stream).contains("\"phase\":\"STARTED\"").contains("\"phase\":\"DONE\"");
+
+        JsonPath detail = api().get("/api/conversations/" + id).then().statusCode(200).extract().jsonPath();
+        assertThat(detail.getInt("memoryUntil")).isPositive();
+        assertThat(detail.getList("messages.ordinal", Integer.class)).hasSize(2 * turns).startsWith(1, 2);
+        assertThat(detail.getString("messages[" + (2 * turns - 1) + "].text")).isEqualTo("Réponse brève.");
+        assertThat(detail.getBoolean("messages[" + (2 * turns - 1) + "].historyTruncated")).isFalse();
+        api().delete("/api/conversations/" + id).then().statusCode(204);
+    }
 }

@@ -45,6 +45,9 @@ public class LangChainConversationLlm implements ConversationLlm {
     record DraftDto(String need, List<PointDto> points) {
     }
 
+    record SummaryDto(String summary) {
+    }
+
     private final ChatModel model;
     private final ConversationStream stream;
     private final Duration timeout;
@@ -65,6 +68,21 @@ public class LangChainConversationLlm implements ConversationLlm {
     public NeedDraft draftNeed(DraftRequest request) {
         return call("propose-need", UserMessages.needDraft(request), LlmSchemas.NEED_DRAFT,
                 LangChainConversationLlm::toDraft);
+    }
+
+    @Override
+    public String compact(CompactRequest request) {
+        return call("compact-memory", UserMessages.compact(request), LlmSchemas.COMPACT_MEMORY,
+                LangChainConversationLlm::toSummary);
+    }
+
+    /** Un résumé vide ne remplace pas la mémoire : la sortie est redemandée. */
+    static String toSummary(String json) {
+        SummaryDto dto = JSON.readValue(json, SummaryDto.class);
+        if (dto == null || dto.summary() == null || dto.summary().isBlank()) {
+            throw new IllegalArgumentException("Résumé vide");
+        }
+        return dto.summary().strip();
     }
 
     private <T> T call(String operation, String user, ResponseFormat format, Function<String, T> parse) {

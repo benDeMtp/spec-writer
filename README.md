@@ -109,6 +109,12 @@ documentation) ; tant que rien n'est indexé, il n'y en a pas.
   établis. Corrigez-les ou retirez-en, puis démarrez : le questionnaire part de ces points comme de
   réponses déjà données, et ne les repose pas. Les documents joints suivent.
 
+**Mémoire** : l'agent reçoit les échanges récents en entier, dans la place du modèle choisi. Quand
+la conversation s'allonge, il résume les échanges les plus anciens (faits établis, décisions,
+questions ouvertes) et garde ce résumé avec la conversation ; l'écran le montre pendant qu'il le
+fait, puis un repère dans le fil indique les échanges transmis sous forme de résumé. Dans
+l'historique, les appels `[n]` des réponses passées sont remplacés par le titre de leur source.
+
 **Arrêter** (ou Échap) garde le texte déjà écrit, marqué incomplet ; **Réessayer** le relance. Les
 conversations sont gardées par projet : la liste permet de les rouvrir, de les renommer et de les
 supprimer (les spécifications qui en sont issues restent). La recherche et **Nouvelle

@@ -183,14 +183,16 @@ final class UserMessages {
 
     /** 010 : ce que l'agent sait au moment de choisir sa prochaine recherche (titres seulement). */
     static String conversePlan(ConversationLlm.PlanRequest r) {
-        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n" + exchange(r.history())
+        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n"
+                + block("memoire", r.memory()) + "\n" + exchange(r.history())
                 + "\n" + block("question", r.question()) + "\n" + sources(r.found(), false)
                 + "\n<recherches-restantes>" + r.searchesLeft() + "</recherches-restantes>";
     }
 
     /** 010 : données de la réponse ; chaque source porte le numéro qu'elle peut être citée. */
     static String converseAnswer(ConversationLlm.AnswerRequest r) {
-        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n" + exchange(r.history())
+        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n"
+                + block("memoire", r.memory()) + "\n" + exchange(r.history())
                 + "\n" + block("question", r.question()) + "\n" + sources(r.sources(), true) + "\n"
                 + block("non-comparees", String.join("\n", r.notCompared())) + "\n<recherche-arretee>"
                 + (r.searchStopped() ? "oui" : "non") + "</recherche-arretee>";
@@ -201,8 +203,15 @@ final class UserMessages {
         StringBuilder cited = new StringBuilder("<sources-citees>\n");
         r.cited().forEach(c -> cited.append("<source sorte=\"").append(c.kind().name()).append("\" ref=\"")
                 .append(attribute(c.ref())).append("\" titre=\"").append(attribute(c.title())).append("\"/>\n"));
-        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n" + exchange(r.history())
+        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n"
+                + block("memoire", r.memory()) + "\n" + exchange(r.history())
                 + "\n" + cited.append("</sources-citees>");
+    }
+
+    /** 010 : échanges anciens à résumer, après la mémoire précédente. */
+    static String compact(ConversationLlm.CompactRequest r) {
+        return language(r.language()) + "\n" + block("memoire-precedente", r.previous()) + "\n"
+                + exchange(r.exchanges());
     }
 
     private static String exchange(List<ConversationLlm.Exchange> history) {

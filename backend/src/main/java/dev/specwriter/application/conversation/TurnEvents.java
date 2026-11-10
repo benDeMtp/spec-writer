@@ -42,6 +42,10 @@ public class TurnEvents {
         record Sources(List<CitedSource> sources) implements Event {
         }
 
+        /** Compactage de la mémoire : commencé, fini, ou en échec (la réponse continue). */
+        record Memory(ConversationHistory.Phase phase) implements Event {
+        }
+
         record Done(MessageState state, boolean historyTruncated) implements Event {
         }
 

@@ -41,7 +41,7 @@ class DraftNeedTest {
 
     @BeforeEach
     void setUp() {
-        draftNeed = new DraftNeed(w.projects, conversations, llm, ModelCapacities.UNKNOWN, w.policy);
+        draftNeed = new DraftNeed(w.projects, conversations, llm, ModelCapacities.UNKNOWN, w.policy, w.clock);
         conversation = new Conversation(UUID.randomUUID(), Project.DEFAULT_ID, "Avoirs", T, T);
         conversations.save(conversation);
     }

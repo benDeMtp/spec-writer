@@ -163,8 +163,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     DraftNeed draftNeed(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
-            ModelCapacities capacities, ConsentPolicy consent) {
-        return new DraftNeed(projects, conversations, llm, capacities, consent);
+            ModelCapacities capacities, ConsentPolicy consent, ClockPort clock) {
+        return new DraftNeed(projects, conversations, llm, capacities, consent, clock);
     }
 
     @Produces

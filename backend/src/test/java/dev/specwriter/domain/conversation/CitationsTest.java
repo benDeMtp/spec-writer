@@ -29,4 +29,20 @@ class CitationsTest {
         // un lien Markdown ou un tableau n'est pas une citation
         assertThat(Citations.resolve("Voir [la page](http://x) et [a]", SOURCES).text()).isEqualTo("Voir [la page](http://x) et [a]");
     }
+
+    /** Historique : la numérotation d'un tour passé ne vaut plus ; chaque appel devient le titre de sa source. */
+    @Test
+    void citationsEnClairPourLHistorique() {
+        List<CitedSource> cited = List.of(new CitedSource(2, SourceKind.ADR, "adr/0005.html", "5. Bus d'événements"));
+        assertThat(Citations.inline("Les avoirs passent par le bus [2]. Voir [7].", cited))
+                .isEqualTo("Les avoirs passent par le bus (« 5. Bus d'événements »). Voir.");
+        assertThat(Citations.inline("Sans appel.", List.of())).isEqualTo("Sans appel.");
+    }
+
+    @Test
+    void memoireBorneeEtSansTexteDansLesJournaux() {
+        ConversationMemory m = new ConversationMemory("x".repeat(5_000), 6, java.time.Instant.EPOCH);
+        assertThat(m.summary()).hasSize(ConversationMemory.MAX_SUMMARY).endsWith("…");
+        assertThat(m.toString()).doesNotContain("xxx").contains("jusqu'au message 6");
+    }
 }

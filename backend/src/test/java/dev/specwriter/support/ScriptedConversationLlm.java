@@ -22,6 +22,10 @@ public class ScriptedConversationLlm implements ConversationLlm {
     /** Panne à la prochaine réponse, après l'émission de {@code failAfter} morceaux. */
     public DomainException failure;
     public int failAfter;
+    public final List<CompactRequest> compactRequests = new ArrayList<>();
+    /** Panne au prochain compactage. */
+    public DomainException compactFailure;
+
     /** Appelé après chaque morceau émis. */
     public Runnable afterChunk = () -> { };
 
@@ -59,5 +63,17 @@ public class ScriptedConversationLlm implements ConversationLlm {
     public NeedDraft draftNeed(DraftRequest request) {
         draftRequests.add(request);
         return drafts.removeFirst();
+    }
+
+    /** Résumé scripté : « Résumé n » ; n compte les compactages. */
+    @Override
+    public String compact(CompactRequest request) {
+        compactRequests.add(request);
+        if (compactFailure != null) {
+            DomainException e = compactFailure;
+            compactFailure = null;
+            throw e;
+        }
+        return "Résumé " + compactRequests.size();
     }
 }

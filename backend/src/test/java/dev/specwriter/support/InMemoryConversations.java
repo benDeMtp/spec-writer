@@ -2,6 +2,7 @@ package dev.specwriter.support;
 
 import dev.specwriter.domain.conversation.CitedSource;
 import dev.specwriter.domain.conversation.Conversation;
+import dev.specwriter.domain.conversation.ConversationMemory;
 import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
@@ -21,6 +22,7 @@ public class InMemoryConversations implements ConversationRepository {
     private final Map<UUID, List<SearchStep>> steps = new LinkedHashMap<>();
     private final Map<UUID, List<CitedSource>> sources = new LinkedHashMap<>();
     private final Map<UUID, List<UUID>> links = new LinkedHashMap<>();
+    private final Map<UUID, ConversationMemory> memories = new LinkedHashMap<>();
     /** Nombre d'enregistrements d'un message (texte partiel enregistré au fil de l'écriture). */
     public int messageSaves;
 
@@ -45,6 +47,7 @@ public class InMemoryConversations implements ConversationRepository {
         conversations.remove(id);
         messages.values().removeIf(m -> m.conversationId().equals(id));
         links.remove(id);
+        memories.remove(id);
     }
 
     @Override
@@ -110,5 +113,15 @@ public class InMemoryConversations implements ConversationRepository {
             }
         }
         return n;
+    }
+
+    @Override
+    public synchronized Optional<ConversationMemory> memory(UUID conversationId) {
+        return Optional.ofNullable(memories.get(conversationId));
+    }
+
+    @Override
+    public synchronized void saveMemory(UUID conversationId, ConversationMemory memory) {
+        memories.put(conversationId, memory);
     }
 }

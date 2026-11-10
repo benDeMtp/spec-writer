@@ -37,7 +37,7 @@ class LangChainConversationLlmTest {
                         "{\"action\":\"SEARCH\",\"query\":\" avoirs émis \",\"kinds\":[\"TICKET\",\"SPECIFICATION\"]}")
                 .then("converse-plan", List.of(), "{\"action\":\"ANSWER\",\"query\":\"\",\"kinds\":[]}");
         LangChainConversationLlm llm = new LangChainConversationLlm(model, (s, u, d, c) -> "", CallTimeout.DEFAULT);
-        ConversationLlm.PlanRequest request = new ConversationLlm.PlanRequest(Language.FR, "Fiche", HISTORY,
+        ConversationLlm.PlanRequest request = new ConversationLlm.PlanRequest(Language.FR, "Fiche", "Mémoire", HISTORY,
                 "Comment sont émis les avoirs ?", SOURCES, 5);
 
         ConversationLlm.Plan plan = llm.plan(request);
@@ -68,7 +68,7 @@ class LangChainConversationLlmTest {
             return "Par le service Avoirs [1].";
         }, CallTimeout.DEFAULT);
 
-        String text = llm.answer(new ConversationLlm.AnswerRequest(Language.FR, "Fiche", HISTORY, "Qui émet ?",
+        String text = llm.answer(new ConversationLlm.AnswerRequest(Language.FR, "Fiche", "", HISTORY, "Qui émet ?",
                 SOURCES, List.of("Page non comparée"), true), received::add, () -> false);
 
         assertThat(text).isEqualTo("Par le service Avoirs [1].");
@@ -125,5 +125,18 @@ class LangChainConversationLlmTest {
         assertThat(draft.points().get(1).sourceRef()).isEqualTo("FACT-7");
         assertThatThrownBy(() -> LangChainConversationLlm.toDraft("{\"points\": []}"))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void compactageRendLeNouveauResumeEtRedemandeUnResumeVide() {
+        ScriptedChatModel model = new ScriptedChatModel()
+                .then("compact-memory", List.of("<memoire-precedente>", "Ancien résumé", "<echange>"), "{\"summary\":\" \"}")
+                .then("compact-memory", List.of("<correction>"), "{\"summary\":\"- Avoirs émis par le service Avoirs.\"}");
+        LangChainConversationLlm llm = new LangChainConversationLlm(model, (s, u, d, c) -> "", CallTimeout.DEFAULT);
+
+        String summary = llm.compact(new ConversationLlm.CompactRequest(Language.FR, "Ancien résumé", HISTORY));
+
+        assertThat(summary).isEqualTo("- Avoirs émis par le service Avoirs.");
+        assertThat(model.received()).hasSize(2);
     }
 }

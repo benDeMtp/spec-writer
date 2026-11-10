@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.specwriter.domain.conversation.CitedSource;
 import dev.specwriter.domain.conversation.Conversation;
+import dev.specwriter.domain.conversation.ConversationMemory;
 import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
@@ -64,6 +65,17 @@ class ConversationPersistenceIT {
         Conversation c = Conversation.start(UUID.randomUUID(), p.id(), "Comment sont émis les avoirs ?", at);
         conversations.save(c);
         return c;
+    }
+
+    @Test
+    void memoireRemplaceeEtSupprimeeAvecLaConversation() {
+        Conversation c = conversation(project(), T0);
+        assertThat(conversations.memory(c.id())).isEmpty();
+        conversations.saveMemory(c.id(), new ConversationMemory("- Premier résumé.", 4, T0));
+        conversations.saveMemory(c.id(), new ConversationMemory("- Second résumé.", 8, T0.plusSeconds(60)));
+        assertThat(conversations.memory(c.id())).contains(new ConversationMemory("- Second résumé.", 8, T0.plusSeconds(60)));
+        conversations.delete(c.id());
+        assertThat(conversations.memory(c.id())).isEmpty();
     }
 
     @Test

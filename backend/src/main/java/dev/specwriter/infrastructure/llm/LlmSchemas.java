@@ -139,6 +139,11 @@ final class LlmSchemas {
                     .build()))
             .build());
 
+    /** 010 : nouvelle mémoire d'une conversation. */
+    static final ResponseFormat COMPACT_MEMORY = format("compact_memory", JsonObjectSchema.builder()
+            .addStringProperty("summary")
+            .build());
+
     private static JsonSchemaElement string() {
         return JsonStringSchema.builder().build();
     }

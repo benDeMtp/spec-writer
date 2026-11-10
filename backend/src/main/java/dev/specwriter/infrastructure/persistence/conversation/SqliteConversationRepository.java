@@ -2,6 +2,7 @@ package dev.specwriter.infrastructure.persistence.conversation;
 
 import dev.specwriter.domain.conversation.CitedSource;
 import dev.specwriter.domain.conversation.Conversation;
+import dev.specwriter.domain.conversation.ConversationMemory;
 import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.MessageState;
@@ -180,6 +181,29 @@ public class SqliteConversationRepository implements ConversationRepository {
     public int interruptRunning() {
         return em.createNativeQuery("update conversation_message set state = 'INCOMPLETE' where state = 'RUNNING'")
                 .executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public Optional<ConversationMemory> memory(UUID conversationId) {
+        List<Object[]> rows = em.createNativeQuery(
+                "select summary, covered_until, updated_at from conversation_memory where conversation_id = ?1")
+                .setParameter(1, conversationId.toString()).getResultList();
+        return rows.stream().findFirst().map(r -> new ConversationMemory((String) r[0], ((Number) r[1]).intValue(),
+                Instant.parse((String) r[2])));
+    }
+
+    @Override
+    @Transactional
+    public void saveMemory(UUID conversationId, ConversationMemory memory) {
+        em.createNativeQuery("""
+                insert into conversation_memory (conversation_id, summary, covered_until, updated_at)
+                values (?1, ?2, ?3, ?4)
+                on conflict (conversation_id) do update set summary = excluded.summary,
+                    covered_until = excluded.covered_until, updated_at = excluded.updated_at""")
+                .setParameter(1, conversationId.toString()).setParameter(2, memory.summary())
+                .setParameter(3, memory.coveredUntil()).setParameter(4, memory.updatedAt().toString()).executeUpdate();
     }
 
     private static Conversation conversation(Object[] r) {

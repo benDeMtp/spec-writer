@@ -40,4 +40,22 @@ public final class Citations {
         m.appendTail(out);
         return new Resolved(out.toString(), List.copyOf(cited.values()));
     }
+
+    /**
+     * Réponse ancienne transmise dans l'historique : chaque {@code [n]} devient le titre de sa
+     * source, la numérotation d'un tour passé ne valant plus au tour suivant ; un numéro sans source
+     * est retiré.
+     */
+    public static String inline(String text, List<CitedSource> cited) {
+        Map<Integer, CitedSource> byNumber = new LinkedHashMap<>();
+        cited.forEach(c -> byNumber.put(c.n(), c));
+        Matcher m = CITATION.matcher(text == null ? "" : text);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            CitedSource source = byNumber.get(Integer.parseInt(m.group(1)));
+            m.appendReplacement(out, source == null ? "" : Matcher.quoteReplacement(" (« " + source.title() + " »)"));
+        }
+        m.appendTail(out);
+        return out.toString();
+    }
 }

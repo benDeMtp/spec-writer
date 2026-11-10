@@ -21,8 +21,11 @@ public interface ConversationLlm {
     record Exchange(MessageRole role, String text) {
     }
 
-    /** Ce que l'agent sait au moment de choisir : chercher encore, ou répondre. */
-    record PlanRequest(Language language, String generalSheet, List<Exchange> history, String question,
+    /**
+     * Ce que l'agent sait au moment de choisir : chercher encore, ou répondre. {@code memory} :
+     * résumé des échanges anciens (vide s'il n'y en a pas), avant {@code history}, les récents.
+     */
+    record PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history, String question,
             List<TurnSource> found, int searchesLeft) {
     }
 
@@ -41,12 +44,17 @@ public interface ConversationLlm {
      * Données de la réponse : sources numérotées, sources non transmises faute de place, et si la
      * recherche s'est arrêtée au plafond.
      */
-    record AnswerRequest(Language language, String generalSheet, List<Exchange> history, String question,
-            List<TurnSource> sources, List<String> notCompared, boolean searchStopped) {
+    record AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
+            String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped) {
     }
 
     /** Échange et sources citées dans la conversation, pour rédiger un besoin (010, US2). */
-    record DraftRequest(Language language, String generalSheet, List<Exchange> history, List<CitedSource> cited) {
+    record DraftRequest(Language language, String generalSheet, String memory, List<Exchange> history,
+            List<CitedSource> cited) {
+    }
+
+    /** Échanges anciens à résumer, avec le résumé précédent (vide au premier compactage). */
+    record CompactRequest(Language language, String previous, List<Exchange> exchanges) {
     }
 
     Plan plan(PlanRequest request);
@@ -59,4 +67,10 @@ public interface ConversationLlm {
 
     /** Propose un besoin et des points établis ; rien n'est démarré. */
     NeedDraft draftNeed(DraftRequest request);
+
+    /**
+     * Résume les échanges anciens dans la mémoire de la conversation : faits établis, décisions,
+     * questions ouvertes ; renvoie le nouveau résumé, qui remplace le précédent.
+     */
+    String compact(CompactRequest request);
 }

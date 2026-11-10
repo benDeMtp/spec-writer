@@ -10,6 +10,7 @@ import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.NeedDraft;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.ConversationLlm;
 import dev.specwriter.domain.port.ConversationRepository;
 import dev.specwriter.domain.port.ModelCapacities;
@@ -37,9 +38,11 @@ public class DraftNeed {
     private final ConversationLlm llm;
     private final ModelCapacities capacities;
     private final ConsentPolicy consent;
+    private final ConversationHistory history;
 
     public DraftNeed(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
-            ModelCapacities capacities, ConsentPolicy consent) {
+            ModelCapacities capacities, ConsentPolicy consent, ClockPort clock) {
+        this.history = new ConversationHistory(conversations, llm, clock);
         this.projects = projects;
         this.conversations = conversations;
         this.llm = llm;
@@ -62,11 +65,12 @@ public class DraftNeed {
         messages.stream().filter(m -> m.role() == MessageRole.AGENT)
                 .flatMap(m -> conversations.sources(m.id()).stream())
                 .forEach(c -> cited.putIfAbsent(c.ref(), c));
-        Converse.History history = Converse.history(messages, Integer.MAX_VALUE, capacities.budget());
         Language language = LanguageDetector.detect(messages.stream().filter(m -> m.role() == MessageRole.USER)
                 .map(ConversationMessage::text).reduce("", (a, b) -> a + "\n" + b));
+        ConversationHistory.Prepared history = this.history.prepare(conversationId, messages, Integer.MAX_VALUE,
+                language, capacities.budget(), phase -> { });
         NeedDraft proposed = llm.draftNeed(new ConversationLlm.DraftRequest(language, project.context().markdown(),
-                history.exchanges(), List.copyOf(cited.values())));
+                history.memory(), history.exchanges(), List.copyOf(cited.values())));
         List<EstablishedPoint> kept = proposed.points().stream()
                 .filter(p -> p.basis() == EstablishedPoint.Basis.USER || cited.containsKey(p.sourceRef()))
                 .limit(NeedDraft.MAX_POINTS).toList();

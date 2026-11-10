@@ -443,7 +443,7 @@ paths:
     get:
       summary: "Conversation : messages (étapes, sources citées avec leur adresse) et spécifications liées"
       responses:
-        '200': { description: "{ id, projectId, name, messages, sessions }" }
+        '200': { description: "{ id, projectId, name, messages (avec ordinal), sessions, memoryUntil }" }
         '404': { description: CONVERSATION_NOT_FOUND }
     patch:
       summary: Renommer (120 caractères au plus)
@@ -484,8 +484,9 @@ paths:
   /api/conversations/{cid}/turns/{turnId}/events:
     get:
       summary: >-
-        Flux SSE du tour, événements déjà produits rejoués d'abord : step, delta, sources, puis done
-        ou error ; gone pour un tour inconnu ou ancien
+        Flux SSE du tour, événements déjà produits rejoués d'abord : step, delta, sources, memory
+        ({ phase: STARTED|DONE|FAILED }, compactage de la mémoire), puis done ou error ; gone pour un
+        tour inconnu ou ancien
       responses:
         '200': { description: text/event-stream }
   /api/conversations/{cid}/attachments:
