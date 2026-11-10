@@ -5,13 +5,25 @@
     "scenarioStructure": 1.0,
     "conversationCitation": 0.9,
     "conversationAbstention": 0.9,
-    "inconsistencyRecall": 0.8
+    "inconsistencyRecall": 0.8,
+    "discussionCitation": 0.9,
+    "discussionInconsistency": 0.8,
+    "revisionCompleteness": 0.9,
+    "revisionPreservation": 0.9,
+    "revisionStructure": 1.0,
+    "unchangedRecall": 0.9
   },
   "scores": {
     "questionRelevance": 0.9,
     "scenarioStructure": 1.0,
     "conversationCitation": 0.9,
     "conversationAbstention": 0.9,
-    "inconsistencyRecall": 0.8
+    "inconsistencyRecall": 0.8,
+    "discussionCitation": 0.9,
+    "discussionInconsistency": 0.8,
+    "revisionCompleteness": 0.9,
+    "revisionPreservation": 0.9,
+    "revisionStructure": 1.0,
+    "unchangedRecall": 0.9
   }
 }

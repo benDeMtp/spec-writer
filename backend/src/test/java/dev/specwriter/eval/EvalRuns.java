@@ -92,7 +92,8 @@ public final class EvalRuns {
     }
 
     public record Result(double questionRelevance, double scenarioStructure, EvalBaseline baseline, List<CaseRun> runs,
-            Map<String, Double> conversation, List<ConversationRuns.CaseRun> conversationRuns) {
+            Map<String, Double> conversation, List<ConversationRuns.CaseRun> conversationRuns,
+            List<DiscussionRuns.CaseRun> discussionRuns) {
     }
 
     private EvalRuns() {
@@ -140,6 +141,7 @@ public final class EvalRuns {
         Path home = Path.of(System.getProperty("eval.copilot-home", System.getProperty("user.home") + "/.copilot"));
         List<CaseRun> all = new ArrayList<>();
         List<ConversationRuns.CaseRun> conversations = new ArrayList<>();
+        List<DiscussionRuns.CaseRun> discussions = new ArrayList<>();
         String cliVersion;
         try (EvalCopilot copilot = new EvalCopilot(home, Optional.ofNullable(System.getProperty("specwriter.copilot.cli-path")))) {
             cliVersion = copilot.cliVersion();
@@ -148,6 +150,7 @@ public final class EvalRuns {
                     all.add(runCase(copilot, model, dir, run));
                 }
                 conversations.addAll(ConversationRuns.run(copilot.conversationLlm(model), run));
+                discussions.addAll(DiscussionRuns.run(copilot.conversationLlm(model), run));
             }
         }
         List<double[]> perRun = new ArrayList<>();
@@ -169,7 +172,12 @@ public final class EvalRuns {
                 round(ConversationRuns.score(conversations, ConversationRuns.Kind.ABSTENTION, runs)));
         conversation.put(EvalBaseline.INCONSISTENCY_RECALL,
                 round(ConversationRuns.score(conversations, ConversationRuns.Kind.INCONSISTENCY, runs)));
-        Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations);
+        for (String metric : List.of(EvalBaseline.DISCUSSION_CITATION, EvalBaseline.DISCUSSION_INCONSISTENCY,
+                EvalBaseline.REVISION_COMPLETENESS, EvalBaseline.REVISION_PRESERVATION, EvalBaseline.REVISION_STRUCTURE,
+                EvalBaseline.UNCHANGED_RECALL)) {
+            conversation.put(metric, round(DiscussionRuns.score(discussions, metric, runs)));
+        }
+        Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations, discussions);
         write(out, model.orElse("défaut du compte"), cliVersion, runs);
         return out;
     }
@@ -281,6 +289,21 @@ public final class EvalRuns {
             }
             if (c.error() != null) {
                 d.put("error", c.error());
+            }
+            return d;
+        }).toList());
+        out.put("discussion", r.discussionRuns().stream().map(c -> {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("case", c.caseName());
+            d.put("run", c.run());
+            d.put("passed", c.passed());
+            d.put("checks", c.checks());
+            d.put("outcome", c.outcome());
+            if (!c.cited().isEmpty()) {
+                d.put("cited", c.cited());
+            }
+            if (!c.passed()) {
+                d.put("excerpt", c.excerpt());
             }
             return d;
         }).toList());
