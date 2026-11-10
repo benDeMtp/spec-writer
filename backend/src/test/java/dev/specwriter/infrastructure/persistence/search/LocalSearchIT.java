@@ -129,4 +129,30 @@ class LocalSearchIT {
         sessions.delete(s.id());
         assertThat(tickets.findByIssueKey(key)).isEmpty();
     }
+
+    /** 010 : spécifications du projet cherchées par l'agent, par pertinence, dernière version seule. */
+    @Test
+    void parPertinenceDerniereVersionDuProjet() {
+        String marker = "lettr" + UUID.randomUUID().toString().substring(0, 6);
+        Session s = session("Le comptable doit pouvoir rapprocher chaque virement reçu de sa facture " + marker + " dans la journée.",
+                "Lettrage " + marker);
+        versions.save(new SpecificationVersion(UUID.randomUUID(), s.id(), 1, Specs.valid(), "fp1", VersionOrigin.GENERATED,
+                "# Lettrage\n\nPremière version " + marker, T0));
+        versions.save(new SpecificationVersion(UUID.randomUUID(), s.id(), 2, Specs.valid(), "fp2", VersionOrigin.AI_EDIT,
+                "# Lettrage\n\nDélai de trois jours ouvrés " + marker, T0.plusSeconds(60)));
+        session("Une session sans version ne doit pas sortir " + marker + " même si son besoin correspond bien.", null);
+
+        // un seul mot suffit (question en langage naturel) ; la base de test contient d'autres sessions
+        assertThat(search.byRelevance(Project.DEFAULT_ID, "quel est le délai pour " + marker + " ?", 50).stream()
+                .filter(h -> h.text().contains(marker) || h.title().contains(marker)).toList()).singleElement()
+                .satisfies(h -> {
+                    assertThat(h.sessionId()).isEqualTo(s.id());
+                    assertThat(h.version()).isEqualTo(2);
+                    assertThat(h.title()).isEqualTo("Lettrage " + marker);
+                    assertThat(h.text()).contains("trois jours ouvrés");
+                    assertThat(h.implemented()).isFalse();
+                });
+        assertThat(search.byRelevance(UUID.randomUUID(), marker, 5)).isEmpty();
+        assertThat(search.byRelevance(Project.DEFAULT_ID, "le la", 5)).isEmpty();
+    }
 }

@@ -14,7 +14,7 @@ export interface JournalEntry {
   stack: string[];
 }
 
-/** Accès à /api/journal : les 500 dernières entrées, les plus récentes d'abord. */
+/** Accès à /api/journal : les 500 dernières entrées, les plus récentes d'abord ; purge. */
 @Injectable({ providedIn: 'root' })
 export class JournalApi {
   private readonly http = inject(HttpClient);
@@ -22,5 +22,10 @@ export class JournalApi {
   latest(level?: JournalLevel): Promise<JournalEntry[]> {
     const params: Record<string, string> = level ? { level } : {};
     return firstValueFrom(this.http.get<JournalEntry[]>('/api/journal', { params }));
+  }
+
+  /** Vide le journal : le fichier courant et ses sauvegardes. */
+  purge(): Promise<void> {
+    return firstValueFrom(this.http.delete<void>('/api/journal'));
   }
 }

@@ -18,7 +18,8 @@ import java.util.regex.Pattern;
 public class BodySizeFilter {
 
     static final long MAX_BODY = 256 * 1024;
-    private static final Pattern UPLOAD = Pattern.compile("/api/attachment-drafts|/api/sessions/[^/]+/attachments");
+    private static final Pattern UPLOAD =
+            Pattern.compile("/api/attachment-drafts|/api/(sessions|conversations)/[^/]+/attachments");
 
     void register(@Observes Router router) {
         router.route().order(Integer.MIN_VALUE).handler(this::check);
@@ -44,7 +45,10 @@ public class BodySizeFilter {
         return isUploadPath(method.name(), path);
     }
 
-    /** Route d'envoi d'un document joint : {@code POST /api/attachment-drafts} ou {@code /api/sessions/{id}/attachments}. */
+    /**
+     * Route d'envoi d'un document joint : {@code POST /api/attachment-drafts},
+     * {@code /api/sessions/{id}/attachments} ou {@code /api/conversations/{id}/attachments}.
+     */
     static boolean isUploadPath(String method, String path) {
         return "POST".equals(method) && path != null && UPLOAD.matcher(path).matches();
     }

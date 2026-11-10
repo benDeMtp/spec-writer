@@ -52,11 +52,19 @@ public class KnowledgeResource {
     public record MentionFieldInput(String field, String text) {
     }
 
-    /** {@code attachmentIds} : documents joints avant le démarrage (009), 5 au plus. */
-    public record MentionsInput(String sessionId, List<MentionFieldInput> fields, List<String> attachmentIds) {
+    /**
+     * {@code attachmentIds} : documents joints avant le démarrage (009), 5 au plus ;
+     * {@code conversationId} : conversation dont les documents joints comptent (010).
+     */
+    public record MentionsInput(String sessionId, List<MentionFieldInput> fields, List<String> attachmentIds,
+            String conversationId) {
 
         public MentionsInput(String sessionId, List<MentionFieldInput> fields) {
-            this(sessionId, fields, null);
+            this(sessionId, fields, null, null);
+        }
+
+        public MentionsInput(String sessionId, List<MentionFieldInput> fields, List<String> attachmentIds) {
+            this(sessionId, fields, attachmentIds, null);
         }
     }
 
@@ -179,8 +187,10 @@ public class KnowledgeResource {
         if (joined.size() > Attachments.MAX_PER_SESSION) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "5 documents joints au plus.");
         }
+        UUID conversation = input == null || input.conversationId() == null || input.conversationId().isBlank() ? null
+                : Ids.parse(input.conversationId());
         return mentions.resolve(ProjectResource.projectId(id), session, texts,
-                joined.stream().map(Ids::draft).toList());
+                joined.stream().map(Ids::draft).toList(), conversation);
     }
 
     private static MentionField field(String raw) {

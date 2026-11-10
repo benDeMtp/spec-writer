@@ -1,0 +1,2 @@
+{"reasoning": "I should search the project for parking reservation rules.", "operation": "converse-plan", "userContains": ["E2E-AGENT", "<recherches-restantes>5</recherches-restantes>"],
+ "response": {"action": "SEARCH", "query": "réservation des places de parking", "kinds": []}}

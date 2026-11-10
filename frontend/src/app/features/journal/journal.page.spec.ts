@@ -43,7 +43,11 @@ describe('JournalPage', () => {
       configurable: true,
     });
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } }],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
+      ],
     });
     ctrl = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(JournalPage);
@@ -60,7 +64,9 @@ describe('JournalPage', () => {
     expect(items).toHaveLength(2);
     expect(items[0].textContent).toContain('Erreur');
     expect(items[0].textContent).toContain('ContextGenerations');
-    expect(items[0].querySelector('details')?.textContent).toContain('java.lang.IllegalStateException: [MASQUÉ]');
+    expect(items[0].querySelector('details')?.textContent).toContain(
+      'java.lang.IllegalStateException: [MASQUÉ]',
+    );
     expect(items[1].textContent).toContain('Avertissement');
     expect(items[1].querySelector('details')).toBeNull();
     expect(el.textContent).toContain('2 entrées.');
@@ -73,9 +79,41 @@ describe('JournalPage', () => {
   });
 
   it('actualise la liste', async () => {
-    Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Actualiser')!.click();
+    Array.from(el.querySelectorAll('button'))
+      .find((b) => b.textContent?.trim() === 'Actualiser')!
+      .click();
     ctrl.expectOne('/api/journal').flush([]);
     await settle(fixture);
     expect(el.textContent).toContain('Aucune entrée.');
+  });
+
+  it('vide le journal après confirmation', async () => {
+    const purge = () =>
+      Array.from(el.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Vider le journal',
+      )!;
+    const inDialog = (label: string) =>
+      Array.from(document.querySelectorAll<HTMLButtonElement>('sw-confirm-dialog button')).find(
+        (b) => b.textContent?.trim() === label,
+      )!;
+    purge().click();
+    await settle(fixture);
+    expect(document.querySelector('sw-confirm-dialog')?.textContent).toContain(
+      'sauvegardes comprises',
+    );
+    inDialog('Annuler').click();
+    await settle(fixture);
+    ctrl.expectNone({ method: 'DELETE' });
+
+    purge().click();
+    await settle(fixture);
+    inDialog('Vider le journal').click();
+    await settle(fixture);
+    ctrl.expectOne({ method: 'DELETE', url: '/api/journal' }).flush(null);
+    await settle(fixture);
+    ctrl.expectOne('/api/journal').flush([]);
+    await settle(fixture);
+    expect(el.textContent).toContain('Aucune entrée.');
+    expect(el.textContent).toContain('Journal vidé.');
   });
 });

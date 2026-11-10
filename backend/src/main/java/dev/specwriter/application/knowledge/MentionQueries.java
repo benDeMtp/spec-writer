@@ -84,6 +84,8 @@ public class MentionQueries {
     /** Documents joints avant le démarrage et ceux des sessions (009) ; null : aucun. */
     private final AttachmentDrafts drafts;
     private final AttachmentRepository attachments;
+    /** Documents joints aux conversations (010) ; null : aucun. */
+    private final AttachmentRepository conversationAttachments;
 
     public MentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
             SelectKnowledge select) {
@@ -92,6 +94,13 @@ public class MentionQueries {
 
     public MentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
             SelectKnowledge select, AttachmentDrafts drafts, AttachmentRepository attachments) {
+        this(projects, sessions, index, select, drafts, attachments, null);
+    }
+
+    public MentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
+            SelectKnowledge select, AttachmentDrafts drafts, AttachmentRepository attachments,
+            AttachmentRepository conversationAttachments) {
+        this.conversationAttachments = conversationAttachments;
         this.drafts = drafts;
         this.attachments = attachments;
         this.projects = projects;
@@ -145,6 +154,12 @@ public class MentionQueries {
      * {@code ATTACHMENT}, placé après les mentions du besoin, dans l'ordre de transmission.
      */
     public List<MentionState> resolve(UUID projectId, UUID sessionId, List<FieldText> fields, List<UUID> attachmentIds) {
+        return resolve(projectId, sessionId, fields, attachmentIds, null);
+    }
+
+    /** Dans une conversation (010) : ses documents joints ont l'état {@code ATTACHMENT}, comme ceux d'une session. */
+    public List<MentionState> resolve(UUID projectId, UUID sessionId, List<FieldText> fields, List<UUID> attachmentIds,
+            UUID conversationId) {
         Project project = requireProject(projectId);
         String need = null;
         List<String> answers = new ArrayList<>();
@@ -167,6 +182,10 @@ public class MentionQueries {
             }
         }
         List<Mentionable> joined = joined(sessionId, attachmentIds);
+        if (conversationId != null && conversationAttachments != null) {
+            conversationAttachments.views(conversationId).forEach(v -> joined.add(SelectKnowledge.joined(
+                    Attachment.REF_PREFIX + v.fileName(), v.title(), v.fileName(), v.chars())));
+        }
         boolean written = Mentions.mayContain(fields.stream().map(FieldText::text).toArray(String[]::new));
         if (!written && joined.isEmpty()) {
             return List.of();

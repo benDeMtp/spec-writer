@@ -1,13 +1,17 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { firstValueFrom } from 'rxjs';
 import { JournalApi, JournalEntry, JournalLevel } from '../../core/journal/journal.api';
+import { ConfirmData, ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component';
 
 /**
  * Journal des erreurs (FR-031) : les 500 dernières entrées d'avertissement et d'erreur du backend,
- * expurgées, les plus récentes d'abord, filtrables par niveau et copiables pour un signalement.
+ * expurgées, les plus récentes d'abord, filtrables par niveau et copiables pour un signalement ;
+ * le journal se vide après confirmation.
  */
 @Component({
   selector: 'sw-journal-page',
@@ -17,8 +21,8 @@ import { JournalApi, JournalEntry, JournalLevel } from '../../core/journal/journ
     <h1>Journal</h1>
     <div class="sheet">
       <p class="hint">
-        Avertissements et erreurs de spec-writer, les plus récents d'abord. Les jetons, les besoins, les réponses et les
-        contenus de pages ou de tickets n'y figurent jamais.
+        Avertissements et erreurs de spec-writer, les plus récents d'abord. Les jetons, les besoins,
+        les réponses et les contenus de pages ou de tickets n'y figurent jamais.
       </p>
       <p role="status" aria-live="polite" class="announce">{{ announce() }}</p>
       <div class="toolbar">
@@ -31,6 +35,9 @@ import { JournalApi, JournalEntry, JournalLevel } from '../../core/journal/journ
           </mat-select>
         </mat-form-field>
         <button mat-stroked-button type="button" (click)="load()">Actualiser</button>
+        <button mat-button type="button" class="purge" [disabled]="purging()" (click)="purge()">
+          Vider le journal
+        </button>
       </div>
       @if (loaded() && !entries().length) {
         <p class="hint">Aucune entrée.</p>
@@ -89,6 +96,9 @@ import { JournalApi, JournalEntry, JournalLevel } from '../../core/journal/journ
       align-items: baseline;
       gap: 0.75rem;
     }
+    .purge {
+      margin-left: auto;
+    }
     .entries {
       margin: 0;
       padding: 0;
@@ -125,11 +135,13 @@ import { JournalApi, JournalEntry, JournalLevel } from '../../core/journal/journ
 })
 export class JournalPage implements OnInit {
   private readonly api = inject(JournalApi);
+  private readonly dialog = inject(MatDialog);
 
   protected readonly entries = signal<JournalEntry[]>([]);
   protected readonly level = signal<JournalLevel | ''>('');
   protected readonly loaded = signal(false);
   protected readonly announce = signal('');
+  protected readonly purging = signal(false);
 
   async ngOnInit(): Promise<void> {
     await this.load();
@@ -148,6 +160,33 @@ export class JournalPage implements OnInit {
     await this.load();
   }
 
+  /** Supprime toutes les entrées, après confirmation ; le journal reprend aussitôt. */
+  protected async purge(): Promise<void> {
+    const data: ConfirmData = {
+      title: 'Vider le journal ?',
+      message:
+        'Tous les avertissements et toutes les erreurs enregistrés seront supprimés, sauvegardes comprises. ' +
+        'Copiez d’abord les entrées utiles à un signalement.',
+      confirm: 'Vider le journal',
+    };
+    const confirmed = await firstValueFrom(
+      this.dialog.open(ConfirmDialogComponent, { data }).afterClosed(),
+    );
+    if (confirmed !== true) {
+      return;
+    }
+    this.purging.set(true);
+    try {
+      await this.api.purge();
+      await this.load();
+      this.announce.set('Journal vidé.');
+    } catch {
+      this.announce.set('Le journal n’a pas pu être vidé. Réessayez.');
+    } finally {
+      this.purging.set(false);
+    }
+  }
+
   protected shortLogger(logger: string): string {
     return logger?.split('.').pop() ?? '';
   }
@@ -158,7 +197,9 @@ export class JournalPage implements OnInit {
 
   /** Texte brut de l'entrée, pour un signalement. */
   protected async copy(e: JournalEntry): Promise<void> {
-    const text = [`${e.at} ${e.level} ${e.logger}`, e.message, e.cause ?? '', ...e.stack].filter((l) => l).join('\n');
+    const text = [`${e.at} ${e.level} ${e.logger}`, e.message, e.cause ?? '', ...e.stack]
+      .filter((l) => l)
+      .join('\n');
     try {
       await navigator.clipboard.writeText(text);
       this.announce.set('Entrée copiée.');

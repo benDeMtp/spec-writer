@@ -52,7 +52,8 @@ test.describe.serial('US6 recherche et modification assistée', () => {
   });
 
   test('V12 : la recherche liste les tickets Jira avec leur provenance', async () => {
-    await page.goto('/');
+    // la recherche est dans l'écran des spécifications (010, US5)
+    await page.goto('/sessions');
     await page.getByLabel('Mots-clés').fill('parking');
     await page.getByRole('button', { name: 'Rechercher' }).click();
     await expect(page).toHaveURL(/\?q=parking$/);
@@ -120,7 +121,7 @@ test.describe.serial('US6 recherche et modification assistée', () => {
   });
 
   test("V12 : l'élément lié n'apparaît qu'une fois, avec la provenance « les deux »", async () => {
-    await page.goto('/?q=parking');
+    await page.goto('/sessions?q=parking');
     const rows = page.locator('tr.mat-mdc-row');
     await expect(rows.filter({ hasText: 'PROJ-103' })).toBeVisible();
     await expect(rows.filter({ hasText: 'PROJ-102' })).toHaveCount(1);
@@ -183,7 +184,7 @@ test.describe.serial('US6 recherche et modification assistée', () => {
 
   test("V14 : Jira coupé, les résultats spec-writer s'affichent avec un message", async () => {
     await stub({ request: { method: 'GET', urlPath: '/rest/api/2/search' }, response: { fault: 'CONNECTION_RESET_BY_PEER' } });
-    await page.goto('/?q=parking');
+    await page.goto('/sessions?q=parking');
     await expect(page.getByText("Jira n'a pas répondu : seuls les résultats spec-writer sont affichés.")).toBeVisible();
     await expect(page.locator('tr.mat-mdc-row').filter({ hasText: 'PROJ-102' })).toBeVisible();
     await expect(page.locator('tr.mat-mdc-row').filter({ hasText: 'PROJ-103' })).toHaveCount(0);

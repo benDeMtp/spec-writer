@@ -29,7 +29,11 @@ const JIRA_NOTICE: Partial<Record<JiraStatus, string>> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, PagerComponent, ResultsTableComponent, RouterLink],
   template: `
-    <h1>Rechercher une spécification</h1>
+    @if (embedded()) {
+      <h2 id="search-title">Rechercher</h2>
+    } @else {
+      <h1>Rechercher une spécification</h1>
+    }
     <form class="search" role="search" (ngSubmit)="submit()">
       <mat-form-field appearance="outline" class="field">
         <mat-label>Mots-clés</mat-label>
@@ -82,15 +86,15 @@ const JIRA_NOTICE: Partial<Record<JiraStatus, string>> = {
             <button mat-stroked-button type="button" (click)="previous()">Page précédente</button>
             <p>Aucun autre résultat pour « {{ q() }} ».</p>
           } @else {
-            <p>Aucun résultat pour « {{ q() }} ». Essayez d'autres mots, ou décrivez un nouveau besoin.</p>
+            <p>Aucun résultat pour « {{ q() }} ». Essayez d'autres mots, ou rédigez une nouvelle spécification.</p>
           }
-          <a mat-flat-button routerLink="/nouveau">Décrire un nouveau besoin</a>
+          <a mat-flat-button routerLink="/nouveau">Nouvelle spécification</a>
         </div>
       }
-    } @else if (!q()) {
+    } @else if (!q() && !embedded()) {
       <div class="empty">
         <p>Cherchez par mots-clés dans le titre, le besoin et le contenu de vos spécifications.</p>
-        <a mat-stroked-button routerLink="/nouveau">Décrire un nouveau besoin</a>
+        <a mat-stroked-button routerLink="/nouveau">Nouvelle spécification</a>
       </div>
     }
   `,
@@ -155,6 +159,8 @@ export class SearchPage {
 
   /** Paramètre d'URL : la recherche se partage et survit au retour arrière. */
   readonly q = input<string>('');
+  /** Dans l'écran des spécifications (010, US5) : un titre de section. */
+  readonly embedded = input(false);
 
   protected readonly max = MAX_QUERY;
   protected readonly draft = signal('');

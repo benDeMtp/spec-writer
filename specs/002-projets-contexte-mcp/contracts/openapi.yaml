@@ -203,6 +203,10 @@ paths:
                     Documents joints avant le démarrage (009) ; avec une session, ses documents comptent aussi.
                     Chacun a un état de champ ATTACHMENT, placé après les mentions du besoin
                   items: { type: string, format: uuid }
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: Conversation (010) dont les documents joints ont un état ATTACHMENT
                 fields:
                   type: array
                   maxItems: 40
@@ -418,6 +422,108 @@ paths:
         '200': { description: Statut enregistré et consigné }
         '409': { description: 'Transition interdite (TRANSITION_NOT_ALLOWED)' }
 
+  /api/projects/{id}/conversations:
+    get:
+      summary: Conversations du projet (010), la plus récente d'abord
+      responses:
+        '200': { description: "[{ id, projectId, name, createdAt, updatedAt }]" }
+    post:
+      summary: Nouvelle conversation, nommée d'après son premier message
+      responses:
+        '201': { description: La conversation }
+        '404': { description: Projet inconnu }
+  /api/projects/{id}/conversations/suggestions:
+    get:
+      summary: >-
+        Exemples de questions de l'accueil (010), tirés de la connaissance indexée du projet sans appel
+        à l'IA : un ADR en vigueur (sinon un élément d'architecture), un ticket ouvert, une page
+      responses:
+        '200': { description: "3 textes au plus ; aucun si rien n'est indexé" }
+  /api/conversations/{cid}:
+    get:
+      summary: "Conversation : messages (étapes, sources citées avec leur adresse) et spécifications liées"
+      responses:
+        '200': { description: "{ id, projectId, name, messages (avec ordinal), sessions, memoryUntil }" }
+        '404': { description: CONVERSATION_NOT_FOUND }
+    patch:
+      summary: Renommer (120 caractères au plus)
+      responses:
+        '200': { description: La conversation renommée }
+    delete:
+      summary: Supprimer la conversation et ses messages ; les spécifications liées restent
+      responses:
+        '204': { description: Supprimée }
+        '409': { description: OPERATION_IN_PROGRESS, l'agent répond encore }
+  /api/conversations/{cid}/messages:
+    post:
+      summary: Envoyer un message ; l'agent répond en tâche de fond
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 8000 }
+      responses:
+        '202': { description: "{ userMessageId, turnId }" }
+        '409': { description: OPERATION_IN_PROGRESS }
+        '422': { description: Message vide ou MESSAGE_TOO_LONG }
+        '428': { description: Accord Copilot manquant }
+        '503': { description: Copilot non connecté }
+  /api/conversations/{cid}/messages/{mid}/retry:
+    post:
+      summary: Relancer la réponse incomplète qui suit ce message
+      responses:
+        '202': { description: "{ userMessageId, turnId }" }
+  /api/conversations/{cid}/turns/{turnId}:
+    delete:
+      summary: Arrêter la réponse ; le texte écrit est gardé, marqué incomplet
+      responses:
+        '204': { description: Arrêt demandé }
+  /api/conversations/{cid}/turns/{turnId}/events:
+    get:
+      summary: >-
+        Flux SSE du tour, événements déjà produits rejoués d'abord : step, delta, sources, memory
+        ({ phase: STARTED|DONE|FAILED }, compactage de la mémoire), puis done ou error ; gone pour un
+        tour inconnu ou ancien
+      responses:
+        '200': { description: text/event-stream }
+  /api/conversations/{cid}/attachments:
+    get:
+      summary: Documents joints de la conversation, sans leur texte
+      responses:
+        '200': { description: "[AttachmentView]" }
+    post:
+      summary: Joindre un document (contenu brut, nom en paramètre `name`), règles de 009
+      responses:
+        '201': { description: AttachmentView }
+        '422': { description: UNSUPPORTED_FORMAT, DOCUMENT_UNREADABLE, ATTACHMENT_LIMIT }
+  /api/conversations/{cid}/attachments/{aid}:
+    delete:
+      summary: Retirer un document joint
+      responses:
+        '204': { description: Retiré }
+  /api/conversations/{cid}/need-draft:
+    post:
+      summary: Besoin et points établis proposés par l'agent ; rien n'est enregistré
+      responses:
+        '200': { description: "{ need, points: [{ theme, question, answer, basis, sourceRef }] }" }
+        '428': { description: Accord Copilot manquant }
+  /api/conversations/{cid}/specifications:
+    post:
+      summary: >-
+        Démarrer la spécification avec le brouillon relu : points devenus réponses déjà données,
+        documents joints copiés, conversation liée
+      responses:
+        '201': { description: SessionDetail }
+        '422': { description: Besoin invalide, NEED_DRAFT_INVALID (plus de 10 points, point invalide) }
+  /api/sessions/{id}/conversation:
+    get:
+      summary: Conversation dont vient la spécification
+      responses:
+        '200': { description: "{ id, name }" }
+        '204': { description: Aucune }
 components:
   securitySchemes:
     launchCookie: { type: apiKey, in: cookie, name: sw_launch }

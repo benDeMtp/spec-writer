@@ -119,6 +119,31 @@ final class LlmSchemas {
     private LlmSchemas() {
     }
 
+    /** 010 : action suivante de l'agent (research.md R1). */
+    static final ResponseFormat CONVERSE_PLAN = format("converse_plan", JsonObjectSchema.builder()
+            .addProperty("action", JsonEnumSchema.builder().enumValues("SEARCH", "ANSWER").build())
+            .addStringProperty("query")
+            .addProperty("kinds", array(JsonEnumSchema.builder()
+                    .enumValues("TICKET", "DOC_SECTION", "ADR", "ARCH_ELEMENT", "SPECIFICATION").build()))
+            .build());
+
+    /** 010 : besoin et points établis tirés d'une conversation. */
+    static final ResponseFormat NEED_DRAFT = format("need_draft", JsonObjectSchema.builder()
+            .addStringProperty("need")
+            .addProperty("points", array(JsonObjectSchema.builder()
+                    .addProperty("theme", JsonEnumSchema.builder().enumValues(THEMES).build())
+                    .addStringProperty("question")
+                    .addStringProperty("answer")
+                    .addProperty("basis", JsonEnumSchema.builder().enumValues("USER", "SOURCE").build())
+                    .addStringProperty("sourceRef")
+                    .build()))
+            .build());
+
+    /** 010 : nouvelle mémoire d'une conversation. */
+    static final ResponseFormat COMPACT_MEMORY = format("compact_memory", JsonObjectSchema.builder()
+            .addStringProperty("summary")
+            .build());
+
     private static JsonSchemaElement string() {
         return JsonStringSchema.builder().build();
     }

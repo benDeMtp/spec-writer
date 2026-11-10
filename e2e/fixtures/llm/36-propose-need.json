@@ -1,0 +1,8 @@
+{"operation": "propose-need", "userContains": ["E2E-AGENT"], "response": {
+  "need": "Les employés doivent pouvoir réserver une place de parking pour une journée, au plus 7 jours à l'avance.",
+  "points": [
+    {"theme": "ACTORS", "question": "Qui réserve une place ?", "answer": "Les employés du siège.", "basis": "USER", "sourceRef": ""},
+    {"theme": "BUSINESS_RULES", "question": "Combien de temps à l'avance ?", "answer": "7 jours au plus.", "basis": "SOURCE", "sourceRef": "joint:parking.html"},
+    {"theme": "EDGE_CASES", "question": "Et le week-end ?", "answer": "Le parking est fermé.", "basis": "SOURCE", "sourceRef": "FACT-404"}
+  ]
+}}

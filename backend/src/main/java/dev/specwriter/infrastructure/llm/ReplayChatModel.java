@@ -32,7 +32,18 @@ public final class ReplayChatModel implements ChatModel {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final Pattern PLACEHOLDER = Pattern.compile("\"__([A-Z_]+?)__\"");
 
-    record Entry(String file, String operation, List<String> userContains, String response) {
+    /**
+     * {@code response} : JSON d'une opération structurée ; {@code text} : réponse en texte libre (010) ;
+     * {@code reasoning} : réflexion rejouée avant la réponse, quand l'écran la montre.
+     */
+    record Entry(String file, String operation, List<String> userContains, String response, String text,
+            String reasoning) {
+
+        void replayReasoning() {
+            if (reasoning != null) {
+                ReasoningSink.current().ifPresent(sink -> sink.accept(reasoning));
+            }
+        }
     }
 
     private final List<Entry> entries;
@@ -52,11 +63,24 @@ public final class ReplayChatModel implements ChatModel {
                 user.append(u.singleText());
             }
         }
-        String operation = Operations.of(system.toString()).orElse("");
+        Entry e = find(system.toString(), user.toString());
+        e.replayReasoning();
+        return ChatResponse.builder().aiMessage(AiMessage.from(resolveQuestionIds(e.response(), user.toString())))
+                .build();
+    }
+
+    /** Réponse en texte libre rejouée pour une opération en flux (010). */
+    String text(String system, String user) {
+        Entry e = find(system, user);
+        e.replayReasoning();
+        return e.text() != null ? e.text() : e.response();
+    }
+
+    private Entry find(String system, String user) {
+        String operation = Operations.of(system).orElse("");
         for (Entry e : entries) {
-            if (e.operation().equals(operation) && e.userContains().stream().allMatch(user.toString()::contains)) {
-                return ChatResponse.builder().aiMessage(AiMessage.from(resolveQuestionIds(e.response(), user.toString())))
-                        .build();
+            if (e.operation().equals(operation) && e.userContains().stream().allMatch(user::contains)) {
+                return e;
             }
         }
         throw new DomainException(ErrorCode.LLM_UNAVAILABLE, "Aucune réponse rejouée pour l'opération " + operation);
@@ -85,7 +109,9 @@ public final class ReplayChatModel implements ChatModel {
                 List<String> contains = new ArrayList<>();
                 node.path("userContains").forEach(n -> contains.add(n.asString()));
                 out.add(new Entry(String.valueOf(f.getFileName()), node.path("operation").asString(), contains,
-                        JSON.writeValueAsString(node.get("response"))));
+                        JSON.writeValueAsString(node.get("response")),
+                        node.hasNonNull("text") ? node.get("text").asString() : null,
+                        node.hasNonNull("reasoning") ? node.get("reasoning").asString() : null));
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Dossier de rejeu illisible", e);

@@ -185,6 +185,34 @@ class SqliteKnowledgeIndexIT {
         assertThat(index.count(project, KnowledgeKind.DOC_SECTION)).isEqualTo(3);
     }
 
+    /** Correctif 010 : une source lue en entier remplace ses éléments ; les autres sources n'y perdent rien. */
+    @Test
+    void remplacementParSource() {
+        AdrStatus.Statement accepted = AdrStatus.Statement.of(AdrStatus.ACCEPTED, null);
+        UUID antora = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        KnowledgeItem old = KnowledgeItem.adr(project, "https://doc/adr/adr-004.html", 0, "ADR-004", "x", accepted, T0, T0);
+        KnowledgeItem page = section("https://doc/guide.html#_regles", "Règles", "r");
+        KnowledgeItem kept = section("https://autre/client.html", "Client", "c");
+        index.save(old, null, null);
+        index.save(page, null, null);
+        index.save(kept, null, null);
+        assertThat(index.replaceSource(project, antora, Set.of(Key.of(old), Key.of(page)))).isZero();
+        index.replaceSource(project, other, Set.of(Key.of(kept)));
+
+        // l'ADR 4 est renommé dans la documentation
+        KnowledgeItem renamed = KnowledgeItem.adr(project, "https://doc/adr/adr-004-avoirs.html", 0, "ADR-004", "x",
+                accepted, T0, T0);
+        index.save(renamed, null, null);
+        assertThat(index.replaceSource(project, antora, Set.of(Key.of(renamed), Key.of(page)))).isEqualTo(1);
+
+        assertThat(index.all(project, KnowledgeKind.ADR)).extracting(KnowledgeItem::ref)
+                .containsExactly("https://doc/adr/adr-004-avoirs.html");
+        assertThat(index.replaceSource(project, antora, Set.of())).isEqualTo(2);
+        assertThat(index.all(project, KnowledgeKind.DOC_SECTION)).extracting(KnowledgeItem::ref)
+                .containsExactly("https://autre/client.html");
+    }
+
     /** 007 : un élément par document mentionnable, sans corps, titre de tête et taille totale. */
     @Test
     void documentsMentionnables() {

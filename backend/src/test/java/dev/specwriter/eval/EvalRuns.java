@@ -91,7 +91,8 @@ public final class EvalRuns {
         }
     }
 
-    public record Result(double questionRelevance, double scenarioStructure, EvalBaseline baseline, List<CaseRun> runs) {
+    public record Result(double questionRelevance, double scenarioStructure, EvalBaseline baseline, List<CaseRun> runs,
+            Map<String, Double> conversation, List<ConversationRuns.CaseRun> conversationRuns) {
     }
 
     private EvalRuns() {
@@ -138,6 +139,7 @@ public final class EvalRuns {
         Optional<String> model = Optional.of(configured).filter(m -> !m.isBlank());
         Path home = Path.of(System.getProperty("eval.copilot-home", System.getProperty("user.home") + "/.copilot"));
         List<CaseRun> all = new ArrayList<>();
+        List<ConversationRuns.CaseRun> conversations = new ArrayList<>();
         String cliVersion;
         try (EvalCopilot copilot = new EvalCopilot(home, Optional.ofNullable(System.getProperty("specwriter.copilot.cli-path")))) {
             cliVersion = copilot.cliVersion();
@@ -145,6 +147,7 @@ public final class EvalRuns {
                 for (Path dir : cases()) {
                     all.add(runCase(copilot, model, dir, run));
                 }
+                conversations.addAll(ConversationRuns.run(copilot.conversationLlm(model), run));
             }
         }
         List<double[]> perRun = new ArrayList<>();
@@ -159,7 +162,14 @@ public final class EvalRuns {
         }
         double relevance = round(perRun.stream().mapToDouble(s -> s[0]).average().orElse(0));
         double structure = round(perRun.stream().mapToDouble(s -> s[1]).average().orElse(0));
-        Result out = new Result(relevance, structure, readBaseline(), all);
+        Map<String, Double> conversation = new LinkedHashMap<>();
+        conversation.put(EvalBaseline.CONVERSATION_CITATION,
+                round(ConversationRuns.score(conversations, ConversationRuns.Kind.CITATION, runs)));
+        conversation.put(EvalBaseline.CONVERSATION_ABSTENTION,
+                round(ConversationRuns.score(conversations, ConversationRuns.Kind.ABSTENTION, runs)));
+        conversation.put(EvalBaseline.INCONSISTENCY_RECALL,
+                round(ConversationRuns.score(conversations, ConversationRuns.Kind.INCONSISTENCY, runs)));
+        Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations);
         write(out, model.orElse("défaut du compte"), cliVersion, runs);
         return out;
     }
@@ -238,8 +248,11 @@ public final class EvalRuns {
         out.put("copilotSdk", EvalFingerprint.copilotSdk(REPO));
         out.put("copilotCli", cliVersion);
         out.put("runs", runs);
-        out.put("scores", Map.of(EvalBaseline.QUESTION_RELEVANCE, r.questionRelevance(),
-                EvalBaseline.SCENARIO_STRUCTURE, r.scenarioStructure()));
+        Map<String, Double> scores = new LinkedHashMap<>();
+        scores.put(EvalBaseline.SCENARIO_STRUCTURE, r.scenarioStructure());
+        scores.put(EvalBaseline.QUESTION_RELEVANCE, r.questionRelevance());
+        scores.putAll(r.conversation());
+        out.put("scores", scores);
         List<Map<String, Object>> details = new ArrayList<>();
         for (CaseRun c : r.runs()) {
             Map<String, Object> d = new LinkedHashMap<>();
@@ -256,6 +269,21 @@ public final class EvalRuns {
             details.add(d);
         }
         out.put("details", details);
+        out.put("conversation", r.conversationRuns().stream().map(c -> {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("case", c.caseName());
+            d.put("run", c.run());
+            d.put("passed", c.passed());
+            d.put("state", c.state());
+            d.put("cited", c.cited());
+            if (!c.passed()) {
+                d.put("excerpt", c.excerpt());
+            }
+            if (c.error() != null) {
+                d.put("error", c.error());
+            }
+            return d;
+        }).toList());
         try {
             Files.writeString(LAST_RUN, JSON.writerWithDefaultPrettyPrinter().writeValueAsString(out) + "\n");
         } catch (IOException e) {

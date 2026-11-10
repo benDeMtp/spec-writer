@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -10,6 +18,7 @@ import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { MentionStatusComponent } from '../../shared/ui/mention-status.component';
 import { MentionDirective } from '../../shared/ui/mention.directive';
 import { UnifiedDiffComponent } from '../../shared/ui/unified-diff.component';
+import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 
 export const MAX_INSTRUCTION = 2000;
 
@@ -21,19 +30,35 @@ export const MAX_INSTRUCTION = 2000;
 @Component({
   selector: 'sw-ai-edit-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MentionDirective, MentionStatusComponent, UnifiedDiffComponent],
+  imports: [
+    ElapsedComponent,
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MentionDirective,
+    MentionStatusComponent,
+    UnifiedDiffComponent,
+  ],
   template: `
     <section class="panel" aria-labelledby="ai-edit-title">
-      <h2 id="ai-edit-title">{{ proposal() ? 'Proposition de l’IA' : 'Faire évoluer avec l’IA' }}</h2>
+      <h2 id="ai-edit-title">
+        {{ proposal() ? 'Proposition de l’IA' : 'Faire évoluer avec l’IA' }}
+      </h2>
       @if (proposal(); as p) {
         <p>
-          Proposition à partir de la version {{ p.baseVersion }} : « {{ p.proposed.title }} ». Relisez les
-          différences avant de l'appliquer ; elle deviendra la version {{ p.baseVersion + 1 }}.
+          Proposition à partir de la version {{ p.baseVersion }} : « {{ p.proposed.title }} ».
+          Relisez les différences avant de l'appliquer ; elle deviendra la version
+          {{ p.baseVersion + 1 }}.
         </p>
         <sw-unified-diff [diff]="p.unifiedDiff" />
         <div class="actions">
-          <button mat-flat-button type="button" [disabled]="busy()" (click)="apply(p)">Appliquer</button>
-          <button mat-button type="button" [disabled]="busy()" (click)="discard()">Abandonner</button>
+          <button mat-flat-button type="button" [disabled]="busy()" (click)="apply(p)">
+            Appliquer
+          </button>
+          <button mat-button type="button" [disabled]="busy()" (click)="discard()">
+            Abandonner
+          </button>
         </div>
       } @else {
         <form (ngSubmit)="propose()">
@@ -61,12 +86,17 @@ export const MAX_INSTRUCTION = 2000;
             <p class="error" role="alert">Décrivez la modification souhaitée.</p>
           }
           <div class="actions">
-            <button mat-flat-button type="submit" [disabled]="busy()">Proposer une modification</button>
-            <button mat-button type="button" [disabled]="busy()" (click)="closed.emit()">Fermer</button>
+            <button mat-flat-button type="submit" [disabled]="busy()">
+              Proposer une modification
+            </button>
+            <button mat-button type="button" [disabled]="busy()" (click)="closed.emit()">
+              Fermer
+            </button>
           </div>
         </form>
       }
       <p role="status" aria-live="polite" class="announce">{{ status() }}</p>
+      <sw-elapsed class="hint" [running]="busy()" />
     </section>
   `,
   styles: `

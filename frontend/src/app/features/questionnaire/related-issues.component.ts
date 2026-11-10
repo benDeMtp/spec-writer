@@ -2,7 +2,13 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { DecisionOutcome, SessionsApi } from '../../core/sessions/sessions.api';
-import { IssueComparison, RelatedDecision, RelatedIssue, RelatedIssues } from '../../core/sessions/sessions.model';
+import {
+  IssueComparison,
+  RelatedDecision,
+  RelatedIssue,
+  RelatedIssues,
+} from '../../core/sessions/sessions.model';
+import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 
 /** Choix fait parmi les tickets proches, et sa suite renvoyée par le serveur. */
 export interface RelatedChoice {
@@ -19,12 +25,13 @@ export interface RelatedChoice {
 @Component({
   selector: 'sw-related-issues',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatButtonModule],
+  imports: [ElapsedComponent, DatePipe, MatButtonModule],
   template: `
     <section class="related" aria-labelledby="related-title">
       <h2 id="related-title" tabindex="-1">Tickets proches</h2>
       <p class="hint">
-        Ces tickets du projet semblent traiter du même problème. Choisissez-en un, ou continuez sans.
+        Ces tickets du projet semblent traiter du même problème. Choisissez-en un, ou continuez
+        sans.
       </p>
       @if (related().status === 'PARTIAL') {
         <p class="hint">L'indexation du projet est en cours : résultats partiels.</p>
@@ -60,37 +67,74 @@ export interface RelatedChoice {
             }
             <div class="actions">
               @if (issue.closed) {
-                <button mat-stroked-button type="button" [disabled]="busy()" (click)="decide('LINK_NEW', issue)"
-                  [attr.aria-label]="'Lier une nouvelle story à ' + issue.key">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="busy()"
+                  (click)="decide('LINK_NEW', issue)"
+                  [attr.aria-label]="'Lier une nouvelle story à ' + issue.key"
+                >
                   Lier une nouvelle story
                 </button>
               } @else {
-                <button mat-stroked-button type="button" [disabled]="busy()" (click)="compare(issue)"
-                  [attr.aria-label]="'Comparer le besoin à ' + issue.key">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="busy()"
+                  (click)="compare(issue)"
+                  [attr.aria-label]="'Comparer le besoin à ' + issue.key"
+                >
                   Comparer
                 </button>
               }
             </div>
             @if (comparison()?.key === issue.key) {
               @let c = comparison()!;
-              <div class="comparison" role="group" [attr.aria-label]="'Comparaison avec ' + issue.key">
+              <div
+                class="comparison"
+                role="group"
+                [attr.aria-label]="'Comparaison avec ' + issue.key"
+              >
                 <div>
                   <h3>En commun</h3>
-                  <ul>@for (x of c.common; track $index) {<li>{{ x }}</li>} @empty {<li>Rien.</li>}</ul>
+                  <ul>
+                    @for (x of c.common; track $index) {
+                      <li>{{ x }}</li>
+                    } @empty {
+                      <li>Rien.</li>
+                    }
+                  </ul>
                 </div>
                 <div>
                   <h3>Différent</h3>
-                  <ul>@for (x of c.different; track $index) {<li>{{ x }}</li>} @empty {<li>Rien.</li>}</ul>
+                  <ul>
+                    @for (x of c.different; track $index) {
+                      <li>{{ x }}</li>
+                    } @empty {
+                      <li>Rien.</li>
+                    }
+                  </ul>
                 </div>
               </div>
               <p class="hint">
-                Suggestion : {{ c.suggestion === 'SAME' ? 'la même story' : 'une story différente' }}.
+                Suggestion :
+                {{ c.suggestion === 'SAME' ? 'la même story' : 'une story différente' }}.
               </p>
               <div class="actions">
-                <button mat-flat-button type="button" [disabled]="busy()" (click)="decide('SAME', issue)">
+                <button
+                  mat-flat-button
+                  type="button"
+                  [disabled]="busy()"
+                  (click)="decide('SAME', issue)"
+                >
                   C'est la même
                 </button>
-                <button mat-stroked-button type="button" [disabled]="busy()" (click)="decide('DIFFERENT', issue)">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="busy()"
+                  (click)="decide('DIFFERENT', issue)"
+                >
                   C'est différent
                 </button>
               </div>
@@ -98,9 +142,14 @@ export interface RelatedChoice {
           </li>
         }
       </ul>
-      <button mat-button type="button" [disabled]="busy()" (click)="decide('NONE', null)">Aucun ne correspond</button>
+      <button mat-button type="button" [disabled]="busy()" (click)="decide('NONE', null)">
+        Aucun ne correspond
+      </button>
       @if (busy()) {
-        <p class="hint" role="status" aria-live="polite">{{ busyMessage() }}</p>
+        <p class="hint">
+          <span role="status" aria-live="polite">{{ busyMessage() }}</span>
+          <sw-elapsed [running]="busy()" />
+        </p>
       }
     </section>
   `,

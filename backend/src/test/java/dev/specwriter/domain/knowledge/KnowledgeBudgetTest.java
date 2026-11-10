@@ -19,7 +19,7 @@ class KnowledgeBudgetTest {
         assertThat(of(0)).isEqualTo(KnowledgeBudget.STANDARD);
         assertThat(KnowledgeBudget.STANDARD.isStandard()).isTrue();
         assertThat(KnowledgeBudget.STANDARD).isEqualTo(new KnowledgeBudget(35_000, 3_000, 12_000, 8_000, 8_000, 6_000,
-                12_000, 8_000, 3_000, 3_000, 1_500));
+                12_000, 8_000, 3_000, 3_000, 1_500, 20_000, 8_000));
     }
 
     @Test
@@ -33,6 +33,17 @@ class KnowledgeBudgetTest {
         assertThat(b.isStandard()).isFalse();
         assertThat(of(64_000).total()).isEqualTo(66_000);
         assertThat(of(64_000).mentionedPart()).isEqualTo(15_085);
+    }
+
+    /** 010 : place des sources et de l'historique d'une conversation, comme les autres parts. */
+    @Test
+    void partsDeLaConversation() {
+        assertThat(KnowledgeBudget.STANDARD.conversationSources()).isEqualTo(20_000);
+        assertThat(KnowledgeBudget.STANDARD.conversationHistory()).isEqualTo(8_000);
+        assertThat(KnowledgeBudget.SOURCE_EXCERPT).isEqualTo(1_500);
+        KnowledgeBudget b = of(128_000);
+        assertThat(b.conversationSources()).isEqualTo(92_571);
+        assertThat(b.conversationHistory()).isEqualTo(37_028);
     }
 
     @Test

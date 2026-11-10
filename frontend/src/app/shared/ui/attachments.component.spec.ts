@@ -154,4 +154,30 @@ describe('AttachmentsComponent', () => {
     expect((el.querySelector('button[aria-label="Retirer CR COPIL"]') as HTMLButtonElement).disabled).toBe(true);
     ctrl.verify();
   });
+
+  it('avec une conversation : ses documents, état demandé pour la conversation, ajout', async () => {
+    fixture.componentRef.setInput('conversationId', 'c1');
+    fixture.detectChanges();
+    await settle(fixture);
+    ctrl.expectOne('/api/conversations/c1/attachments').flush([CR]);
+    await settle(fixture);
+    const resolve = ctrl.expectOne('/api/projects/p1/mentions/resolve');
+    expect(resolve.request.body).toEqual({ sessionId: null, fields: [], conversationId: 'c1' });
+    resolve.flush([state('CR COPIL.pdf', 'TRANSMITTED', 100)]);
+    await settle(fixture);
+
+    choose('Annexe.docx');
+    await settle(fixture);
+    ctrl.expectOne((r) => r.method === 'POST' && r.url === '/api/conversations/c1/attachments')
+      .flush({ id: 'a2', title: 'Annexe', fileName: 'Annexe.docx', format: 'DOCX', chars: 10 });
+    await settle(fixture);
+    ctrl.expectOne('/api/projects/p1/mentions/resolve').flush([]);
+    await settle(fixture);
+    expect(changed.at(-1)).toEqual([CR.id, 'a2']);
+
+    fixture.componentRef.setInput('conversationId', null);
+    await settle(fixture);
+    expect(el.querySelectorAll('li').length).toBe(0);
+    ctrl.verify();
+  });
 });

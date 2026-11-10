@@ -167,6 +167,30 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
 
     @Override
     @Transactional
+    @SuppressWarnings("unchecked")
+    public int replaceSource(UUID projectId, UUID sourceId, Set<Key> keep) {
+        List<Object[]> rows = em.createNativeQuery(
+                "select kind, ref, chunk from knowledge_item where project_id = ?1 and source_id = ?2")
+                .setParameter(1, projectId.toString()).setParameter(2, sourceId.toString()).getResultList();
+        int removed = 0;
+        for (Object[] r : rows) {
+            Key key = new Key(KnowledgeKind.valueOf((String) r[0]), (String) r[1], ((Number) r[2]).intValue());
+            if (!keep.contains(key)) {
+                delete(projectId, key);
+                removed++;
+            }
+        }
+        for (Key key : keep) {
+            em.createNativeQuery("update knowledge_item set source_id = ?1 where project_id = ?2 and kind = ?3"
+                    + " and ref = ?4 and chunk = ?5").setParameter(1, sourceId.toString())
+                    .setParameter(2, projectId.toString()).setParameter(3, key.kind().name())
+                    .setParameter(4, key.ref()).setParameter(5, key.chunk()).executeUpdate();
+        }
+        return removed;
+    }
+
+    @Override
+    @Transactional
     public void delete(UUID projectId, Key key) {
         em.createNativeQuery("delete from knowledge_item where project_id = ?1 and kind = ?2 and ref = ?3 and chunk = ?4")
                 .setParameter(1, projectId.toString()).setParameter(2, key.kind().name())

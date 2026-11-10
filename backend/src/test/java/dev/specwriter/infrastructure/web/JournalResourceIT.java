@@ -37,4 +37,19 @@ class JournalResourceIT {
         assertThat(errors).containsOnly("ERROR");
         api().queryParam("level", "INFO").get("/api/journal").then().statusCode(422);
     }
+
+    @Test
+    void purgeVideLeJournalPuisLeJournalReprend() {
+        String before = UUID.randomUUID().toString();
+        LOG.warnf("avant la purge %s", before);
+        assertThat(api().get("/api/journal").then().statusCode(200).extract().jsonPath().getList("message").toString())
+                .contains(before);
+
+        api().delete("/api/journal").then().statusCode(204);
+
+        String after = UUID.randomUUID().toString();
+        LOG.warnf("après la purge %s", after);
+        List<String> messages = api().get("/api/journal").then().statusCode(200).extract().jsonPath().getList("message");
+        assertThat(messages.toString()).doesNotContain(before).contains(after);
+    }
 }

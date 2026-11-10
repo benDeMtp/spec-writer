@@ -3,12 +3,18 @@ package dev.specwriter.infrastructure.llm;
 import com.github.copilot.CopilotClient;
 import com.github.copilot.CopilotSession;
 import com.github.copilot.SystemMessageMode;
+import com.github.copilot.generated.AssistantMessageDeltaEvent;
 import com.github.copilot.generated.AssistantMessageEvent;
+import com.github.copilot.generated.AssistantReasoningDeltaEvent;
+import com.github.copilot.generated.AssistantReasoningEvent;
+import com.github.copilot.generated.SessionErrorEvent;
+import com.github.copilot.generated.SessionIdleEvent;
 import com.github.copilot.rpc.CopilotClientOptions;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.infrastructure.platform.ProxySettings;
 import com.github.copilot.rpc.MessageOptions;
+import com.github.copilot.rpc.ModelInfo;
 import com.github.copilot.rpc.PermissionRequestResult;
 import com.github.copilot.rpc.SessionConfig;
 import com.github.copilot.rpc.SystemMessageConfig;
@@ -17,16 +23,22 @@ import dev.specwriter.infrastructure.platform.UserDirectories;
 import io.quarkus.runtime.ShutdownEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import java.io.Closeable;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import jakarta.inject.Inject;
 import dev.specwriter.infrastructure.logging.SafeThrowable;
@@ -60,7 +72,16 @@ public class CopilotRuntime implements CopilotSdkGateway {
     @ConfigProperty(name = "specwriter.copilot.cli-min-version", defaultValue = CLI_MIN_VERSION)
     String cliMinVersion;
 
+    /**
+     * Intensité de réflexion demandée quand l'écran montre la réflexion de l'agent (010) ; sans elle,
+     * le modèle n'en transmet aucune. Ignorée pour un modèle qui ne la propose pas.
+     */
+    @ConfigProperty(name = "specwriter.copilot.reasoning-effort", defaultValue = "high")
+    String reasoningEffort;
+
     private CopilotClient client;
+    /** Intensités de réflexion proposées par modèle, lues une fois par client. */
+    private Map<String, List<String>> efforts;
 
     /** Client démarré à la demande ; partagé avec l'authentification GitHub. */
     public synchronized CopilotClient client() {
@@ -137,6 +158,7 @@ public class CopilotRuntime implements CopilotSdkGateway {
      * après celle-ci (spike S1) : il est relancé dès que la connexion aboutit.
      */
     public synchronized void restart() {
+        efforts = null;
         if (client != null) {
             client.close();
             client = null;
@@ -167,14 +189,17 @@ public class CopilotRuntime implements CopilotSdkGateway {
         Duration timeout = CallTimeout.current();
         CopilotSession session = null;
         try {
-            session = c.createSession(toolLessSession(model, systemPrompt)).get(60, TimeUnit.SECONDS);
+            Optional<Consumer<String>> reasoning = reasoning(model);
+            SessionConfig config = toolLessSession(model, systemPrompt);
+            reasoning.ifPresent(r -> withReasoning(config));
+            session = c.createSession(config).get(60, TimeUnit.SECONDS);
             sessionId = session.getSessionId();
             MessageOptions message = new MessageOptions().setPrompt(userPrompt);
             if (responseSchema != null) {
                 message.setResponseSchema(responseSchema);
             }
             phase = "l'envoi du message";
-            try {
+            try (Closeable _ = listen(session, reasoning)) {
                 // sans délai explicite, sendAndWait abandonne au bout de 60 s, quel que soit le get()
                 AssistantMessageEvent reply = session.sendAndWait(message, timeout.toMillis())
                         .get(timeout.toSeconds() + SDK_MARGIN_SECONDS, TimeUnit.SECONDS);
@@ -193,6 +218,135 @@ public class CopilotRuntime implements CopilotSdkGateway {
             closeQuietly(session);
             deleteQuietly(c, sessionId);
         }
+    }
+
+    /**
+     * Réponse en flux (010, research.md R2) : session sans outil en mode streaming ; chaque
+     * {@code assistant.message_delta} est transmis, la fin arrive avec {@code session.idle}. Un arrêt
+     * demandé abandonne la requête ; la session est supprimée comme pour {@link #complete}.
+     */
+    @Override
+    public String stream(String model, String systemPrompt, String userPrompt, Consumer<String> deltas,
+            BooleanSupplier cancelled) {
+        CopilotClient c = client();
+        String sessionId = null;
+        String phase = "la création de la session";
+        long start = System.nanoTime();
+        Duration timeout = CallTimeout.current();
+        CopilotSession session = null;
+        StringBuilder text = new StringBuilder();
+        CompletableFuture<Void> idle = new CompletableFuture<>();
+        try {
+            Optional<Consumer<String>> reasoning = reasoning(model);
+            SessionConfig config = toolLessSession(model, systemPrompt).setStreaming(true);
+            reasoning.ifPresent(r -> withReasoning(config));
+            session = c.createSession(config).get(60, TimeUnit.SECONDS);
+            sessionId = session.getSessionId();
+            try (Closeable _ = listen(session, reasoning);
+                    var _ = session.on(AssistantMessageDeltaEvent.class, e -> {
+                        String delta = e.getData() == null ? null : e.getData().deltaContent();
+                        if (delta != null && !delta.isEmpty() && !idle.isDone()) {
+                            text.append(delta);
+                            deltas.accept(delta);
+                        }
+                    });
+                    var _ = session.on(SessionIdleEvent.class, e -> idle.complete(null));
+                    var _ = session.on(SessionErrorEvent.class, e -> idle.completeExceptionally(
+                            new IllegalStateException(e.getData() == null ? "session.error" : e.getData().errorType())))) {
+                phase = "l'envoi du message";
+                session.send(new MessageOptions().setPrompt(userPrompt)).get(60, TimeUnit.SECONDS);
+                phase = "la rédaction de la réponse";
+                long deadline = System.nanoTime() + timeout.toNanos();
+                while (!idle.isDone()) {
+                    if (cancelled.getAsBoolean() || Thread.currentThread().isInterrupted()) {
+                        abortQuietly(session);
+                        break;
+                    }
+                    if (System.nanoTime() > deadline) {
+                        abortQuietly(session);
+                        throw new TimeoutException("réponse en flux");
+                    }
+                    try {
+                        idle.get(200, TimeUnit.MILLISECONDS);
+                    } catch (TimeoutException e) {
+                        // on vérifie l'arrêt demandé, puis on attend encore
+                        continue;
+                    }
+                }
+            }
+            return text.toString();
+        } catch (GatewayException e) {
+            throw e;
+        } catch (Exception e) {
+            throw classify(e, phase + ", modèle " + (model == null ? "par défaut" : model) + ", après " + elapsedMs(start)
+                    + " ms (délai " + timeout.toSeconds() + " s)");
+        } finally {
+            closeQuietly(session);
+            deleteQuietly(c, sessionId);
+        }
+    }
+
+    /** Destinataire de la réflexion, si l'écran la montre et si le modèle sait la donner. */
+    private Optional<Consumer<String>> reasoning(String model) {
+        Optional<Consumer<String>> sink = ReasoningSink.current();
+        if (sink.isEmpty() || model == null || !efforts().getOrDefault(model, List.of()).contains(reasoningEffort)) {
+            return Optional.empty();
+        }
+        return sink;
+    }
+
+    private void withReasoning(SessionConfig config) {
+        config.setStreaming(true).setReasoningEffort(reasoningEffort).setReasoningSummary("detailed");
+    }
+
+    /**
+     * Transmet la réflexion du modèle : ses morceaux au fil de l'eau ; une réflexion arrivée d'un bloc,
+     * sans morceaux, est transmise entière.
+     */
+    private static Closeable listen(CopilotSession session, Optional<Consumer<String>> reasoning) {
+        if (reasoning.isEmpty()) {
+            return () -> { };
+        }
+        Consumer<String> sink = reasoning.get();
+        Set<String> streamed = ConcurrentHashMap.newKeySet();
+        Closeable deltas = session.on(AssistantReasoningDeltaEvent.class, e -> {
+            if (e.getData() != null && e.getData().deltaContent() != null && !e.getData().deltaContent().isEmpty()) {
+                streamed.add(String.valueOf(e.getData().reasoningId()));
+                sink.accept(e.getData().deltaContent());
+            }
+        });
+        Closeable whole = session.on(AssistantReasoningEvent.class, e -> {
+            if (e.getData() != null && e.getData().content() != null
+                    && !streamed.contains(String.valueOf(e.getData().reasoningId()))) {
+                sink.accept(e.getData().content());
+            }
+        });
+        return () -> {
+            try (whole) {
+                deltas.close();
+            }
+        };
+    }
+
+    /** Intensités de réflexion de chaque modèle ; vide si la liste des modèles est illisible. */
+    private synchronized Map<String, List<String>> efforts() {
+        if (efforts == null) {
+            Map<String, List<String>> read = new HashMap<>();
+            try {
+                for (ModelInfo m : client().listModels().get(60, TimeUnit.SECONDS)) {
+                    if (m.getSupportedReasoningEfforts() != null) {
+                        read.put(m.getId(), List.copyOf(m.getSupportedReasoningEfforts()));
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return Map.of();
+            } catch (Exception e) {
+                LOG.warnf("Intensités de réflexion illisibles (%s) : réflexion non demandée", e.getClass().getSimpleName());
+            }
+            efforts = Map.copyOf(read);
+        }
+        return efforts;
     }
 
     /**
@@ -297,6 +451,7 @@ public class CopilotRuntime implements CopilotSdkGateway {
     }
 
     synchronized void onStop(@Observes ShutdownEvent event) {
+        efforts = null;
         if (client != null) {
             client.close();
             client = null;

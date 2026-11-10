@@ -1,0 +1,7 @@
+{"operation": "propose-need", "userContains": ["IT-AGENT"], "response": {
+  "need": "IT-OK Permettre au gestionnaire d'annuler un avoir émis par erreur, pour corriger la facturation du client.",
+  "points": [
+    {"theme": "ACTORS", "question": "Qui annule un avoir ?", "answer": "Le gestionnaire de facturation.", "basis": "USER", "sourceRef": ""},
+    {"theme": "BUSINESS_RULES", "question": "Jusqu'à quand ?", "answer": "48 heures après l'émission.", "basis": "SOURCE", "sourceRef": "FACT-404"}
+  ]
+}}

@@ -94,6 +94,44 @@ public class FtsLocalSearch implements LocalSearch {
         return n.intValue() > 0;
     }
 
+    /** Texte de version lu pour l'agent : l'extrait transmis est coupé ensuite selon le budget. */
+    static final int SPEC_TEXT = 20_000;
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<SpecHit> byRelevance(UUID projectId, String terms, int limit) {
+        String match = anyWord(terms);
+        if (match.isEmpty()) {
+            return List.of();
+        }
+        List<Object[]> rows = em.createNativeQuery("""
+                        select s.id, s.name, v.number, substr(v.markdown, 1, ?4), s.implementation_status
+                        from spec_search f join session s on s.id = f.session_id
+                        join specification_version v on v.session_id = s.id
+                             and v.number = (select max(x.number) from specification_version x where x.session_id = s.id)
+                        where spec_search match ?1 and s.project_id = ?2
+                        order by bm25(spec_search, 10.0, 3.0, 1.0)
+                        limit ?3""")
+                .setParameter(1, match).setParameter(2, projectId.toString()).setParameter(3, limit)
+                .setParameter(4, SPEC_TEXT).getResultList();
+        return rows.stream().map(r -> new SpecHit(UUID.fromString((String) r[0]), ((Number) r[2]).intValue(),
+                (String) r[1], (String) r[3], "IMPLEMENTED".equals(r[4]))).toList();
+    }
+
+    /** {@code "mot1"* OR "mot2"*} : un mot d'au moins 3 lettres suffit (question en langage naturel). */
+    static String anyWord(String terms) {
+        if (terms == null) {
+            return "";
+        }
+        return Arrays.stream(terms.split("[^\\p{L}\\p{N}]+"))
+                .filter(t -> t.length() >= 3)
+                .distinct()
+                .limit(20)
+                .map(t -> "\"" + t + "\"*")
+                .collect(Collectors.joining(" OR "));
+    }
+
     /** {@code "mot1"* "mot2"*} : tous les mots doivent figurer, en début de mot indexé. */
     static String toMatch(String terms) {
         if (terms == null) {

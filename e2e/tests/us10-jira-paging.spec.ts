@@ -248,7 +248,7 @@ test.describe.serial('US10 Jira paginé', () => {
     expect(forged.status()).toBe(422);
 
     // à l'écran : positions, puis Jira coupé sur la page suivante
-    await page.goto('/?q=lettrage');
+    await page.goto('/sessions?q=lettrage');
     const pager = page.getByRole('navigation', { name: 'Pages de résultats' });
     await expect(pager).toContainText('1 à 25 sur 70');
     await pager.getByRole('button', { name: 'Page suivante' }).click();

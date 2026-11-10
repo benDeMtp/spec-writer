@@ -7,7 +7,8 @@ Chaque élément renvoie à ce qui l'a fait naître : un extrait du besoin, une 
 hypothèse signalée comme telle.
 
 L'outil tourne sur votre poste. Il s'ouvre dans votre navigateur, à l'adresse
-`http://127.0.0.1:47615`, et ne répond qu'à cette machine. Il sait aussi :
+`http://127.0.0.1:47615`, et ne répond qu'à cette machine, sur une conversation avec un agent qui
+connaît le projet courant (voir [Converser avec l'agent](#converser-avec-lagent)). Il sait aussi :
 
 - reprendre une session interrompue, revenir sur une réponse, comparer les versions ;
 - exporter une version en Markdown ;
@@ -87,6 +88,50 @@ les variables `HTTPS_PROXY` et `HTTP_PROXY` (identifiants acceptés :
 (`.intra.exemple.fr,jira.exemple.fr`) ou `-Dhttp.nonProxyHosts`. Le proxy retenu est écrit dans le
 journal au démarrage. Si le proxy inspecte le trafic HTTPS, déclarez son certificat d'autorité
 dans la configuration Jira.
+
+## Converser avec l'agent
+
+L'outil s'ouvre sur la conversation du projet courant. Posez une question : l'agent fait jusqu'à 5
+recherches dans la connaissance du projet (tickets, pages, ADR, documents, architecture) et dans la
+dernière version de ses spécifications, chacune affichée comme une étape, puis rédige sa réponse au
+fil de l'eau. Il cite ses sources par numéro, `[1]`, listées sous la réponse ; une spécification
+citée s'ouvre sur sa version. Sans source, il dit qu'il ne sait pas. Les exemples de questions de
+l'accueil sont tirés de la connaissance du projet (un ADR, un ticket ouvert, une page de
+documentation) ; tant que rien n'est indexé, il n'y en a pas.
+
+- **Recherche documentaire** : « Quels tickets parlent des avoirs ? ».
+- **Incohérences** : « La documentation et les tickets sont-ils d'accord sur le délai de lettrage ? ».
+  L'agent signale chaque écart avec les deux sources, et dit ce qu'il n'a pas pu comparer faute de
+  place.
+- **Documents** : mentionnez un document avec @, ou joignez-en un à la conversation ; ils passent en
+  tête des sources.
+- **Rédiger une spécification** : l'agent propose le besoin et les points que la discussion a
+  établis. Corrigez-les ou retirez-en, puis démarrez : le questionnaire part de ces points comme de
+  réponses déjà données, et ne les repose pas. Les documents joints suivent.
+
+**Mémoire** : l'agent reçoit les échanges récents en entier, dans la place du modèle choisi. Quand
+la conversation s'allonge, il résume les échanges les plus anciens (faits établis, décisions,
+questions ouvertes) et garde ce résumé avec la conversation ; l'écran le montre pendant qu'il le
+fait, puis un repère dans le fil indique les échanges transmis sous forme de résumé. Dans
+l'historique, les appels `[n]` des réponses passées sont remplacés par le titre de leur source.
+
+**Réflexion et durée** : pendant que l'agent travaille, un panneau replié dit ce qu'il fait (il
+analyse la question, examine les résultats d'une recherche, résume les échanges anciens, rédige sa
+réponse), avec un chronomètre. Déplié, il montre au fil de l'eau la réflexion que le modèle partage,
+un résumé qu'il rédige lui-même, souvent en anglais ; elle reste avec la réponse (20 000 caractères
+au plus), avec la durée du tour. Pour l'obtenir, l'outil demande au modèle une réflexion poussée
+(`specwriter.copilot.reasoning-effort`, `high` par défaut ; Claude Sonnet 5.5 n'en partage aucune
+en dessous) : une réponse prend quelques secondes de plus. Un modèle qui ne propose pas de réflexion
+répond sans. Ailleurs (questionnaire, génération, modification assistée, Jira), un chronomètre
+accompagne chaque attente de l'IA.
+
+**Arrêter** (ou Échap) garde le texte déjà écrit, marqué incomplet ; **Réessayer** le relance. Les
+conversations sont gardées par projet : la liste permet de les rouvrir, de les renommer et de les
+supprimer (les spécifications qui en sont issues restent). La recherche et **Nouvelle
+spécification** sont dans l'écran **Spécifications**.
+
+Chaque message part vers GitHub Copilot, avec votre accord. Les messages restent dans la base de
+l'outil et n'apparaissent jamais dans les journaux.
 
 ## Projets et connaissance du projet
 
@@ -270,7 +315,7 @@ consigné, sans contenu, dans le journal de la carte.
 | Windows | `%LOCALAPPDATA%\spec-writer\` |
 | Linux | `~/.local/share/spec-writer/` et `~/.config/spec-writer/` |
 
-Le dossier contient la base des sessions, des spécifications et de l'index de connaissance
+Le dossier contient la base des sessions, des conversations, des spécifications et de l'index de connaissance
 (`spec-writer.db`), le modèle de recherche, la configuration du client Copilot et, si l'accès des
 agents est activé, `agent-endpoint.json`. Il est réservé à votre compte utilisateur.
 

@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -11,6 +11,7 @@ import { ProjectsStore } from '../../core/projects/projects.store';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import { IMPLEMENTATION_LABELS, SessionState, SessionSummary } from '../../core/sessions/sessions.model';
 import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component';
+import { SearchPage } from '../search/search.page';
 
 const STATES: Record<SessionState, string> = {
   QUESTIONING: 'Questionnaire en cours',
@@ -18,14 +19,24 @@ const STATES: Record<SessionState, string> = {
   GENERATED: 'Spécification générée',
 };
 
-/** Sessions du projet courant : reprendre, renommer, supprimer (FR-017, FR-005 de 002). */
+/**
+ * Spécifications du projet courant (010, US5) : nouvelle spécification, recherche (déplacée depuis le
+ * menu), puis la liste à reprendre, renommer, supprimer (FR-017, FR-005 de 002).
+ */
 @Component({
   selector: 'sw-sessions-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, RouterLink],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, RouterLink, SearchPage],
   template: `
-    <h1>Sessions</h1>
-    <div class="sheet">
+    <header class="head">
+      <h1>Spécifications</h1>
+      <a mat-flat-button routerLink="/nouveau">Nouvelle spécification</a>
+    </header>
+    <section class="search" aria-labelledby="search-title">
+      <sw-search-page [q]="q()" [embedded]="true" />
+    </section>
+    <h2 id="list-title">Vos spécifications</h2>
+    <div class="sheet" role="region" aria-labelledby="list-title">
       <p role="status" aria-live="polite" class="announce">{{ announce() }}</p>
       @if (sessions(); as list) {
         @if (list.length) {
@@ -35,7 +46,7 @@ const STATES: Record<SessionState, string> = {
                 @if (editing() === s.id) {
                   <form class="rename" (ngSubmit)="saveName(s)">
                     <mat-form-field appearance="outline">
-                      <mat-label>Nom de la session</mat-label>
+                      <mat-label>Nom de la spécification</mat-label>
                       <input matInput name="name" maxlength="120" [(ngModel)]="draftName" required />
                     </mat-form-field>
                     <button mat-flat-button type="submit" [disabled]="!draftName().trim()">Enregistrer</button>
@@ -59,7 +70,7 @@ const STATES: Record<SessionState, string> = {
                       <a mat-stroked-button [routerLink]="['/sessions', s.id]">Reprendre</a>
                       <button mat-button type="button" (click)="startRename(s)">Renommer</button>
                     }
-                    <button mat-button type="button" (click)="remove(s)" [attr.aria-label]="'Supprimer la session ' + s.name">
+                    <button mat-button type="button" (click)="remove(s)" [attr.aria-label]="'Supprimer la spécification ' + s.name">
                       Supprimer
                     </button>
                   </div>
@@ -68,15 +79,28 @@ const STATES: Record<SessionState, string> = {
             }
           </ul>
         } @else {
-          <p>Aucune session pour l'instant.</p>
-          <a mat-flat-button routerLink="/nouveau">Décrire un nouveau besoin</a>
+          <p>Aucune spécification pour l'instant. Rédigez-en une, ou partez d'une conversation avec l'agent.</p>
         }
       } @else {
-        <p role="status">Chargement des sessions…</p>
+        <p role="status">Chargement des spécifications…</p>
       }
     </div>
   `,
   styles: `
+    .head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+    }
+    .search {
+      margin: 0 0 2rem;
+    }
+    h2 {
+      margin: 0 0 0.75rem;
+      font-size: var(--sw-step-1);
+    }
     h1 {
       margin: 0 0 1.5rem;
       font-family: var(--sw-font-doc);
@@ -132,6 +156,9 @@ const STATES: Record<SessionState, string> = {
   `,
 })
 export class SessionsPage {
+  /** Mots-clés de la recherche, dans l'adresse (`/sessions?q=…`). */
+  readonly q = input<string>('');
+
   private readonly api = inject(SessionsApi);
   private readonly dialog = inject(MatDialog);
 
@@ -171,7 +198,7 @@ export class SessionsPage {
     try {
       await this.api.rename(s.id, name);
       this.editing.set(null);
-      this.announce.set(`Session renommée en « ${name} ».`);
+      this.announce.set(`Spécification renommée en « ${name} ».`);
       await this.reload();
     } catch {
       // Le bandeau affiche la cause.
@@ -183,7 +210,7 @@ export class SessionsPage {
       this.dialog
         .open(ConfirmDialogComponent, {
           data: {
-            title: 'Supprimer cette session ?',
+            title: 'Supprimer cette spécification ?',
             message:
               `« ${s.name} » et toutes ses versions seront supprimées définitivement.` +
               (s.jiraKey ? ` Elle est liée au ticket ${s.jiraKey} : Jira n'est pas modifié.` : ''),
@@ -196,7 +223,7 @@ export class SessionsPage {
       return;
     }
     await this.api.delete(s.id);
-    this.announce.set(`Session « ${s.name} » supprimée.`);
+    this.announce.set(`Spécification « ${s.name} » supprimée.`);
     await this.reload();
   }
 

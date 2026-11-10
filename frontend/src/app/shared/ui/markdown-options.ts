@@ -2,6 +2,11 @@ import { MarkedOptions, MarkedRenderer } from 'ngx-markdown';
 import type { Tokens } from 'marked';
 
 const SAFE_LINK = /^(?:https?:|mailto:)/i;
+/**
+ * Liens de l'outil écrits par la conversation (010) : version d'une spécification citée, ou note
+ * d'une source sous la réponse. Ils restent dans l'onglet.
+ */
+const TOOL_LINK = /^(?:\/sessions\/[0-9a-f-]{36}\/versions\/\d+|#source-[0-9a-f-]{36}-\d+)$/i;
 
 function attribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -9,17 +14,21 @@ function attribute(value: string): string {
 
 /**
  * Rendu Markdown du contenu tiers (descriptions Jira, FR-043a) : seuls les liens http, https et
- * mailto sont cliquables, et ils s'ouvrent dans un nouvel onglet sans accès à la page d'origine.
+ * mailto sont cliquables, et ils s'ouvrent dans un nouvel onglet sans accès à la page d'origine ;
+ * plus les seuls liens de l'outil que pose la conversation ({@link TOOL_LINK}).
  * Les autres liens restent du texte. Le HTML produit est ensuite nettoyé par Angular (SANITIZE).
  */
 export function markedOptions(): MarkedOptions {
   const renderer = new MarkedRenderer();
   renderer.link = function (this: MarkedRenderer, { href, title, tokens }: Tokens.Link): string {
     const text = this.parser.parseInline(tokens);
+    const tip = title ? ` title="${attribute(title)}"` : '';
+    if (TOOL_LINK.test(href)) {
+      return `<a href="${attribute(href)}"${tip}>${text}</a>`;
+    }
     if (!SAFE_LINK.test(href)) {
       return text;
     }
-    const tip = title ? ` title="${attribute(title)}"` : '';
     return `<a href="${attribute(href)}"${tip} target="_blank" rel="noopener noreferrer">${text}</a>`;
   };
   // Un tableau large défile dans son propre cadre, atteignable au clavier, sans élargir la page.

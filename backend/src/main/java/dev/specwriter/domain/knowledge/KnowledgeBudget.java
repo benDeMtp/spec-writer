@@ -9,10 +9,13 @@ import java.util.OptionalInt;
  * borné à {@link #MAX_TOTAL} ; les nombres d'éléments ne changent pas.
  */
 public record KnowledgeBudget(int total, int roles, int adrText, int adrPart, int documentText, int documentPart,
-        int mentionedText, int mentionedPart, int ticketText, int architecture, int subtaskText) {
+        int mentionedText, int mentionedPart, int ticketText, int architecture, int subtaskText,
+        int conversationSources, int conversationHistory) {
 
     public static final KnowledgeBudget STANDARD = new KnowledgeBudget(35_000, 3_000, 12_000, 8_000, 8_000, 6_000,
-            12_000, 8_000, 3_000, 3_000, 1_500);
+            12_000, 8_000, 3_000, 3_000, 1_500, 20_000, 8_000);
+    /** Extrait d'un résultat de recherche transmis à l'agent (010, research.md R3). */
+    public static final int SOURCE_EXCERPT = 1_500;
     /** Plafond du total, pour ne pas noyer le besoin (FR-005). */
     public static final int MAX_TOTAL = 200_000;
     /** Conversion prudente pour le français. */
@@ -35,7 +38,8 @@ public record KnowledgeBudget(int total, int roles, int adrText, int adrPart, in
                 scale(STANDARD.adrPart, factor), scale(STANDARD.documentText, factor),
                 scale(STANDARD.documentPart, factor), scale(STANDARD.mentionedText, factor),
                 scale(STANDARD.mentionedPart, factor), scale(STANDARD.ticketText, factor),
-                scale(STANDARD.architecture, factor), scale(STANDARD.subtaskText, factor));
+                scale(STANDARD.architecture, factor), scale(STANDARD.subtaskText, factor),
+                scale(STANDARD.conversationSources, factor), scale(STANDARD.conversationHistory, factor));
     }
 
     public boolean isStandard() {

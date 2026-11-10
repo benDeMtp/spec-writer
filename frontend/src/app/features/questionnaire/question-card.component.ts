@@ -8,7 +8,7 @@ import { Question } from '../../core/sessions/sessions.model';
 import { MentionStatusComponent } from '../../shared/ui/mention-status.component';
 import { MentionDirective } from '../../shared/ui/mention.directive';
 
-const THEMES: Record<string, string> = {
+export const THEMES: Record<string, string> = {
   ACTORS: 'Acteurs',
   GOAL: 'Objectif',
   NOMINAL_FLOW: 'Parcours nominal',

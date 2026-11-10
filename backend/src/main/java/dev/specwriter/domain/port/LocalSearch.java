@@ -10,6 +10,15 @@ public interface LocalSearch {
     record Hit(UUID sessionId, String title, String excerpt, Instant updatedAt) {
     }
 
+    /** Spécification trouvée pour l'agent (010) : dernière version, son texte, feature implémentée ou non. */
+    record SpecHit(UUID sessionId, int version, String title, String text, boolean implemented) {
+
+        @Override
+        public String toString() {
+            return "SpecHit[" + sessionId + ", v" + version + "]";
+        }
+    }
+
     /** Termes saisis librement ; ils ne sont jamais interprétés comme une syntaxe de requête. */
     List<Hit> search(UUID projectId, String terms, int limit);
 
@@ -24,4 +33,10 @@ public interface LocalSearch {
 
     /** La session correspond-elle ? Un ticket qui lui est lié n'est alors montré qu'une fois, côté local. */
     boolean matches(UUID projectId, String terms, UUID sessionId);
+
+    /**
+     * Spécifications du projet qui partagent au moins un mot avec {@code terms}, les plus pertinentes
+     * d'abord ; seulement celles qui ont une version, dans sa dernière version (010, research.md R3).
+     */
+    List<SpecHit> byRelevance(UUID projectId, String terms, int limit);
 }

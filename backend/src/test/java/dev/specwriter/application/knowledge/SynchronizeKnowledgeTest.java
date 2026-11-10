@@ -16,6 +16,7 @@ import dev.specwriter.domain.knowledge.ArchElement;
 import dev.specwriter.domain.knowledge.ArchRelation;
 import dev.specwriter.domain.knowledge.ArchScope;
 import dev.specwriter.domain.knowledge.ArchitectureModel;
+import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.KnowledgeRole;
 import dev.specwriter.domain.port.ArchitectureReader;
@@ -618,9 +619,10 @@ class SynchronizeKnowledgeTest {
         assertThat(sources.find(P).syncedAt()).isEqualTo(synced);
     }
 
-    /** Page retirée de la source choisie : l'élément reste, faute de savoir à quelle source il appartient. */
+    /** Page retirée de la source choisie : ses éléments partent, ceux des autres sources restent. */
     @Test
-    void sourceChoisieNeRetirePasDePage() {
+    void sourceChoisieRetireSesPagesDisparues() {
+        String other = second();
         sync.run(P, Mode.FULL, progress);
         world.docs.sites.put(SITE, new Result(List.of(new Page(SITE + "adr-005.html", "ADR-005", "texte", List.of(
                 new Section(SITE + "adr-005.html", 0, "ADR-005", "Asynchrone.", KnowledgeKind.ADR,
@@ -629,7 +631,31 @@ class SynchronizeKnowledgeTest {
         sync.run(P, Mode.FULL, IndexationScope.of(List.of(declared(SITE).id().toString()), world.docSources.list(P)),
                 new Recorder());
 
-        assertThat(index.count(P, KnowledgeKind.DOC_SECTION)).isEqualTo(1);
+        assertThat(index.all(P, KnowledgeKind.DOC_SECTION)).extracting(KnowledgeItem::ref)
+                .containsExactly(other + "client.html");
+        assertThat(index.count(P, KnowledgeKind.ADR)).isEqualTo(1);
+    }
+
+    /**
+     * ADR renommé dans la documentation (même numéro, nouvelle adresse) : la source lue en entier
+     * remplace ses éléments, même si une autre source est en panne ; plus de doublon.
+     */
+    @Test
+    void adrRenommeRemplaceLAncienMemeSiUneAutreSourceEchoue() {
+        String other = second();
+        sync.run(P, Mode.FULL, progress);
+        world.docs.sites.put(SITE, new Result(List.of(new Page(SITE + "adr-005-avoirs.html", "ADR-005", "texte",
+                List.of(new Section(SITE + "adr-005-avoirs.html", 0, "ADR-005 Avoirs asynchrones", "Asynchrone.",
+                        KnowledgeKind.ADR, AdrStatus.Statement.of(AdrStatus.ACCEPTED, null), null)))), List.of()));
+        world.docs.broken.put(other, new IllegalStateException("panne"));
+
+        sync.run(P, Mode.FULL, new Recorder());
+
+        assertThat(index.all(P, KnowledgeKind.ADR)).extracting(KnowledgeItem::ref)
+                .containsExactly(SITE + "adr-005-avoirs.html");
+        // la source en panne garde son indexation précédente
+        assertThat(index.all(P, KnowledgeKind.DOC_SECTION)).extracting(KnowledgeItem::ref)
+                .containsExactly(other + "client.html");
     }
 
     /** Architecture choisie : réanalysée même si son empreinte n'a pas changé. */

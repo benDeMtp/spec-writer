@@ -1,5 +1,7 @@
 package dev.specwriter.infrastructure.llm;
 
+import dev.specwriter.domain.conversation.MessageRole;
+import dev.specwriter.domain.conversation.TurnSource;
 import dev.specwriter.domain.knowledge.ArchitectureModel;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.KnowledgeRole;
@@ -8,6 +10,7 @@ import dev.specwriter.domain.llm.CompareIssueRequest;
 import dev.specwriter.domain.llm.ImpactRequest;
 import dev.specwriter.domain.llm.RelatedIssuesRequest;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
+import dev.specwriter.domain.port.ConversationLlm;
 import dev.specwriter.domain.question.QuestionTheme;
 import dev.specwriter.domain.session.Language;
 import java.util.Collection;
@@ -176,6 +179,62 @@ final class UserMessages {
             case TICKET -> "ticket";
             default -> e.role() == KnowledgeRole.ARCHITECTURE_OVERVIEW ? "vue-architecture" : "vocabulaire";
         };
+    }
+
+    /** 010 : ce que l'agent sait au moment de choisir sa prochaine recherche (titres seulement). */
+    static String conversePlan(ConversationLlm.PlanRequest r) {
+        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n"
+                + block("memoire", r.memory()) + "\n" + exchange(r.history())
+                + "\n" + block("question", r.question()) + "\n" + sources(r.found(), false)
+                + "\n<recherches-restantes>" + r.searchesLeft() + "</recherches-restantes>";
+    }
+
+    /** 010 : données de la réponse ; chaque source porte le numéro qu'elle peut être citée. */
+    static String converseAnswer(ConversationLlm.AnswerRequest r) {
+        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n"
+                + block("memoire", r.memory()) + "\n" + exchange(r.history())
+                + "\n" + block("question", r.question()) + "\n" + sources(r.sources(), true) + "\n"
+                + block("non-comparees", String.join("\n", r.notCompared())) + "\n<recherche-arretee>"
+                + (r.searchStopped() ? "oui" : "non") + "</recherche-arretee>";
+    }
+
+    /** 010 : échange et sources citées, pour rédiger un besoin. */
+    static String needDraft(ConversationLlm.DraftRequest r) {
+        StringBuilder cited = new StringBuilder("<sources-citees>\n");
+        r.cited().forEach(c -> cited.append("<source sorte=\"").append(c.kind().name()).append("\" ref=\"")
+                .append(attribute(c.ref())).append("\" titre=\"").append(attribute(c.title())).append("\"/>\n"));
+        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n"
+                + block("memoire", r.memory()) + "\n" + exchange(r.history())
+                + "\n" + cited.append("</sources-citees>");
+    }
+
+    /** 010 : échanges anciens à résumer, après la mémoire précédente. */
+    static String compact(ConversationLlm.CompactRequest r) {
+        return language(r.language()) + "\n" + block("memoire-precedente", r.previous()) + "\n"
+                + exchange(r.exchanges());
+    }
+
+    private static String exchange(List<ConversationLlm.Exchange> history) {
+        StringBuilder out = new StringBuilder("<echange>\n");
+        for (ConversationLlm.Exchange e : history) {
+            out.append("<message auteur=\"").append(e.role() == MessageRole.USER ? "utilisateur" : "agent")
+                    .append("\">\n").append(data(e.text())).append("\n</message>\n");
+        }
+        return out.append("</echange>").toString();
+    }
+
+    private static String sources(List<TurnSource> sources, boolean withText) {
+        StringBuilder out = new StringBuilder("<sources>\n");
+        for (TurnSource s : sources) {
+            out.append("<source n=\"").append(s.n()).append("\" sorte=\"").append(s.kind().name())
+                    .append("\" ref=\"").append(attribute(s.ref())).append("\" titre=\"").append(attribute(s.title()))
+                    .append("\">");
+            if (withText) {
+                out.append("\n").append(data(s.text())).append("\n");
+            }
+            out.append("</source>\n");
+        }
+        return out.append("</sources>").toString();
     }
 
     /** Valeur d'attribut : chevrons et guillemets neutralisés. */

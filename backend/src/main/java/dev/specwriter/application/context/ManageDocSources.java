@@ -81,12 +81,14 @@ public class ManageDocSources {
                 scan.limitReached());
     }
 
-    /** Supprime la source ; un dossier de documents emporte ses éléments de l'index (006). */
+    /** Supprime la source ; ses éléments quittent l'index, quel que soit son type (006, 010). */
     public void delete(UUID projectId, UUID sourceId) {
         DocSource source = owned(projectId, sourceId);
         docSources.delete(source.id());
         if (source.kind() == DocSource.Kind.DOCUMENTS) {
             index.retainUnder(projectId, DocumentFolder.prefix(source), Set.of());
+        } else {
+            index.replaceSource(projectId, source.id(), Set.of());
         }
     }
 
