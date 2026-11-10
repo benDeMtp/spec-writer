@@ -12,10 +12,14 @@ import java.util.UUID;
 public class InMemorySpecifications implements SpecificationRepository {
     private final List<SpecificationVersion> versions = new ArrayList<>();
     private final Map<UUID, Integer> next = new HashMap<>();
+    private final Map<UUID, Optional<UUID>> discussions = new HashMap<>();
 
     @Override
     public void save(SpecificationVersion version) {
         versions.add(version);
+        if (version.origin() == dev.specwriter.domain.specification.VersionOrigin.DISCUSSION) {
+            discussions.putIfAbsent(version.id(), Optional.empty());
+        }
         next.merge(version.sessionId(), version.number() + 1, Math::max);
     }
 
@@ -52,5 +56,15 @@ public class InMemorySpecifications implements SpecificationRepository {
     @Override
     public int lastNumber(UUID sessionId) {
         return list(sessionId).stream().mapToInt(SpecificationVersion::number).max().orElse(0);
+    }
+
+    @Override
+    public Optional<UUID> discussionOf(UUID versionId) {
+        return discussions.getOrDefault(versionId, Optional.empty());
+    }
+
+    @Override
+    public void linkDiscussion(UUID versionId, UUID conversationId) {
+        discussions.put(versionId, Optional.of(conversationId));
     }
 }

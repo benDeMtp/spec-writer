@@ -30,4 +30,13 @@ public interface SpecificationRepository {
      * Numéro de la prochaine version : jamais un numéro déjà attribué, même supprimé (research.md R8).
      */
     int nextNumber(UUID sessionId);
+
+    /**
+     * Conversation dont vient une version d'origine {@code DISCUSSION} (011) ; vide si la version n'en
+     * vient pas, ou si la conversation a été supprimée.
+     */
+    Optional<UUID> discussionOf(UUID versionId);
+
+    /** Rattache une version d'origine {@code DISCUSSION} à sa conversation. */
+    void linkDiscussion(UUID versionId, UUID conversationId);
 }

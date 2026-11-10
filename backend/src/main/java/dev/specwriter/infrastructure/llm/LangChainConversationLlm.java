@@ -10,6 +10,7 @@ import dev.specwriter.domain.conversation.NeedDraft;
 import dev.specwriter.domain.conversation.SourceKind;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.llm.DraftSpecification;
 import dev.specwriter.domain.port.ConversationLlm;
 import dev.specwriter.domain.question.QuestionTheme;
 import java.time.Duration;
@@ -48,6 +49,9 @@ public class LangChainConversationLlm implements ConversationLlm {
     record SummaryDto(String summary) {
     }
 
+    record RevisionDto(Boolean changed, String reason, DraftSpecification specification) {
+    }
+
     private final ChatModel model;
     private final ConversationStream stream;
     private final Duration timeout;
@@ -79,6 +83,28 @@ public class LangChainConversationLlm implements ConversationLlm {
     public String compact(CompactRequest request) {
         return call("compact-memory", UserMessages.compact(request), LlmSchemas.COMPACT_MEMORY,
                 LangChainConversationLlm::toSummary);
+    }
+
+    @Override
+    public Revision revise(ReviseRequest request) {
+        return call("revise-specification", UserMessages.revise(request), LlmSchemas.REVISION,
+                LangChainConversationLlm::toRevision);
+    }
+
+    /** Un changement sans spécification, ou une absence de changement sans raison, est redemandé. */
+    static Revision toRevision(String json) {
+        RevisionDto dto = JSON.readValue(json, RevisionDto.class);
+        if (dto == null || dto.changed() == null) {
+            throw new IllegalArgumentException("Proposition sans décision");
+        }
+        String reason = dto.reason() == null ? "" : dto.reason().strip();
+        if (!dto.changed()) {
+            if (reason.isEmpty()) {
+                throw new IllegalArgumentException("Aucun changement, sans raison");
+            }
+            return new Revision(false, reason, null);
+        }
+        return new Revision(true, reason, LangChainLlmClient.normalized(dto.specification()));
     }
 
     /** Un résumé vide ne remplace pas la mémoire : la sortie est redemandée. */
@@ -165,7 +191,7 @@ public class LangChainConversationLlm implements ConversationLlm {
         if (dto.kinds() != null) {
             for (String k : dto.kinds()) {
                 SourceKind kind = SourceKind.valueOf(k);
-                if (kind != SourceKind.ATTACHMENT) {
+                if (kind != SourceKind.ATTACHMENT && kind != SourceKind.DISCUSSION) {
                     kinds.add(kind);
                 }
             }

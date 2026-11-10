@@ -42,7 +42,7 @@ class ManageConversationsTest {
     void listeEtDetailAvecAdressesDesSources() {
         Conversation older = conversation(T);
         Conversation c = conversation(T.plusSeconds(60));
-        assertThat(manage.list(Project.DEFAULT_ID)).extracting(Conversation::id).containsExactly(c.id(), older.id());
+        assertThat(manage.list(Project.DEFAULT_ID)).extracting(ManageConversations.Summary::id).containsExactly(c.id(), older.id());
 
         conversations.saveMessage(ConversationMessage.user(UUID.randomUUID(), c.id(), 1, "Comment ?", T));
         ConversationMessage answer = ConversationMessage.agentStarted(UUID.randomUUID(), c.id(), 2, T)

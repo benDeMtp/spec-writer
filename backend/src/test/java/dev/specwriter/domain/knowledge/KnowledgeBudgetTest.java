@@ -51,4 +51,13 @@ class KnowledgeBudgetTest {
         assertThat(of(2_000_000).total()).isEqualTo(KnowledgeBudget.MAX_TOTAL);
         assertThat(of(10_000_000).mentionedText()).isEqualTo(68_571);
     }
+
+    @Test
+    void partDeLaSpecificationDiscuteePriseSurLaReserveEtProportionnee() {
+        assertThat(KnowledgeBudget.STANDARD.discussedSpecification()).isEqualTo(40_000);
+        KnowledgeBudget large = KnowledgeBudget.forPromptTokens(java.util.OptionalInt.of(400_000));
+        assertThat(large.discussedSpecification())
+                .isEqualTo((int) Math.floor(40_000.0 * large.total() / KnowledgeBudget.STANDARD.total()));
+        assertThat(large.discussedSpecification()).isGreaterThan(40_000);
+    }
 }

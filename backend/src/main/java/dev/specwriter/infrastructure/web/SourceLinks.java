@@ -21,6 +21,8 @@ import java.util.Optional;
 @ApplicationScoped
 public class SourceLinks {
 
+    private static final String DISCUSSION = "discussion:";
+
     @Inject
     JiraAccess jira;
 
@@ -45,6 +47,11 @@ public class SourceLinks {
                 target.ifPresent(t -> out.put(s.ref(), t.issueUrl(s.ref())));
             } else if (s.kind() == SourceRef.Kind.DOC_PAGE && web(s.ref())) {
                 out.put(s.ref(), s.ref());
+            } else if (s.kind() == SourceRef.Kind.DISCUSSION && s.ref().startsWith(DISCUSSION)) {
+                // discussion:<conversation>#<numéro> : la conversation, dans l'outil (011)
+                String rest = s.ref().substring(DISCUSSION.length());
+                int hash = rest.indexOf('#');
+                out.put(s.ref(), "/conversations/" + (hash < 0 ? rest : rest.substring(0, hash)));
             }
         }
         adrs.stream().filter(SourceLinks::web).forEach(ref -> out.put(ref, ref));

@@ -165,4 +165,74 @@ class LangChainConversationLlmTest {
         assertThat(summary).isEqualTo("- Avoirs émis par le service Avoirs.");
         assertThat(model.received()).hasSize(2);
     }
+
+    @Test
+    void specificationDiscuteeAnnonceeAuPlanEtALaReponse() {
+        ScriptedChatModel model = new ScriptedChatModel()
+                .then("converse-plan", List.of("<specification-discutee nom=\"Réserver une salle\" version=\"3\"/>"),
+                        "{\"action\":\"ANSWER\",\"query\":\"\",\"kinds\":[]}");
+        String[] user = new String[1];
+        LangChainConversationLlm llm = new LangChainConversationLlm(model, (s, u, d, c) -> {
+            user[0] = u;
+            return "";
+        }, CallTimeout.DEFAULT);
+        var discussed = new ConversationLlm.Discussed("Réserver une salle", 3);
+
+        llm.plan(new ConversationLlm.PlanRequest(Language.FR, "Fiche", "", HISTORY, "Q ?", SOURCES, 5, discussed));
+        llm.answer(new ConversationLlm.AnswerRequest(Language.FR, "Fiche", "", HISTORY, "Q ?", SOURCES, List.of(), false,
+                discussed), d -> { }, () -> false);
+
+        assertThat(model.received().getFirst().system()).contains("<specification-discutee>");
+        assertThat(user[0]).contains("<specification-discutee nom=\"Réserver une salle\" version=\"3\"/>");
+        // hors discussion, rien n'est annoncé
+        llm.answer(new ConversationLlm.AnswerRequest(Language.FR, "Fiche", "", HISTORY, "Q ?", SOURCES, List.of(), false),
+                d -> { }, () -> false);
+        assertThat(user[0]).doesNotContain("specification-discutee");
+    }
+
+    static ConversationLlm.ReviseRequest reviseRequest() {
+        return new ConversationLlm.ReviseRequest(Language.FR, "Réserver une salle", List.of(), "# Réserver\n\n## Résumé",
+                null, "Mémoire", List.of(
+                        new ConversationLlm.DiscussionLine(MessageRole.USER, "Ajoute <l'annulation>", "discussion:c1#1"),
+                        new ConversationLlm.DiscussionLine(MessageRole.AGENT, "Entendu.", null)),
+                List.of(new dev.specwriter.domain.conversation.CitedSource(1, SourceKind.TICKET, "FACT-7", "Avoir")),
+                null);
+    }
+
+    static final String SPEC_JSON = """
+            {"title":"Réserver","summary":"||A||B||\\n|1|2|","details":"","useCases":[{"title":"Annuler","actor":"employé",
+             "goal":"annuler","preconditions":[],"nominalFlow":["annuler"],"alternatives":[],
+             "source":{"kind":"DISCUSSION","questionId":"","excerpt":"","ref":"discussion:c1#1"}}],
+             "scenarios":[],"assumptions":[],"requirements":[],"adrDeviations":[]}""";
+
+    @Test
+    void propositionDApresLaDiscussionEtMessagesCitables() {
+        ScriptedChatModel model = new ScriptedChatModel()
+                .then("revise-specification", List.of("<specification-courante>", "<discussion>",
+                        "<message auteur=\"utilisateur\" ref=\"discussion:c1#1\">", "Ajoute &lt;l'annulation&gt;",
+                        "<message auteur=\"agent\">", "<sources-citees>", "ref=\"FACT-7\""),
+                        "{\"changed\":true,\"reason\":\"x\",\"specification\":null}")
+                .then("revise-specification", List.of("<correction>"),
+                        "{\"changed\":true,\"reason\":\"Ajoute l'annulation.\",\"specification\":" + SPEC_JSON + "}");
+        LangChainConversationLlm llm = new LangChainConversationLlm(model, (s, u, d, c) -> "", CallTimeout.DEFAULT);
+
+        ConversationLlm.Revision revision = llm.revise(reviseRequest());
+
+        assertThat(revision.changed()).isTrue();
+        assertThat(revision.draft().useCases().getFirst().source().ref()).isEqualTo("discussion:c1#1");
+        // la proposition suit le même traitement des tableaux wiki que les autres opérations
+        assertThat(revision.draft().summary()).doesNotContain("||");
+        assertThat(model.received().getFirst().system()).contains("[operation:revise-specification]");
+    }
+
+    @Test
+    void aucunChangementAvecSaRaisonEtRaisonExigee() {
+        assertThat(LangChainConversationLlm.toRevision("""
+                {"changed": false, "reason": "Seulement des questions.", "specification": null}"""))
+                .isEqualTo(new ConversationLlm.Revision(false, "Seulement des questions.", null));
+        assertThatThrownBy(() -> LangChainConversationLlm.toRevision("{\"changed\": false, \"reason\": \" \"}"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> LangChainConversationLlm.toRevision("{\"reason\": \"x\"}"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

@@ -99,7 +99,8 @@ class SearchAndJiraResourceIT {
         jira.verify(0, putRequestedFor(urlPathEqualTo("/rest/api/2/issue/" + key)));
         api().get("/api/sessions/" + id + "/versions/1").then().statusCode(200).body("origin", equalTo("JIRA_IMPORT"))
                 .body("useCases[0].code", equalTo("UC-01"));
-        api().post("/api/jira/issues/" + key + "/import").then().statusCode(409).body("code", equalTo("ALREADY_LINKED"));
+        // 011, US4 : déjà lié, le ticket renvoie sa spécification
+        api().post("/api/jira/issues/" + key + "/import").then().statusCode(200).body("id", equalTo(id));
 
         jira.stubFor(get(urlPathEqualTo("/rest/api/2/search")).willReturn(okJson("""
                 {"startAt":0,"total":2,"issues":[
@@ -136,23 +137,38 @@ class SearchAndJiraResourceIT {
                 .body("jiraStatus", equalTo("UNAVAILABLE"));
     }
 
+    /** Discussion de la spécification, un message, puis le flux de la proposition (011). */
+    static String discussAndPropose(String sessionId, String text) {
+        String cid = api().body(Map.of()).post("/api/sessions/" + sessionId + "/discussion").then().statusCode(201)
+                .extract().path("conversationId");
+        String turn = api().body(Map.of("text", text)).post("/api/conversations/" + cid + "/messages").then()
+                .statusCode(202).extract().path("turnId");
+        api().accept("text/event-stream").get("/api/conversations/" + cid + "/turns/" + turn + "/events").then()
+                .statusCode(200);
+        String proposing = api().post("/api/conversations/" + cid + "/proposals").then().statusCode(202).extract()
+                .path("turnId");
+        return api().accept("text/event-stream").get("/api/conversations/" + cid + "/turns/" + proposing + "/events")
+                .then().statusCode(200).extract().asString();
+    }
+
     @Test
     void modificationAssisteePuisEnvoiEtConflit() {
         String id = importIssue().getString("id");
 
-        // proposition : aucune version tant qu'elle n'est pas acceptée
-        JsonPath proposal = api().body(Map.of("instruction", "Ajoute l'annulation IT-EDIT"))
-                .post("/api/sessions/" + id + "/ai-edits").then().statusCode(200)
+        // proposition d'après la discussion (011) : aucune version tant qu'elle n'est pas acceptée
+        String proposalId = ProposalResourceIT.proposalId(discussAndPropose(id,
+                "IT-DISCUSSION Ajoute l'annulation IT-EDIT"));
+        api().get("/api/sessions/" + id + "/proposals/" + proposalId).then().statusCode(200)
                 .body("baseVersion", equalTo(1))
                 .body("proposed.title", equalTo("Réservation de salles avec annulation"))
-                .body("unifiedDiff", startsWith("--- v1\n+++ proposition"))
-                .extract().jsonPath();
+                .body("unifiedDiff", startsWith("--- v1\n+++ proposition"));
         api().get("/api/sessions/" + id + "/versions").then().body("$", hasSize(1));
-        api().body(Map.of("instruction", "x".repeat(2001))).post("/api/sessions/" + id + "/ai-edits").then().statusCode(422);
+        // la consigne en un coup est retirée (011)
+        api().post("/api/sessions/" + id + "/ai-edits").then().statusCode(org.hamcrest.Matchers.oneOf(404, 405));
         api().post("/api/sessions/" + id + "/ai-edits/" + java.util.UUID.randomUUID() + "/accept").then().statusCode(404);
 
-        api().post("/api/sessions/" + id + "/ai-edits/" + proposal.getString("proposalId") + "/accept").then().statusCode(201)
-                .body("number", equalTo(2)).body("origin", equalTo("AI_EDIT"));
+        api().post("/api/sessions/" + id + "/ai-edits/" + proposalId + "/accept").then().statusCode(201)
+                .body("number", equalTo(2)).body("origin", equalTo("DISCUSSION"));
         api().get("/api/sessions/" + id).then().body("linkedTicket.syncState", equalTo("LOCAL_AHEAD"));
         jira.verify(0, putRequestedFor(urlPathEqualTo("/rest/api/2/issue/" + key)));
 

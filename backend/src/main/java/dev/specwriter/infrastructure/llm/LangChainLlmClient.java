@@ -186,7 +186,11 @@ public class LangChainLlmClient implements LlmClient {
     }
 
     private static DraftSpecification toDraft(String json) {
-        DraftSpecification draft = JSON.readValue(json, DraftSpecification.class);
+        return normalized(JSON.readValue(json, DraftSpecification.class));
+    }
+
+    /** Tableaux en syntaxe wiki du résumé et des détails convertis en Markdown (FR-012b). */
+    static DraftSpecification normalized(DraftSpecification draft) {
         if (draft == null) {
             throw new IllegalArgumentException("spécification absente");
         }

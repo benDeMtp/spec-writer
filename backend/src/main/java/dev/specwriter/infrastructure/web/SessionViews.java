@@ -63,23 +63,26 @@ final class SessionViews {
             ImplementationView implementation) {
     }
 
-    record VersionSummary(int number, String origin, Instant createdAt, boolean pushedToJira) {
+    /** {@code conversationId} : discussion d'une version {@code DISCUSSION}, tant qu'elle existe (011). */
+    record VersionSummary(int number, String origin, Instant createdAt, boolean pushedToJira, UUID conversationId) {
     }
 
     /**
      * {@code contextUpdatedAt} : date de la fiche générale utilisée, absente sans fiche (FR-013d) ;
      * {@code architecture} : faits calculés par l'outil (FR-039 à FR-041) ; {@code links} : adresse
-     * des sources de la connaissance (ticket Jira, page web), par référence.
+     * des sources de la connaissance (ticket Jira, page web), par référence ; {@code conversationId} :
+     * discussion d'où vient la version ou la proposition (011).
      */
     record SpecificationView(int number, String origin, Instant createdAt, String title, String summary,
             String details, List<UseCase> useCases, List<AcceptanceScenario> scenarios, List<Assumption> assumptions,
             List<Requirement> requirements, String markdown, Instant contextUpdatedAt,
             List<SpecificationContent.AdrDeviation> adrDeviations, ArchitectureView architecture,
-            Map<String, String> links) {
+            Map<String, String> links, UUID conversationId) {
 
         SpecificationView withLinks(Map<String, String> newLinks) {
             return new SpecificationView(number, origin, createdAt, title, summary, details, useCases, scenarios,
-                    assumptions, requirements, markdown, contextUpdatedAt, adrDeviations, architecture, newLinks);
+                    assumptions, requirements, markdown, contextUpdatedAt, adrDeviations, architecture, newLinks,
+                    conversationId);
         }
     }
 
@@ -148,16 +151,20 @@ final class SessionViews {
     }
 
     /** {@code pushedToJira} : c'est la dernière version envoyée vers le ticket lié. */
-    static VersionSummary versionSummary(SpecificationVersion v, LinkedJiraTicket ticket) {
+    static VersionSummary versionSummary(SpecificationVersion v, LinkedJiraTicket ticket, UUID conversationId) {
         boolean pushed = ticket != null && ticket.lastPushedAt() != null && ticket.linkedVersionNumber() == v.number();
-        return new VersionSummary(v.number(), v.origin().name(), v.createdAt(), pushed);
+        return new VersionSummary(v.number(), v.origin().name(), v.createdAt(), pushed, conversationId);
     }
 
     static SpecificationView specification(SpecificationVersion v) {
+        return specification(v, null);
+    }
+
+    static SpecificationView specification(SpecificationVersion v, UUID conversationId) {
         var c = v.content();
         return new SpecificationView(v.number(), v.origin().name(), v.createdAt(), c.title(), c.summary(), c.details(),
                 c.useCases(), c.scenarios(), c.assumptions(), c.requirements(), v.markdown(), v.contextUpdatedAt(),
-                c.adrDeviations(), ArchitectureView.of(v.knowledge()), Map.of());
+                c.adrDeviations(), ArchitectureView.of(v.knowledge()), Map.of(), conversationId);
     }
 
     /** La proposition est présentée comme la version qu'elle deviendra si elle est acceptée. */
@@ -166,6 +173,6 @@ final class SessionViews {
         return new ProposalView(p.id(), p.baseVersion(), new SpecificationView(p.baseVersion() + 1, p.origin().name(),
                 p.createdAt(), c.title(), c.summary(), c.details(), c.useCases(), c.scenarios(), c.assumptions(), c.requirements(),
                 p.markdown(), p.contextUpdatedAt(), c.adrDeviations(), ArchitectureView.of(p.knowledge().selection()),
-                Map.of()), p.unifiedDiff());
+                Map.of(), p.conversationId()), p.unifiedDiff());
     }
 }

@@ -77,12 +77,14 @@ public class SqliteConversationRepository implements ConversationRepository {
     @SuppressWarnings("unchecked")
     public List<ConversationMessage> messages(UUID conversationId) {
         List<Object[]> rows = em.createNativeQuery("""
-                select id, ordinal, role, text, state, history_truncated, created_at from conversation_message
+                select id, ordinal, role, text, state, history_truncated, created_at, specification_version
+                from conversation_message
                 where conversation_id = ?1 order by ordinal""")
                 .setParameter(1, conversationId.toString()).getResultList();
         return rows.stream().map(r -> new ConversationMessage(UUID.fromString((String) r[0]), conversationId,
                 ((Number) r[1]).intValue(), MessageRole.valueOf((String) r[2]), (String) r[3],
-                MessageState.valueOf((String) r[4]), ((Number) r[5]).intValue() != 0, Instant.parse((String) r[6])))
+                MessageState.valueOf((String) r[4]), ((Number) r[5]).intValue() != 0, Instant.parse((String) r[6]),
+                r[7] == null ? null : ((Number) r[7]).intValue()))
                 .toList();
     }
 
@@ -91,13 +93,14 @@ public class SqliteConversationRepository implements ConversationRepository {
     public void saveMessage(ConversationMessage m) {
         em.createNativeQuery("""
                 insert into conversation_message (id, conversation_id, ordinal, role, text, state, history_truncated,
-                    created_at) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                    created_at, specification_version) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
                 on conflict (id) do update set text = excluded.text, state = excluded.state,
-                    history_truncated = excluded.history_truncated""")
+                    history_truncated = excluded.history_truncated,
+                    specification_version = excluded.specification_version""")
                 .setParameter(1, m.id().toString()).setParameter(2, m.conversationId().toString())
                 .setParameter(3, m.ordinal()).setParameter(4, m.role().name()).setParameter(5, m.text())
                 .setParameter(6, m.state().name()).setParameter(7, m.historyTruncated() ? 1 : 0)
-                .setParameter(8, m.createdAt().toString()).executeUpdate();
+                .setParameter(8, m.createdAt().toString()).setParameter(9, m.specificationVersion()).executeUpdate();
     }
 
     @Override

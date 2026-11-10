@@ -28,10 +28,12 @@ public class ProposalStore {
      * {@code jiraUpdated} et {@code jiraDescriptionHash} : état Jira lu pour une fusion de conflit,
      * qui devient la référence à l'acceptation ; nuls pour une modification simple. La connaissance
      * utilisée est retenue sur la version acceptée (FR-013d, research.md R24 de 002).
+     * {@code conversationId} : discussion d'où vient une proposition {@code DISCUSSION} (011) ; nul
+     * sinon.
      */
     public record Proposal(UUID id, UUID sessionId, int baseVersion, SpecificationContent content, String markdown,
             String unifiedDiff, VersionOrigin origin, Instant createdAt, Instant jiraUpdated, String jiraDescriptionHash,
-            ProjectKnowledge knowledge) {
+            ProjectKnowledge knowledge, UUID conversationId) {
 
         public Instant contextUpdatedAt() {
             return knowledge.sheetUpdatedAt();
@@ -51,11 +53,17 @@ public class ProposalStore {
 
     public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
             Instant jiraUpdated, String jiraDescriptionHash, ProjectKnowledge knowledge) {
+        return propose(session, base, content, origin, jiraUpdated, jiraDescriptionHash, knowledge, null);
+    }
+
+    /** Proposition issue de la discussion {@code conversationId} (011). */
+    public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
+            Instant jiraUpdated, String jiraDescriptionHash, ProjectKnowledge knowledge, UUID conversationId) {
         purge();
         String markdown = MarkdownRenderer.render(content, session.language(), knowledge.selection());
         String unified = diff.unified(base.markdown(), markdown, "v" + base.number(), "proposition");
         Proposal p = new Proposal(ids.next(), session.id(), base.number(), content, markdown, unified, origin, clock.now(),
-                jiraUpdated, jiraDescriptionHash, knowledge);
+                jiraUpdated, jiraDescriptionHash, knowledge, conversationId);
         proposals.put(p.id(), p);
         return p;
     }
@@ -68,6 +76,17 @@ public class ProposalStore {
             return Optional.empty();
         }
         return Optional.ofNullable(proposals.remove(proposalId));
+    }
+
+    /** La proposition, sans la retirer : elle est relue avant d'être appliquée ou abandonnée (011). */
+    public Optional<Proposal> find(UUID sessionId, UUID proposalId) {
+        purge();
+        return Optional.ofNullable(proposals.get(proposalId)).filter(p -> p.sessionId().equals(sessionId));
+    }
+
+    /** Abandon de la proposition (011, FR-010) : rien n'est créé. */
+    public boolean discard(UUID sessionId, UUID proposalId) {
+        return take(sessionId, proposalId).isPresent();
     }
 
     /** Retire les propositions de la session : sa version ou la session elle-même est supprimée (research.md R8). */

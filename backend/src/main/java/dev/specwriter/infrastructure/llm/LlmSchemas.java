@@ -46,7 +46,21 @@ final class LlmSchemas {
             .addProperty("newQuestions", array(QUESTION))
             .build());
 
-    static final ResponseFormat SPECIFICATION = format("specification", JsonObjectSchema.builder()
+    static final ResponseFormat SPECIFICATION = format("specification", specification(List.of()));
+
+    /** 011 : nouvelle version d'après la discussion, ou aucun changement établi et sa raison. */
+    static final ResponseFormat REVISION = format("revision", JsonObjectSchema.builder()
+            .addProperty("changed", JsonBooleanSchema.builder().build())
+            .addStringProperty("reason")
+            .addProperty("specification", specification(List.of("DISCUSSION")))
+            .build());
+
+    /** {@code extraKinds} : sortes de source propres à l'opération (DISCUSSION pour une proposition). */
+    private static JsonObjectSchema specification(List<String> extraKinds) {
+        List<String> kinds = new java.util.ArrayList<>(List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION",
+                "PROJECT_CONTEXT", "JIRA_ISSUE", "DOC_PAGE", "ARCH_ELEMENT"));
+        kinds.addAll(extraKinds);
+        return JsonObjectSchema.builder()
             .addStringProperty("title")
             .addStringProperty("summary")
             .addStringProperty("details")
@@ -58,8 +72,7 @@ final class LlmSchemas {
                     .addProperty("nominalFlow", array(string()))
                     .addProperty("alternatives", array(string()))
                     .addProperty("source", JsonObjectSchema.builder()
-                            .addEnumProperty("kind", List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION", "PROJECT_CONTEXT",
-                                    "JIRA_ISSUE", "DOC_PAGE", "ARCH_ELEMENT"))
+                            .addEnumProperty("kind", kinds)
                             .addStringProperty("questionId")
                             .addStringProperty("excerpt")
                             .addStringProperty("ref")
@@ -89,7 +102,8 @@ final class LlmSchemas {
                     .addStringProperty("decision")
                     .addStringProperty("deviation")
                     .build()))
-            .build());
+            .build();
+    }
 
     /** Tickets proches retenus (feature 002, research.md R23). */
     static final ResponseFormat RELATED_ISSUES = format("related_issues", JsonObjectSchema.builder()

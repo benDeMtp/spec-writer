@@ -15,8 +15,8 @@ import dev.specwriter.domain.specification.VersionOrigin;
 import java.util.UUID;
 
 /**
- * Applique une proposition de l'IA (US6-5) : nouvelle version {@code AI_EDIT} ou
- * {@code CONFLICT_MERGE}. Jira n'est pas modifié (FR-046) ; un ticket lié passe à {@code LOCAL_AHEAD}.
+ * Applique une proposition de l'IA (US6-5) : nouvelle version {@code AI_EDIT}, {@code CONFLICT_MERGE}
+ * ou {@code DISCUSSION} (011). Jira n'est pas modifié (FR-046) ; un ticket lié passe à {@code LOCAL_AHEAD}.
  */
 public class AcceptAiEdit {
 
@@ -46,6 +46,10 @@ public class AcceptAiEdit {
                 p.content(), "proposal:" + p.id(), p.origin(), p.markdown(), clock.now())
                 .withKnowledge(p.knowledge());
         versions.save(version);
+        if (p.origin() == VersionOrigin.DISCUSSION && p.conversationId() != null) {
+            // « Issue de la discussion », avec le lien vers la conversation (011, FR-011)
+            versions.linkDiscussion(version.id(), p.conversationId());
+        }
         Questionnaire questionnaire = sessions.questionnaire(sessionId).orElseGet(Questionnaire::empty);
         sessions.save(session.generated(clock.now()), questionnaire);
         tickets.findBySession(sessionId).ifPresent(t -> tickets.save(p.origin() == VersionOrigin.CONFLICT_MERGE

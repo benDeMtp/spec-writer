@@ -31,6 +31,15 @@ public final class TraceabilityValidator {
      */
     public static StructureViolations validate(SpecificationContent content, Set<UUID> answeredQuestions,
             ProjectKnowledge knowledge) {
+        return validate(content, answeredQuestions, knowledge, Set.of());
+    }
+
+    /**
+     * @param discussion références des messages de la discussion transmis (011) ; une source
+     *     DISCUSSION en cite un
+     */
+    public static StructureViolations validate(SpecificationContent content, Set<UUID> answeredQuestions,
+            ProjectKnowledge knowledge, Set<String> discussion) {
         String context = normalized(knowledge.generalSheet());
         List<String> out = new ArrayList<>();
         if (content.useCases().isEmpty()) {
@@ -69,6 +78,12 @@ public final class TraceabilityValidator {
                     if (!citable(knowledge, s.kind()).contains(s.ref())) {
                         out.add(uc.code() + " : une source " + s.kind() + " doit citer la référence d'un élément de"
                                 + " <connaissance-projet>, recopiée exactement");
+                    }
+                }
+                case DISCUSSION -> {
+                    if (!discussion.contains(s.ref())) {
+                        out.add(uc.code() + " : une source DISCUSSION doit citer la référence d'un message de"
+                                + " <discussion>, recopiée exactement");
                     }
                 }
             }

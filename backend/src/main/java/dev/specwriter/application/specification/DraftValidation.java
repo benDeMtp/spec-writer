@@ -18,6 +18,8 @@ import dev.specwriter.domain.specification.TraceabilityValidator;
 import dev.specwriter.domain.specification.UseCase;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -32,6 +34,50 @@ import java.util.stream.Collectors;
 public final class DraftValidation {
 
     public static final int MAX_ATTEMPTS = 3;
+
+    /**
+     * Discussion d'une spécification (011, research.md R4) : ses messages citables (référence et
+     * titre) et les use cases de la version courante, qui doivent rester dans la proposition.
+     */
+    public record Discussion(Map<String, String> citable, List<UseCase> current) {
+
+        public static final Discussion NONE = new Discussion(Map.of(), List.of());
+
+        public Discussion {
+            citable = Map.copyOf(citable);
+            current = List.copyOf(current);
+        }
+
+        /** Une source DISCUSSION prend le titre du message cité. */
+        SpecificationContent titled(SpecificationContent content) {
+            List<UseCase> useCases = content.useCases().stream().map(uc -> {
+                SourceRef s = uc.source();
+                if (s == null || s.kind() != SourceRef.Kind.DISCUSSION || !citable.containsKey(s.ref())) {
+                    return uc;
+                }
+                return new UseCase(uc.code(), uc.title(), uc.actor(), uc.goal(), uc.preconditions(), uc.nominalFlow(),
+                        uc.alternatives(), SourceRef.knowledge(SourceRef.Kind.DISCUSSION, s.ref(), citable.get(s.ref())));
+            }).toList();
+            return new SpecificationContent(content.title(), content.summary(), content.details(), useCases,
+                    content.scenarios(), content.assumptions(), content.requirements(), content.adrDeviations());
+        }
+
+        /**
+         * Use cases de la version courante absents de la proposition, reconnus par leur titre : les
+         * codes sont attribués par position et changent quand un use case est retiré.
+         */
+        List<String> missing(SpecificationContent content) {
+            Set<String> kept = content.useCases().stream().map(uc -> key(uc.title())).collect(Collectors.toSet());
+            return current.stream().filter(uc -> !kept.contains(key(uc.title())))
+                    .map(uc -> uc.code() + " « " + uc.title() + " » a disparu de la proposition : recopie-le à"
+                            + " l'identique, sauf si la discussion a établi de le retirer ou de le renommer")
+                    .toList();
+        }
+
+        private static String key(String title) {
+            return title == null ? "" : title.strip().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+        }
+    }
 
     private DraftValidation() {
     }
@@ -51,6 +97,16 @@ public final class DraftValidation {
      */
     public static SpecificationContent produce(Function<String, DraftSpecification> call, List<Question> treated,
             Language language, ErrorCode failure, ProjectKnowledge knowledge) {
+        return produce(call, treated, language, failure, knowledge, Discussion.NONE);
+    }
+
+    /**
+     * @param discussion messages citables et use cases à garder (011) ; un use case disparu est
+     *     redemandé, mais la dernière tentative est gardée : le retrait peut être ce que la
+     *     discussion a établi
+     */
+    public static SpecificationContent produce(Function<String, DraftSpecification> call, List<Question> treated,
+            Language language, ErrorCode failure, ProjectKnowledge knowledge, Discussion discussion) {
         Set<UUID> treatedIds = treated.stream().map(Question::id).collect(Collectors.toSet());
         String correction = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -64,14 +120,17 @@ public final class DraftValidation {
                 throw e;
             }
             IdentifierAssigner.Assigned assigned = IdentifierAssigner.assign(draft, treated, language);
-            SpecificationContent content = repaired(assigned.content(), knowledge);
+            SpecificationContent content = discussion.titled(repaired(assigned.content(), knowledge));
             StructureViolations violations = assigned.violations()
                     .and(ScenarioStructureValidator.validate(content))
-                    .and(TraceabilityValidator.validate(content, treatedIds, knowledge));
-            if (violations.isEmpty()) {
+                    .and(TraceabilityValidator.validate(content, treatedIds, knowledge, discussion.citable().keySet()));
+            List<String> missing = discussion.missing(content);
+            if (violations.isEmpty() && (missing.isEmpty() || attempt == MAX_ATTEMPTS)) {
                 return content;
             }
-            correction = String.join("\n", violations.messages());
+            List<String> messages = new java.util.ArrayList<>(violations.messages());
+            messages.addAll(missing);
+            correction = String.join("\n", messages);
         }
         throw new DomainException(failure);
     }

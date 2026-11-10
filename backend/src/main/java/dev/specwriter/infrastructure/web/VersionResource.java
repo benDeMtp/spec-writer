@@ -12,6 +12,7 @@ import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.specification.SpecificationVersion;
+import dev.specwriter.domain.specification.VersionOrigin;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -52,7 +53,8 @@ public class VersionResource {
     public List<SessionViews.VersionSummary> list(@PathParam("id") String id) {
         UUID sessionId = Ids.parse(id);
         LinkedJiraTicket ticket = tickets.findBySession(sessionId).orElse(null);
-        return manageSessions.versions(sessionId).stream().map(v -> SessionViews.versionSummary(v, ticket)).toList();
+        return manageSessions.versions(sessionId).stream()
+                .map(v -> SessionViews.versionSummary(v, ticket, discussion(v))).toList();
     }
 
     /** 201 pour une nouvelle version, 200 quand la version existante est réutilisée. */
@@ -67,8 +69,13 @@ public class VersionResource {
     @Path("/{n}")
     public SessionViews.SpecificationView get(@PathParam("id") String id, @PathParam("n") int number) {
         UUID sessionId = existing(id);
-        return versions.find(sessionId, number).map(SessionViews::specification).map(sourceLinks::complete)
-                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        return versions.find(sessionId, number).map(v -> SessionViews.specification(v, discussion(v)))
+                .map(sourceLinks::complete).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+    }
+
+    /** Discussion d'une version « Issue de la discussion », tant qu'elle existe (011, FR-011). */
+    private UUID discussion(SpecificationVersion v) {
+        return v.origin() == VersionOrigin.DISCUSSION ? versions.discussionOf(v.id()).orElse(null) : null;
     }
 
     /**

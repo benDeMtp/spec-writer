@@ -5,5 +5,7 @@ public enum VersionOrigin {
     GENERATED,
     AI_EDIT,
     JIRA_IMPORT,
-    CONFLICT_MERGE
+    CONFLICT_MERGE,
+    /** Proposition rédigée d'après la discussion de la spécification (011). */
+    DISCUSSION
 }

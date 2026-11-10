@@ -23,6 +23,11 @@ public class ScriptedConversationLlm implements ConversationLlm {
     public DomainException failure;
     public int failAfter;
     public final List<CompactRequest> compactRequests = new ArrayList<>();
+    public final Deque<Revision> revisions = new ArrayDeque<>();
+    public final List<ReviseRequest> reviseRequests = new ArrayList<>();
+    public String reviseReasoning;
+    /** Panne à la prochaine proposition. */
+    public DomainException reviseFailure;
     /** Panne au prochain compactage. */
     public DomainException compactFailure;
 
@@ -86,6 +91,18 @@ public class ScriptedConversationLlm implements ConversationLlm {
     public NeedDraft draftNeed(DraftRequest request) {
         draftRequests.add(request);
         return drafts.removeFirst();
+    }
+
+    @Override
+    public Revision revise(ReviseRequest request) {
+        reviseRequests.add(request);
+        reason(reviseReasoning);
+        if (reviseFailure != null) {
+            DomainException e = reviseFailure;
+            reviseFailure = null;
+            throw e;
+        }
+        return revisions.size() > 1 ? revisions.removeFirst() : revisions.getFirst();
     }
 
     /** Résumé scripté : « Résumé n » ; n compte les compactages. */

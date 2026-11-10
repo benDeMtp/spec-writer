@@ -31,6 +31,7 @@ import dev.specwriter.domain.specification.SpecificationContent;
 import dev.specwriter.domain.specification.SpecificationVersion;
 import dev.specwriter.domain.specification.VersionOrigin;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Importe un ticket Jira en session liée (FR-046, US6-5) : le besoin est la description convertie en
@@ -39,7 +40,13 @@ import java.util.List;
  */
 public class ImportJiraIssue {
 
-    public record Imported(Session session, SpecificationVersion version, LinkedJiraTicket ticket, boolean truncated) {
+    /** {@code existing} : le ticket était déjà lié ; c'est sa spécification, rien n'est importé (011, US4). */
+    public record Imported(Session session, SpecificationVersion version, LinkedJiraTicket ticket, boolean truncated,
+            boolean existing) {
+
+        public Imported(Session session, SpecificationVersion version, LinkedJiraTicket ticket, boolean truncated) {
+            this(session, version, ticket, truncated, false);
+        }
     }
 
     private final IssueTracker tracker;
@@ -81,8 +88,9 @@ public class ImportJiraIssue {
 
     public Imported run(String issueKey) {
         JiraAccess.Target target = jira.require();
-        if (tickets.findByIssueKey(issueKey).isPresent()) {
-            throw new DomainException(ErrorCode.ALREADY_LINKED, "Ce ticket est déjà lié à une session.");
+        Optional<Imported> linked = tickets.findByIssueKey(issueKey).flatMap(this::existing);
+        if (linked.isPresent()) {
+            return linked.get();
         }
         JiraIssue issue = GetJiraIssue.read(tracker, target, issueKey);
         consent.requireGranted(ConsentService.COPILOT);
@@ -105,6 +113,13 @@ public class ImportJiraIssue {
         versions.save(version);
         tickets.save(ticket);
         return new Imported(session, version, ticket, truncated);
+    }
+
+    /** Ticket déjà lié : sa spécification et sa dernière version, pour en discuter (011, US4). */
+    private Optional<Imported> existing(LinkedJiraTicket ticket) {
+        return sessions.find(ticket.sessionId()).flatMap(s -> versions.list(s.id()).stream()
+                .max(java.util.Comparator.comparingInt(SpecificationVersion::number))
+                .map(v -> new Imported(s, v, ticket, false, true)));
     }
 
     /** La description ; trop courte pour un besoin, elle est précédée du titre du ticket. */

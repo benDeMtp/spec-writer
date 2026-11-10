@@ -8,6 +8,7 @@ import dev.specwriter.domain.knowledge.KnowledgeBudget;
 import dev.specwriter.domain.knowledge.KnowledgeKind;
 import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.port.ConversationAttachmentRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,10 +33,19 @@ public class DesignatedDocuments {
     /** {@code earlier} : messages précédents de l'utilisateur, du plus ancien au plus récent. */
     public List<Found> read(UUID projectId, UUID conversationId, String question, List<String> earlier,
             KnowledgeBudget budget) {
+        return read(projectId, conversationId, question, earlier, budget, List.of());
+    }
+
+    /** Avec les documents joints à la spécification discutée (011), avant ceux de la conversation. */
+    public List<Found> read(UUID projectId, UUID conversationId, String question, List<String> earlier,
+            KnowledgeBudget budget, List<Attachment> specificationAttachments) {
         if (select == null) {
             return List.of();
         }
-        List<Attachment> joined = attachments == null ? List.of() : attachments.list(conversationId);
+        List<Attachment> joined = new ArrayList<>(specificationAttachments);
+        if (attachments != null) {
+            joined.addAll(attachments.list(conversationId));
+        }
         return select.mentioned(projectId, question, earlier, null, joined, budget, budget.conversationSources() / 2)
                 .stream().map(DesignatedDocuments::found).toList();
     }

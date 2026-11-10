@@ -59,7 +59,9 @@ class HexagonalArchitectureTest {
             "dev.specwriter.application.specification.AcceptAiEdit",
             "dev.specwriter.application.jira.PushToJira",
             "dev.specwriter.application.specification.DeleteVersion",
-            "dev.specwriter.application.attachment.ManageAttachments");
+            "dev.specwriter.application.attachment.ManageAttachments",
+            "dev.specwriter.application.conversation.DiscussSpecification",
+            "dev.specwriter.application.conversation.ProposeRevision");
 
     static final String VERROU = "dev.specwriter.domain.session.SpecificationLock";
 
