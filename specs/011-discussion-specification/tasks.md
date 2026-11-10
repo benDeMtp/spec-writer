@@ -34,7 +34,7 @@ code. `domain` et `application` sont couverts par des tests unitaires (JaCoCo ne
 
 ## Phase 1: Setup
 
-- [ ] T001 Migration `BR/db/migration/V22__specification_discussion.sql` (data-model.md) :
+- [X] T001 Migration `BR/db/migration/V22__specification_discussion.sql` (data-model.md) :
   - table `specification_discussion` :
     - `conversation_id TEXT PRIMARY KEY REFERENCES conversation(id) ON DELETE CASCADE` ;
     - `session_id TEXT NULL REFERENCES session(id) ON DELETE SET NULL` ;
@@ -47,7 +47,7 @@ code. `domain` et `application` sont couverts par des tests unitaires (JaCoCo ne
     - `version_id TEXT PRIMARY KEY REFERENCES specification_version(id) ON DELETE CASCADE` ;
     - `conversation_id TEXT NULL REFERENCES conversation(id) ON DELETE SET NULL` ;
   - `ALTER TABLE conversation_message ADD COLUMN specification_version INTEGER NULL`.
-- [ ] T002 [P] Valeurs ajoutées, avec leur libellé ou message métier :
+- [X] T002 [P] Valeurs ajoutées, avec leur libellé ou message métier :
   - `SourceKind.DISCUSSION` dans `BM/domain/conversation/SourceKind.java` ;
   - `Thinking.Stage.REVISE` dans `BM/domain/conversation/Thinking.java` ;
   - `VersionOrigin.DISCUSSION` dans `BM/domain/specification/VersionOrigin.java` ;
@@ -59,7 +59,7 @@ code. `domain` et `application` sont couverts par des tests unitaires (JaCoCo ne
 
 ## Phase 2: Foundational
 
-- [ ] T003 [P] Tests d'abord (`BT/domain/conversation/SpecificationSectionsTest.java`), puis
+- [X] T003 [P] Tests d'abord (`BT/domain/conversation/SpecificationSectionsTest.java`), puis
   `BM/domain/conversation/SpecificationSections.java`.
   - Découpe le Markdown d'une version en sections aux titres de niveau 2 et 3.
   - Ancre stable : le titre en minuscules, sans accents, mots joints par `-`, suffixe `-2`, `-3`
@@ -68,13 +68,17 @@ code. `domain` et `application` sont couverts par des tests unitaires (JaCoCo ne
   - Le texte d'avant le premier titre devient la section `introduction`.
   - `fit(sections, part)` : garde le texte des premières sections tant qu'elles tiennent dans
     `part` ; les suivantes sont réduites à leur titre et marquées `partial`.
-- [ ] T004 [P] Tests d'abord (`BT/domain/conversation/SpecificationDiscussionTest.java`), puis
+  - Écart : la classe est dans `domain/specification` (elle lit les libellés de
+    `MarkdownRenderer`), et les rubriques connues prennent les ancres fixes du document affiché
+    (`summary`, `use-cases`, `UC-01`, `scenarios-UC-01`…) ; le calcul par le titre ne sert qu'aux
+    rubriques inconnues.
+- [X] T004 [P] Tests d'abord (`BT/domain/conversation/SpecificationDiscussionTest.java`), puis
   `BM/domain/conversation/SpecificationDiscussion.java` :
   - champs `(conversationId, sessionId?, specificationName, current, createdAt)` ;
   - nom de 1 à 200 caractères ;
   - `detached()` : `sessionId` absent et `current` faux ;
   - `retired()` : `current` faux.
-- [ ] T005 [P] Ports :
+- [X] T005 [P] Ports :
   - `BM/domain/port/SpecificationDiscussionRepository.java` : `current(sessionId)`,
     `ofConversation(conversationId)`, `bySession(sessionId)`, `save`, `retire(conversationId)`,
     `detachAll(sessionId)`, `countBySession(sessionId)`, `renameAll(sessionId, name)`,
@@ -83,7 +87,7 @@ code. `domain` et `application` sont couverts par des tests unitaires (JaCoCo ne
     l'origine `DISCUSSION` avec `conversationId` ;
   - `BM/domain/port/ConversationRepository` : `ConversationMessage.specificationVersion`
     enregistré et relu.
-- [ ] T006 Tests d'abord (`BT/infrastructure/persistence/SpecificationDiscussionPersistenceIT.java`),
+- [X] T006 Tests d'abord (`BT/infrastructure/persistence/SpecificationDiscussionPersistenceIT.java`),
   puis :
   - `BM/infrastructure/persistence/conversation/SqliteSpecificationDiscussionRepository.java` ;
   - le lien de version dans le dépôt des versions ;
@@ -92,7 +96,7 @@ code. `domain` et `application` sont couverts par des tests unitaires (JaCoCo ne
   Le test couvre l'unicité de la discussion suivie, `SET NULL` à la suppression de la session,
   `CASCADE` à la suppression de la conversation, et l'origine `DISCUSSION` relue (`AI_EDIT` en
   base). Doubles en mémoire dans `BT/support/` (`InMemorySpecificationDiscussions`, versions).
-- [ ] T007 [P] Tests d'abord, puis la part `discussedSpecification` dans
+- [X] T007 [P] Tests d'abord, puis la part `discussedSpecification` dans
   `BM/domain/knowledge/KnowledgeBudget.java` :
   - prise sur `RESERVE` : 40 000 caractères en standard ;
   - proportionnée par `forPromptTokens` comme les autres parts ;
@@ -111,7 +115,7 @@ sources, citée par section ; incohérences avec le projet.
 vérifier la citation d'une section et d'une autre source, sans quitter l'écran (quickstart 1 à 5,
 11).
 
-- [ ] T008 [US1] Tests d'abord (`BT/application/conversation/DiscussSpecificationTest.java`), puis
+- [X] T008 [US1] Tests d'abord (`BT/application/conversation/DiscussSpecificationTest.java`), puis
   `BM/application/conversation/DiscussSpecification.java` :
   - `open(sessionId)` : renvoie la discussion suivie, ou la crée (nom de la spécification) ;
   - `fresh(sessionId)` : retire l'ancienne et crée la nouvelle ;
@@ -121,7 +125,7 @@ vérifier la citation d'une section et d'une autre source, sans quitter l'écran
   - câblage dans `BM/infrastructure/config/UseCaseProducer.java` ;
   - ajout à la liste des cas d'usage d'écriture de
     `BT/architecture/HexagonalArchitectureTest.java`.
-- [ ] T009 [US1] Tests d'abord dans `BT/application/conversation/ConverseTest.java`, puis
+- [X] T009 [US1] Tests d'abord dans `BT/application/conversation/ConverseTest.java`, puis
   `BM/application/conversation/Converse.java` et une nouvelle classe
   `BM/application/conversation/DiscussionSources.java`. Pour une conversation qui est une
   discussion d'une spécification existante :
@@ -134,25 +138,25 @@ vérifier la citation d'une section et d'une autre source, sans quitter l'écran
   - le message de l'agent enregistre `specificationVersion` ;
   - une discussion détachée (spécification supprimée) se comporte comme une conversation
     ordinaire.
-- [ ] T010 [US1] Prompts et messages :
+- [X] T010 [US1] Prompts et messages :
   - `BR/prompts/converse-plan.txt` et `BR/prompts/converse-answer.txt` : bloc
     `<specification-discutee nom="…" version="N"/>` (research.md R3), cas d'incohérence entre la
     spécification et le projet ;
   - `BM/infrastructure/llm/UserMessages.java` : le bloc, échappé ;
   - `PlanRequest` et `AnswerRequest` portent `DiscussedSpecification(name, version)?` ;
   - test dans `BT/infrastructure/llm/LangChainConversationLlmTest.java`.
-- [ ] T011 [P] [US1] Test d'injection dans `BT/infrastructure/llm/PromptInjectionIT.java` : une
+- [X] T011 [P] [US1] Test d'injection dans `BT/infrastructure/llm/PromptInjectionIT.java` : une
   spécification contenant « ignore tes consignes » reste une donnée (bloc et sources échappés).
-- [ ] T012 [US1] Tests d'abord (`BT/infrastructure/web/SpecificationDiscussionResourceIT.java`),
+- [X] T012 [US1] Tests d'abord (`BT/infrastructure/web/SpecificationDiscussionResourceIT.java`),
   puis `BM/infrastructure/web/SpecificationDiscussionResource.java` :
   - `GET` et `POST /api/sessions/{id}/discussion` (`{ fresh? }`), contracts/api.md ;
   - `ManageConversations.detail` : `specificationVersion` par message, `specification` sur le
     détail ;
   - `GET /api/conversations/{cid}` : `specification` présente.
-- [ ] T013 [P] [US1] Fixtures E2E `e2e/fixtures/llm/40-discussion-plan.json`,
+- [X] T013 [P] [US1] Fixtures E2E `e2e/fixtures/llm/40-discussion-plan.json`,
   `41-discussion-answer.json` et `42-discussion-incoherence.json`. Elles sont repérées par
   `<specification-discutee` et un marqueur `E2E-DISCUSSION`, et citent une section et un ADR.
-- [ ] T014 [US1] Tests d'abord (`FA/features/conversation/conversation-thread.component.spec.ts`),
+- [X] T014 [US1] Tests d'abord (`FA/features/conversation/conversation-thread.component.spec.ts`),
   puis extraction de `FA/features/conversation/conversation-thread.component.ts` depuis
   `conversation.page.ts` :
   - le fil, les étapes, la réflexion, les sources et le repère de mémoire ;
@@ -161,7 +165,7 @@ vérifier la citation d'une section et d'une autre source, sans quitter l'écran
   
   Entrées `conversationId`, `projectId` ; sorties `turnFinished` et `citationClicked(ref)`.
   `conversation.page.ts` utilise le composant, et ses tests restent verts.
-- [ ] T015 [US1] Tests d'abord, puis `FA/features/specification/discussion-panel.component.ts` :
+- [X] T015 [US1] Tests d'abord, puis `FA/features/specification/discussion-panel.component.ts` :
   - « Contexte : <nom>, version N », et le repère dans le fil devant le premier message de chaque
     version ;
   - l'avertissement quand une version plus ancienne est affichée ;
@@ -170,7 +174,7 @@ vérifier la citation d'une section et d'une autre source, sans quitter l'écran
   
   API ajoutée à `FA/core/conversations/conversations.api.ts` (`discussion`, `openDiscussion`) ;
   modèles à `conversations.model.ts` (data-model.md, Front).
-- [ ] T016 [US1] `FA/features/specification/specification.page.ts` :
+- [X] T016 [US1] `FA/features/specification/specification.page.ts` :
   - le bouton « Discuter avec l'IA » remplace « Faire évoluer avec l'IA » ; il est indisponible et
     expliqué quand la spécification est verrouillée ;
   - disposition en deux colonnes, et le panneau sous le document au-dessous de 64 rem ;
@@ -180,6 +184,9 @@ vérifier la citation d'une section et d'une autre source, sans quitter l'écran
     section et lui donne le focus ;
   - `?discussion=1` ouvre le panneau ;
   - test dans `specification.page.spec.ts`.
+  - Écart : pas de `section-anchor.ts` ; l'écran rend le contenu structuré avec des `id` fixes,
+    les mêmes que les ancres connues de `SpecificationSections`. Le panneau de proposition directe
+    ne sert plus qu'à la fusion d'un conflit Jira.
 
 **Checkpoint** : la discussion fonctionne seule, sans proposition.
 
@@ -193,7 +200,7 @@ liée à la conversation, contexte qui passe à la nouvelle version.
 **Independent Test**: après deux échanges, proposer, relire le diff, appliquer ; vérifier la
 version, son origine, son lien et le repère « Contexte : version N » (quickstart 6 à 8, 14).
 
-- [ ] T017 [US2] Port et schéma :
+- [X] T017 [US2] Port et schéma :
   - `ConversationLlm.revise(ReviseRequest) → Revision` dans `BM/domain/port/ConversationLlm.java`,
     avec les records de data-model.md ;
   - schéma strict `REVISION = { changed: boolean, reason: string, specification: SPECIFICATION }`
@@ -205,7 +212,7 @@ version, son origine, son lien et le repère « Contexte : version N » (quickst
     recopier le reste, rattacher chaque ajout à un message ou une source, sinon hypothèse ;
     `changed: false` avec la raison ;
   - tests dans `LangChainConversationLlmTest` et `ScriptedConversationLlm.revise`.
-- [ ] T018 [US2] Traçabilité des messages de la discussion :
+- [X] T018 [US2] Traçabilité des messages de la discussion :
   - `BM/application/specification/DraftValidation.java` et `TraceabilityValidator` acceptent les
     références `discussion:<cid>#<ordinal>` fournies ;
   - `MarkdownRenderer` les écrit « Discussion du <date>, message n » ;
@@ -214,7 +221,11 @@ version, son origine, son lien et le repère « Contexte : version N » (quickst
     concerné »), puis un échec après 3 tentatives ;
   - tests d'abord dans `BT/application/specification/DraftValidationTest.java` et
     `MarkdownRendererTest`.
-- [ ] T019 [US2] Tests d'abord (`BT/application/conversation/ProposeRevisionTest.java`), puis
+  - Écart : les codes étant attribués par position, la préservation compare les titres des use
+    cases ; un use case disparu est redemandé, mais la dernière tentative est gardée (le retrait
+    peut être ce que la discussion a établi). Les sources DISCUSSION de la version courante restent
+    citables (passées dans <sources-citees>).
+- [X] T019 [US2] Tests d'abord (`BT/application/conversation/ProposeRevisionTest.java`), puis
   `BM/application/conversation/ProposeRevision.java`.
   - Refus : `NOT_A_DISCUSSION` ; `SPECIFICATION_LOCKED` ; `OPERATION_IN_PROGRESS` pendant une
     réponse ; accord Copilot manquant.
@@ -225,23 +236,27 @@ version, son origine, son lien et le repère « Contexte : version N » (quickst
     `done { proposalId }` ; sinon `done { unchanged, reason }` ; une erreur donne `error`.
   - La réflexion n'est pas gardée.
   - Câblage dans `UseCaseProducer`, et ajout à la liste ArchUnit des cas d'écriture.
-- [ ] T020 [US2] Proposition et acceptation :
+- [X] T020 [US2] Proposition et acceptation :
   - `BM/application/specification/ProposalStore.java` : champ `conversationId` ;
     `discard(sessionId, proposalId)` ;
   - `BM/application/specification/AcceptAiEdit.java` : pour `DISCUSSION`, version d'origine
     `DISCUSSION` liée par `linkDiscussion` ; verrou revérifié ;
   - tests d'abord dans `BT/application/specification/AcceptAiEditTest.java`.
-- [ ] T021 [US2] Tests d'abord (`BT/infrastructure/web/ProposalResourceIT.java`), puis :
+- [X] T021 [US2] Tests d'abord (`BT/infrastructure/web/ProposalResourceIT.java`), puis :
   - `POST /api/conversations/{cid}/proposals` (202), avec les événements `done` de proposition
     dans `ConversationResource.name` et la sérialisation ;
   - `GET` et `DELETE /api/sessions/{id}/proposals/{proposalId}` ;
   - `VersionSummary` et `SpecificationView` avec `origin: DISCUSSION` et `conversationId` ;
   - fixtures `e2e/fixtures/llm/43-revise-specification.json` (ajout d'un cas d'erreur) et
     `44-revise-unchanged.json` (`changed: false`).
-- [ ] T022 [US2] Tests d'abord, puis `FA/features/specification/proposal-review.component.ts`,
+  - Écart : deux ressources (`ProposalResource` sous `/api/sessions/{id}/proposals`,
+    `DiscussionProposalResource` sous `/api/conversations/{cid}/proposals`), JAX-RS ne revenant pas
+    en arrière d'une classe à l'autre. Le rejeu accepte `__DISCUSSION_n__` (référence du n-ième
+    message de l'utilisateur).
+- [X] T022 [US2] Tests d'abord, puis `FA/features/specification/proposal-review.component.ts`,
   extrait de `ai-edit.panel.ts` : diff, « Appliquer », « Abandonner », version de départ et version
   créée, chronomètre pendant l'application.
-- [ ] T023 [US2] `discussion-panel.component.ts` :
+- [X] T023 [US2] `discussion-panel.component.ts` :
   - « Proposer une nouvelle version », sans saisie (FR-008a), indisponible pendant une réponse ;
   - suivi du flux de proposition : titre « L'agent rédige une nouvelle version », chronomètre,
     réflexion ;
@@ -251,7 +266,9 @@ version, son origine, son lien et le repère « Contexte : version N » (quickst
   
   `FA/features/specification/versions-panel.component.ts` : « Issue de la discussion », avec un
   lien vers la conversation. Tests Vitest.
-- [ ] T024 [US2] Conflit Jira : `specification.page.ts` affiche `mergeProposal` dans
+  - Écart : la relecture s'affiche dans la colonne du document (le diff y a la place), le panneau
+    la signale et attend.
+- [X] T024 [US2] Conflit Jira : `specification.page.ts` affiche `mergeProposal` dans
   `proposal-review`, sans discussion (FR-018). Retrait de la consigne en un coup :
   - `FA/features/ai-edit/` ;
   - `BM/application/specification/ProposeAiEdit.java` ;
@@ -261,6 +278,10 @@ version, son origine, son lien et le repère « Contexte : version N » (quickst
   - leurs tests.
   
   Les tests restants restent verts.
+  - Écart : « C'est la même » (002, FR-035) propose encore le besoin comme modification du ticket
+    importé : `ProposeAiEdit`, `LlmClient.editSpecification`, `EditRequest`, le prompt et
+    `MentionField.INSTRUCTION` (qui désigne aussi les documents cités dans la discussion) restent ;
+    seuls la route `POST …/ai-edits`, `JiraApi.proposeEdit` et `features/ai-edit/` sont retirés.
 
 **Checkpoint** : US1 et US2 donnent la fonction complète qui remplace l'ancienne.
 
@@ -274,13 +295,13 @@ suppression avec ou sans discussions.
 **Independent Test**: discuter, redémarrer, retrouver ; nouvelle discussion ; supprimer la
 spécification avec la case cochée puis décochée (quickstart 9, 10, 12).
 
-- [ ] T025 [US3] Tests d'abord, puis la liste et le renommage :
+- [X] T025 [US3] Tests d'abord, puis la liste et le renommage :
   - `ManageConversations.list` porte `specification { sessionId, name }` (lecture groupée
     `byConversations`) ;
   - le renommage d'une spécification met à jour `specification_name` (`renameAll`, dans
     `ManageSessions.rename`) ;
   - `ProjectConversationResource` et son IT.
-- [ ] T026 [US3] Tests d'abord (`BT/application/session/ManageSessionsTest.java`), puis
+- [X] T026 [US3] Tests d'abord (`BT/application/session/ManageSessionsTest.java`), puis
   `ManageSessions.delete(id, keepDiscussions)` :
   - `false` : supprime les conversations rattachées, puis la spécification ;
   - `true` : `detachAll` ;
@@ -288,10 +309,10 @@ spécification avec la case cochée puis décochée (quickstart 9, 10, 12).
   
   `DELETE /api/sessions/{id}?discussions=delete|keep` et
   `GET /api/sessions/{id}/discussions/count`, avec leur IT.
-- [ ] T027 [P] [US3] `FA/features/conversation/conversation-list.component.ts` : mention
+- [X] T027 [P] [US3] `FA/features/conversation/conversation-list.component.ts` : mention
   « Spécification : <nom> », ou « spécification supprimée » ; une discussion ouverte dans l'écran
   Conversation montre son contexte et le lien « Ouvrir la spécification » (FR-015). Tests Vitest.
-- [ ] T028 [US3] Confirmation de suppression :
+- [X] T028 [US3] Confirmation de suppression :
   - `FA/shared/ui/confirm-dialog.component.ts` : case facultative (`option: { label, checked }`,
     résultat `{ confirmed, option }`) ;
   - `FA/features/sessions/sessions.page.ts` et `specification.page.ts` : case « Supprimer aussi
@@ -308,10 +329,10 @@ déjà importé ouvre la spécification existante.
 
 **Independent Test**: depuis un ticket simulé, « Discuter avec l'IA », deux fois (quickstart 13).
 
-- [ ] T029 [US4] Tests d'abord, puis `BM/application/jira/ImportJiraIssue.java` et
+- [X] T029 [US4] Tests d'abord, puis `BM/application/jira/ImportJiraIssue.java` et
   `JiraIssueResource` : un ticket déjà lié renvoie `200` avec la session existante, au lieu de
   `409 ALREADY_LINKED`. Mise à jour de `JiraIssueResourceIT` et des usages de `ALREADY_LINKED`.
-- [ ] T030 [US4] `FA/features/search/item-detail.page.ts` : bouton « Discuter avec l'IA » ; import,
+- [X] T030 [US4] `FA/features/search/item-detail.page.ts` : bouton « Discuter avec l'IA » ; import,
   puis navigation vers `/sessions/{id}` avec `?discussion=1` ; mise à jour de
   `item-detail.page.spec.ts`.
 
@@ -319,7 +340,7 @@ déjà importé ouvre la spécification existante.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T031 [P] Évaluation (research.md R10) :
+- [X] T031 [P] Évaluation (research.md R10) :
   - `backend/src/test/resources/eval/discussion/cases.json` : spécification fictive Aurora,
     corpus, questions, discussions, changements attendus, use cases à préserver, cas sans
     changement ;
@@ -327,16 +348,16 @@ déjà importé ouvre la spécification existante.
   - métriques `discussionCitation` (0.9), `discussionInconsistency` (0.8), `revisionCompleteness`
     (0.9), `revisionPreservation` (0.9), `revisionStructure` (1.0) et `unchangedRecall` (0.9),
     dans `EvalBaseline` et `baseline.json`.
-- [ ] T032 [P] E2E `e2e/tests/us14-discussion.spec.ts` (quickstart 1 à 14), axe sur la
+- [X] T032 [P] E2E `e2e/tests/us14-discussion.spec.ts` (quickstart 1 à 14), axe sur la
   spécification avec la discussion ouverte. Mise à jour des E2E qui utilisaient « Faire évoluer
   avec l'IA » et la consigne (us6, us9 et suivants).
-- [ ] T033 [P] Documentation :
+- [X] T033 [P] Documentation :
   - `README.md` : discussion d'une spécification et suppression ;
   - `specs/002-projets-contexte-mcp/contracts/openapi.yaml` ou contrats équivalents ;
   - `CLAUDE.md` si besoin ;
   - revue d'ergonomie du panneau (web-design-guidelines), avec les écarts corrigés ou justifiés
     dans `specs/011-discussion-specification/checklists/ux-review.md`.
-- [ ] T034 Gates avant chaque commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B
+- [X] T034 Gates avant chaque commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B
   verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests`, `npm --prefix e2e test`.
 - [ ] T035 Évaluation réelle avec l'accord du mainteneur (`./mvnw -pl backend verify -Peval`),
   `last-run.json` commité, `bash ci/check-eval.sh` vert.
