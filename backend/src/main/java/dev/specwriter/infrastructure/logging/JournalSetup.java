@@ -25,7 +25,32 @@ public class JournalSetup {
         return Path.of(dataDir, "logs");
     }
 
-    void start(@Observes StartupEvent event) {
+    synchronized void start(@Observes StartupEvent event) {
+        attach();
+    }
+
+    synchronized void stop(@Observes ShutdownEvent event) {
+        detach();
+    }
+
+    /**
+     * Vide le journal : le fichier courant et ses sauvegardes sont supprimés, puis un journal neuf
+     * est branché. Une entrée écrite pendant la purge peut être perdue.
+     */
+    public synchronized void purge() {
+        detach();
+        try {
+            for (int i = 0; i <= JournalHandler.BACKUPS; i++) {
+                Files.deleteIfExists(dir().resolve(i == 0 ? JournalHandler.FILE : JournalHandler.FILE + "." + i));
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } finally {
+            attach();
+        }
+    }
+
+    private void attach() {
         try {
             Files.createDirectories(dir());
             handler = new JournalHandler(dir());
@@ -35,7 +60,7 @@ public class JournalSetup {
         Logger.getLogger("").addHandler(handler);
     }
 
-    void stop(@Observes ShutdownEvent event) {
+    private void detach() {
         if (handler != null) {
             Logger.getLogger("").removeHandler(handler);
             handler.close();
