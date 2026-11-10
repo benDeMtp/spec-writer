@@ -29,10 +29,11 @@ function detail(over: Partial<ConversationDetail> = {}): ConversationDetail {
     createdAt: '2026-11-09T09:00:00Z',
     updatedAt: '2026-11-09T09:00:00Z',
     sessions: [],
+    memoryUntil: null,
     messages: [
-      { id: 'u1', role: 'USER', text: 'Comment sont émis les avoirs ?', state: 'COMPLETE', historyTruncated: false,
+      { id: 'u1', ordinal: 1, role: 'USER', text: 'Comment sont émis les avoirs ?', state: 'COMPLETE', historyTruncated: false,
         createdAt: '2026-11-09T09:00:00Z', steps: [], sources: [] },
-      { id: 'a1', role: 'AGENT', text: 'Par le service Avoirs [1], voir la spécification [2].', state: 'COMPLETE',
+      { id: 'a1', ordinal: 2, role: 'AGENT', text: 'Par le service Avoirs [1], voir la spécification [2].', state: 'COMPLETE',
         historyTruncated: false, createdAt: '2026-11-09T09:00:01Z',
         steps: [{ ordinal: 1, query: 'émission des avoirs', kinds: [], hits: 6 }],
         sources: [
@@ -274,6 +275,42 @@ describe('ConversationPage', () => {
     await settle(fixture);
     expect(document.activeElement?.id).toBe('source-a1-1');
     el.remove();
+  });
+
+  it('mémoire : le compactage se voit pendant le tour, puis un repère marque les échanges résumés', async () => {
+    await open('c1');
+    const running = detail();
+    running.messages = [
+      ...running.messages,
+      { id: 'u2', ordinal: 3, role: 'USER', text: 'Et ensuite ?', state: 'COMPLETE', historyTruncated: false,
+        createdAt: 'x', steps: [], sources: [] },
+      { id: 'a2', ordinal: 4, role: 'AGENT', text: '', state: 'RUNNING', historyTruncated: false, createdAt: 'x',
+        steps: [], sources: [] },
+    ];
+    ctrl.expectOne('/api/conversations/c1').flush(running);
+    await settle(fixture);
+
+    emit({ type: 'memory', phase: 'STARTED' });
+    await settle(fixture);
+    expect(el.querySelector('.working.memory')?.textContent).toContain('résume les échanges les plus anciens');
+    expect(el.querySelector('.working.memory mat-progress-bar')).toBeTruthy();
+    expect(el.querySelector('.announce')?.textContent).toContain('L’agent résume les échanges les plus anciens.');
+
+    emit({ type: 'memory', phase: 'DONE' });
+    await settle(fixture);
+    expect(el.querySelector('.working.memory')).toBeNull();
+    expect(el.querySelector('.announce')?.textContent).toContain('Échanges anciens résumés.');
+
+    emit({ type: 'done', state: 'COMPLETE', historyTruncated: false });
+    await settle(fixture);
+    const done = detail({ memoryUntil: 2 });
+    done.messages = [...done.messages, { ...running.messages[2] },
+      { ...running.messages[3], text: 'Suite.', state: 'COMPLETE' }];
+    ctrl.expectOne('/api/conversations/c1').flush(done);
+    await settle(fixture);
+    const items = Array.from(el.querySelectorAll('.log > li'));
+    expect(items[2].classList).toContain('memory-mark');
+    expect(items[2].textContent).toContain('transmis à l’agent sous forme de résumé');
   });
 
   function button(label: string): HTMLButtonElement {

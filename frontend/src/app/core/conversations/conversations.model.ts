@@ -30,6 +30,8 @@ export interface CitedSource {
 
 export interface ConversationMessage {
   id: string;
+  /** Numéro d'ordre dans la conversation (1, 2…). */
+  ordinal: number;
   role: MessageRole;
   text: string;
   state: MessageState;
@@ -42,7 +44,12 @@ export interface ConversationMessage {
 export interface ConversationDetail extends ConversationSummary {
   messages: ConversationMessage[];
   sessions: { sessionId: string; name: string }[];
+  /** Les messages jusqu'à ce numéro d'ordre sont transmis à l'agent sous forme de résumé. */
+  memoryUntil: number | null;
 }
+
+/** Compactage de la mémoire pendant un tour. */
+export type MemoryPhase = 'STARTED' | 'DONE' | 'FAILED';
 
 export interface Started {
   userMessageId: string;
@@ -54,6 +61,7 @@ export type TurnEvent =
   | { type: 'step'; step: SearchStep }
   | { type: 'delta'; text: string }
   | { type: 'sources'; sources: Omit<CitedSource, 'url'>[] }
+  | { type: 'memory'; phase: MemoryPhase }
   | { type: 'done'; state: MessageState; historyTruncated: boolean }
   | { type: 'error'; code: string; userMessage: string }
   | { type: 'gone' };

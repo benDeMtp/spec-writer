@@ -14,7 +14,7 @@ export interface TurnStream {
 /** Ouvre le flux SSE d'un tour ; remplaçable dans les tests (EventSource n'existe pas hors navigateur). */
 export type TurnStreamOpener = (url: string, onEvent: (event: TurnEvent) => void) => TurnStream;
 
-const NAMES = ['step', 'delta', 'sources', 'done', 'error', 'gone'] as const;
+const NAMES = ['step', 'delta', 'sources', 'memory', 'done', 'error', 'gone'] as const;
 
 export const TURN_STREAM = new InjectionToken<TurnStreamOpener>('TURN_STREAM', {
   factory: () => (url, onEvent) => {

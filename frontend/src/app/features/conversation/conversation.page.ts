@@ -16,6 +16,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Router, RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
 import { ConversationsApi, TurnStream } from '../../core/conversations/conversations.api';
@@ -61,6 +62,7 @@ const KINDS: Record<SourceKind, string> = {
     ConversationListComponent,
     FormsModule,
     MatButtonModule,
+    MatProgressBarModule,
     MarkdownComponent,
     MentionDirective,
     NeedDraftComponent,
@@ -138,7 +140,14 @@ const KINDS: Record<SourceKind, string> = {
                       <markdown [data]="rendered(m)" />
                     </article>
                   } @else if (m.state === 'RUNNING') {
-                    <p class="working">{{ m.steps.length ? 'L’agent rédige sa réponse…' : 'L’agent cherche dans le projet…' }}</p>
+                    @if (compacting() === m.id) {
+                      <div class="working memory">
+                        <p>L’agent résume les échanges les plus anciens pour garder le fil de la conversation…</p>
+                        <mat-progress-bar mode="indeterminate" aria-hidden="true" />
+                      </div>
+                    } @else {
+                      <p class="working">{{ m.steps.length ? 'L’agent rédige sa réponse…' : 'L’agent cherche dans le projet…' }}</p>
+                    }
                   }
                   @if (m.state === 'INCOMPLETE') {
                     <p class="incomplete">
@@ -167,6 +176,11 @@ const KINDS: Record<SourceKind, string> = {
                       }
                     </ol>
                   }
+                </li>
+              }
+              @if (m.ordinal && m.ordinal === detail()?.memoryUntil && !$last) {
+                <li class="memory-mark">
+                  <p>Les échanges ci-dessus sont transmis à l’agent sous forme de résumé.</p>
                 </li>
               }
             }
@@ -341,6 +355,35 @@ const KINDS: Record<SourceKind, string> = {
     .sources .kind {
       margin-right: 0.4rem;
     }
+    .memory {
+      max-width: 36rem;
+    }
+    .memory p {
+      margin: 0 0 0.4rem;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .memory mat-progress-bar {
+        display: none;
+      }
+    }
+    .memory-mark {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 1.5rem 0;
+      color: var(--sw-ink-soft);
+      font-size: var(--sw-step--1);
+    }
+    .memory-mark::before,
+    .memory-mark::after {
+      content: '';
+      flex: 1;
+      border-top: 1px dashed var(--sw-rule);
+    }
+    .memory-mark p {
+      margin: 0;
+      text-align: center;
+    }
     .working,
     .hint {
       color: var(--sw-ink-soft);
@@ -412,6 +455,8 @@ export class ConversationPage implements OnDestroy {
   protected readonly composerFields = computed(() => [{ field: 'NEED' as const, text: this.text() }]);
   protected readonly draft = signal<NeedDraft | null>(null);
   protected readonly drafting = signal(false);
+  /** Tour dont l'agent résume les échanges anciens (compactage de la mémoire). */
+  protected readonly compacting = signal<string | null>(null);
   protected readonly running = computed(() => this.messages().some((m) => m.state === 'RUNNING'));
   private stream: TurnStream | null = null;
 
@@ -539,7 +584,7 @@ export class ConversationPage implements OnDestroy {
       let conversation = this.detail();
       if (!conversation) {
         const created = await this.api.create(projectId);
-        conversation = { ...created, messages: [], sessions: [] };
+        conversation = { ...created, messages: [], sessions: [], memoryUntil: null };
         this.detail.set(conversation);
         this.location.replaceState(`/conversations/${created.id}`);
       }
@@ -629,6 +674,16 @@ export class ConversationPage implements OnDestroy {
         break;
       case 'sources':
         break;
+      case 'memory':
+        this.compacting.set(event.phase === 'STARTED' ? turnId : null);
+        this.announce.set(
+          event.phase === 'STARTED'
+            ? 'L’agent résume les échanges les plus anciens.'
+            : event.phase === 'DONE'
+              ? 'Échanges anciens résumés.'
+              : 'Le résumé des échanges anciens a échoué : l’agent répond sans eux.',
+        );
+        break;
       case 'error':
         this.problem.set(event.userMessage);
         void this.finish(conversationId, turnId);
@@ -642,6 +697,7 @@ export class ConversationPage implements OnDestroy {
   private async finish(conversationId: string, turnId: string): Promise<void> {
     this.stream?.close();
     this.stream = null;
+    this.compacting.set(null);
     const detail = await this.api.get(conversationId).catch(() => null);
     if (detail && this.detail()?.id === conversationId) {
       this.detail.set(detail);
@@ -704,7 +760,8 @@ export class ConversationPage implements OnDestroy {
 }
 
 function message(id: string, role: 'USER' | 'AGENT', text: string, state: 'COMPLETE' | 'RUNNING'): ConversationMessage {
-  return { id, role, text, state, historyTruncated: false, createdAt: new Date().toISOString(), steps: [], sources: [] };
+  return { id, ordinal: 0, role, text, state, historyTruncated: false, createdAt: new Date().toISOString(), steps: [],
+    sources: [] };
 }
 
 /** Texte annoncé : sans les marques Markdown, que le lecteur d'écran lirait telles quelles. */
