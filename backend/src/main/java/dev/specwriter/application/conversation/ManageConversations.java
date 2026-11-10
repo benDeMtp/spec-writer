@@ -9,6 +9,7 @@ import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
+import dev.specwriter.domain.conversation.Thinking;
 import dev.specwriter.domain.conversation.SourceKind;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
@@ -32,7 +33,8 @@ public class ManageConversations {
     }
 
     public record MessageView(UUID id, int ordinal, MessageRole role, String text, MessageState state,
-            boolean historyTruncated, Instant createdAt, List<SearchStep> steps, List<SourceView> sources) {
+            boolean historyTruncated, Instant createdAt, List<SearchStep> steps, List<SourceView> sources,
+            Thinking thinking) {
     }
 
     public record SessionLink(UUID sessionId, String name) {
@@ -71,7 +73,8 @@ public class ManageConversations {
                         m.createdAt(),
                         m.role() == MessageRole.AGENT ? conversations.steps(m.id()) : List.of(),
                         m.role() == MessageRole.AGENT ? conversations.sources(m.id()).stream().map(this::view).toList()
-                                : List.of()))
+                                : List.of(),
+                        m.role() == MessageRole.AGENT ? conversations.thinking(m.id()).orElse(null) : null))
                 .toList();
         List<SessionLink> links = conversations.sessions(conversationId).stream()
                 .map(id -> sessions.find(id).map(s -> new SessionLink(id, s.name())))

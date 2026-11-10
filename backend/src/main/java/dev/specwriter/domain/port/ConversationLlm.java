@@ -57,6 +57,15 @@ public interface ConversationLlm {
     record CompactRequest(Language language, String previous, List<Exchange> exchanges) {
     }
 
+    /**
+     * Exécute {@code work} ; les appels qu'il fait sur ce fil transmettent à {@code reasoning} la
+     * réflexion du modèle, au fil de l'eau, quand le modèle en donne une. Sans réflexion disponible,
+     * {@code work} s'exécute simplement.
+     */
+    default void thinking(Consumer<String> reasoning, Runnable work) {
+        work.run();
+    }
+
     Plan plan(PlanRequest request);
 
     /**

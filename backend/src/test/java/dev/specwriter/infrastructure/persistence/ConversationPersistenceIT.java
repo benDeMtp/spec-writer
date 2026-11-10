@@ -9,6 +9,7 @@ import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
 import dev.specwriter.domain.conversation.SourceKind;
+import dev.specwriter.domain.conversation.Thinking;
 import dev.specwriter.domain.port.ConversationRepository;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
@@ -108,6 +109,24 @@ class ConversationPersistenceIT {
 
         conversations.save(c.renamed("Avoirs").touched(T0.plusSeconds(120)));
         assertThat(conversations.find(c.id()).orElseThrow().name()).isEqualTo("Avoirs");
+    }
+
+    @Test
+    void reflexionRemplaceeEtRetireeAvantUnNouvelEssai() {
+        Conversation c = conversation(project(), T0);
+        ConversationMessage answer = ConversationMessage.agentStarted(UUID.randomUUID(), c.id(), 1, T0);
+        conversations.saveMessage(answer);
+        assertThat(conversations.thinking(answer.id())).isEmpty();
+
+        conversations.saveThinking(answer.id(), new Thinking(List.of(new Thinking.Part(Thinking.Stage.PLAN, "Premier essai")),
+                10));
+        Thinking kept = new Thinking(List.of(new Thinking.Part(Thinking.Stage.PLAN, "Je cherche « avoirs »\nligne 2"),
+                new Thinking.Part(Thinking.Stage.ANSWER, "x".repeat(Thinking.MAX_TEXT))), 12_345);
+        conversations.saveThinking(answer.id(), kept);
+        assertThat(conversations.thinking(answer.id())).contains(kept);
+
+        conversations.clearTurn(answer.id());
+        assertThat(conversations.thinking(answer.id())).isEmpty();
     }
 
     @Test

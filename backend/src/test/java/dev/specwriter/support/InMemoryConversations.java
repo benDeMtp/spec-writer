@@ -6,6 +6,7 @@ import dev.specwriter.domain.conversation.ConversationMemory;
 import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
+import dev.specwriter.domain.conversation.Thinking;
 import dev.specwriter.domain.port.ConversationRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,6 +24,7 @@ public class InMemoryConversations implements ConversationRepository {
     private final Map<UUID, List<CitedSource>> sources = new LinkedHashMap<>();
     private final Map<UUID, List<UUID>> links = new LinkedHashMap<>();
     private final Map<UUID, ConversationMemory> memories = new LinkedHashMap<>();
+    private final Map<UUID, Thinking> thinking = new LinkedHashMap<>();
     /** Nombre d'enregistrements d'un message (texte partiel enregistré au fil de l'écriture). */
     public int messageSaves;
 
@@ -81,6 +83,17 @@ public class InMemoryConversations implements ConversationRepository {
     public synchronized void clearTurn(UUID messageId) {
         steps.remove(messageId);
         sources.remove(messageId);
+        thinking.remove(messageId);
+    }
+
+    @Override
+    public synchronized void saveThinking(UUID messageId, Thinking t) {
+        thinking.put(messageId, t);
+    }
+
+    @Override
+    public synchronized Optional<Thinking> thinking(UUID messageId) {
+        return Optional.ofNullable(thinking.get(messageId));
     }
 
     @Override

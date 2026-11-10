@@ -28,16 +28,39 @@ public class ScriptedConversationLlm implements ConversationLlm {
 
     /** Appelé après chaque morceau émis. */
     public Runnable afterChunk = () -> { };
+    /** Réflexion émise au début de chaque appel de ce type, quand l'écran la montre. */
+    public String planReasoning;
+    public String answerReasoning;
+    public String compactReasoning;
+    private Consumer<String> reasoning;
+
+    @Override
+    public void thinking(Consumer<String> sink, Runnable work) {
+        reasoning = sink;
+        try {
+            work.run();
+        } finally {
+            reasoning = null;
+        }
+    }
+
+    private void reason(String text) {
+        if (reasoning != null && text != null) {
+            reasoning.accept(text);
+        }
+    }
 
     @Override
     public Plan plan(PlanRequest request) {
         planRequests.add(request);
+        reason(planReasoning);
         return plans.isEmpty() ? Plan.answer() : plans.removeFirst();
     }
 
     @Override
     public String answer(AnswerRequest request, Consumer<String> deltas, BooleanSupplier cancelled) {
         answerRequests.add(request);
+        reason(answerReasoning);
         List<String> chunks = answers.isEmpty() ? List.of("Je ne trouve pas cette information dans le projet.")
                 : answers.removeFirst();
         StringBuilder text = new StringBuilder();
@@ -69,6 +92,7 @@ public class ScriptedConversationLlm implements ConversationLlm {
     @Override
     public String compact(CompactRequest request) {
         compactRequests.add(request);
+        reason(compactReasoning);
         if (compactFailure != null) {
             DomainException e = compactFailure;
             compactFailure = null;

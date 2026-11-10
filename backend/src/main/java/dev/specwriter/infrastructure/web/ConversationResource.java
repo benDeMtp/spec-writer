@@ -195,6 +195,9 @@ public class ConversationResource {
 
     static String name(TurnEvents.Event event) {
         return switch (event) {
+            case TurnEvents.Event.Started s -> "started";
+            case TurnEvents.Event.Stage s -> "stage";
+            case TurnEvents.Event.Reasoning r -> "reasoning";
             case TurnEvents.Event.Step s -> "step";
             case TurnEvents.Event.Delta d -> "delta";
             case TurnEvents.Event.Sources s -> "sources";

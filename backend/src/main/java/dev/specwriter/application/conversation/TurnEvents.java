@@ -3,6 +3,7 @@ package dev.specwriter.application.conversation;
 import dev.specwriter.domain.conversation.CitedSource;
 import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
+import dev.specwriter.domain.conversation.Thinking;
 import dev.specwriter.domain.port.ClockPort;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,6 +28,10 @@ public class TurnEvents {
     /** Ce que reçoit l'écran pendant un tour. */
     public sealed interface Event {
 
+        /** Début du tour, pour le chronomètre d'un écran qui se rattache en cours de route. */
+        record Started(Instant at) implements Event {
+        }
+
         record Step(SearchStep step) implements Event {
         }
 
@@ -39,6 +44,19 @@ public class TurnEvents {
             }
         }
 
+        /** L'agent passe à une autre tâche : résumer sa mémoire, choisir une recherche, rédiger. */
+        record Stage(Thinking.Stage stage) implements Event {
+        }
+
+        /** Morceau de la réflexion du modèle, pour la tâche en cours ; jamais dans {@link #toString()}. */
+        record Reasoning(String text) implements Event {
+
+            @Override
+            public String toString() {
+                return "Reasoning[" + text.length() + " caractères]";
+            }
+        }
+
         record Sources(List<CitedSource> sources) implements Event {
         }
 
@@ -46,7 +64,8 @@ public class TurnEvents {
         record Memory(ConversationHistory.Phase phase) implements Event {
         }
 
-        record Done(MessageState state, boolean historyTruncated) implements Event {
+        /** {@code durationMs} : durée du tour, de l'envoi de la question à la fin de la réponse. */
+        record Done(MessageState state, boolean historyTruncated, long durationMs) implements Event {
         }
 
         record Error(String code, String userMessage) implements Event {

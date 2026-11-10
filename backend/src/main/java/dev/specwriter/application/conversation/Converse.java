@@ -10,6 +10,7 @@ import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
+import dev.specwriter.domain.conversation.Thinking;
 import dev.specwriter.domain.conversation.TurnSource;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
@@ -24,6 +25,8 @@ import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.session.Language;
 import dev.specwriter.domain.session.LanguageDetector;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -152,86 +155,170 @@ public class Converse {
 
     private void launch(UUID projectId, ConversationMessage question, ConversationMessage answer) {
         events.open(answer.id());
+        Instant begin = clock.now();
+        events.publish(answer.id(), new Event.Started(begin));
         OperationRegistry.Operation operation = operations.begin(question.conversationId());
         executor.execute(() -> {
             try {
-                run(projectId, question, answer);
+                run(projectId, question, answer, begin);
             } finally {
                 operation.close();
             }
         });
     }
 
-    private void run(UUID projectId, ConversationMessage question, ConversationMessage started) {
-        UUID turn = started.id();
-        long begin = System.nanoTime();
-        StringBuilder text = new StringBuilder();
-        ConversationMessage answer = started;
-        int steps = 0;
-        try {
-            Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
-            KnowledgeBudget budget = capacities.budget();
-            String sheet = project.context().markdown();
-            Language language = LanguageDetector.detect(question.text());
-            List<ConversationMessage> all = conversations.messages(question.conversationId());
-            ConversationHistory.Prepared history = this.history.prepare(question.conversationId(), all,
-                    question.ordinal(), language, budget, phase -> events.publish(turn, new Event.Memory(phase)));
-            answer = answer.finished(MessageState.RUNNING, history.truncated());
+    /** Ce que le tour a produit jusqu'ici, gardé même quand il échoue. */
+    private static final class Progress {
+        ConversationMessage answer;
+        final StringBuilder text = new StringBuilder();
+        Sources sources = new Sources(0);
+        int steps;
 
-            Sources sources = new Sources(budget.conversationSources());
-            sources.add(designated.read(projectId, question.conversationId(), question.text(), all.stream()
-                    .filter(m -> m.role() == MessageRole.USER && m.ordinal() < question.ordinal())
-                    .map(ConversationMessage::text).toList(), budget));
-            boolean stopped = false;
-            while (!events.cancelled(turn)) {
-                if (steps == SearchStep.MAX_STEPS) {
-                    stopped = true;
-                    break;
-                }
-                ConversationLlm.Plan plan = llm.plan(new ConversationLlm.PlanRequest(language, sheet, history.memory(),
-                        history.exchanges(), question.text(), sources.all(), SearchStep.MAX_STEPS - steps));
-                if (plan.action() == ConversationLlm.Action.ANSWER || plan.query() == null || plan.query().isBlank()) {
-                    break;
-                }
-                List<ConversationSearch.Found> found = search.run(projectId, plan.query(), plan.kinds());
-                sources.add(found);
-                SearchStep step = new SearchStep(++steps, plan.query(), plan.kinds(), found.size());
-                conversations.saveStep(turn, step);
-                events.publish(turn, new Event.Step(step));
-            }
-            if (!events.cancelled(turn)) {
-                ConversationMessage saving = answer;
-                int[] chunks = {0};
-                llm.answer(new ConversationLlm.AnswerRequest(language, sheet, history.memory(), history.exchanges(),
-                        question.text(), sources.all(), sources.notCompared(), stopped), delta -> {
-                            text.append(delta);
-                            events.publish(turn, new Event.Delta(delta));
-                            if (++chunks[0] % SAVE_EVERY == 0) {
-                                conversations.saveMessage(saving.withText(text.toString()));
-                            }
-                        }, () -> events.cancelled(turn));
-            }
-            Citations.Resolved resolved = Citations.resolve(text.toString(), sources.all());
-            MessageState state = events.cancelled(turn) ? MessageState.INCOMPLETE : MessageState.COMPLETE;
-            conversations.saveMessage(answer.withText(resolved.text()).finished(state, answer.historyTruncated()));
-            conversations.saveSources(turn, resolved.cited());
-            events.publish(turn, new Event.Sources(resolved.cited()));
-            events.publish(turn, new Event.Done(state, answer.historyTruncated()));
-            LOG.infof("Conversation : tour %s en %d ms, %d recherche(s)", state, (System.nanoTime() - begin) / 1_000_000,
-                    steps);
-        } catch (DomainException e) {
-            fail(answer, text, e.code(), e.userMessage(), steps);
-        } catch (RuntimeException e) {
-            LOG.errorf("Conversation : erreur inattendue (%s)", e.getClass().getSimpleName());
-            fail(answer, text, ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage(), steps);
+        Progress(ConversationMessage answer) {
+            this.answer = answer;
         }
     }
 
-    private void fail(ConversationMessage answer, StringBuilder text, ErrorCode code, String userMessage, int steps) {
-        LOG.warnf("Conversation : tour interrompu (%s) après %d recherche(s)", code, steps);
-        conversations.saveMessage(answer.withText(text.toString()).finished(MessageState.INCOMPLETE,
+    private void run(UUID projectId, ConversationMessage question, ConversationMessage started, Instant begin) {
+        UUID turn = started.id();
+        Progress progress = new Progress(started);
+        ThinkingLog thinking = new ThinkingLog(turn);
+        try {
+            llm.thinking(thinking::reasoning, () -> turn(projectId, question, progress, thinking));
+            Citations.Resolved resolved = Citations.resolve(progress.text.toString(), progress.sources.all());
+            MessageState state = events.cancelled(turn) ? MessageState.INCOMPLETE : MessageState.COMPLETE;
+            ConversationMessage answer = progress.answer;
+            conversations.saveMessage(answer.withText(resolved.text()).finished(state, answer.historyTruncated()));
+            conversations.saveSources(turn, resolved.cited());
+            long duration = saveThinking(turn, thinking, begin);
+            events.publish(turn, new Event.Sources(resolved.cited()));
+            events.publish(turn, new Event.Done(state, answer.historyTruncated(), duration));
+            LOG.infof("Conversation : tour %s en %d ms, %d recherche(s), réflexion de %d caractères", state, duration,
+                    progress.steps, thinking.length());
+        } catch (DomainException e) {
+            fail(progress, thinking, begin, e.code(), e.userMessage());
+        } catch (RuntimeException e) {
+            LOG.errorf("Conversation : erreur inattendue (%s)", e.getClass().getSimpleName());
+            fail(progress, thinking, begin, ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());
+        }
+    }
+
+    private void turn(UUID projectId, ConversationMessage question, Progress progress, ThinkingLog thinking) {
+        UUID turn = progress.answer.id();
+        Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
+        KnowledgeBudget budget = capacities.budget();
+        String sheet = project.context().markdown();
+        Language language = LanguageDetector.detect(question.text());
+        List<ConversationMessage> all = conversations.messages(question.conversationId());
+        ConversationHistory.Prepared history = this.history.prepare(question.conversationId(), all,
+                question.ordinal(), language, budget, phase -> {
+                    if (phase == ConversationHistory.Phase.STARTED) {
+                        thinking.stage(Thinking.Stage.MEMORY);
+                    }
+                    events.publish(turn, new Event.Memory(phase));
+                });
+        progress.answer = progress.answer.finished(MessageState.RUNNING, history.truncated());
+
+        Sources sources = progress.sources = new Sources(budget.conversationSources());
+        sources.add(designated.read(projectId, question.conversationId(), question.text(), all.stream()
+                .filter(m -> m.role() == MessageRole.USER && m.ordinal() < question.ordinal())
+                .map(ConversationMessage::text).toList(), budget));
+        boolean stopped = false;
+        while (!events.cancelled(turn)) {
+            if (progress.steps == SearchStep.MAX_STEPS) {
+                stopped = true;
+                break;
+            }
+            thinking.stage(Thinking.Stage.PLAN);
+            ConversationLlm.Plan plan = llm.plan(new ConversationLlm.PlanRequest(language, sheet, history.memory(),
+                    history.exchanges(), question.text(), sources.all(), SearchStep.MAX_STEPS - progress.steps));
+            if (plan.action() == ConversationLlm.Action.ANSWER || plan.query() == null || plan.query().isBlank()) {
+                break;
+            }
+            List<ConversationSearch.Found> found = search.run(projectId, plan.query(), plan.kinds());
+            sources.add(found);
+            SearchStep step = new SearchStep(++progress.steps, plan.query(), plan.kinds(), found.size());
+            conversations.saveStep(turn, step);
+            events.publish(turn, new Event.Step(step));
+        }
+        if (!events.cancelled(turn)) {
+            thinking.stage(Thinking.Stage.ANSWER);
+            ConversationMessage saving = progress.answer;
+            int[] chunks = {0};
+            llm.answer(new ConversationLlm.AnswerRequest(language, sheet, history.memory(), history.exchanges(),
+                    question.text(), sources.all(), sources.notCompared(), stopped), delta -> {
+                        progress.text.append(delta);
+                        events.publish(turn, new Event.Delta(delta));
+                        if (++chunks[0] % SAVE_EVERY == 0) {
+                            conversations.saveMessage(saving.withText(progress.text.toString()));
+                        }
+                    }, () -> events.cancelled(turn));
+        }
+    }
+
+    private void fail(Progress progress, ThinkingLog thinking, Instant begin, ErrorCode code, String userMessage) {
+        LOG.warnf("Conversation : tour interrompu (%s) après %d recherche(s)", code, progress.steps);
+        ConversationMessage answer = progress.answer;
+        conversations.saveMessage(answer.withText(progress.text.toString()).finished(MessageState.INCOMPLETE,
                 answer.historyTruncated()));
+        saveThinking(answer.id(), thinking, begin);
         events.publish(answer.id(), new Event.Error(code.name(), userMessage));
+    }
+
+    private long saveThinking(UUID turn, ThinkingLog thinking, Instant begin) {
+        long duration = Math.max(0, Duration.between(begin, clock.now()).toMillis());
+        conversations.saveThinking(turn, new Thinking(thinking.parts(), duration));
+        return duration;
+    }
+
+    /**
+     * Réflexion du tour, étape par étape : chaque morceau est publié pour l'écran et gardé, jusqu'à
+     * {@link Thinking#MAX_TEXT} caractères ; la suite n'est ni publiée ni gardée.
+     */
+    private final class ThinkingLog {
+        private final UUID turn;
+        private final List<Thinking.Part> done = new ArrayList<>();
+        private Thinking.Stage stage;
+        private final StringBuilder current = new StringBuilder();
+        private int length;
+
+        ThinkingLog(UUID turn) {
+            this.turn = turn;
+        }
+
+        synchronized void stage(Thinking.Stage next) {
+            close();
+            stage = next;
+            events.publish(turn, new Event.Stage(next));
+        }
+
+        synchronized void reasoning(String delta) {
+            if (delta == null || delta.isEmpty() || stage == null || length >= Thinking.MAX_TEXT) {
+                return;
+            }
+            String kept = delta.length() > Thinking.MAX_TEXT - length ? delta.substring(0, Thinking.MAX_TEXT - length)
+                    : delta;
+            current.append(kept);
+            length += kept.length();
+            events.publish(turn, new Event.Reasoning(kept));
+        }
+
+        synchronized List<Thinking.Part> parts() {
+            close();
+            return List.copyOf(done);
+        }
+
+        synchronized int length() {
+            return length;
+        }
+
+        /** Une étape sans réflexion n'est pas gardée. */
+        private void close() {
+            if (stage != null && !current.isEmpty()) {
+                done.add(new Thinking.Part(stage, current.toString()));
+            }
+            current.setLength(0);
+        }
     }
 
     /** Sources du tour, numérotées dans l'ordre de découverte, dans la part des sources. */

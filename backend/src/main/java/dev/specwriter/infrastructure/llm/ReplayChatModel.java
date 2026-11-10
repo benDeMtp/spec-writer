@@ -32,8 +32,18 @@ public final class ReplayChatModel implements ChatModel {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final Pattern PLACEHOLDER = Pattern.compile("\"__([A-Z_]+?)__\"");
 
-    /** {@code response} : JSON d'une opération structurée ; {@code text} : réponse en texte libre (010). */
-    record Entry(String file, String operation, List<String> userContains, String response, String text) {
+    /**
+     * {@code response} : JSON d'une opération structurée ; {@code text} : réponse en texte libre (010) ;
+     * {@code reasoning} : réflexion rejouée avant la réponse, quand l'écran la montre.
+     */
+    record Entry(String file, String operation, List<String> userContains, String response, String text,
+            String reasoning) {
+
+        void replayReasoning() {
+            if (reasoning != null) {
+                ReasoningSink.current().ifPresent(sink -> sink.accept(reasoning));
+            }
+        }
     }
 
     private final List<Entry> entries;
@@ -54,6 +64,7 @@ public final class ReplayChatModel implements ChatModel {
             }
         }
         Entry e = find(system.toString(), user.toString());
+        e.replayReasoning();
         return ChatResponse.builder().aiMessage(AiMessage.from(resolveQuestionIds(e.response(), user.toString())))
                 .build();
     }
@@ -61,6 +72,7 @@ public final class ReplayChatModel implements ChatModel {
     /** Réponse en texte libre rejouée pour une opération en flux (010). */
     String text(String system, String user) {
         Entry e = find(system, user);
+        e.replayReasoning();
         return e.text() != null ? e.text() : e.response();
     }
 
@@ -98,7 +110,8 @@ public final class ReplayChatModel implements ChatModel {
                 node.path("userContains").forEach(n -> contains.add(n.asString()));
                 out.add(new Entry(String.valueOf(f.getFileName()), node.path("operation").asString(), contains,
                         JSON.writeValueAsString(node.get("response")),
-                        node.hasNonNull("text") ? node.get("text").asString() : null));
+                        node.hasNonNull("text") ? node.get("text").asString() : null,
+                        node.hasNonNull("reasoning") ? node.get("reasoning").asString() : null));
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Dossier de rejeu illisible", e);

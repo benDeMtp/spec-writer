@@ -8,6 +8,7 @@ import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
 import dev.specwriter.domain.conversation.SourceKind;
+import dev.specwriter.domain.conversation.Thinking;
 import dev.specwriter.domain.port.ConversationRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -19,10 +20,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Conversations dans les tables de la migration V18 (010, research.md R6). */
 @ApplicationScoped
 public class SqliteConversationRepository implements ConversationRepository {
+
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final TypeReference<List<Thinking.Part>> PARTS = new TypeReference<>() {
+    };
 
     @Inject
     EntityManager em;
@@ -136,6 +143,29 @@ public class SqliteConversationRepository implements ConversationRepository {
                 .setParameter(1, messageId.toString()).executeUpdate();
         em.createNativeQuery("delete from conversation_source where message_id = ?1")
                 .setParameter(1, messageId.toString()).executeUpdate();
+        em.createNativeQuery("delete from conversation_thinking where message_id = ?1")
+                .setParameter(1, messageId.toString()).executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public void saveThinking(UUID messageId, Thinking thinking) {
+        em.createNativeQuery("""
+                insert into conversation_thinking (message_id, parts, duration_ms) values (?1, ?2, ?3)
+                on conflict (message_id) do update set parts = excluded.parts, duration_ms = excluded.duration_ms""")
+                .setParameter(1, messageId.toString()).setParameter(2, JSON.writeValueAsString(thinking.parts()))
+                .setParameter(3, thinking.durationMs()).executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public Optional<Thinking> thinking(UUID messageId) {
+        List<Object[]> rows = em.createNativeQuery(
+                "select parts, duration_ms from conversation_thinking where message_id = ?1")
+                .setParameter(1, messageId.toString()).getResultList();
+        return rows.stream().findFirst()
+                .map(r -> new Thinking(JSON.readValue((String) r[0], PARTS), ((Number) r[1]).longValue()));
     }
 
     @Override

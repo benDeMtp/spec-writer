@@ -14,7 +14,9 @@ d'extrait n'apparaît dans les erreurs.
   [{ sessionId, name }] }`.
 
 `Message` : `{ id, role, text, state, historyTruncated, createdAt, steps: [{ query, kinds, hits }],
-sources: [{ n, kind, ref, title, url }] }`. `url` est l'adresse Jira, l'adresse de la page, ou
+sources: [{ n, kind, ref, title, url }], thinking }`. `thinking` : `{ parts: [{ stage, text }],
+durationMs }` pour une réponse de l'agent finie (`stage` : `MEMORY`, `PLAN` ou `ANSWER` ; 20 000
+caractères de réflexion au plus), sinon `null`. `url` est l'adresse Jira, l'adresse de la page, ou
 l'adresse de la version dans l'outil (`/sessions/{id}/versions/{n}`) pour une spécification.
 
 ## Tour
@@ -27,10 +29,15 @@ l'adresse de la version dans l'outil (`/sessions/{id}/versions/{n}`) pour une sp
   - `503` : Copilot non connecté.
 - `GET /api/conversations/{cid}/turns/{turnId}/events` → `text/event-stream`. Les événements
   déjà produits sont d'abord rejoués, puis :
+  - `started` `{ at }` : début du tour, pour le chronomètre ;
+  - `stage` `{ stage }` : l'agent passe à une autre tâche (`MEMORY`, `PLAN`, `ANSWER`) ;
+  - `reasoning` `{ text }` : morceau de la réflexion du modèle pour la tâche en cours, quand le
+    modèle en donne une ;
+  - `memory` `{ phase }` : compactage de la mémoire (`STARTED`, `DONE`, `FAILED`) ;
   - `step` `{ ordinal, query, kinds, hits }` ;
   - `delta` `{ text }` ;
   - `sources` `{ sources: [...] }` ;
-  - `done` `{ state, historyTruncated }` ;
+  - `done` `{ state, historyTruncated, durationMs }` ;
   - `error` `{ code, userMessage }`.
 - `DELETE /api/conversations/{cid}/turns/{turnId}` → `204` : arrêt, texte gardé, message
   `INCOMPLETE`.

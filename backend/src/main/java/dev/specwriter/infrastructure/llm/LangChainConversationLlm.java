@@ -59,6 +59,11 @@ public class LangChainConversationLlm implements ConversationLlm {
     }
 
     @Override
+    public void thinking(Consumer<String> reasoning, Runnable work) {
+        ScopedValue.where(ReasoningSink.CURRENT, reasoning).run(work);
+    }
+
+    @Override
     public Plan plan(PlanRequest request) {
         return call("converse-plan", UserMessages.conversePlan(request), LlmSchemas.CONVERSE_PLAN,
                 LangChainConversationLlm::toPlan);

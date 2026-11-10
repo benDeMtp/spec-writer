@@ -29,12 +29,12 @@ class TurnEventsTest {
         List<Event> seen = new ArrayList<>();
         try (TurnEvents.Subscription s = events.subscribe(turn, seen::add).orElseThrow()) {
             events.publish(turn, new Event.Delta("passent par le bus."));
-            events.publish(turn, new Event.Done(MessageState.COMPLETE, false));
+            events.publish(turn, new Event.Done(MessageState.COMPLETE, false, 0));
             assertThat(s.finished()).isTrue();
         }
         assertThat(seen).hasSize(4);
         assertThat(seen.getFirst()).isInstanceOf(Event.Step.class);
-        assertThat(seen.getLast()).isEqualTo(new Event.Done(MessageState.COMPLETE, false));
+        assertThat(seen.getLast()).isEqualTo(new Event.Done(MessageState.COMPLETE, false, 0));
         // un abonné après la fin reçoit tout, et sait que c'est fini
         List<Event> late = new ArrayList<>();
         assertThat(events.subscribe(turn, late::add).orElseThrow().finished()).isTrue();

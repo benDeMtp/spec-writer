@@ -16,6 +16,7 @@ import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
 import dev.specwriter.domain.conversation.SourceKind;
+import dev.specwriter.domain.conversation.Thinking;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.knowledge.KnowledgeItem;
@@ -108,12 +109,53 @@ class ConverseTest {
 
         // tout est rejoué à l'écran qui s'abonne après coup
         List<Event> seen = subscribe(started.turnId());
-        assertThat(seen.getFirst()).isInstanceOf(Event.Step.class);
+        assertThat(seen.getFirst()).isEqualTo(new Event.Started(w.clock.now()));
+        assertThat(seen).filteredOn(e -> e instanceof Event.Step).hasSize(1);
         assertThat(seen).filteredOn(e -> e instanceof Event.Delta).hasSize(3);
         assertThat(seen.get(seen.size() - 2)).isInstanceOf(Event.Sources.class);
-        assertThat(seen.getLast()).isEqualTo(new Event.Done(MessageState.COMPLETE, false));
+        assertThat(seen.getLast()).isEqualTo(new Event.Done(MessageState.COMPLETE, false, 0));
         // le nom de la conversation vient du premier message
         assertThat(conversations.find(conversation.id()).orElseThrow().name()).isEqualTo("Comment sont émis les avoirs ?");
+    }
+
+    @Test
+    void reflexionPublieeParEtapeEtGardeeAvecLaDuree() {
+        llm.plans.add(new Plan(Action.SEARCH, "émission des avoirs", Set.of()));
+        llm.planReasoning = "Je cherche qui émet.";
+        llm.answerReasoning = "La source 1 répond.";
+        llm.answers.add(List.of("Le service Avoirs [1]."));
+
+        Converse.Started started = converse.send(conversation.id(), "Qui émet les avoirs ?");
+
+        List<Event> seen = subscribe(started.turnId());
+        assertThat(seen).filteredOn(e -> e instanceof Event.Stage || e instanceof Event.Reasoning).containsExactly(
+                new Event.Stage(Thinking.Stage.PLAN), new Event.Reasoning("Je cherche qui émet."),
+                new Event.Stage(Thinking.Stage.PLAN), new Event.Reasoning("Je cherche qui émet."),
+                new Event.Stage(Thinking.Stage.ANSWER), new Event.Reasoning("La source 1 répond."));
+        Thinking kept = conversations.thinking(started.turnId()).orElseThrow();
+        assertThat(kept.parts()).containsExactly(new Thinking.Part(Thinking.Stage.PLAN, "Je cherche qui émet."),
+                new Thinking.Part(Thinking.Stage.PLAN, "Je cherche qui émet."),
+                new Thinking.Part(Thinking.Stage.ANSWER, "La source 1 répond."));
+        assertThat(kept.durationMs()).isZero();
+        assertThat(kept.toString()).doesNotContain("Je cherche");
+    }
+
+    @Test
+    void reflexionBorneeEtGardeeQuandLeTourEchoue() {
+        llm.planReasoning = "x".repeat(Thinking.MAX_TEXT + 10);
+        llm.answers.add(List.of("Début ", "fin"));
+        llm.failure = new DomainException(ErrorCode.LLM_UNAVAILABLE);
+        llm.failAfter = 1;
+
+        Converse.Started started = converse.send(conversation.id(), "Qui émet les avoirs ?");
+
+        List<Event> seen = subscribe(started.turnId());
+        assertThat(seen).filteredOn(e -> e instanceof Event.Reasoning)
+                .extracting(e -> ((Event.Reasoning) e).text().length()).containsExactly(Thinking.MAX_TEXT);
+        Thinking kept = conversations.thinking(started.turnId()).orElseThrow();
+        assertThat(kept.length()).isEqualTo(Thinking.MAX_TEXT);
+        assertThat(kept.parts()).extracting(Thinking.Part::stage).containsExactly(Thinking.Stage.PLAN);
+        assertThat(seen.getLast()).isInstanceOf(Event.Error.class);
     }
 
     @Test
@@ -218,7 +260,7 @@ class ConverseTest {
         ConversationMessage answer = conversations.messages(conversation.id()).getLast();
         assertThat(answer.state()).isEqualTo(MessageState.INCOMPLETE);
         assertThat(answer.text()).isEqualTo("Début ");
-        assertThat(subscribe(answer.id()).getLast()).isEqualTo(new Event.Done(MessageState.INCOMPLETE, false));
+        assertThat(subscribe(answer.id()).getLast()).isEqualTo(new Event.Done(MessageState.INCOMPLETE, false, 0));
     }
 
     @Test

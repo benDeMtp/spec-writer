@@ -57,6 +57,32 @@ class LangChainConversationLlmTest {
     }
 
     @Test
+    void reflexionTransmiseSeulementDansLaPorteeDeThinking(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("01.json"), """
+                {"operation": "converse-plan", "userContains": [], "reasoning": "Je cherche les avoirs.",
+                 "response": {"action": "ANSWER", "query": "", "kinds": []}}""");
+        Files.writeString(dir.resolve("02.json"), """
+                {"operation": "converse-answer", "userContains": [], "reasoning": "La source suffit.", "text": "Oui."}""");
+        ReplayChatModel replay = new ReplayChatModel(dir);
+        LangChainConversationLlm llm = new LangChainConversationLlm(replay, new ReplayConversationStream(replay),
+                CallTimeout.DEFAULT);
+        ConversationLlm.PlanRequest plan = new ConversationLlm.PlanRequest(Language.FR, "Fiche", "", HISTORY, "Q ?",
+                List.of(), 5);
+        ConversationLlm.AnswerRequest answer = new ConversationLlm.AnswerRequest(Language.FR, "Fiche", "", HISTORY, "Q ?",
+                List.of(), List.of(), false);
+        List<String> reasoning = new ArrayList<>();
+
+        llm.plan(plan);
+        assertThat(ReasoningSink.current()).isEmpty();
+        llm.thinking(reasoning::add, () -> {
+            llm.plan(plan);
+            llm.answer(answer, d -> { }, () -> false);
+        });
+
+        assertThat(reasoning).containsExactly("Je cherche les avoirs.", "La source suffit.");
+    }
+
+    @Test
     void reponseEnFluxAvecLesSourcesNumerotees() {
         List<String> received = new ArrayList<>();
         String[] user = new String[1];

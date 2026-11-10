@@ -5,6 +5,7 @@ import dev.specwriter.domain.conversation.Conversation;
 import dev.specwriter.domain.conversation.ConversationMemory;
 import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.conversation.SearchStep;
+import dev.specwriter.domain.conversation.Thinking;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,10 +36,15 @@ public interface ConversationRepository {
 
     void saveSources(UUID messageId, List<CitedSource> sources);
 
-    /** Avant un nouvel essai : retire les étapes et les sources de la réponse. */
+    /** Avant un nouvel essai : retire les étapes, les sources et la réflexion de la réponse. */
     void clearTurn(UUID messageId);
 
     List<CitedSource> sources(UUID messageId);
+
+    /** Remplace la réflexion de l'agent et la durée du tour. */
+    void saveThinking(UUID messageId, Thinking thinking);
+
+    Optional<Thinking> thinking(UUID messageId);
 
     void link(UUID conversationId, UUID sessionId);
 
