@@ -359,7 +359,7 @@ déjà importé ouvre la spécification existante.
     dans `specs/011-discussion-specification/checklists/ux-review.md`.
 - [X] T034 Gates avant chaque commit (CLAUDE.md) : `rm -f backend/target/jacoco.exec`, `./mvnw -B
   verify -DskipDependencyCheck`, `./mvnw -B package -DskipTests`, `npm --prefix e2e test`.
-- [ ] T035 Évaluation réelle avec l'accord du mainteneur (`./mvnw -pl backend verify -Peval`),
+- [X] T035 Évaluation réelle avec l'accord du mainteneur (`./mvnw -pl backend verify -Peval`),
   `last-run.json` commité, `bash ci/check-eval.sh` vert.
 - [X] T036 Essai manuel par l'utilisateur (quickstart.md) ; résultat dans
   `specs/011-discussion-specification/checklists/validation.md`.
