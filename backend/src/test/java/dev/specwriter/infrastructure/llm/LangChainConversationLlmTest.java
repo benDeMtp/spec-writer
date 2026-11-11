@@ -235,4 +235,30 @@ class LangChainConversationLlmTest {
         assertThatThrownBy(() -> LangChainConversationLlm.toRevision("{\"reason\": \"x\"}"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void changementsRelevesDedoublonnesEtBornes() {
+        ScriptedChatModel model = new ScriptedChatModel().then("list-changes", List.of("<langue>",
+                "<specification-courante>", "<memoire>", "<message auteur=\"utilisateur\">", "Ajoute &lt;l'annulation&gt;",
+                "<message auteur=\"agent\">"), """
+                {"changes": [{"text": " Ajouter l'annulation ", "origin": "USER"},
+                  {"text": "ajouter l'annulation", "origin": "AGENT"}, {"text": "", "origin": "USER"},
+                  {"text": "Ajouter un délai", "origin": "AUTRE"}, null]}""");
+        LangChainConversationLlm llm = new LangChainConversationLlm(model, (s, u, d, c) -> "", CallTimeout.DEFAULT);
+        var request = reviseRequest();
+
+        var found = llm.changes(new ConversationLlm.ChangesRequest(Language.FR, request.currentMarkdown(), "Mémoire",
+                request.discussion()));
+
+        assertThat(found).containsExactly(
+                new ConversationLlm.ChangeCandidate("Ajouter l'annulation", ConversationLlm.ChangeOrigin.USER),
+                new ConversationLlm.ChangeCandidate("Ajouter un délai", ConversationLlm.ChangeOrigin.AGENT));
+        assertThat(model.received().getFirst().system()).contains("[operation:list-changes]");
+        assertThat(LangChainConversationLlm.toChanges("{\"changes\": [{\"text\": \"" + "x".repeat(400)
+                + "\", \"origin\": \"USER\"}]}").getFirst().text()).hasSize(ConversationLlm.ChangeCandidate.MAX_TEXT);
+        assertThat(LangChainConversationLlm.toChanges("{\"changes\": [" + String.join(",", java.util.stream.IntStream.range(0, 12)
+                        .mapToObj(n -> "{\"text\": \"c" + n + "\", \"origin\": \"USER\"}").toList()) + "]}"))
+                .hasSize(ConversationLlm.ChangeCandidate.MAX_CHANGES);
+        assertThatThrownBy(() -> LangChainConversationLlm.toChanges("{}")).isInstanceOf(IllegalArgumentException.class);
+    }
 }

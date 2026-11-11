@@ -24,8 +24,17 @@ de message, de spécification ni de proposition n'apparaît dans les erreurs.
 
 ## Proposition d'une nouvelle version
 
-- `POST /api/conversations/{cid}/proposals` → `202 { turnId }`. La conversation doit être la
-  discussion d'une spécification existante.
+- `POST /api/conversations/{cid}/proposals/candidates` → `200 { changes: [{ text, origin }] }`
+  (feature 013, T055) : les changements de la spécification que la discussion avance, à cocher
+  avant la rédaction. `origin` vaut `USER` (dit ou confirmé par la personne) ou `AGENT` (proposé par
+  l'agent seul). Liste vide si la discussion n'en avance aucun. Rien n'est gardé. Mêmes refus que
+  ci-dessous.
+- `POST /api/conversations/{cid}/proposals` `{ changes?: string[] }` → `202 { turnId, message }`.
+  La conversation doit être la discussion d'une spécification existante. Les changements retenus
+  (au plus 20, de 1 000 caractères au plus chacun) entrent d'abord dans la discussion, comme un
+  message de la personne « Changements retenus pour la nouvelle version : - … », rendu dans
+  `message` (nul sans changement). Sans corps, la discussion seule fait foi.
+  - `422 VALIDATION_FAILED` : discussion vide, ou trop de changements, ou un changement trop long.
   - `409 OPERATION_IN_PROGRESS` : une réponse ou une proposition est en cours.
   - `409 SPECIFICATION_LOCKED`.
   - `428` : accord Copilot manquant.

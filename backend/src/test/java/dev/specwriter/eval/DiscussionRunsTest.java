@@ -2,6 +2,8 @@ package dev.specwriter.eval;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.specwriter.domain.port.ConversationLlm.ChangeCandidate;
+import dev.specwriter.domain.port.ConversationLlm.ChangeOrigin;
 import dev.specwriter.domain.port.ConversationLlm.Revision;
 import dev.specwriter.support.ScriptedConversationLlm;
 import java.util.List;
@@ -14,6 +16,7 @@ class DiscussionRunsTest {
     void chaqueCasDonneSesControlesEtSesScores() {
         ScriptedConversationLlm llm = new ScriptedConversationLlm();
         llm.revisions.add(new Revision(false, "Rien d'établi.", null));
+        llm.changes.add(List.of(new ChangeCandidate("Passer la première relance à 7 jours", ChangeOrigin.USER)));
 
         List<DiscussionRuns.CaseRun> runs = DiscussionRuns.run(llm, 1);
 
@@ -27,5 +30,9 @@ class DiscussionRunsTest {
         assertThat(DiscussionRuns.score(runs, EvalBaseline.REVISION_COMPLETENESS, 1)).isZero();
         assertThat(DiscussionRuns.score(runs, EvalBaseline.REVISION_STRUCTURE, 1)).isEqualTo(1.0);
         assertThat(DiscussionRuns.score(runs, EvalBaseline.UNCHANGED_RECALL, 1)).isEqualTo(1.0);
+        // le même relevé pour tous : il couvre la révision du délai, pas celle du SMS, et accuse à tort les autres
+        assertThat(llm.changesRequests).hasSize(4);
+        assertThat(DiscussionRuns.score(runs, EvalBaseline.CHANGES_RECALL, 1)).isEqualTo(0.5);
+        assertThat(DiscussionRuns.score(runs, EvalBaseline.CHANGES_PRECISION, 1)).isZero();
     }
 }

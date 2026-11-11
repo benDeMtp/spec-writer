@@ -29,6 +29,10 @@ public record EvalBaseline(double tolerance, Map<String, Double> minimum, Map<St
     public static final String REVISION_STRUCTURE = "revisionStructure";
     /** 011 : discussions sans changement établi pour lesquelles l'agent ne propose rien. */
     public static final String UNCHANGED_RECALL = "unchangedRecall";
+    /** 011 : changements établis relevés comme dits par la personne, avant la rédaction. */
+    public static final String CHANGES_RECALL = "changesRecall";
+    /** 011 : discussions sans changement établi pour lesquelles rien n'est relevé au nom de la personne. */
+    public static final String CHANGES_PRECISION = "changesPrecision";
     /** 013 : modules attendus retrouvés par les termes que l'agent propose. */
     public static final String PERIMETER_TERM_RECALL = "perimeterTermRecall";
     /** 013 : qualifications fermes de l'agent conformes à l'attendu. */

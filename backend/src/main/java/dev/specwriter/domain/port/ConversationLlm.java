@@ -148,6 +148,27 @@ public interface ConversationLlm {
     record Revision(boolean changed, String reason, DraftSpecification draft) {
     }
 
+    /** Données du relevé des changements discutés : version courante, mémoire et échanges (011). */
+    record ChangesRequest(Language language, String currentMarkdown, String memory, List<DiscussionLine> discussion) {
+
+        public ChangesRequest {
+            discussion = List.copyOf(discussion);
+        }
+    }
+
+    /** Qui a avancé un changement : la personne, ou l'agent sans confirmation de la personne. */
+    enum ChangeOrigin {
+        USER,
+        AGENT
+    }
+
+    /** Changement de la spécification repéré dans la discussion, à confirmer par la personne. */
+    record ChangeCandidate(String text, ChangeOrigin origin) {
+
+        public static final int MAX_TEXT = 300;
+        public static final int MAX_CHANGES = 10;
+    }
+
     /**
      * Exécute {@code work} ; les appels qu'il fait sur ce fil transmettent à {@code reasoning} la
      * réflexion du modèle, au fil de l'eau, quand le modèle en donne une. Sans réflexion disponible,
@@ -185,4 +206,10 @@ public interface ConversationLlm {
      * ou dit qu'elle n'a établi aucun changement (011, FR-007, FR-009).
      */
     Revision revise(ReviseRequest request);
+
+    /**
+     * Relève les changements de la spécification que la discussion a avancés, pour que la personne
+     * coche ceux à intégrer avant la rédaction ; une liste vide si la discussion n'en avance aucun.
+     */
+    List<ChangeCandidate> changes(ChangesRequest request);
 }

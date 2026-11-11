@@ -37,6 +37,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
+import dev.specwriter.domain.port.ConversationLlm.ChangeCandidate;
+import dev.specwriter.domain.port.ConversationLlm.ChangeOrigin;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -211,5 +213,54 @@ class ProposeRevisionTest {
         w.sessions.saveImplementation(session.id(), new Implementation(ImplementationStatus.IMPLEMENTED,
                 Instant.parse("2026-11-10T09:00:00Z"), null));
         refused(() -> propose.propose(cid), ErrorCode.SPECIFICATION_LOCKED);
+    }
+
+    @Test
+    void lesChangementsAvancesSontReleves() {
+        said("Le client peut-il annuler ?", "Proposons aussi un délai de rétractation.");
+        llm.changes.add(List.of(new ChangeCandidate("Ajouter l'annulation", ChangeOrigin.USER),
+                new ChangeCandidate("Ajouter un délai de rétractation", ChangeOrigin.AGENT)));
+
+        assertThat(propose.changes(cid)).extracting(ChangeCandidate::origin)
+                .containsExactly(ChangeOrigin.USER, ChangeOrigin.AGENT);
+
+        var request = llm.changesRequests.getFirst();
+        assertThat(request.currentMarkdown()).isEqualTo(w.versions.find(session.id(), 1).orElseThrow().markdown());
+        assertThat(request.discussion()).extracting(l -> l.role()).containsExactly(MessageRole.USER, MessageRole.AGENT);
+        assertThat(conversations.messages(cid)).hasSize(2);
+        try (var busy = operations.begin(cid)) {
+            refused(() -> propose.changes(cid), ErrorCode.OPERATION_IN_PROGRESS);
+        }
+    }
+
+    @Test
+    void lesChangementsRetenusEntrentDansLaDiscussionAvantLaRedaction() {
+        said("Le client peut-il annuler ?", "Proposons un délai de rétractation.");
+        llm.revisions.add(new Revision(true, "Ajoute l'annulation.", revised("discussion:" + cid + "#3")));
+
+        ProposeRevision.Started started = propose.propose(cid, List.of(" Ajouter   l'annulation ", "",
+                "Ajouter l'annulation", "Ajouter un délai de rétractation"));
+
+        ConversationMessage m = started.message();
+        assertThat(m.role()).isEqualTo(MessageRole.USER);
+        assertThat(m.ordinal()).isEqualTo(3);
+        assertThat(m.specificationVersion()).isEqualTo(1);
+        assertThat(m.text()).isEqualTo("Changements retenus pour la nouvelle version :\n- Ajouter l'annulation\n"
+                + "- Ajouter un délai de rétractation");
+        assertThat(conversations.messages(cid)).last().isEqualTo(m);
+        assertThat(llm.reviseRequests.getFirst().discussion().getLast().ref()).isEqualTo("discussion:" + cid + "#3");
+        assertThat(propose.propose(cid, null).message()).isNull();
+    }
+
+    @Test
+    void lesChangementsRetenusSontBornes() {
+        said("Ajoute l'annulation.", "Entendu.");
+        refused(() -> propose.propose(cid, List.of("x".repeat(ProposeRevision.MAX_CHANGE + 1))),
+                ErrorCode.VALIDATION_FAILED);
+        refused(() -> propose.propose(cid, java.util.stream.IntStream.rangeClosed(0, ProposeRevision.MAX_CHANGES)
+                .mapToObj(n -> "Changement " + n).toList()), ErrorCode.VALIDATION_FAILED);
+        assertThat(ProposeRevision.confirmation(List.of("Add"), dev.specwriter.domain.session.Language.EN))
+                .isEqualTo("Changes to include in the new version:\n- Add");
+        assertThat(conversations.messages(cid)).hasSize(2);
     }
 }

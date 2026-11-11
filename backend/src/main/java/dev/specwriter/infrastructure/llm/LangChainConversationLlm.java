@@ -18,7 +18,9 @@ import dev.specwriter.domain.question.QuestionTheme;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -126,6 +128,42 @@ public class LangChainConversationLlm implements ConversationLlm {
     public Revision revise(ReviseRequest request) {
         return call("revise-specification", UserMessages.revise(request), LlmSchemas.REVISION,
                 LangChainConversationLlm::toRevision);
+    }
+
+    @Override
+    public List<ChangeCandidate> changes(ChangesRequest request) {
+        return call("list-changes", UserMessages.changes(request), LlmSchemas.CHANGE_CANDIDATES,
+                LangChainConversationLlm::toChanges);
+    }
+
+    /** Changements relevés : vides écartés, doublons retirés, textes et nombre bornés. */
+    static List<ChangeCandidate> toChanges(String json) {
+        ChangesDto dto = JSON.readValue(json, ChangesDto.class);
+        if (dto == null || dto.changes() == null) {
+            throw new IllegalArgumentException("Relevé sans liste de changements");
+        }
+        Set<String> seen = new HashSet<>();
+        List<ChangeCandidate> out = new ArrayList<>();
+        for (ChangeDto c : dto.changes()) {
+            String text = c == null || c.text() == null ? "" : c.text().strip();
+            if (text.isEmpty() || !seen.add(text.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+            if (text.length() > ChangeCandidate.MAX_TEXT) {
+                text = text.substring(0, ChangeCandidate.MAX_TEXT - 1).strip() + "…";
+            }
+            out.add(new ChangeCandidate(text, "USER".equals(c.origin()) ? ChangeOrigin.USER : ChangeOrigin.AGENT));
+            if (out.size() == ChangeCandidate.MAX_CHANGES) {
+                break;
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    record ChangesDto(List<ChangeDto> changes) {
+    }
+
+    record ChangeDto(String text, String origin) {
     }
 
     /** Un changement sans spécification, ou une absence de changement sans raison, est redemandé. */

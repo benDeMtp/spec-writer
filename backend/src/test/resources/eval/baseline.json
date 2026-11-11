@@ -12,6 +12,8 @@
     "revisionPreservation": 0.9,
     "revisionStructure": 1.0,
     "unchangedRecall": 0.9,
+    "changesRecall": 0.9,
+    "changesPrecision": 0.9,
     "perimeterTermRecall": 0.9,
     "perimeterQualification": 0.8
   },
@@ -27,6 +29,8 @@
     "revisionPreservation": 0.9,
     "revisionStructure": 1.0,
     "unchangedRecall": 0.9,
+    "changesRecall": 0.9,
+    "changesPrecision": 0.9,
     "perimeterTermRecall": 0.9,
     "perimeterQualification": 0.8
   }

@@ -582,14 +582,25 @@ paths:
       summary: Discussions rattachées, pour la confirmation de suppression (011)
       responses:
         '200': { description: "{ count }" }
+  /api/conversations/{cid}/proposals/candidates:
+    post:
+      summary: >-
+        Changements de la spécification que la discussion avance, à cocher avant la rédaction
+        (011, feature 013 T055) ; rien n'est gardé
+      responses:
+        '200': { description: "{ changes: [{ text, origin: USER | AGENT }] }" }
+        '409': { description: OPERATION_IN_PROGRESS, SPECIFICATION_LOCKED }
+        '422': { description: NOT_A_DISCUSSION, VALIDATION_FAILED (discussion vide) }
+        '428': { description: Accord Copilot manquant }
   /api/conversations/{cid}/proposals:
     post:
       summary: >-
-        « Proposer une nouvelle version » d'après la discussion (011), sans saisie ; la rédaction se
-        suit par le flux du tour (started, stage REVISE, reasoning, puis done { proposalId } ou
-        done { unchanged: true, reason }, ou error)
+        « Proposer une nouvelle version » d'après la discussion (011) ; le corps facultatif
+        { changes: [texte] } ajoute d'abord les changements retenus à la discussion, au nom de la
+        personne ; la rédaction se suit par le flux du tour (started, stage REVISE, reasoning, puis
+        done { proposalId } ou done { unchanged: true, reason }, ou error)
       responses:
-        '202': { description: "{ turnId }" }
+        '202': { description: "{ turnId, message } ; message : les changements retenus, ou null" }
         '409': { description: OPERATION_IN_PROGRESS, SPECIFICATION_LOCKED }
         '422': { description: NOT_A_DISCUSSION, VALIDATION_FAILED (discussion vide) }
         '428': { description: Accord Copilot manquant }

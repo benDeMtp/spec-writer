@@ -301,6 +301,17 @@ final class UserMessages {
                 + data(r.correction()) + "</correction>";
     }
 
+    /** 011 : relevé des changements que la discussion avance sur la version courante. */
+    static String changes(ConversationLlm.ChangesRequest r) {
+        StringBuilder discussion = new StringBuilder("<discussion>\n").append(block("memoire", r.memory())).append('\n');
+        for (ConversationLlm.DiscussionLine line : r.discussion()) {
+            discussion.append("<message auteur=\"").append(line.role() == MessageRole.USER ? "utilisateur" : "agent")
+                    .append("\">\n").append(data(line.text())).append("\n</message>\n");
+        }
+        return language(r.language()) + "\n" + block("specification-courante", r.currentMarkdown()) + "\n"
+                + discussion.append("</discussion>");
+    }
+
     /** 010 : échanges anciens à résumer, après la mémoire précédente. */
     static String compact(ConversationLlm.CompactRequest r) {
         return language(r.language()) + "\n" + block("memoire-precedente", r.previous()) + "\n"

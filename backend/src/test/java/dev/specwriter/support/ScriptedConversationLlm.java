@@ -26,6 +26,9 @@ public class ScriptedConversationLlm implements ConversationLlm {
     public final List<CompactRequest> compactRequests = new ArrayList<>();
     public final Deque<Revision> revisions = new ArrayDeque<>();
     public final List<ReviseRequest> reviseRequests = new ArrayList<>();
+    /** Relevés des changements successifs ; le dernier se répète. Vide : aucun changement. */
+    public final Deque<List<ChangeCandidate>> changes = new ArrayDeque<>();
+    public final List<ChangesRequest> changesRequests = new ArrayList<>();
     public String reviseReasoning;
     /** Panne à la prochaine proposition. */
     public DomainException reviseFailure;
@@ -121,6 +124,15 @@ public class ScriptedConversationLlm implements ConversationLlm {
             throw e;
         }
         return revisions.size() > 1 ? revisions.removeFirst() : revisions.getFirst();
+    }
+
+    @Override
+    public List<ChangeCandidate> changes(ChangesRequest request) {
+        changesRequests.add(request);
+        if (changes.isEmpty()) {
+            return List.of();
+        }
+        return changes.size() > 1 ? changes.removeFirst() : changes.getFirst();
     }
 
     /** Résumé scripté : « Résumé n » ; n compte les compactages. */

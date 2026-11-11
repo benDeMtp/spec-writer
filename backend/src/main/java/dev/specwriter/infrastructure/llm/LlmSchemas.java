@@ -152,6 +152,14 @@ final class LlmSchemas {
                     .build()))
             .build());
 
+    /** 011 : changements avancés par la discussion, à confirmer avant la rédaction. */
+    static final ResponseFormat CHANGE_CANDIDATES = format("change_candidates", JsonObjectSchema.builder()
+            .addProperty("changes", array(JsonObjectSchema.builder()
+                    .addStringProperty("text")
+                    .addProperty("origin", JsonEnumSchema.builder().enumValues("USER", "AGENT").build())
+                    .build()))
+            .build());
+
     /** 010 : besoin et points établis tirés d'une conversation. */
     static final ResponseFormat NEED_DRAFT = format("need_draft", JsonObjectSchema.builder()
             .addStringProperty("need")
