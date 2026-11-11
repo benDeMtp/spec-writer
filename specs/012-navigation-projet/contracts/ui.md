@@ -64,8 +64,9 @@ Adresses, menu, textes et comportements que les tests E2E vérifient.
 
 - Une spécification, un questionnaire ou une conversation d'un autre projet, ouverts par leur
   adresse, rendent ce projet courant.
-- Le shell affiche alors, dans un `role="status"`, le texte « Projet courant : <nom> ».
-- Le texte disparaît après 6 s ou à la navigation suivante.
+- Le shell affiche alors le texte « Projet courant : <nom> », annoncé aux lecteurs d'écran.
+- « Déplacer vers… » rend aussi courant le projet de destination.
+- Le texte disparaît après 6 s ou quand on quitte la page.
 - Un projet déjà courant ne produit aucune annonce.
 
 ## Réglages du projet (`/projet/reglages`)

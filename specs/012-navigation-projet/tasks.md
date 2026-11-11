@@ -295,13 +295,14 @@ voir les compteurs dans Connaissance (quickstart 5 à 10).
 **Independent Test**: avec Recette courant, ouvrir une spécification du projet par défaut
 (quickstart 11, 12).
 
-- [ ] T026 [P] [US3] Test puis composant `sw-project-notice`
+- [X] T026 [P] [US3] Test puis composant `sw-project-notice`
   (`FA/features/shell/project-notice.component.ts`, `.spec.ts`) :
-  - `<p role="status" aria-live="polite">` qui affiche `ProjectFollower.notice()` ;
-  - effacé par `ProjectFollower.clear()` au `NavigationStart` suivant.
+  - paragraphe visible qui affiche `ProjectFollower.notice()`, annoncé par `LiveAnnouncer`
+    (un `role="status"` permanent doublait le statut de chaque page dans les E2E) ;
+  - effacé par `ProjectFollower.leftFor(url)` au `NavigationEnd` d'une autre page.
 
   À placer dans `FA/app.ts`, en tête de `main`.
-- [ ] T027 [US3] Appeler `ProjectFollower.follow(projectId)` après le chargement de la ressource :
+- [X] T027 [US3] Appeler `ProjectFollower.follow(projectId)` après le chargement de la ressource :
   - `FA/features/specification/specification.page.ts` et
     `FA/features/questionnaire/questionnaire.page.ts`, avec `session.projectId` ;
   - `FA/features/conversation/conversation.page.ts`, avec `detail.projectId` : le retour à
@@ -318,7 +319,7 @@ voir les compteurs dans Connaissance (quickstart 5 à 10).
 
   Tests : refus, acceptation sur une spécification (navigation vers `/sessions`), acceptation sur
   `/sessions` (aucune navigation).
-- [ ] T029 [US3] E2E `e2e/tests/us15-navigation.spec.ts`, scénarios 11 et 12 du quickstart. Le
+- [X] T029 [US3] E2E `e2e/tests/us15-navigation.spec.ts`, scénarios 11 et 12 du quickstart. Le
   scénario 12 réutilise `proposeThroughDiscussion` (`e2e/tests/support/discussion.ts`).
 
 **Checkpoint** : les gates passent, puis commit

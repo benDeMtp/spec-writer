@@ -7,6 +7,7 @@ import { provideMarkdown } from 'ngx-markdown';
 import { SessionDetail, Specification } from '../../core/sessions/sessions.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { LeaveGuard } from '../../core/navigation/leave-guard';
+import { ProjectFollower } from '../../core/projects/project-follower';
 import { Project } from '../../core/projects/projects.model';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { Settings } from '../../core/settings/settings.model';
@@ -138,6 +139,12 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     fixture.detectChanges();
     expect(text(el.querySelector('#jira-missing')!)).toContain('le serveur et le jeton Jira');
     expect(el.querySelector('#jira-missing a')?.getAttribute('href')).toBe('/configuration');
+  });
+
+  it('une spécification d’un autre projet rend ce projet courant (012)', async () => {
+    const follow = vi.spyOn(TestBed.inject(ProjectFollower), 'follow').mockResolvedValue();
+    await open(SESSION, [{ number: 1 }]);
+    expect(follow).toHaveBeenCalledWith('p0');
   });
 
   it('cite les tickets, ADR et éléments avec leur lien', async () => {

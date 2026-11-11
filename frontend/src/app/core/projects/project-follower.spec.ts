@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Project } from './projects.model';
 import { ProjectsStore } from './projects.store';
 import { ProjectFollower } from './project-follower';
@@ -34,7 +35,7 @@ describe('ProjectFollower', () => {
         current = id;
       }),
     };
-    TestBed.configureTestingModule({ providers: [{ provide: ProjectsStore, useValue: store }] });
+    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: ProjectsStore, useValue: store }] });
     follower = TestBed.inject(ProjectFollower);
   });
 
@@ -63,6 +64,14 @@ describe('ProjectFollower', () => {
   it('efface l’annonce sur demande', async () => {
     await follower.follow('b');
     follower.clear();
+    expect(follower.notice()).toBeNull();
+  });
+
+  it('garde l’annonce sur sa page et l’efface ailleurs', async () => {
+    await follower.follow('b', '/projet/connaissance');
+    follower.leftFor('/projet/connaissance?x=1');
+    expect(follower.notice()).toBe('Projet courant : Recette');
+    follower.leftFor('/sessions');
     expect(follower.notice()).toBeNull();
   });
 });

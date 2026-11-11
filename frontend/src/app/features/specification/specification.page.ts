@@ -59,6 +59,7 @@ import { SubtasksPanelComponent } from './subtasks-panel.component';
 import { VersionsPanelComponent } from './versions-panel.component';
 import { DiscussionPanelComponent } from './discussion-panel.component';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
+import { ProjectFollower } from '../../core/projects/project-follower';
 
 const EFFORTS: Record<DeploymentFact['kind'], string> = {
   NOT_DEPLOYED: 'aucune instance en production, à déployer',
@@ -694,6 +695,7 @@ export class SpecificationPage {
   private readonly settings = inject(SettingsStore);
   private readonly projects = inject(ProjectsStore);
   private readonly projectsApi = inject(ProjectsApi);
+  private readonly follower = inject(ProjectFollower);
 
   readonly id = input.required<string>();
   readonly n = input.required<string>();
@@ -933,6 +935,8 @@ export class SpecificationPage {
     this.status.set(`Spécification déplacée vers le projet « ${name} ».`);
     this.session.set(await this.api.get(this.id()));
     await this.projects.load();
+    // 012 : le menu et la page montrent le même projet ; la spécification a changé de projet
+    await this.follower.follow(target).catch(() => undefined);
   }
 
   /** Statut d'implémentation ; quitter « implémentée » se confirme, en rappelant sa date (FR-026b de 002). */
@@ -1159,6 +1163,8 @@ export class SpecificationPage {
     this.session.set(session);
     this.versions.set(versions);
     this.spec.set(spec);
+    // 012 : une spécification d'un autre projet rend ce projet courant
+    void this.follower.follow(session.projectId).catch(() => undefined);
   }
 
   protected scenariosOf(code: string) {

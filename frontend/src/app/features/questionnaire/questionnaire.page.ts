@@ -24,6 +24,7 @@ import { RelatedChoice, RelatedIssuesComponent } from './related-issues.componen
 import { count } from '../../shared/text';
 import { AttachmentsComponent } from '../../shared/ui/attachments.component';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
+import { ProjectFollower } from '../../core/projects/project-follower';
 
 /** Questionnaire : lots de questions, conclusion à tout moment, génération (US2). */
 @Component({
@@ -295,6 +296,7 @@ export class QuestionnairePage implements OnInit {
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
   private readonly conversations = inject(ConversationsApi);
+  private readonly follower = inject(ProjectFollower);
 
   /** Identifiant de session, lu dans l'URL. */
   readonly id = input.required<string>();
@@ -322,6 +324,8 @@ export class QuestionnairePage implements OnInit {
       () => undefined,
     );
     const detail = await this.api.get(this.id());
+    // 012 : un questionnaire d'un autre projet rend ce projet courant
+    void this.follower.follow(detail.projectId).catch(() => undefined);
     if (
       detail.state === 'QUESTIONING' &&
       !detail.currentBatch.length &&

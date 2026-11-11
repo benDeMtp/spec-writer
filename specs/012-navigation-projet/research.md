@@ -118,9 +118,13 @@ leurs préfixes.
 
 - `follow(projectId)` : si `projectId` diffère du projet courant, il appelle
   `ProjectsStore.select(projectId)`, puis annonce « Projet courant : <nom> » :
-  - en visible, par un `role="status"` du shell (`sw-project-notice`), qui s'efface après 6 s ou au
-    changement de page suivant ;
-  - aux lecteurs d'écran, par le même `role="status"` (pas de `LiveAnnouncer` en double).
+  - en visible, par un paragraphe du shell (`sw-project-notice`), affiché seulement avec une annonce,
+    qui s'efface après 6 s ou quand on quitte la page de l'annonce (une redirection d'ancienne
+    adresse arrive sur cette page et la garde) ;
+  - aux lecteurs d'écran, par `LiveAnnouncer` (CDK). Un `role="status"` permanent du shell
+    doublerait le statut propre à chaque page (« Projet créé », « Spécification renommée »).
+- Après « Déplacer vers… », le projet de destination devient courant : la page affichée
+  appartient désormais à ce projet.
 - **Appelants**, après chargement de leur ressource :
   - `specification.page` et `questionnaire.page`, avec `session.projectId` ;
   - `conversation.page` : le retour à l'accueil est remplacé par `follow(detail.projectId)` ;

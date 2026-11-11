@@ -42,7 +42,19 @@ test.describe.serial('012 navigation par projet', () => {
     await page.request.put('/api/consents/COPILOT', { headers, data: { granted: true } });
     const session = await page.request.post('/api/sessions', { headers, data: { need: NEED } });
     expect(session.status()).toBe(201);
-    sessionId = (await session.json()).id;
+    let detail = await session.json();
+    sessionId = detail.id;
+    // une spécification générée (LLM rejoué), pour la bascule et la proposition en attente (US3)
+    while (detail.currentBatch.length) {
+      const q = detail.currentBatch[0];
+      detail = await (
+        await page.request.put(`/api/sessions/${sessionId}/questions/${q.id}/answer`, {
+          headers,
+          data: { value: q.defaultValue ?? q.suggestions[0] ?? 'Oui' },
+        })
+      ).json();
+    }
+    expect((await page.request.post(`/api/sessions/${sessionId}/versions`, { headers })).status()).toBe(201);
   });
 
   test.afterAll(async () => {
@@ -90,7 +102,7 @@ test.describe.serial('012 navigation par projet', () => {
   test('N3 : l’entrée du menu reste marquée sur ses pages filles', async () => {
     await page.goto('/jira/FACT-1');
     await expect(menu().locator('[aria-current="page"]')).toHaveText(/^Tickets Jira/);
-    await page.goto(`/sessions/${sessionId}`);
+    await page.goto(`/sessions/${sessionId}/versions/1`);
     await expect(menu().locator('[aria-current="page"]')).toHaveText('Spécifications');
   });
 
@@ -158,6 +170,7 @@ test.describe.serial('012 navigation par projet', () => {
     await expect(page).toHaveURL(/\/projet\/connaissance$/);
     await expect(switcher()).toContainText('Recette E2E');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Connaissance du projet · Recette E2E');
+    await expect(page.locator('sw-project-notice').getByText('Projet courant : Recette E2E')).toBeVisible();
   });
 
   test('N9 : Tickets Jira sans Jira mène à la configuration', async () => {
@@ -187,5 +200,49 @@ test.describe.serial('012 navigation par projet', () => {
       await page.request.delete('/api/settings/jira', { headers });
       await page.request.put('/api/consents/JIRA', { headers, data: { granted: false } });
     }
+  });
+
+  test('N11 : une spécification d’un autre projet rend ce projet courant, avec une annonce', async () => {
+    await makeCurrent(recette);
+    await page.goto(`/sessions/${sessionId}/versions/1`);
+    await expect(page.locator('sw-project-notice').getByText('Projet courant : Aurora E2E')).toBeVisible();
+    await expect(switcher()).toContainText('Aurora E2E');
+    await expectNoA11yViolations(page);
+
+    await menu().getByRole('link', { name: 'Spécifications' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spécifications · Aurora E2E');
+    await expect(page.locator('sw-project-notice .notice')).toHaveCount(0);
+
+    await page.goto(`/sessions/${sessionId}/versions/1`);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.locator('sw-project-notice .notice')).toHaveCount(0);
+  });
+
+  test('N12 : une proposition en attente retient le changement de projet', async () => {
+    await page.goto(`/sessions/${sessionId}/versions/1?discussion=1`);
+    const panel = page.locator('sw-discussion-panel');
+    const composer = panel.getByLabel('Votre question');
+    // même déroulé que us14 (D2, D3) : la proposition rejouée cite le message 3 de la discussion
+    for (const [text, answered] of [
+      ['E2E-DISCUSSION Que dit la spécification de la réservation ?', 1],
+      ["E2E-DISCUSSION E2E-ANNULATION Ajoutons l'annulation jusqu'à la veille.", 2],
+    ] as const) {
+      await composer.fill(text);
+      await composer.press('Enter');
+      await expect(panel.locator('li.answer')).toHaveCount(answered);
+      await expect(panel.locator('li.answer').last().locator('.note')).not.toBeEmpty();
+    }
+    await panel.getByRole('button', { name: 'Proposer une nouvelle version' }).click();
+    const review = page.locator('sw-proposal-review');
+    await expect(review).toBeVisible();
+
+    await switcher().click();
+    await page.getByRole('option', { name: 'Recette E2E' }).click();
+    const leave = page.getByRole('dialog', { name: 'Quitter sans appliquer la proposition ?' });
+    await expect(leave).toBeVisible();
+    await leave.getByRole('button', { name: 'Annuler' }).click();
+    await expect(review).toBeVisible();
+    await expect(switcher()).toContainText('Aurora E2E');
+    await review.getByRole('button', { name: 'Abandonner' }).click();
   });
 });

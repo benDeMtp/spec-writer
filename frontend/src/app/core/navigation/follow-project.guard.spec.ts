@@ -29,7 +29,7 @@ describe('followProjectGuard', () => {
 
   it('rend le projet courant, puis ouvre la page équivalente', async () => {
     expect(await run('p1')).toBe('/projet/connaissance');
-    expect(follow).toHaveBeenCalledWith('p1');
+    expect(follow).toHaveBeenCalledWith('p1', '/projet/connaissance');
   });
 
   it('un projet inconnu mène à la liste des projets, avec un message', async () => {

@@ -26,6 +26,7 @@ import { ConversationListComponent } from './conversation-list.component';
 import { ConversationThreadComponent, reason } from './conversation-thread.component';
 import { NeedDraftComponent } from './need-draft.component';
 import { ProjectHeadingComponent } from '../../shared/ui/project-heading.component';
+import { ProjectFollower } from '../../core/projects/project-follower';
 
 export { MAX_MESSAGE } from './conversation-thread.component';
 
@@ -215,6 +216,7 @@ export class ConversationPage {
 
   private readonly api = inject(ConversationsApi);
   private readonly projects = inject(ProjectsStore);
+  private readonly follower = inject(ProjectFollower);
   private readonly consent = inject(ConsentGate);
   private readonly location = inject(Location);
   private readonly router = inject(Router);
@@ -339,8 +341,8 @@ export class ConversationPage {
     try {
       const detail = await this.api.get(cid);
       if (detail.projectId !== projectId) {
-        // conversation d'un autre projet : l'accueil du projet courant
-        await this.router.navigateByUrl('/');
+        // 012 : conversation d'un autre projet, ce projet devient courant ; la page se recharge
+        await this.follower.follow(detail.projectId);
         return;
       }
       this.detail.set(detail);

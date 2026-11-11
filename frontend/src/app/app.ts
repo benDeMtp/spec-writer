@@ -3,13 +3,14 @@ import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router
 import { filter } from 'rxjs';
 import { LaunchTokenService } from './core/launch/launch-token.service';
 import { MainNavComponent } from './features/shell/main-nav.component';
+import { ProjectNoticeComponent } from './features/shell/project-notice.component';
 import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 
 /** Shell : lien d'évitement, navigation, zone principale et bandeau d'erreur (T037, FR-029). */
 @Component({
   selector: 'sw-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, ProblemBannerComponent, MainNavComponent],
+  imports: [RouterOutlet, RouterLink, ProblemBannerComponent, MainNavComponent, ProjectNoticeComponent],
   template: `
     <a class="skip" href="#contenu" (click)="focusMain($event)">Aller au contenu</a>
     <div class="layout">
@@ -24,6 +25,7 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
           </p>
         }
         <sw-problem-banner />
+        <sw-project-notice />
         <router-outlet />
       </main>
     </div>

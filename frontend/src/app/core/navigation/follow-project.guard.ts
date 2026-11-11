@@ -23,7 +23,7 @@ export function followProjectGuard(target: string): CanActivateFn {
         problems.show({ code: 'NOT_FOUND', userMessage: "Ce projet n'existe plus.", action: 'NONE' });
         return router.parseUrl('/projets');
       }
-      await follower.follow(id);
+      await follower.follow(id, target);
       return router.parseUrl(target);
     } catch {
       // Le bandeau affiche la cause.
