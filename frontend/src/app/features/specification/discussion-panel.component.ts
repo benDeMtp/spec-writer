@@ -41,9 +41,22 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
           <button mat-button type="button" [disabled]="busy() || running()" (click)="fresh()">
             Nouvelle discussion
           </button>
-          <button mat-button type="button" (click)="closed.emit()">Fermer</button>
+          <button
+            mat-button
+            type="button"
+            [disabled]="proposing()"
+            [attr.aria-describedby]="proposing() ? 'drafting-hint' : null"
+            (click)="closed.emit()"
+          >
+            Fermer
+          </button>
         </div>
       </header>
+      @if (proposing()) {
+        <p id="drafting-hint" class="hint">
+          L’agent rédige une nouvelle version : le panneau pourra se fermer quand elle sera prête.
+        </p>
+      }
       @if (view(); as d) {
         <p class="context">Contexte : {{ d.specificationName }}, version {{ d.version }}</p>
         @if (displayedVersion() !== d.version) {
@@ -90,8 +103,8 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
       }
       @if (unchanged(); as why) {
         <p class="unchanged" role="note">
-          Aucun changement établi par la discussion : {{ why }} Précisez ce qui doit changer dans un
-          message, puis proposez à nouveau.
+          Aucun changement établi par la discussion : {{ sentence(why) }} Précisez ce qui doit
+          changer dans un message, puis proposez à nouveau.
         </p>
       }
       <sw-conversation-thread
@@ -133,6 +146,7 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
     .context {
       margin: 0.25rem 0 0.5rem;
       font-weight: 600;
+      overflow-wrap: anywhere;
     }
     .older {
       margin: 0 0 0.5rem;
@@ -187,6 +201,8 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   readonly closed = output<void>();
   /** Nouvelle version proposée d'après la discussion, à relire à côté du document. */
   readonly proposed = output<Proposal>();
+  /** Rédaction en cours : la page ne ferme pas le panneau et prévient avant de quitter. */
+  readonly drafting = output<boolean>();
 
   private readonly api = inject(ConversationsApi);
   private readonly consent = inject(ConsentGate);
@@ -251,12 +267,13 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
     this.proposingReasoning.set('');
     this.proposingSince.set(Date.now());
     this.proposing.set(true);
+    this.drafting.emit(true);
     this.thread().say('L’agent rédige une nouvelle version de la spécification.');
     try {
       const { turnId } = await this.api.propose(view.conversationId);
       this.stream = this.api.follow(view.conversationId, turnId, (e) => void this.onProposal(e));
     } catch (e) {
-      this.proposing.set(false);
+      this.endProposal();
       this.problem.set(reason(e, 'La proposition n’a pas pu démarrer. Réessayez.'));
     }
   }
@@ -296,7 +313,16 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** La raison du modèle, terminée par un point, avant la phrase qui suit. */
+  protected sentence(text: string): string {
+    const t = text.trim();
+    return !t || /[.!?…]$/.test(t) ? t : `${t}.`;
+  }
+
   private endProposal(): void {
+    if (this.proposing()) {
+      this.drafting.emit(false);
+    }
     this.proposing.set(false);
     this.stream?.close();
     this.stream = null;

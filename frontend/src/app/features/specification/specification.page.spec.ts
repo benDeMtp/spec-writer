@@ -202,10 +202,13 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     await open(SESSION, [{ number: 1 }, { number: 2 }]);
     // le focus ne se vérifie que sur un élément du document
     document.body.appendChild(el);
+    const navigateTo = vi.spyOn(TestBed.inject(Router), 'navigate');
     const discuss = button("Discuter avec l'IA");
     expect(discuss.getAttribute('aria-expanded')).toBe('false');
     discuss.click();
     await settle();
+    // le panneau ouvert est dans l'adresse : un rechargement le rouvre
+    expect(navigateTo.mock.calls[0][1]?.queryParams).toEqual({ discussion: 1, edit: null });
 
     ctrl
       .expectOne({ method: 'POST', url: '/api/sessions/s1/discussion' })
@@ -278,7 +281,28 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     await settle();
     expect(el.querySelector('sw-discussion-panel')).toBeNull();
     expect(document.activeElement).toBe(discuss);
+    expect(navigateTo.mock.calls.at(-1)![1]?.queryParams).toEqual({ discussion: null, edit: null });
     el.remove();
+  });
+
+  it('une proposition en attente n’est pas quittée sans confirmation', async () => {
+    await open(SESSION, [{ number: 1 }]);
+    expect(await fixture.componentInstance.canLeave()).toBe(true);
+
+    fixture.componentInstance['discussionProposal'].set({
+      proposalId: 'p1',
+      baseVersion: 1,
+      proposed: SPEC,
+      unifiedDiff: '',
+    });
+    await settle();
+    const leaving = fixture.componentInstance.canLeave();
+    await settle();
+    expect(document.querySelector('mat-dialog-container')?.textContent).toContain(
+      'Quitter sans appliquer la proposition ?',
+    );
+    confirmButton('Annuler').click();
+    expect(await leaving).toBe(false);
   });
 
   it("supprime une version après une confirmation qui la nomme et prévient que Jira n'est pas modifié", async () => {

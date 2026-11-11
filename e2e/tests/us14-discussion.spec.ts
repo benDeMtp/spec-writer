@@ -80,7 +80,7 @@ test.describe.serial('011 discussion d’une spécification', () => {
     await expect(answers().first().locator('.note')).toContainText('premier use case');
     await expect(panel().locator('.context-mark').first()).toHaveText('Contexte : version 1 de la spécification');
     await answers().first().locator('.note a').first().click();
-    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/versions/1$`));
+    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/versions/1\\?discussion=1$`));
     await expect(page.locator('#UC-01')).toBeFocused();
   });
 
@@ -95,7 +95,7 @@ test.describe.serial('011 discussion d’une spécification', () => {
     await expectNoA11yViolations(page);
 
     await review.getByRole('button', { name: 'Appliquer' }).click();
-    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/versions/2$`));
+    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/versions/2\\?discussion=1$`));
     await expect(panel()).toContainText(/Contexte : .+, version 2/);
     const versions = page.getByRole('navigation', { name: 'Versions de la spécification' });
     const origin = versions.getByRole('link', { name: 'Issue de la discussion' });
@@ -123,6 +123,13 @@ test.describe.serial('011 discussion d’une spécification', () => {
     await panel().getByRole('button', { name: 'Proposer une nouvelle version' }).click();
     const review = page.locator('sw-proposal-review');
     await expect(review).toContainText('elle deviendra la version 3');
+    await expect(page).toHaveURL(/\?discussion=1$/);
+    // quitter l'écran perdrait la proposition : confirmation d'abord
+    await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Conversation' }).click();
+    const leave = page.getByRole('dialog', { name: 'Quitter sans appliquer la proposition ?' });
+    await expect(leave).toBeVisible();
+    await leave.getByRole('button', { name: 'Annuler' }).click();
+    await expect(review).toBeVisible();
     await review.getByRole('button', { name: 'Abandonner' }).click();
     await expect(review).toHaveCount(0);
     await expect(page.getByText('Proposition abandonnée : la spécification est inchangée.')).toBeVisible();

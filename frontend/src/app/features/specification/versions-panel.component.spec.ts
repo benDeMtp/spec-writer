@@ -50,7 +50,7 @@ describe('VersionsPanelComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
     const origins = Array.from(el.querySelectorAll('a.origin'));
     expect(origins.map((a) => [a.textContent?.trim(), a.getAttribute('href')])).toEqual([
-      ['Issue de la discussion', '/conversations/c1'],
+      ['Issue de la discussion : ouvrir la conversation', '/conversations/c1'],
     ]);
     expect(el.querySelectorAll('li')[2].textContent).toContain('Issue de la discussion');
   });

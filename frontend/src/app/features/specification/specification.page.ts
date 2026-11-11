@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  HostListener,
   computed,
   effect,
   inject,
@@ -15,7 +16,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
 import { firstValueFrom } from 'rxjs';
 import { JiraApi, PushOutcome } from '../../core/jira/jira.api';
@@ -162,8 +163,10 @@ const ATTACHMENT_REF = 'joint:';
                 mat-flat-button
                 type="button"
                 [attr.aria-expanded]="discussing() && !locked()"
-                [disabled]="locked()"
-                [attr.aria-describedby]="locked() ? 'locked-reason' : null"
+                [disabled]="locked() || drafting()"
+                [attr.aria-describedby]="
+                  locked() ? 'locked-reason' : drafting() ? 'drafting-hint' : null
+                "
                 (click)="toggleDiscussion()"
               >
                 Discuter avec l'IA
@@ -236,7 +239,9 @@ const ATTACHMENT_REF = 'joint:';
                 <sw-proposal-review
                   [sessionId]="id()"
                   [proposal]="p"
-                  [title]="discussionProposal() ? 'Nouvelle version proposée' : 'Proposition de l’IA'"
+                  [title]="
+                    discussionProposal() ? 'Nouvelle version proposée' : 'Proposition de l’IA'
+                  "
                   (applied)="onApplied($event)"
                   (discarded)="onDiscarded()"
                 />
@@ -459,6 +464,17 @@ const ATTACHMENT_REF = 'joint:';
               </aside>
             }
           </div>
+          @if (discussing() && !locked()) {
+            <!-- petit écran : le panneau est sous le document, ce bouton y ramène -->
+            <button
+              mat-stroked-button
+              type="button"
+              class="back-to-discussion"
+              (click)="backToDiscussion()"
+            >
+              Revenir à la discussion
+            </button>
+          }
         </div>
         @if (discussing() && !locked()) {
           <div class="discussion-column">
@@ -470,6 +486,7 @@ const ATTACHMENT_REF = 'joint:';
               [internalLink]="showSection"
               [reviewing]="!!discussionProposal()"
               (proposed)="onProposed($event)"
+              (drafting)="drafting.set($event)"
               (closed)="closeDiscussion()"
             />
           </div>
@@ -530,6 +547,14 @@ const ATTACHMENT_REF = 'joint:';
       top: 1rem;
       max-height: calc(100vh - 2rem);
       overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .workspace.discussing .side {
+      position: static;
+      order: -1;
+    }
+    .back-to-discussion {
+      display: none;
     }
     .layout {
       display: grid;
@@ -545,6 +570,13 @@ const ATTACHMENT_REF = 'joint:';
     @media (max-width: 64rem) {
       .workspace.discussing {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .back-to-discussion {
+        display: block;
+        position: sticky;
+        bottom: 1rem;
+        margin: 1rem 0 0 auto;
+        background: var(--sw-sheet);
       }
       .discussion-column {
         position: static;
@@ -667,6 +699,9 @@ export class SpecificationPage {
   });
   /** Discussion avec l'IA ouverte à côté du document (011). */
   protected readonly discussing = signal(false);
+  /** L'agent rédige une nouvelle version : le panneau reste ouvert. */
+  protected readonly drafting = signal(false);
+  private readonly route = inject(ActivatedRoute);
 
   /**
    * Proposition transmise par la page précédente : le besoin proposé comme modification assistée
@@ -758,12 +793,53 @@ export class SpecificationPage {
 
   protected toggleDiscussion(): void {
     this.discussing.update((open) => !open);
+    void this.syncDiscussionUrl();
   }
 
   /** Fermeture du panneau : le focus revient au bouton qui l'a ouvert. */
   protected closeDiscussion(): void {
     this.discussing.set(false);
+    void this.syncDiscussionUrl();
     setTimeout(() => this.discussButton()?.nativeElement.focus());
+  }
+
+  /** Petit écran : le panneau est sous le document ; le focus revient à sa saisie. */
+  protected backToDiscussion(): void {
+    this.discussionPanel()?.focus();
+  }
+
+  /** `?discussion=1` suit le panneau : un rechargement ou un lien le rouvre. */
+  private syncDiscussionUrl(): Promise<boolean> {
+    return this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { discussion: this.discussing() ? 1 : null, edit: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  /**
+   * Une rédaction ou une proposition en attente serait perdue en quittant l'écran : confirmation
+   * (garde de la route, 011).
+   */
+  async canLeave(): Promise<boolean> {
+    if (!this.drafting() && !this.reviewed()) {
+      return true;
+    }
+    return this.confirm({
+      title: 'Quitter sans appliquer la proposition ?',
+      message: this.drafting()
+        ? 'L’agent rédige une nouvelle version : elle sera perdue si vous quittez cet écran.'
+        : 'La proposition n’est pas appliquée : elle sera perdue si vous quittez cet écran.',
+      confirm: 'Quitter',
+    });
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  protected warnBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.drafting() || this.reviewed()) {
+      event.preventDefault();
+    }
   }
 
   /**
@@ -810,7 +886,9 @@ export class SpecificationPage {
   protected async onApplied(version: Specification): Promise<void> {
     this.closeReview();
     this.status.set(`Version ${version.number} créée. Jira n'a pas été modifié.`);
-    await this.router.navigate(['/sessions', this.id(), 'versions', String(version.number)]);
+    await this.router.navigate(['/sessions', this.id(), 'versions', String(version.number)], {
+      queryParams: this.discussing() ? { discussion: 1 } : {},
+    });
     await this.discussionPanel()?.refresh();
     // la nouvelle version s'affiche : le focus va à son titre
     setTimeout(() => this.document.getElementById('introduction')?.focus());

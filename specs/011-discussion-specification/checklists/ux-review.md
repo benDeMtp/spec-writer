@@ -34,8 +34,26 @@
 - [x] axe sans violation sur la spécification avec la discussion ouverte, la relecture et la
   confirmation (E2E `us14-discussion`).
 
+## Seconde revue (Web Interface Guidelines), corrigée
+
+- [x] « Fermer » pendant la rédaction perdait la proposition sans le dire : il attend la fin de la
+  rédaction, avec la raison écrite (`aria-describedby`).
+- [x] Quitter l'écran pendant une rédaction ou une relecture perdait la proposition : confirmation
+  « Quitter sans appliquer la proposition ? » (garde de la route) et avertissement du navigateur.
+- [x] Le panneau ouvert est dans l'adresse (`?discussion=1`), gardé en changeant de version et
+  après « Appliquer » : un rechargement ou un lien le rouvre.
+- [x] Petit écran : « Revenir à la discussion » reste en bas de l'écran pendant la lecture du
+  document, et rend le focus à la saisie.
+- [x] La liste des versions reste en tête quand la discussion est ouverte ; le défilement du
+  panneau ne se prolonge plus sur la page (`overscroll-behavior: contain`).
+- [x] Retouches : nom long de la spécification coupé, raison du modèle terminée par un point,
+  lien « Issue de la discussion » qui dit où il mène, statut juste pour un ticket déjà importé.
+
 ## Écarts gardés
 
 - La réflexion pendant la rédaction est dans un `details` replié : son contenu n'est pas annoncé
   au fil de l'eau (trop bavard) ; le titre d'activité et le chronomètre restent visibles.
 - Le panneau ne se redimensionne pas à la souris ; sa largeur va de 22 à 30 rem.
+- Le lien « Discussion du …, message n » ouvre la conversation, pas le message lui-même.
+- « Abandonner » ne demande pas de confirmation : rien n'est créé, mais la proposition est perdue.
+- Les libellés gardent l'apostrophe droite (« Discuter avec l'IA »), comme le reste de l'outil.

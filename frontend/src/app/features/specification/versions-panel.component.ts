@@ -27,6 +27,7 @@ const ORIGINS: Record<VersionSummary['origin'], string> = {
           <li>
             <a
               [routerLink]="['/sessions', sessionId(), 'versions', v.number]"
+              queryParamsHandling="preserve"
               [attr.aria-current]="v.number === current() ? 'page' : null"
               [class.current]="v.number === current()"
             >
@@ -34,12 +35,14 @@ const ORIGINS: Record<VersionSummary['origin'], string> = {
             </a>
             <span class="meta">
               @if (v.conversationId) {
-                <a class="origin" [routerLink]="['/conversations', v.conversationId]">{{
-                  origin(v)
-                }}</a>
+                <a class="origin" [routerLink]="['/conversations', v.conversationId]"
+                  >{{ origin(v)
+                  }}<span class="sw-visually-hidden"> : ouvrir la conversation</span></a
+                >
               } @else {
                 {{ origin(v) }}
-              },
+              }
+              ,
               {{ v.createdAt | date: 'd MMM y, HH:mm' }}
             </span>
           </li>

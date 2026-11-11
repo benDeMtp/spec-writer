@@ -123,7 +123,7 @@ export class ItemDetailPage {
       return;
     }
     this.importing.set(true);
-    this.status.set("Import du ticket et structuration par l'IA…");
+    this.status.set('Import du ticket, ou ouverture de sa spécification…');
     try {
       const session = await this.api.importIssue(this.key());
       await this.router.navigate(

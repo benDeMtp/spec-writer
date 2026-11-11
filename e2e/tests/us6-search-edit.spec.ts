@@ -121,7 +121,7 @@ test.describe.serial('US6 recherche et modification assistée', () => {
     await expectNoA11yViolations(page);
 
     await page.getByRole('button', { name: 'Appliquer' }).click();
-    await expect(page).toHaveURL(new RegExp(`${sessionUrl}/versions/2$`));
+    await expect(page).toHaveURL(new RegExp(`${sessionUrl}/versions/2\\?discussion=1$`));
     await expect(page.getByRole('heading', { level: 1, name: 'Réservation du parking visiteurs avec annulation' }))
       .toBeVisible();
     await expect(page.getByText('Liée au ticket')).toContainText('modifications à envoyer');

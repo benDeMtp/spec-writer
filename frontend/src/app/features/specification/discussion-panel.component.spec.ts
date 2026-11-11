@@ -182,6 +182,8 @@ describe('DiscussionPanelComponent', () => {
     await settle(fixture);
     const proposed: unknown[] = [];
     fixture.componentInstance.proposed.subscribe((p) => proposed.push(p));
+    const drafting: boolean[] = [];
+    fixture.componentInstance.drafting.subscribe((d) => drafting.push(d));
     button('Proposer une nouvelle version').click();
     await settle(fixture);
     ctrl
@@ -202,6 +204,10 @@ describe('DiscussionPanelComponent', () => {
       'Je reprends l’annulation établie.',
     );
     expect(button('Proposer une nouvelle version').disabled).toBe(true);
+    // fermer perdrait la rédaction : « Fermer » attend qu'elle soit finie
+    expect(button('Fermer').disabled).toBe(true);
+    expect(el.querySelector('#drafting-hint')?.textContent).toContain('quand elle sera prête');
+    expect(drafting).toEqual([true]);
 
     send({
       type: 'done',
@@ -218,6 +224,8 @@ describe('DiscussionPanelComponent', () => {
 
     expect(proposed).toHaveLength(1);
     expect(el.querySelector('.thinking')).toBeNull();
+    expect(button('Fermer').disabled).toBe(false);
+    expect(drafting).toEqual([true, false]);
     // pendant la relecture, aucune autre proposition
     fixture.componentRef.setInput('reviewing', true);
     await settle(fixture);
@@ -240,12 +248,13 @@ describe('DiscussionPanelComponent', () => {
       historyTruncated: false,
       durationMs: 20,
       unchanged: true,
-      reason: 'La discussion n’a posé que des questions.',
+      reason: 'La discussion n’a posé que des questions',
     });
     await settle(fixture);
 
     expect(el.querySelector('.unchanged')?.textContent).toContain(
-      'Aucun changement établi par la discussion : La discussion n’a posé que des questions.',
+      // la raison du modèle reçoit son point final avant la phrase suivante
+      'Aucun changement établi par la discussion : La discussion n’a posé que des questions. Précisez',
     );
     expect(button('Proposer une nouvelle version').disabled).toBe(false);
   });
