@@ -127,7 +127,7 @@ describe('QuestionnairePage', () => {
   it('une suggestion cliquée remplit la réponse, puis la réponse est envoyée', async () => {
     await open(session());
     const card = el.querySelector('sw-question-card') as HTMLElement;
-    (card.querySelector('mat-chip-option') as HTMLElement).click();
+    (card.querySelector('mat-chip-option [role=option]') as HTMLElement).click();
     await settle(fixture);
     expect(card.querySelector('textarea')!.value).toBe('Oui');
     button(card, 'Enregistrer la réponse')!.click();
