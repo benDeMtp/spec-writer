@@ -2,15 +2,18 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   OnDestroy,
+  afterRenderEffect,
   computed,
   inject,
   input,
   model,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -36,6 +39,9 @@ import { MentionDirective } from '../../shared/ui/mention.directive';
 import { PerimeterStepComponent, perimeterAnchor } from './perimeter-step.component';
 
 export const MAX_MESSAGE = 8_000;
+
+/** En deçà de cette distance (px) entre la fin du fil et le champ de saisie, le fil suit les messages. */
+export const FOLLOW_TOLERANCE = 80;
 
 const STAGES: Record<ThinkingStage, string> = {
   MEMORY: 'Résumé des échanges anciens',
@@ -199,6 +205,7 @@ const KINDS: Record<SourceKind, string> = {
           }
         }
       </ol>
+      <div #end class="end"></div>
     </div>
 
     <ng-content />
@@ -208,6 +215,13 @@ const KINDS: Record<SourceKind, string> = {
       <p class="problem" role="alert">{{ problem() }}</p>
     }
 
+    <div #dock class="dock">
+    @if (!following() && messages().length) {
+      <button mat-stroked-button type="button" class="to-end" (click)="scrollToEnd(true)">
+        Aller au dernier message
+      </button>
+    }
+    <ng-content select="[swComposerTop]" />
     <form class="composer" (ngSubmit)="send()" novalidate>
       <label for="composer-text" class="sw-visually-hidden">Votre question</label>
       <textarea
@@ -234,13 +248,17 @@ const KINDS: Record<SourceKind, string> = {
         <span id="composer-help" class="hint">
           Entrée envoie, Maj+Entrée va à la ligne. {{ text().length }} / {{ max }}
         </span>
-        @if (running()) {
-          <button mat-stroked-button type="button" (click)="stop()">Arrêter</button>
-        } @else {
-          <button mat-flat-button type="submit" [disabled]="!text().trim()">Envoyer</button>
-        }
+        <span class="actions">
+          <ng-content select="[swComposerAction]" />
+          @if (running()) {
+            <button mat-stroked-button type="button" (click)="stop()">Arrêter</button>
+          } @else {
+            <button mat-flat-button type="submit" [disabled]="!text().trim()">Envoyer</button>
+          }
+        </span>
       </div>
     </form>
+    </div>
   `,
   styles: `
     .log {
@@ -429,7 +447,16 @@ const KINDS: Record<SourceKind, string> = {
       padding: 0.5rem 0.75rem;
       border-left: 4px solid var(--mat-sys-error, #b3261e);
     }
-    .composer {
+    /* le champ de saisie, et ce que l'écran y ajoute (proposition d'une version), restent visibles */
+    .to-end {
+      position: absolute;
+      bottom: calc(100% + 0.5rem);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--sw-sheet);
+      box-shadow: 0 1px 4px color-mix(in srgb, var(--sw-ink) 25%, transparent);
+    }
+    .dock {
       position: sticky;
       bottom: 0;
       margin-top: 1.5rem;
@@ -449,11 +476,18 @@ const KINDS: Record<SourceKind, string> = {
     }
     .bar {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
       margin-top: 0.4rem;
       font-size: var(--sw-step--1);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.5rem;
     }
   `,
 })
@@ -481,6 +515,15 @@ export class ConversationThreadComponent implements OnDestroy {
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly composer = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
+  private readonly end = viewChild<ElementRef<HTMLElement>>('end');
+  private readonly dock = viewChild<ElementRef<HTMLElement>>('dock');
+  /**
+   * Le fil suit les nouveaux messages et la réponse en flux tant que la personne est en bas ; il
+   * cesse quand elle remonte, et reprend quand elle redescend, envoie un message ou demande le
+   * dernier message.
+   */
+  protected readonly following = signal(true);
+  private readonly onScroll = (): void => this.following.set(this.atEnd());
 
   protected readonly max = MAX_MESSAGE;
   protected readonly text = signal('');
@@ -498,6 +541,51 @@ export class ConversationThreadComponent implements OnDestroy {
   protected readonly stage = signal<ThinkingStage | null>(null);
   readonly running = computed(() => this.messages().some((m) => m.state === 'RUNNING'));
   private stream: TurnStream | null = null;
+
+  constructor() {
+    // tout défilement compte : celui de la page, ou celui du panneau qui contient le fil
+    document.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
+    inject(DestroyRef).onDestroy(() =>
+      document.removeEventListener('scroll', this.onScroll, { capture: true }),
+    );
+    afterRenderEffect(() => {
+      this.messages();
+      this.stage();
+      this.compacting();
+      if (untracked(this.following)) {
+        this.reveal();
+      }
+    });
+  }
+
+  /** Va au dernier message et reprend le suivi ; `focus` rend la main au champ de saisie. */
+  scrollToEnd(focus = false): void {
+    this.following.set(true);
+    this.reveal();
+    if (focus) {
+      this.focus();
+    }
+  }
+
+  /** Vrai si la fin du fil est visible au-dessus du champ de saisie, à la tolérance près. */
+  private atEnd(): boolean {
+    const end = this.end()?.nativeElement;
+    const dock = this.dock()?.nativeElement;
+    if (!end || !dock) {
+      return true;
+    }
+    return end.getBoundingClientRect().top - dock.getBoundingClientRect().top <= FOLLOW_TOLERANCE;
+  }
+
+  /** Amène la fin du fil juste au-dessus du champ de saisie, qui reste collé en bas. */
+  private reveal(): void {
+    const end = this.end()?.nativeElement;
+    if (!end || typeof end.scrollIntoView !== 'function') {
+      return;
+    }
+    end.style.scrollMarginBottom = `${(this.dock()?.nativeElement.offsetHeight ?? 0) + 8}px`;
+    end.scrollIntoView({ block: 'end' });
+  }
 
   ngOnDestroy(): void {
     this.stream?.close();
@@ -687,6 +775,7 @@ export class ConversationThreadComponent implements OnDestroy {
       }
       this.turnStart.set(Date.now());
       const started = await this.api.send(conversationId, text);
+      this.following.set(true);
       this.text.set('');
       this.messages.update((list) => [
         ...list,

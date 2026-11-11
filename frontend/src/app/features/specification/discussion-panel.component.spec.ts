@@ -186,11 +186,41 @@ describe('DiscussionPanelComponent', () => {
     fixture.componentInstance.drafting.subscribe((d) => drafting.push(d));
     button('Proposer une nouvelle version').click();
     await settle(fixture);
-    ctrl
-      .expectOne({ method: 'POST', url: '/api/conversations/c1/proposals' })
-      .flush({ turnId: 't9' });
+    ctrl.expectOne({ method: 'POST', url: '/api/conversations/c1/proposals/candidates' }).flush({
+      changes: [
+        { text: 'Ajouter l’annulation', origin: 'USER' },
+        { text: 'Ajouter un délai de rétractation', origin: 'AGENT' },
+      ],
+    });
+    await settle(fixture);
+    const boxes = Array.from(el.querySelectorAll<HTMLInputElement>('sw-change-picker input'));
+    expect(boxes.map((b) => b.checked)).toEqual([true, true]);
+    expect(el.querySelector('sw-change-picker')?.textContent).toContain('dit par vous');
+    expect(el.querySelector('sw-change-picker')?.textContent).toContain('proposé par l’agent');
+    expect(document.activeElement).toBe(boxes[0]);
+    expect(button('Proposer une nouvelle version').disabled).toBe(true);
+    boxes[1].click();
+    const other = el.querySelector<HTMLTextAreaElement>('#other-change')!;
+    other.value = '- Notifier le client\n\n';
+    other.dispatchEvent(new Event('input'));
+    await settle(fixture);
+    button('Rédiger la version').click();
+    await settle(fixture);
+    const start = ctrl.expectOne({ method: 'POST', url: '/api/conversations/c1/proposals' });
+    expect(start.request.body).toEqual({ changes: ['Ajouter l’annulation', 'Notifier le client'] });
+    start.flush({
+      turnId: 't9',
+      message: {
+        ...message('u2', 3, 'USER'),
+        text: 'Changements retenus pour la nouvelle version :\n- Ajouter l’annulation',
+        steps: undefined,
+        sources: undefined,
+      },
+    });
     await settle(fixture);
 
+    expect(el.querySelector('sw-change-picker')).toBeNull();
+    expect(el.textContent).toContain('Changements retenus pour la nouvelle version');
     expect(opened).toContain('/api/conversations/c1/turns/t9/events');
     const send = listeners.at(-1)!;
     send({ type: 'started', at: '2026-11-11T09:00:00Z' });
@@ -232,16 +262,51 @@ describe('DiscussionPanelComponent', () => {
     expect(el.querySelector('#propose-hint')?.textContent).toContain('attend votre relecture');
   });
 
-  it('dit quand la discussion n’a établi aucun changement, et pourquoi', async () => {
+  async function confirmOne() {
+    button('Proposer une nouvelle version').click();
+    await settle(fixture);
+    ctrl
+      .expectOne({ method: 'POST', url: '/api/conversations/c1/proposals/candidates' })
+      .flush({ changes: [{ text: 'Ajouter l’annulation', origin: 'USER' }] });
+    await settle(fixture);
+    button('Rédiger la version').click();
+    await settle(fixture);
+    ctrl
+      .expectOne({ method: 'POST', url: '/api/conversations/c1/proposals' })
+      .flush({ turnId: 't9', message: null });
+    await settle(fixture);
+  }
+
+  it('sans changement relevé, seul le champ libre est proposé ; Échap annule', async () => {
     await settle(fixture);
     await answer('c1', 3, [message('u1', 1, 'USER'), message('a1', 2, 'AGENT')]);
 
     button('Proposer une nouvelle version').click();
     await settle(fixture);
     ctrl
-      .expectOne({ method: 'POST', url: '/api/conversations/c1/proposals' })
-      .flush({ turnId: 't9' });
+      .expectOne({ method: 'POST', url: '/api/conversations/c1/proposals/candidates' })
+      .flush({ changes: [] });
     await settle(fixture);
+
+    const picker = el.querySelector('sw-change-picker')!;
+    expect(picker.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);
+    expect(picker.textContent).toContain('L’agent n’a relevé aucun changement');
+    expect(document.activeElement?.id).toBe('other-change');
+    expect(button('Rédiger la version').disabled).toBe(true);
+    expect(picker.textContent).toContain('Cochez ou décrivez au moins un changement.');
+
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await settle(fixture);
+    expect(el.querySelector('sw-change-picker')).toBeNull();
+    expect(document.activeElement).toBe(button('Proposer une nouvelle version'));
+    ctrl.expectNone({ method: 'POST', url: '/api/conversations/c1/proposals' });
+  });
+
+  it('dit quand la discussion n’a établi aucun changement, et pourquoi', async () => {
+    await settle(fixture);
+    await answer('c1', 3, [message('u1', 1, 'USER'), message('a1', 2, 'AGENT')]);
+
+    await confirmOne();
     listeners.at(-1)!({
       type: 'done',
       state: 'COMPLETE',
@@ -263,12 +328,7 @@ describe('DiscussionPanelComponent', () => {
     await settle(fixture);
     await answer('c1', 3, [message('u1', 1, 'USER'), message('a1', 2, 'AGENT')]);
 
-    button('Proposer une nouvelle version').click();
-    await settle(fixture);
-    ctrl
-      .expectOne({ method: 'POST', url: '/api/conversations/c1/proposals' })
-      .flush({ turnId: 't9' });
-    await settle(fixture);
+    await confirmOne();
     listeners.at(-1)!({
       type: 'error',
       code: 'LLM_INVALID_OUTPUT',

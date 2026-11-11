@@ -80,6 +80,59 @@ describe('ConversationThreadComponent', () => {
     el = fixture.nativeElement;
   });
 
+  it('suit les nouveaux messages tant qu’on est en bas, et propose d’y revenir sinon', async () => {
+    document.body.appendChild(el);
+    const scrolled: Element[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    let endTop = 0;
+    const rect = (top: number) => ({ top }) as DOMRect;
+    try {
+      fixture.componentRef.setInput('conversationId', 'c1');
+      fixture.componentInstance.messages.set([user('u1', 1), agent('a1', 2, null)]);
+      await settle(fixture);
+      const end = el.querySelector<HTMLElement>('.end')!;
+      end.getBoundingClientRect = () => rect(endTop);
+      el.querySelector<HTMLElement>('.dock')!.getBoundingClientRect = () => rect(500);
+      expect(scrolled.at(-1)).toBe(end);
+
+      // la personne remonte : le fil ne bouge plus, le bouton apparaît
+      endTop = 900;
+      document.dispatchEvent(new Event('scroll'));
+      scrolled.length = 0;
+      fixture.componentInstance.messages.update((l) => [...l, user('u2', 3)]);
+      await settle(fixture);
+      expect(scrolled).toEqual([]);
+      const toEnd = Array.from(el.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Aller au dernier message',
+      )!;
+      expect(toEnd).toBeTruthy();
+
+      // le bouton ramène en bas et rend la main au champ de saisie
+      toEnd.click();
+      endTop = 450;
+      await settle(fixture);
+      expect(scrolled).toContain(end);
+      expect(document.activeElement?.id).toBe('composer-text');
+      expect(el.textContent).not.toContain('Aller au dernier message');
+
+      // redescendre à la main reprend aussi le suivi
+      endTop = 900;
+      document.dispatchEvent(new Event('scroll'));
+      await settle(fixture);
+      expect(el.textContent).toContain('Aller au dernier message');
+      endTop = 560;
+      document.dispatchEvent(new Event('scroll'));
+      await settle(fixture);
+      expect(el.textContent).not.toContain('Aller au dernier message');
+    } finally {
+      Element.prototype.scrollIntoView = original;
+      el.remove();
+    }
+  });
+
   it('repère « Contexte : version N » devant la première réponse de chaque version', async () => {
     fixture.componentRef.setInput('conversationId', 'c1');
     fixture.componentInstance.messages.set([

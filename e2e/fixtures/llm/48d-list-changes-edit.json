@@ -1,0 +1,7 @@
+{
+  "operation": "list-changes",
+  "userContains": ["E2E-EDIT"],
+  "response": {
+    "changes": [{ "text": "Ajouter l'annulation d'une réservation jusqu'à la veille", "origin": "USER" }]
+  }
+}

@@ -693,8 +693,23 @@ modules à vérifier sont repris en hypothèses.
 
   Vérifier que les E2E existants de la conversation (`us13`, `us14`) restent verts avec les
   nouvelles réponses rejouées.
+- [X] T055 Retour du mainteneur sur la discussion d'une spécification (011) :
+  - « Proposer une nouvelle version » passe à côté d'« Envoyer », dans la zone de saisie collée en
+    bas du panneau (`conversation-thread` : emplacements `swComposerTop` et `swComposerAction`).
+  - Avant la rédaction, l'agent relève les changements que la discussion avance (opération
+    `list-changes`, prompt `list-changes.txt`, `POST /api/conversations/{cid}/proposals/candidates`).
+    `sw-change-picker` les montre cochés, « dit par vous » ou « proposé par l'agent », avec un
+    champ « Autre changement ». « Rédiger la version » ajoute à la discussion le message
+    « Changements retenus pour la nouvelle version : … » au nom de la personne, puis rédige
+    (`POST /proposals` `{ changes }`, qui rend aussi ce message). Les changements sont alors
+    établis et tracés, et « aucun changement établi » devient rare.
+  - Le fil suit les nouveaux messages et la réponse en flux tant que la personne est en bas ; il
+    s'arrête quand elle remonte, et « Aller au dernier message » y ramène. Envoyer un message
+    reprend le suivi. Valable pour l'écran Conversation et le panneau de discussion.
+  - Évaluation : métriques `changesRecall` et `changesPrecision` (volet discussion).
 - [ ] T053 **Avec l'accord de l'utilisateur** : lancer l'évaluation réelle
-  `./mvnw -pl backend verify -Peval -Dtest=PerimeterEval`. Ajuster le prompt `converse-plan` si
+  `./mvnw -pl backend verify -Peval -Dtest=PerimeterEval`, puis `DiscussionEval` pour
+  l'opération `list-changes` de T055. Ajuster le prompt `converse-plan` si
   le rappel est inférieur à 0,9, puis fixer `baseline.json`.
 - [ ] T054 Faire dérouler le quickstart complet (1 à 15) par l'utilisateur sur le jar, avec une
   vraie racine (rv) : test manuel du mainteneur.

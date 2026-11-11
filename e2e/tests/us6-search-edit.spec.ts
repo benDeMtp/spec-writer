@@ -112,6 +112,7 @@ test.describe.serial('US6 recherche et modification assistée', () => {
     await composer.press('Enter');
     await expect(panel.locator('li.answer .note').last()).toContainText('C\'est noté');
     await panel.getByRole('button', { name: 'Proposer une nouvelle version' }).click();
+    await panel.getByRole('button', { name: 'Rédiger la version' }).click();
     await expect(page.getByRole('heading', { name: 'Nouvelle version proposée' })).toBeFocused();
     const diff = page.getByRole('region', { name: 'Différences avec la version actuelle' });
     await expect(diff).toBeVisible();

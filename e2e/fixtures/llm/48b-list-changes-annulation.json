@@ -1,0 +1,10 @@
+{
+  "operation": "list-changes",
+  "userContains": ["E2E-ANNULATION"],
+  "response": {
+    "changes": [
+      { "text": "Ajouter l'annulation d'une réservation jusqu'à la veille", "origin": "USER" },
+      { "text": "Prévenir le demandeur par courriel quand sa réservation est annulée", "origin": "AGENT" }
+    ]
+  }
+}

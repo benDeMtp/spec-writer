@@ -87,6 +87,22 @@ test.describe.serial('011 discussion d’une spécification', () => {
   test('D3 : proposer une nouvelle version, la relire, l’appliquer', async () => {
     await say("E2E-DISCUSSION E2E-ANNULATION Ajoutons l'annulation jusqu'à la veille.", 2);
     await panel().getByRole('button', { name: 'Proposer une nouvelle version' }).click();
+    const picker = panel().getByRole('group', { name: 'Changements à intégrer' });
+    const said = picker.getByRole('checkbox', { name: /Ajouter l'annulation d'une réservation/ });
+    await expect(said).toBeFocused();
+    await expect(said).toBeChecked();
+    await expect(picker).toContainText('dit par vous');
+    const proposedByAgent = picker.getByRole('checkbox', { name: /Prévenir le demandeur/ });
+    await expect(proposedByAgent).toBeChecked();
+    await expect(picker).toContainText('proposé par l’agent');
+    await expectNoA11yViolations(page);
+    await proposedByAgent.uncheck();
+    await picker.getByRole('button', { name: 'Rédiger la version' }).click();
+    // les changements retenus entrent dans la discussion, au nom de la personne
+    await expect(panel().locator('[role="log"]')).toContainText(
+      "Changements retenus pour la nouvelle version : - Ajouter l'annulation d'une réservation jusqu'à la veille",
+    );
+    await expect(panel().locator('[role="log"]')).not.toContainText('Prévenir le demandeur');
     const review = page.locator('sw-proposal-review');
     await expect(page.getByRole('heading', { name: 'Nouvelle version proposée' })).toBeFocused();
     await expect(review).toContainText('elle deviendra la version 2');
@@ -109,6 +125,19 @@ test.describe.serial('011 discussion d’une spécification', () => {
   test('D4 : une discussion qui n’établit rien ne crée pas de version', async () => {
     await say('E2E-DISCUSSION E2E-SANS-CHANGEMENT Qui réserve les salles ?', 3);
     await panel().getByRole('button', { name: 'Proposer une nouvelle version' }).click();
+    const picker = panel().getByRole('group', { name: 'Changements à intégrer' });
+    await expect(picker).toContainText('L’agent n’a relevé aucun changement');
+    await expect(picker.getByRole('checkbox')).toHaveCount(0);
+    const other = picker.getByLabel('Autre changement');
+    await expect(other).toBeFocused();
+    await expect(picker.getByRole('button', { name: 'Rédiger la version' })).toBeDisabled();
+    // Échap referme le choix, le focus revient au bouton
+    await other.press('Escape');
+    await expect(picker).toHaveCount(0);
+    await expect(panel().getByRole('button', { name: 'Proposer une nouvelle version' })).toBeFocused();
+    await panel().getByRole('button', { name: 'Proposer une nouvelle version' }).click();
+    await picker.getByLabel('Autre changement').fill('Préciser qui réserve les salles');
+    await picker.getByRole('button', { name: 'Rédiger la version' }).click();
     await expect(panel().locator('.unchanged')).toContainText(
       "Aucun changement établi par la discussion : La discussion n'a posé que des questions.",
     );
@@ -121,6 +150,7 @@ test.describe.serial('011 discussion d’une spécification', () => {
     await expect(answers()).toHaveCount(0);
     await say("E2E-DISCUSSION E2E-ANNULATION Ajoutons l'annulation jusqu'à la veille.", 1);
     await panel().getByRole('button', { name: 'Proposer une nouvelle version' }).click();
+    await panel().getByRole('button', { name: 'Rédiger la version' }).click();
     const review = page.locator('sw-proposal-review');
     await expect(review).toContainText('elle deviendra la version 3');
     await expect(page).toHaveURL(/\?discussion=1$/);

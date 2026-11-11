@@ -234,6 +234,7 @@ test.describe.serial('012 navigation par projet', () => {
       await expect(panel.locator('li.answer').last().locator('.note')).not.toBeEmpty();
     }
     await panel.getByRole('button', { name: 'Proposer une nouvelle version' }).click();
+    await panel.getByRole('button', { name: 'Rédiger la version' }).click();
     const review = page.locator('sw-proposal-review');
     await expect(review).toBeVisible();
 

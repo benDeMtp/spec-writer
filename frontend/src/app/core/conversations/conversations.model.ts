@@ -117,6 +117,18 @@ export interface PerimeterView {
   unavailable: 'NO_ROOTS' | null;
 }
 
+/** Changement de la spécification relevé dans la discussion (011) : dit par la personne ou proposé par l'agent. */
+export interface ChangeCandidate {
+  text: string;
+  origin: 'USER' | 'AGENT';
+}
+
+/** Rédaction lancée ; `message` : les changements retenus, ajoutés à la discussion. */
+export interface ProposalStarted {
+  turnId: string;
+  message: ConversationMessage | null;
+}
+
 export interface ConversationMessage {
   id: string;
   /** Numéro d'ordre dans la conversation (1, 2…). */
