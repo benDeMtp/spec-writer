@@ -104,6 +104,43 @@ paths:
       responses:
         '200': { content: { application/json: { schema: { $ref: '#/components/schemas/DocumentsPreview' } } } }
         '422': { description: Dossier illisible ou motif refusé }
+  /api/projects/{id}/source-roots:
+    get:
+      summary: Racines de sources du code du projet (013, US1), avec leur état lu à la demande
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/SourceRoot' } } } } }
+    post:
+      summary: Déclare une racine de sources (013, US1) ; rien n'est copié ni indexé
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRootInput' } } } }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRoot' } } } }
+        '422': { description: 'Chemin non absolu, absent ou illisible, motif refusé, racine déjà déclarée ou imbriquée, plus de 10 racines' }
+  /api/projects/{id}/source-roots/{rootId}/exclusions:
+    put:
+      summary: Remplace les motifs d'exclusion d'une racine (013) ; pris en compte à la prochaine analyse
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [exclusions]
+              properties:
+                exclusions: { type: array, maxItems: 50, items: { type: string, maxLength: 200 } }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRoot' } } } }
+        '404': { description: Racine inconnue ou d'un autre projet }
+        '422': { description: Motif refusé }
+  /api/projects/{id}/source-roots/{rootId}:
+    delete:
+      summary: Retire une racine ; les analyses passées restent lisibles
+      responses: { '204': { description: Supprimée } }
+  /api/projects/{id}/source-roots/preview:
+    post:
+      summary: Modules détectés sous un dossier (013), par leurs descripteurs seuls (pom.xml, package.json, Chart.yaml)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRootInput' } } } }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRootPreview' } } } }
+        '422': { description: Dossier absent ou illisible, ou motif refusé }
   /api/projects/{id}/architecture-source:
     put:
       summary: Déclare le workspace Structurizr du projet (FR-013, FR-038) ; démarre une indexation complète
@@ -603,6 +640,7 @@ components:
             architectureOwnership: { type: string }
             knowledge: { $ref: '#/components/schemas/KnowledgeStatus' }
             docSources: { type: array, items: { $ref: '#/components/schemas/DocSource' } }
+            sourceRoots: { type: array, items: { $ref: '#/components/schemas/SourceRoot' } }
             sessionCount: { type: integer }
     DocSourceInput:
       type: object
@@ -649,6 +687,39 @@ components:
             id: { type: string }
             name: { type: string }
             multiplier: { type: number, nullable: true }
+    SourceRootInput:
+      type: object
+      required: [location]
+      properties:
+        location: { type: string, maxLength: 2000, description: Chemin absolu du dossier }
+        exclusions: { type: array, maxItems: 50, items: { type: string, maxLength: 200 } }
+    SourceRoot:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        location: { type: string }
+        label: { type: string, description: Nom du dossier }
+        exclusions: { type: array, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+        state: { type: string, enum: [OK, MISSING, UNREADABLE] }
+    SourceRootPreview:
+      type: object
+      properties:
+        modules:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              path: { type: string }
+              kind: { type: string, enum: [MAVEN, NPM, HELM, ROOT] }
+        moduleCount: { type: integer, description: Total exact, au-delà des 500 renvoyés }
+        retainedFiles: { type: integer }
+        excludedFiles: { type: integer }
+        sensitiveFiles: { type: integer }
+        ignoredByGit: { type: integer }
+        limitReached: { type: boolean }
     DocumentsPreview:
       type: object
       properties:
