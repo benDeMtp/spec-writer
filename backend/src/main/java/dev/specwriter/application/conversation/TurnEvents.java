@@ -5,6 +5,7 @@ import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
 import dev.specwriter.domain.conversation.Thinking;
 import dev.specwriter.domain.port.ClockPort;
+import dev.specwriter.application.sources.PerimeterView;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -58,6 +59,18 @@ public class TurnEvents {
         }
 
         record Sources(List<CitedSource> sources) implements Event {
+        }
+
+        /**
+         * Analyse de périmètre (013), publiée après le recensement puis une fois qualifiée, avec le
+         * même ordinal ; ni terme ni extrait dans {@link #toString()}.
+         */
+        record Perimeter(PerimeterView analysis) implements Event {
+
+            @Override
+            public String toString() {
+                return "Perimeter[" + analysis.ordinal() + ", " + analysis.modules().size() + " module(s)]";
+            }
         }
 
         /** Compactage de la mémoire : commencé, fini, ou en échec (la réponse continue). */

@@ -5,6 +5,8 @@ import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ResponseFormat;
+import dev.specwriter.domain.sources.ModuleQualification;
+import dev.specwriter.domain.sources.Qualification;
 import dev.specwriter.domain.conversation.EstablishedPoint;
 import dev.specwriter.domain.conversation.NeedDraft;
 import dev.specwriter.domain.conversation.SourceKind;
@@ -37,7 +39,13 @@ public class LangChainConversationLlm implements ConversationLlm {
     private static final JsonMapper JSON = JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
 
-    record PlanDto(String action, String query, List<String> kinds) {
+    record PlanDto(String action, String query, List<String> kinds, List<String> terms) {
+    }
+
+    record QualificationDto(String id, String qualification, String justification) {
+    }
+
+    record QualificationsDto(List<QualificationDto> modules) {
     }
 
     record PointDto(String theme, String question, String answer, String basis, String sourceRef) {
@@ -71,6 +79,35 @@ public class LangChainConversationLlm implements ConversationLlm {
     public Plan plan(PlanRequest request) {
         return call("converse-plan", UserMessages.conversePlan(request), LlmSchemas.CONVERSE_PLAN,
                 LangChainConversationLlm::toPlan);
+    }
+
+    @Override
+    public List<ModuleQualification> qualify(QualifyRequest request) {
+        return call("qualify-perimeter", UserMessages.qualifyPerimeter(request), LlmSchemas.PERIMETER_QUALIFICATION,
+                LangChainConversationLlm::toQualifications);
+    }
+
+    /** Une entrée mal formée est écartée : le module reste non qualifié, jamais retiré. */
+    static List<ModuleQualification> toQualifications(String json) {
+        QualificationsDto dto = JSON.readValue(json, QualificationsDto.class);
+        if (dto == null || dto.modules() == null) {
+            throw new IllegalArgumentException("Qualification absente");
+        }
+        List<ModuleQualification> out = new ArrayList<>();
+        for (QualificationDto q : dto.modules()) {
+            if (q == null || q.id() == null || q.qualification() == null) {
+                continue;
+            }
+            try {
+                Qualification value = Qualification.valueOf(q.qualification());
+                if (value != Qualification.UNQUALIFIED) {
+                    out.add(new ModuleQualification(q.id(), value, q.justification() == null ? "" : q.justification().strip()));
+                }
+            } catch (IllegalArgumentException e) {
+                LOG.debugf("Qualification écartée (%s)", e.getClass().getSimpleName());
+            }
+        }
+        return out;
     }
 
     @Override
@@ -183,6 +220,14 @@ public class LangChainConversationLlm implements ConversationLlm {
         Action action = Action.valueOf(dto.action());
         if (action == Action.ANSWER) {
             return Plan.answer();
+        }
+        if (action == Action.PERIMETER) {
+            List<String> terms = dto.terms() == null ? List.of() : dto.terms().stream()
+                    .filter(t -> t != null && !t.isBlank()).map(String::strip).toList();
+            if (terms.isEmpty()) {
+                throw new IllegalArgumentException("Analyse de périmètre sans terme");
+            }
+            return Plan.perimeter(terms);
         }
         if (dto.query() == null || dto.query().isBlank()) {
             throw new IllegalArgumentException("Recherche sans mots");

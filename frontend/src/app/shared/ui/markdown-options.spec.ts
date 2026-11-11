@@ -25,6 +25,8 @@ describe('markedOptions', () => {
       `<a href="/sessions/${id}/versions/3" title="Saisir un avoir">[2]</a>`,
     );
     expect(render(`[[1]](#source-${id}-1)`)).toContain(`<a href="#source-${id}-1">[1]</a>`);
+    expect(render(`[[2]](#perimeter-${id}-1-0)`)).toContain(`<a href="#perimeter-${id}-1-0">[2]</a>`);
+    expect(render(`[[3]](#perimeter-x)`)).not.toContain('<a');
     // 011 : une section de la spécification discutée
     expect(render(`[[4]](/sessions/${id}/versions/3#UC-01 "UC-01")`)).toContain(
       `<a href="/sessions/${id}/versions/3#UC-01" title="UC-01">[4]</a>`,

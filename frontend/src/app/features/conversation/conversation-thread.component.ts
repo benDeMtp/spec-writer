@@ -33,6 +33,7 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ElapsedComponent, formatDuration } from '../../shared/ui/elapsed.component';
 import { MentionDirective } from '../../shared/ui/mention.directive';
+import { PerimeterStepComponent, perimeterAnchor } from './perimeter-step.component';
 
 export const MAX_MESSAGE = 8_000;
 
@@ -51,6 +52,7 @@ const KINDS: Record<SourceKind, string> = {
   SPECIFICATION: 'Spécification',
   ATTACHMENT: 'Document joint',
   DISCUSSION: 'Discussion',
+  MODULE: 'Module',
 };
 
 /**
@@ -70,6 +72,7 @@ const KINDS: Record<SourceKind, string> = {
     MatProgressBarModule,
     MarkdownComponent,
     MentionDirective,
+    PerimeterStepComponent,
     RouterLink,
   ],
   template: `
@@ -138,6 +141,13 @@ const KINDS: Record<SourceKind, string> = {
                     }
                   </ol>
                 </details>
+              }
+              @for (p of m.perimeters ?? []; track p.ordinal) {
+                <sw-perimeter-step
+                  [analysis]="p"
+                  [messageId]="m.id"
+                  [live]="m.state === 'RUNNING'"
+                />
               }
               @if (m.text) {
                 <article class="note">
@@ -588,6 +598,21 @@ export class ConversationThreadComponent implements OnDestroy {
     return `source-${m.id}-${s.n}`;
   }
 
+  /** Ligne du module dans l'étape « Analyse du périmètre » du message, pour une source MODULE. */
+  private moduleAnchor(m: ConversationMessage, s: CitedSource): string | null {
+    if (s.kind !== 'MODULE') {
+      return null;
+    }
+    const id = s.ref.replace(/^module:/, '');
+    for (const p of [...(m.perimeters ?? [])].reverse()) {
+      const position = p.modules.findIndex((x) => x.id === id);
+      if (position >= 0) {
+        return perimeterAnchor(m.id, p.ordinal, position);
+      }
+    }
+    return null;
+  }
+
   /**
    * Les appels de note `[n]` deviennent des liens : vers la source quand elle a une adresse, sinon
    * vers sa note sous la réponse (document joint, élément d'architecture).
@@ -601,7 +626,7 @@ export class ConversationThreadComponent implements OnDestroy {
       if (!source) {
         return all;
       }
-      const target = source.url ?? `#${this.sourceId(m, source)}`;
+      const target = source.url ?? `#${this.moduleAnchor(m, source) ?? this.sourceId(m, source)}`;
       return `[[${n}]](${target} "${source.title.replace(/"/g, '')}")`;
     });
   }
@@ -759,6 +784,15 @@ export class ConversationThreadComponent implements OnDestroy {
         this.announce.set(
           `Recherche : ${event.step.query}, ${event.step.hits} élément${event.step.hits > 1 ? 's' : ''}.`,
         );
+        break;
+      case 'perimeter':
+        this.patch(turnId, (m) => ({
+          ...m,
+          perimeters: [
+            ...(m.perimeters ?? []).filter((p) => p.ordinal !== event.analysis.ordinal),
+            event.analysis,
+          ].sort((a, b) => a.ordinal - b.ordinal),
+        }));
         break;
       case 'delta':
         this.patch(turnId, (m) => ({ ...m, text: m.text + event.text }));

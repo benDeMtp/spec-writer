@@ -3,11 +3,12 @@ import type { Tokens } from 'marked';
 
 const SAFE_LINK = /^(?:https?:|mailto:)/i;
 /**
- * Liens de l'outil écrits par la conversation (010) : version d'une spécification citée, ou note
- * d'une source sous la réponse. Ils restent dans l'onglet.
+ * Liens de l'outil écrits par la conversation (010) : version d'une spécification citée, note
+ * d'une source sous la réponse, ou ligne d'un module dans l'analyse du périmètre (013). Ils
+ * restent dans l'onglet.
  */
 const TOOL_LINK =
-  /^(?:\/sessions\/[0-9a-f-]{36}\/versions\/\d+(?:#[A-Za-z0-9-]{1,80})?|#source-[0-9a-f-]{36}-\d+)$/i;
+  /^(?:\/sessions\/[0-9a-f-]{36}\/versions\/\d+(?:#[A-Za-z0-9-]{1,80})?|#source-[0-9a-f-]{36}-\d+|#perimeter-[0-9a-f-]{36}-\d+-\d+)$/i;
 
 function attribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

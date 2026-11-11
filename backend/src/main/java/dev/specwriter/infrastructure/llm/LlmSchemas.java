@@ -135,10 +135,21 @@ final class LlmSchemas {
 
     /** 010 : action suivante de l'agent (research.md R1). */
     static final ResponseFormat CONVERSE_PLAN = format("converse_plan", JsonObjectSchema.builder()
-            .addProperty("action", JsonEnumSchema.builder().enumValues("SEARCH", "ANSWER").build())
+            .addProperty("action", JsonEnumSchema.builder().enumValues("SEARCH", "PERIMETER", "ANSWER").build())
             .addStringProperty("query")
             .addProperty("kinds", array(JsonEnumSchema.builder()
                     .enumValues("TICKET", "DOC_SECTION", "ADR", "ARCH_ELEMENT", "SPECIFICATION").build()))
+            .addProperty("terms", array(string()))
+            .build());
+
+    /** 013 : qualification des modules d'une analyse de périmètre. */
+    static final ResponseFormat PERIMETER_QUALIFICATION = format("perimeter_qualification", JsonObjectSchema.builder()
+            .addProperty("modules", array(JsonObjectSchema.builder()
+                    .addStringProperty("id")
+                    .addProperty("qualification", JsonEnumSchema.builder()
+                            .enumValues("IMPACTED", "TO_CHECK", "NOT_IMPACTED").build())
+                    .addStringProperty("justification")
+                    .build()))
             .build());
 
     /** 010 : besoin et points établis tirés d'une conversation. */

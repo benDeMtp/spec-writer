@@ -13,6 +13,7 @@ import dev.specwriter.application.attachment.ManageAttachments;
 import dev.specwriter.application.consent.UpdateConsent;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ManageDocSources;
+import dev.specwriter.application.sources.AnalyzePerimeter;
 import dev.specwriter.application.sources.ManageSourceRoots;
 import dev.specwriter.application.conversation.ConversationSearch;
 import dev.specwriter.application.conversation.ConversationAttachments;
@@ -103,6 +104,7 @@ import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.port.LocalSearch;
 import dev.specwriter.domain.port.ModelCapacities;
+import dev.specwriter.domain.port.PerimeterRepository;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SourceRootRepository;
 import dev.specwriter.domain.port.SourceTree;
@@ -145,12 +147,20 @@ public class UseCaseProducer {
             KnowledgeIndex index, EmbeddingPort embedding, LocalSearch specifications, ModelCapacities capacities,
             ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
             AnalyzeArchitecture analyze, DocSourceRepository docSources, DocumentFolder folder,
-            ConversationAttachmentRepository attachments, DiscussSpecification discussions) {
+            ConversationAttachmentRepository attachments, DiscussSpecification discussions, AnalyzePerimeter perimeter,
+            PerimeterRepository perimeters) {
         SelectKnowledge select = new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), docSources,
                 folder, capacities);
         return new Converse(projects, conversations, llm, new ConversationSearch(index, embedding, specifications),
                 new DesignatedDocuments(select, attachments), capacities, consent, operations, events, clock, ids,
-                task -> Thread.ofVirtual().name("conversation").start(task), discussions);
+                task -> Thread.ofVirtual().name("conversation").start(task), discussions, perimeter, perimeters);
+    }
+
+    /** Analyse de périmètre dans les sources du code (013). */
+    @Produces
+    @ApplicationScoped
+    AnalyzePerimeter analyzePerimeter(SourceRootRepository roots, SourceTree tree, ConversationLlm llm, ClockPort clock) {
+        return new AnalyzePerimeter(roots, tree, llm, clock);
     }
 
     /** « Proposer une nouvelle version » d'après la discussion (011, US2) : la rédaction tourne sur un fil virtuel. */
@@ -177,8 +187,8 @@ public class UseCaseProducer {
     @ApplicationScoped
     ManageConversations manageConversations(ProjectRepository projects, ConversationRepository conversations,
             SessionRepository sessions, JiraAccess jira, OperationRegistry operations,
-            SpecificationDiscussionRepository discussions) {
-        return new ManageConversations(projects, conversations, sessions, jira, operations, discussions);
+            SpecificationDiscussionRepository discussions, PerimeterRepository perimeters) {
+        return new ManageConversations(projects, conversations, sessions, jira, operations, discussions, perimeters);
     }
 
     @Produces

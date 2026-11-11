@@ -1,5 +1,7 @@
 # Arbre de démonstration (feature 013)
 
+Ce fichier décrit `demo-rv/` ; il est hors de l'arbre pour ne pas en devenir lui-même un résultat.
+
 Arbre multi-modules pour l'analyse de périmètre : 14 modules (13 poms, `front` en npm,
 `charts/facturation` en Helm). Le terme principal est `ContractStatus`, avec ses variantes
 `CONTRACT_STATUS` (front) et `contract.status` (chart, propriétés).

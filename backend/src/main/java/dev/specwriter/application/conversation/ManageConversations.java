@@ -1,5 +1,6 @@
 package dev.specwriter.application.conversation;
 
+import dev.specwriter.application.sources.PerimeterView;
 import dev.specwriter.application.jira.JiraAccess;
 import dev.specwriter.application.specification.OperationRegistry;
 import dev.specwriter.domain.conversation.CitedSource;
@@ -15,6 +16,7 @@ import dev.specwriter.domain.conversation.SpecificationDiscussion;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.ConversationRepository;
+import dev.specwriter.domain.port.PerimeterRepository;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationDiscussionRepository;
@@ -38,7 +40,7 @@ public class ManageConversations {
     /** {@code specificationVersion} : version de la spécification discutée transmise pour ce tour (011). */
     public record MessageView(UUID id, int ordinal, MessageRole role, String text, MessageState state,
             boolean historyTruncated, Instant createdAt, List<SearchStep> steps, List<SourceView> sources,
-            Thinking thinking, Integer specificationVersion) {
+            Thinking thinking, Integer specificationVersion, List<PerimeterView> perimeters) {
     }
 
     /** Spécification discutée (011) ; {@code sessionId} nul : la spécification a été supprimée. */
@@ -65,6 +67,8 @@ public class ManageConversations {
     private final JiraAccess jira;
     private final OperationRegistry operations;
     private final SpecificationDiscussionRepository discussions;
+    /** Analyses de périmètre des réponses (013) ; nul : aucune. */
+    private final PerimeterRepository perimeters;
 
     public ManageConversations(ProjectRepository projects, ConversationRepository conversations,
             SessionRepository sessions, JiraAccess jira, OperationRegistry operations) {
@@ -75,6 +79,14 @@ public class ManageConversations {
     public ManageConversations(ProjectRepository projects, ConversationRepository conversations,
             SessionRepository sessions, JiraAccess jira, OperationRegistry operations,
             SpecificationDiscussionRepository discussions) {
+        this(projects, conversations, sessions, jira, operations, discussions, null);
+    }
+
+    /** Avec les analyses de périmètre des réponses (013). */
+    public ManageConversations(ProjectRepository projects, ConversationRepository conversations,
+            SessionRepository sessions, JiraAccess jira, OperationRegistry operations,
+            SpecificationDiscussionRepository discussions, PerimeterRepository perimeters) {
+        this.perimeters = perimeters;
         this.discussions = discussions;
         this.projects = projects;
         this.conversations = conversations;
@@ -106,7 +118,9 @@ public class ManageConversations {
                         m.role() == MessageRole.AGENT ? conversations.sources(m.id()).stream().map(this::view).toList()
                                 : List.of(),
                         m.role() == MessageRole.AGENT ? conversations.thinking(m.id()).orElse(null) : null,
-                        m.specificationVersion()))
+                        m.specificationVersion(),
+                        m.role() == MessageRole.AGENT && perimeters != null
+                                ? perimeters.list(m.id()).stream().map(PerimeterView::of).toList() : List.of()))
                 .toList();
         List<SessionLink> links = conversations.sessions(conversationId).stream()
                 .map(id -> sessions.find(id).map(s -> new SessionLink(id, s.name())))
@@ -147,7 +161,7 @@ public class ManageConversations {
             case TICKET -> jira.target().map(t -> t.issueUrl(s.ref())).orElse(null);
             case DOC_SECTION, ADR -> s.ref().toLowerCase(Locale.ROOT).startsWith("http") ? s.ref() : null;
             case SPECIFICATION -> specificationUrl(s.ref());
-            case ARCH_ELEMENT, ATTACHMENT, DISCUSSION -> null;
+            case ARCH_ELEMENT, ATTACHMENT, DISCUSSION, MODULE -> null;
         };
     }
 

@@ -99,7 +99,7 @@ public class ConversationSearch {
             case DOC_SECTION -> KnowledgeKind.DOC_SECTION;
             case ADR -> KnowledgeKind.ADR;
             case ARCH_ELEMENT -> KnowledgeKind.ARCH_ELEMENT;
-            case SPECIFICATION, ATTACHMENT, DISCUSSION -> null;
+            case SPECIFICATION, ATTACHMENT, DISCUSSION, MODULE -> null;
         };
     }
 

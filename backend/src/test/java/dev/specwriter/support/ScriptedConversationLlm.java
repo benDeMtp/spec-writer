@@ -3,6 +3,7 @@ package dev.specwriter.support;
 import dev.specwriter.domain.conversation.NeedDraft;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.port.ConversationLlm;
+import dev.specwriter.domain.sources.ModuleQualification;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -85,6 +86,23 @@ public class ScriptedConversationLlm implements ConversationLlm {
             afterChunk.run();
         }
         return text.toString();
+    }
+
+    /** Qualifications scriptées (013) ; vide : aucun module qualifié. */
+    public final Deque<List<ModuleQualification>> qualifications = new ArrayDeque<>();
+    public final List<QualifyRequest> qualifyRequests = new ArrayList<>();
+    /** Panne à la prochaine qualification. */
+    public DomainException qualifyFailure;
+
+    @Override
+    public List<ModuleQualification> qualify(QualifyRequest request) {
+        qualifyRequests.add(request);
+        if (qualifyFailure != null) {
+            DomainException e = qualifyFailure;
+            qualifyFailure = null;
+            throw e;
+        }
+        return qualifications.isEmpty() ? List.of() : qualifications.removeFirst();
     }
 
     @Override

@@ -31,9 +31,18 @@ class ManageSourceRootsTest {
     final InMemorySourceRoots roots = new InMemorySourceRoots();
     final List<SourceRoot> previewed = new ArrayList<>();
     SourceTree.Preview answer = new SourceTree.Preview(List.of(), 3, 1, 0, 0, false, null);
-    final SourceTree tree = (root, limits) -> {
-        previewed.add(root);
-        return answer;
+    final SourceTree tree = new SourceTree() {
+        @Override
+        public Preview preview(SourceRoot root, Limits limits) {
+            previewed.add(root);
+            return answer;
+        }
+
+        @Override
+        public Scan search(List<SourceRoot> roots, dev.specwriter.domain.sources.PerimeterTerms terms, Limits limits,
+                java.util.function.BooleanSupplier cancelled) {
+            throw new UnsupportedOperationException();
+        }
     };
     final ManageSourceRoots manage = new ManageSourceRoots(projects, roots, tree, new SequentialIdGenerator(),
             new FixedClock());

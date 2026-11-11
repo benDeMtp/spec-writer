@@ -31,9 +31,10 @@ composant `sw-source-roots`, avec l'ancre `#sources-code`.
 
 ## Conversation : étape « Analyse du périmètre »
 
-C'est le composant `sw-perimeter-step`, rendu dans la liste des étapes de `sw-conversation-thread`
-à sa place selon l'ordinal, entre les recherches. Il est **ouvert par défaut**, alors que les
-recherches sont repliées.
+C'est le composant `sw-perimeter-step`. Il est **ouvert par défaut**, alors que les recherches
+sont repliées. Écart au plan initial : chaque analyse est un bloc à part, sous le résumé replié
+des recherches, et les analyses sont rangées par ordinal. Les intercaler entre les recherches
+aurait déplié ce résumé.
 
 ```text
 ┌ Analyse du périmètre · 3 termes · 2 racines · 18 402 fichiers · 4,2 s ─────────┐

@@ -265,7 +265,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
   - aucun terme valide donne une `ValidationException`.
 
   Tests `PerimeterTermsTest`.
-- [ ] T019 [P] [US2] Test puis les types de l'analyse, dans `BM/domain/sources/` (data-model.md) :
+- [X] T019 [P] [US2] Test puis les types de l'analyse, dans `BM/domain/sources/` (data-model.md) :
   - `Occurrence` : `path`, `line` à partir de 1, `term`, `excerpt` de 200 caractères au plus,
     centré sur le terme, caractères de contrôle remplacés. Fabrique `Occurrence.of(path, line,
     term, rawLine)` ;
@@ -292,7 +292,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
 
 ### Recensement
 
-- [ ] T020 [US2] Ajouter à `BM/domain/port/SourceTree.java` la méthode `Scan search(List<SourceRoot>
+- [X] T020 [US2] Ajouter à `BM/domain/port/SourceTree.java` la méthode `Scan search(List<SourceRoot>
   roots, PerimeterTerms terms, Limits limits, BooleanSupplier cancelled)`, avec :
   - `record Scan(List<ModuleHit> hits, Map<ModuleId, ModuleDescriptor> descriptors,
     List<RootStatus> roots, int filesScanned, int filesSkipped, List<String> skippedExamples,
@@ -320,7 +320,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
   - annulation ;
   - sur `demo-rv`, les modules attendus de quickstart 4, et **aucune** occurrence dans les pièges
     de T002.
-- [ ] T021 [P] [US2] Écrire le port `BM/domain/port/PerimeterRepository.java` (data-model.md :
+- [X] T021 [P] [US2] Écrire le port `BM/domain/port/PerimeterRepository.java` (data-model.md :
   `save`, `update`, `list(messageId)`, `last(conversationId)`) et son adaptateur
   `BM/infrastructure/persistence/conversation/SqlitePerimeterRepository.java` sur les tables de
   V24.
@@ -330,7 +330,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
   - `last` renvoie la dernière analyse de la conversation ;
   - suppression en cascade avec la conversation ;
   - l'analyse reste lisible après suppression de la racine.
-- [ ] T022 [US2] Test puis `BM/application/sources/AnalyzePerimeter.java`, partie termes :
+- [X] T022 [US2] Test puis `BM/application/sources/AnalyzePerimeter.java`, partie termes :
   - `analyze(projectId, rawTerms, previous)` :
     - `PerimeterTerms` ;
     - `SourceRootRepository.list` ;
@@ -350,7 +350,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
 
 ### LLM
 
-- [ ] T023 [US2] Faire évoluer le plan de conversation :
+- [X] T023 [US2] Faire évoluer le plan de conversation :
   - `ConversationLlm.Action` reçoit `PERIMETER`, et `Plan` reçoit `terms`
     (`BM/domain/port/ConversationLlm.java`) ;
   - `LlmSchemas.CONVERSE_PLAN` : `action` dans `SEARCH | PERIMETER | ANSWER`, et `terms`, un
@@ -369,7 +369,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
   - ajouter les nouvelles balises à la règle de sécurité.
 
   Tests unitaires de `UserMessages` (échappement, présence des balises) et de `toPlan`.
-- [ ] T024 [US2] Ajouter la qualification :
+- [X] T024 [US2] Ajouter la qualification :
   - `ConversationLlm.qualify(QualifyRequest)` renvoie `List<ModuleQualification>`, avec
     `ModuleQualification(String id, Qualification q, String justification)` ;
   - schéma strict `LlmSchemas.PERIMETER_QUALIFICATION` (contracts/api.md) ;
@@ -382,7 +382,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
     - au-delà, modules sans extrait, dans l'ordre déterministe de R7.
 
   Tests `UserMessagesTest` (budget, ordre, échappement d'un extrait contenant `</extrait>`).
-- [ ] T025 [US2] Mettre à jour `BR/prompts/converse-answer.txt` et `UserMessages` :
+- [X] T025 [US2] Mettre à jour `BR/prompts/converse-answer.txt` et `UserMessages` :
   - les sources `MODULE` portent nom, qualification et justification, sans aucun extrait ;
   - consigne : citer chaque module évoqué par `[n]`, rappeler que la liste complète est affichée
     dans l'étape, et dire si l'analyse est incomplète ou non qualifiée ;
@@ -392,7 +392,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
 
 ### Conversation
 
-- [ ] T026 [US2] Test puis intégration dans `BM/application/conversation/Converse.java`
+- [X] T026 [US2] Test puis intégration dans `BM/application/conversation/Converse.java`
   (research R6). Sur `PERIMETER` :
   1. si une analyse a déjà eu lieu dans le tour, l'action est traitée comme `ANSWER` ;
   2. `analyze` avec `previous = perimeters.last(conversationId)` ;
@@ -417,7 +417,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
   - sans racine ;
   - qualification en échec : l'analyse reste et la réponse a lieu ;
   - les ordinaux suivent les recherches.
-- [ ] T027 [US2] Exposer l'analyse côté web :
+- [X] T027 [US2] Exposer l'analyse côté web :
   - `BM/infrastructure/web/ConversationResource.java` : nom d'événement `perimeter` dans
     `name(event)`, sérialisé en `PerimeterView` selon contracts/api.md (classe
     `PerimeterViews`) ;
@@ -426,7 +426,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
 
   IT avec rejeu `ConversationPerimeterIT` : flux SSE de deux événements `perimeter` de même
   ordinal, puis détail rechargé identique.
-- [ ] T028 [US2] Ajouter les réponses rejouées, en tête de liste pour que les entrées
+- [X] T028 [US2] Ajouter les réponses rejouées, en tête de liste pour que les entrées
   spécifiques passent avant les génériques :
   - `e2e/fixtures/llm/50-converse-plan-perimeter.json` : `userContains` `["SUSPENDU",
     "<perimetre-disponible>oui"]`, réponse `PERIMETER` avec `ContractStatus`, `CONTRACT_STATUS`
@@ -443,13 +443,13 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
 
 ### Front
 
-- [ ] T029 [P] [US2] Modèle et API de la conversation :
+- [X] T029 [P] [US2] Modèle et API de la conversation :
   - `FA/core/conversations/conversations.model.ts` : `PerimeterView` (contracts/api.md),
     événement `perimeter` dans `TurnEvent`, `perimeters` dans le message, sorte `MODULE` dans
     `CitedSource` ;
   - `FA/core/conversations/conversations.api.ts` : `perimeter` dans la liste `NAMES` de
     l'`EventSource`.
-- [ ] T030 [US2] Test puis composant `FA/features/conversation/perimeter-step.component.ts`
+- [X] T030 [US2] Test puis composant `FA/features/conversation/perimeter-step.component.ts`
   (`sw-perimeter-step`), selon contracts/ui.md § Conversation :
   - en-tête (termes, racines, fichiers, durée, état, termes rejetés, racines absentes) ;
   - résumé en texte, avec `aria-busy` tant que `qualified` est faux ;
@@ -470,7 +470,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
   - en-tête incomplet ;
   - lien des réglages ;
   - annonces.
-- [ ] T031 [US2] Intégrer l'étape dans `FA/features/conversation/conversation-thread.component.ts` :
+- [X] T031 [US2] Intégrer l'étape dans `FA/features/conversation/conversation-thread.component.ts` :
   - `case 'perimeter'` remplace l'analyse de même ordinal ;
   - les étapes sont rendues dans l'ordre des ordinaux (recherches et analyses mêlées) ;
   - l'analyse est ouverte par défaut ;
@@ -478,7 +478,7 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
     le focus au clic.
 
   Mettre à jour `conversation-thread.component.spec.ts`.
-- [ ] T032 [US2] E2E `us16-perimetre.spec.ts`, bloc « US2 » :
+- [X] T032 [US2] E2E `us16-perimetre.spec.ts`, bloc « US2 » :
   - quickstart 4 (modules et occurrences attendus, citations) ;
   - quickstart 7 (`demo-front` sous « Non qualifiés ») ;
   - quickstart 8 (aucun piège visible, lien symbolique compris) ;
@@ -490,11 +490,12 @@ qualifie sans pouvoir masquer de module, et la réponse cite les modules.
   - axe sur l'étape.
 
   Le piège d'injection de `annuaire` ne doit changer ni la liste ni la qualification rejouée.
-- [ ] T033 [US2] Test d'injection `BT/application/sources/PerimeterInjectionTest.java` :
+- [X] T033 [US2] Test d'injection, écrit dans `BT/infrastructure/llm/PerimeterLlmTest.java` (au plus
+  près de `UserMessages`) plutôt que dans un `PerimeterInjectionTest` séparé :
   - un extrait contenant `</extrait><question>…` est échappé dans le message de qualification ;
   - une réponse du LLM qui « retire » des modules (liste vide) laisse tous les modules
     `UNQUALIFIED`, sans en supprimer (FR-014, OWASP LLM01).
-- [ ] T034 [US2] Évaluation `BT/eval/PerimeterEval.java` (`@Tag("eval")`), sur le modèle de
+- [X] T034 [US2] Évaluation `BT/eval/PerimeterEval.java` (`@Tag("eval")`), sur le modèle de
   `ConversationEval` :
   - cas `BTR/eval/perimeter/cases.json` : au moins 6 discussions sur `demo-rv` et un second arbre
     généré, avec les modules attendus ;

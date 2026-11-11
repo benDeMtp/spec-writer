@@ -2,7 +2,7 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } fr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-/** Arbre de démonstration de la feature 013 (fixtures/sources/demo-rv, voir son README). */
+/** Arbre de démonstration de la feature 013 (fixtures/sources/demo-rv, décrit dans demo-rv.md). */
 export const DEMO_SOURCE = join(process.cwd(), 'fixtures', 'sources', 'demo-rv');
 
 /**

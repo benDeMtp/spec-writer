@@ -27,6 +27,7 @@ const NAMES = [
   'stage',
   'reasoning',
   'step',
+  'perimeter',
   'delta',
   'sources',
   'memory',

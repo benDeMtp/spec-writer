@@ -9,6 +9,8 @@ import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.DraftSpecification;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.session.Language;
+import dev.specwriter.domain.sources.ModuleQualification;
+import dev.specwriter.domain.sources.PerimeterAnalysis;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -33,7 +35,17 @@ public interface ConversationLlm {
      * résumé des échanges anciens (vide s'il n'y en a pas), avant {@code history}, les récents.
      */
     record PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history, String question,
-            List<TurnSource> found, int searchesLeft, Discussed discussed) {
+            List<TurnSource> found, int searchesLeft, Discussed discussed, boolean perimeterAvailable,
+            List<String> lastPerimeterTerms) {
+
+        public PlanRequest {
+            lastPerimeterTerms = lastPerimeterTerms == null ? List.of() : List.copyOf(lastPerimeterTerms);
+        }
+
+        public PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history,
+                String question, List<TurnSource> found, int searchesLeft, Discussed discussed) {
+            this(language, generalSheet, memory, history, question, found, searchesLeft, discussed, false, List.of());
+        }
 
         public PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history,
                 String question, List<TurnSource> found, int searchesLeft) {
@@ -41,15 +53,36 @@ public interface ConversationLlm {
         }
     }
 
+    /** Chercher dans la connaissance, analyser le périmètre dans les sources du code (013), ou répondre. */
     enum Action {
-        SEARCH, ANSWER
+        SEARCH, PERIMETER, ANSWER
     }
 
-    record Plan(Action action, String query, Set<SourceKind> kinds) {
+    /** {@code terms} : termes à chercher dans les sources du code, pour l'action {@code PERIMETER}. */
+    record Plan(Action action, String query, Set<SourceKind> kinds, List<String> terms) {
+
+        public Plan {
+            terms = terms == null ? List.of() : List.copyOf(terms);
+        }
+
+        public Plan(Action action, String query, Set<SourceKind> kinds) {
+            this(action, query, kinds, List.of());
+        }
 
         public static Plan answer() {
             return new Plan(Action.ANSWER, null, Set.of());
         }
+
+        public static Plan perimeter(List<String> terms) {
+            return new Plan(Action.PERIMETER, null, Set.of(), terms);
+        }
+    }
+
+    /**
+     * Données de la qualification d'une analyse de périmètre (013, research.md R7) : la question,
+     * l'échange récent et l'analyse, extraits compris.
+     */
+    record QualifyRequest(Language language, List<Exchange> history, String question, PerimeterAnalysis analysis) {
     }
 
     /**
@@ -58,7 +91,13 @@ public interface ConversationLlm {
      */
     record AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
             String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped,
-            Discussed discussed) {
+            Discussed discussed, boolean perimeterUnavailable) {
+
+        public AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
+                String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped,
+                Discussed discussed) {
+            this(language, generalSheet, memory, history, question, sources, notCompared, searchStopped, discussed, false);
+        }
 
         public AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
                 String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped) {
@@ -119,6 +158,12 @@ public interface ConversationLlm {
     }
 
     Plan plan(PlanRequest request);
+
+    /**
+     * Qualifie les modules d'une analyse de périmètre (013) : impacté, à vérifier ou non impacté,
+     * avec une justification. Un module omis reste non qualifié ; aucun n'est retiré.
+     */
+    List<ModuleQualification> qualify(QualifyRequest request);
 
     /**
      * Rédige la réponse en Markdown en flux : chaque morceau est passé à {@code deltas} ; s'arrête

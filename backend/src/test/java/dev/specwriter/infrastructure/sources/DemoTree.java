@@ -11,7 +11,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 /**
  * Copie de l'arbre de démonstration {@code e2e/fixtures/sources/demo-rv} avec les pièges que le
- * dépôt ne peut pas versionner (son README) : fichiers sensibles, dossiers générés, binaire et lien
+ * dépôt ne peut pas versionner (voir e2e/fixtures/sources/demo-rv.md) : fichiers sensibles, dossiers générés, binaire et lien
  * symbolique vers l'extérieur. Tous contiennent {@code ContractStatus}.
  */
 public final class DemoTree {

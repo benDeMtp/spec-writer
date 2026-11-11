@@ -213,16 +213,17 @@ un ensemble des modules visités, ce qui gère les cycles (scénario 4).
   - choisir `PERIMETER` quand la question porte sur l'impact, les modules, le périmètre ou les
     tâches techniques ;
   - proposer des identifiants techniques plutôt que des mots courants ;
-  - l'action n'est proposée que si le projet a des racines, signalé par
-    `<perimetre-disponible>oui|non</perimetre-disponible>`.
+  - la disponibilité est signalée par `<perimetre-disponible>oui|non</perimetre-disponible>`.
+    Écart à l'implémentation : l'action reste proposée sans racine, pour qu'une question de
+    périmètre mène la personne aux réglages plutôt qu'à une réponse sans le code.
 - **Étapes** :
   - une analyse **consomme une étape** dans `MAX_STEPS` (toujours 5) ;
   - il y a **au plus une analyse par tour**, et une seconde demande du plan dans le même tour est
     traitée comme `ANSWER`, ce qui borne le coût ;
   - l'ordinal est partagé avec les recherches, ce qui conserve l'ordre d'affichage ;
   - `Converse` reçoit un nouveau collaborateur, `AnalyzePerimeter` (application).
-- **Sans racine** : si le plan choisit `PERIMETER` alors que le projet n'a aucune racine
-  (garde-fou), l'analyse n'a pas lieu. La réponse reçoit
+- **Sans racine** : si le plan choisit `PERIMETER` alors que le projet n'a aucune racine,
+  l'analyse n'a pas lieu. La réponse reçoit
   `<perimetre-indisponible>` et le front affiche le lien vers les réglages (US2, scénario 5).
 - **Relance** (FR-015) :
   - le plan reçoit les termes de la **dernière analyse de la conversation**
@@ -257,7 +258,9 @@ schéma strict `PERIMETER_QUALIFICATION`.
   chacun.
 
 Le volume total est borné à 40 000 caractères. Au-delà, les modules suivants sont envoyés sans
-extrait. L'ordre est déterministe : impact direct d'abord, puis par nombre d'occurrences
+extrait. Ajout à l'implémentation : une limite ferme de 120 000 caractères. Au-delà, les modules
+restants ne sont pas envoyés, et le message porte `<modules-non-transmis nombre="N"/>`. Ces
+modules restent affichés, `UNQUALIFIED`. L'ordre est déterministe : impact direct d'abord, puis par nombre d'occurrences
 décroissant.
 
 **Règles côté outil** :

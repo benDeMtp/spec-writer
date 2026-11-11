@@ -55,4 +55,13 @@ class ReplayChatModelTest {
         assertThat(ReplayChatModel.resolveQuestionIds("{\"ids\":[\"__ERRORS__\",\"__GOAL__\",\"__EDGE_CASES__\"]}", user))
                 .isEqualTo("{\"ids\":[\"def-2\",\"abc-1\",\"EDGE_CASES\"]}");
     }
+
+    @Test
+    void lesModulesSontDesignesParLeurNom() {
+        String user = "<modules>\n<module id=\"r1/libs/common-contract\" nom=\"common-contract\" sorte=\"MAVEN\">"
+                + "\n<module id=\"r1/front\" nom=\"demo-front\" sorte=\"NPM\">";
+        assertThat(ReplayChatModel.resolveQuestionIds("{\"modules\":[{\"id\":\"__MODULE:common-contract__\"},"
+                + "{\"id\":\"__MODULE:inconnu__\"}]}", user))
+                .isEqualTo("{\"modules\":[{\"id\":\"r1/libs/common-contract\"},{\"id\":\"inconnu\"}]}");
+    }
 }

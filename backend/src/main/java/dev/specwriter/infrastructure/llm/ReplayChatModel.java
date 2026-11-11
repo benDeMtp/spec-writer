@@ -33,6 +33,7 @@ public final class ReplayChatModel implements ChatModel {
     private static final Pattern PLACEHOLDER = Pattern.compile("\"__([A-Z0-9_]+?)__\"");
     private static final Pattern DISCUSSION = Pattern.compile("DISCUSSION_(\\d+)");
     private static final Pattern DISCUSSION_REF = Pattern.compile("ref=\"(discussion:[^\"]+)\"");
+    private static final Pattern MODULE = Pattern.compile("\"__MODULE:([^\"]+?)__\"");
 
     /**
      * {@code response} : JSON d'une opération structurée ; {@code text} : réponse en texte libre (010) ;
@@ -94,7 +95,7 @@ public final class ReplayChatModel implements ChatModel {
      * {@code "__DISCUSSION_n__"} par la référence du n-ième message de la discussion (011).
      */
     static String resolveQuestionIds(String response, String user) {
-        Matcher m = PLACEHOLDER.matcher(response);
+        Matcher m = PLACEHOLDER.matcher(resolveModules(response, user));
         StringBuilder out = new StringBuilder();
         while (m.find()) {
             Matcher discussion = DISCUSSION.matcher(m.group(1));
@@ -104,6 +105,21 @@ public final class ReplayChatModel implements ChatModel {
                 continue;
             }
             Matcher id = Pattern.compile("<reponse id=\"([^\"]+)\" theme=\"" + m.group(1) + "\"").matcher(user);
+            m.appendReplacement(out, Matcher.quoteReplacement("\"" + (id.find() ? id.group(1) : m.group(1)) + "\""));
+        }
+        m.appendTail(out);
+        return out.toString();
+    }
+
+    /**
+     * Les identifiants de module contiennent celui, aléatoire, de leur racine (013) :
+     * {@code "__MODULE:nom__"} est remplacé par l'identifiant du module de ce nom cité dans le message.
+     */
+    static String resolveModules(String response, String user) {
+        Matcher m = MODULE.matcher(response);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            Matcher id = Pattern.compile("<module id=\"([^\"]+)\" nom=\"" + Pattern.quote(m.group(1)) + "\"").matcher(user);
             m.appendReplacement(out, Matcher.quoteReplacement("\"" + (id.find() ? id.group(1) : m.group(1)) + "\""));
         }
         m.appendTail(out);

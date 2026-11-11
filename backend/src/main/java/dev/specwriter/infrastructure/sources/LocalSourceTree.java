@@ -8,6 +8,8 @@ import dev.specwriter.domain.sources.ModuleDescriptor;
 import dev.specwriter.domain.sources.ModuleId;
 import dev.specwriter.domain.sources.ModuleKind;
 import dev.specwriter.domain.sources.SourceExclusions;
+import dev.specwriter.domain.sources.PerimeterAnalysis;
+import dev.specwriter.domain.sources.PerimeterTerms;
 import dev.specwriter.domain.sources.SourceRoot;
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,6 +57,58 @@ public final class LocalSourceTree implements SourceTree {
                 walk.stop != null || walk.unreadable, null);
     }
 
+    @Override
+    public Scan search(List<SourceRoot> roots, PerimeterTerms terms, Limits limits, BooleanSupplier cancelled) {
+        long deadline = System.nanoTime() + limits.maxDuration().toNanos();
+        List<PerimeterAnalysis.RootStatus> statuses = new ArrayList<>();
+        List<Module> modules = new ArrayList<>();
+        Map<ModuleId, ModuleDescriptor> descriptors = new LinkedHashMap<>();
+        List<ModuleHit> hits = new ArrayList<>();
+        int scanned = 0;
+        int skipped = 0;
+        List<String> examples = new ArrayList<>();
+        PerimeterAnalysis.IncompleteReason incomplete = null;
+        for (SourceRoot root : roots) {
+            RootProblem problem = problem(Path.of(root.location()));
+            if (problem != null) {
+                statuses.add(new PerimeterAnalysis.RootStatus(root.id(), root.label(), problem == RootProblem.NOT_FOUND
+                        ? PerimeterAnalysis.RootState.MISSING : PerimeterAnalysis.RootState.UNREADABLE));
+                incomplete = incomplete == null ? PerimeterAnalysis.IncompleteReason.ROOT_MISSING : incomplete;
+                continue;
+            }
+            List<SourceSearch.Candidate> candidates = new ArrayList<>();
+            Limits left = new Limits(limits.maxFiles() - scanned - skipped, limits.maxDuration(), limits.maxFileBytes(),
+                    limits.maxModules() - modules.size());
+            Walk walk = new Walk(root, left, deadline, cancelled, candidates::add);
+            walk.run();
+            statuses.add(new PerimeterAnalysis.RootStatus(root.id(), root.label(),
+                    walk.unreadable ? PerimeterAnalysis.RootState.UNREADABLE : PerimeterAnalysis.RootState.SCANNED));
+            modules.addAll(walk.sortedModules());
+            descriptors.putAll(walk.descriptors);
+            SourceSearch.Result result = SourceSearch.run(candidates, terms.values(), Module.root(root.id(), root.label()),
+                    limits, deadline, cancelled);
+            hits.addAll(result.hits());
+            scanned += result.filesScanned();
+            skipped += result.filesSkipped();
+            for (String example : result.skippedExamples()) {
+                if (examples.size() < SourceSearch.SKIPPED_EXAMPLES) {
+                    examples.add(root.label() + "/" + example);
+                }
+            }
+            PerimeterAnalysis.IncompleteReason stopped = walk.stop == null ? result.incomplete() : switch (walk.stop) {
+                case MAX_FILES -> PerimeterAnalysis.IncompleteReason.MAX_FILES;
+                case MAX_DURATION -> PerimeterAnalysis.IncompleteReason.MAX_DURATION;
+                case MAX_MODULES -> PerimeterAnalysis.IncompleteReason.MAX_MODULES;
+                case CANCELLED -> PerimeterAnalysis.IncompleteReason.CANCELLED;
+            };
+            if (stopped != null) {
+                incomplete = stopped;
+                break;
+            }
+        }
+        return new Scan(hits, modules, descriptors, statuses, scanned, skipped, examples, incomplete);
+    }
+
     public static RootProblem problem(Path dir) {
         if (!Files.exists(dir, LinkOption.NOFOLLOW_LINKS)) {
             return RootProblem.NOT_FOUND;
@@ -71,10 +125,6 @@ public final class LocalSourceTree implements SourceTree {
     /** Raison de l'arrêt d'un parcours avant sa fin. */
     enum Stop { MAX_FILES, MAX_DURATION, MAX_MODULES, CANCELLED }
 
-    /** Fichier retenu, à lire par la recherche. */
-    record Candidate(Path file, String path, Module module, long size) {
-    }
-
     /** Parcours d'une racine : modules, décomptes, et fichiers retenus confiés à {@code onFile}. */
     static final class Walk extends SimpleFileVisitor<Path> {
 
@@ -86,7 +136,7 @@ public final class LocalSourceTree implements SourceTree {
         private final Limits limits;
         private final long deadline;
         private final BooleanSupplier cancelled;
-        private final Consumer<Candidate> onFile;
+        private final Consumer<SourceSearch.Candidate> onFile;
         private final Deque<Frame> frames = new ArrayDeque<>();
         final List<Module> modules = new ArrayList<>();
         final Map<ModuleId, ModuleDescriptor> descriptors = new LinkedHashMap<>();
@@ -98,11 +148,16 @@ public final class LocalSourceTree implements SourceTree {
         /** La racine est devenue illisible pendant le parcours. */
         boolean unreadable;
 
-        Walk(SourceRoot source, Limits limits, BooleanSupplier cancelled, Consumer<Candidate> onFile) {
+        Walk(SourceRoot source, Limits limits, BooleanSupplier cancelled, Consumer<SourceSearch.Candidate> onFile) {
+            this(source, limits, System.nanoTime() + limits.maxDuration().toNanos(), cancelled, onFile);
+        }
+
+        Walk(SourceRoot source, Limits limits, long deadline, BooleanSupplier cancelled,
+                Consumer<SourceSearch.Candidate> onFile) {
             this.source = source;
             this.root = Path.of(source.location()).toAbsolutePath().normalize();
             this.limits = limits;
-            this.deadline = System.nanoTime() + limits.maxDuration().toNanos();
+            this.deadline = deadline;
             this.cancelled = cancelled;
             this.onFile = onFile;
         }
@@ -192,7 +247,7 @@ public final class LocalSourceTree implements SourceTree {
             retained++;
             if (onFile != null) {
                 Module module = frame == null || frame.module() == null ? null : frame.module();
-                onFile.accept(new Candidate(file, path, module, attrs.size()));
+                onFile.accept(new SourceSearch.Candidate(file, path, module, attrs.size()));
             }
             return FileVisitResult.CONTINUE;
         }
