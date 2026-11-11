@@ -35,8 +35,21 @@ export class SessionsApi {
     return firstValueFrom(this.http.patch<SessionSummary>(`/api/sessions/${encodeURIComponent(id)}`, { name }));
   }
 
-  delete(id: string): Promise<void> {
-    return firstValueFrom(this.http.delete<void>(`/api/sessions/${encodeURIComponent(id)}`));
+  /** `keepDiscussions` : ses discussions restent, marquées « spécification supprimée » (011). */
+  delete(id: string, keepDiscussions = false): Promise<void> {
+    return firstValueFrom(
+      this.http.delete<void>(`/api/sessions/${encodeURIComponent(id)}`, {
+        params: { discussions: keepDiscussions ? 'keep' : 'delete' },
+      }),
+    );
+  }
+
+  /** Nombre de discussions rattachées à la spécification (011). */
+  async discussionCount(id: string): Promise<number> {
+    const r = await firstValueFrom(
+      this.http.get<{ count: number }>(`/api/sessions/${encodeURIComponent(id)}/discussions/count`),
+    );
+    return r.count;
   }
 
   /** Suppression locale d'une version ; Jira n'est pas modifié (FR-014 de 002). */

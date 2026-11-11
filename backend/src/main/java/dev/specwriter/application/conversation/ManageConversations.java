@@ -11,14 +11,17 @@ import dev.specwriter.domain.conversation.MessageState;
 import dev.specwriter.domain.conversation.SearchStep;
 import dev.specwriter.domain.conversation.Thinking;
 import dev.specwriter.domain.conversation.SourceKind;
+import dev.specwriter.domain.conversation.SpecificationDiscussion;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.port.ConversationRepository;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
+import dev.specwriter.domain.port.SpecificationDiscussionRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,9 +35,19 @@ public class ManageConversations {
     public record SourceView(int n, SourceKind kind, String ref, String title, String url) {
     }
 
+    /** {@code specificationVersion} : version de la spécification discutée transmise pour ce tour (011). */
     public record MessageView(UUID id, int ordinal, MessageRole role, String text, MessageState state,
             boolean historyTruncated, Instant createdAt, List<SearchStep> steps, List<SourceView> sources,
-            Thinking thinking) {
+            Thinking thinking, Integer specificationVersion) {
+    }
+
+    /** Spécification discutée (011) ; {@code sessionId} nul : la spécification a été supprimée. */
+    public record SpecificationRef(UUID sessionId, String name) {
+    }
+
+    /** Conversation de la liste, avec la spécification qu'elle discute s'il y en a une (011). */
+    public record Summary(UUID id, UUID projectId, String name, Instant createdAt, Instant updatedAt,
+            SpecificationRef specification) {
     }
 
     public record SessionLink(UUID sessionId, String name) {
@@ -42,7 +55,8 @@ public class ManageConversations {
 
     /** {@code memoryUntil} : les messages jusqu'à ce numéro d'ordre sont transmis résumés ; nul sans mémoire. */
     public record Detail(UUID id, UUID projectId, String name, Instant createdAt, Instant updatedAt,
-            List<MessageView> messages, List<SessionLink> sessions, Integer memoryUntil) {
+            List<MessageView> messages, List<SessionLink> sessions, Integer memoryUntil,
+            SpecificationRef specification) {
     }
 
     private final ProjectRepository projects;
@@ -50,9 +64,18 @@ public class ManageConversations {
     private final SessionRepository sessions;
     private final JiraAccess jira;
     private final OperationRegistry operations;
+    private final SpecificationDiscussionRepository discussions;
 
     public ManageConversations(ProjectRepository projects, ConversationRepository conversations,
             SessionRepository sessions, JiraAccess jira, OperationRegistry operations) {
+        this(projects, conversations, sessions, jira, operations, null);
+    }
+
+    /** Avec les discussions des spécifications (011). */
+    public ManageConversations(ProjectRepository projects, ConversationRepository conversations,
+            SessionRepository sessions, JiraAccess jira, OperationRegistry operations,
+            SpecificationDiscussionRepository discussions) {
+        this.discussions = discussions;
         this.projects = projects;
         this.conversations = conversations;
         this.sessions = sessions;
@@ -61,9 +84,17 @@ public class ManageConversations {
     }
 
     /** Conversations du projet, la plus récente d'abord. */
-    public List<Conversation> list(UUID projectId) {
+    public List<Summary> list(UUID projectId) {
         projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
-        return conversations.list(projectId);
+        List<Conversation> all = conversations.list(projectId);
+        Map<UUID, SpecificationDiscussion> discussed = discussions == null ? Map.of()
+                : discussions.ofConversations(all.stream().map(Conversation::id).toList());
+        return all.stream().map(c -> new Summary(c.id(), c.projectId(), c.name(), c.createdAt(), c.updatedAt(),
+                ref(discussed.get(c.id())))).toList();
+    }
+
+    private static SpecificationRef ref(SpecificationDiscussion d) {
+        return d == null ? null : new SpecificationRef(d.sessionId(), d.specificationName());
     }
 
     public Detail detail(UUID conversationId) {
@@ -74,13 +105,16 @@ public class ManageConversations {
                         m.role() == MessageRole.AGENT ? conversations.steps(m.id()) : List.of(),
                         m.role() == MessageRole.AGENT ? conversations.sources(m.id()).stream().map(this::view).toList()
                                 : List.of(),
-                        m.role() == MessageRole.AGENT ? conversations.thinking(m.id()).orElse(null) : null))
+                        m.role() == MessageRole.AGENT ? conversations.thinking(m.id()).orElse(null) : null,
+                        m.specificationVersion()))
                 .toList();
         List<SessionLink> links = conversations.sessions(conversationId).stream()
                 .map(id -> sessions.find(id).map(s -> new SessionLink(id, s.name())))
                 .flatMap(Optional::stream).toList();
         return new Detail(c.id(), c.projectId(), c.name(), c.createdAt(), c.updatedAt(), messages, links,
-                conversations.memory(conversationId).map(ConversationMemory::coveredUntil).orElse(null));
+                conversations.memory(conversationId).map(ConversationMemory::coveredUntil).orElse(null),
+                discussions == null ? null : discussions.ofConversation(conversationId).map(ManageConversations::ref)
+                        .orElse(null));
     }
 
     public Conversation rename(UUID conversationId, String name) {
@@ -113,18 +147,27 @@ public class ManageConversations {
             case TICKET -> jira.target().map(t -> t.issueUrl(s.ref())).orElse(null);
             case DOC_SECTION, ADR -> s.ref().toLowerCase(Locale.ROOT).startsWith("http") ? s.ref() : null;
             case SPECIFICATION -> specificationUrl(s.ref());
-            case ARCH_ELEMENT, ATTACHMENT -> null;
+            case ARCH_ELEMENT, ATTACHMENT, DISCUSSION -> null;
         };
     }
 
-    /** {@code spec:<session>@v<n>} → {@code /sessions/<session>/versions/<n>}, si la session existe encore. */
+    /**
+     * {@code spec:<session>@v<n>} → {@code /sessions/<session>/versions/<n>} ; une section de la
+     * spécification discutée ({@code #<ancre>}, 011) garde son ancre.
+     */
     static String specificationUrl(String ref) {
         if (!ref.startsWith(ConversationSearch.SPEC_PREFIX) || !ref.contains("@v")) {
             return null;
         }
         String body = ref.substring(ConversationSearch.SPEC_PREFIX.length());
+        String anchor = "";
+        int hash = body.indexOf('#');
+        if (hash >= 0) {
+            anchor = body.substring(hash);
+            body = body.substring(0, hash);
+        }
         int at = body.lastIndexOf("@v");
-        return "/sessions/" + body.substring(0, at) + "/versions/" + body.substring(at + 2);
+        return "/sessions/" + body.substring(0, at) + "/versions/" + body.substring(at + 2) + anchor;
     }
 
     private Conversation require(UUID conversationId) {

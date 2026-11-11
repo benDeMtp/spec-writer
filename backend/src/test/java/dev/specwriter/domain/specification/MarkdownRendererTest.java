@@ -149,6 +149,16 @@ class MarkdownRendererTest {
     }
 
     @Test
+    void messageDeLaDiscussionCiteParSonTitre() {
+        SpecificationContent c = new SpecificationContent("T", "R", List.of(
+                Specs.useCase("UC-01", SourceRef.knowledge(SourceRef.Kind.DISCUSSION,
+                        "discussion:00000000-0000-0000-0000-000000000001#3", "Discussion du 11/11/2026, message 3"))),
+                List.of(), List.of(), List.of());
+        assertThat(MarkdownRenderer.render(c, Language.FR))
+                .contains("- **Source** : Discussion du 11/11/2026, message 3\n");
+    }
+
+    @Test
     void documentJointCiteParSonNomSansExtrait() {
         SpecificationContent c = new SpecificationContent("T", "R", List.of(
                 Specs.useCase("UC-01", SourceRef.knowledge(SourceRef.Kind.DOC_PAGE, "joint:CR COPIL.pdf",

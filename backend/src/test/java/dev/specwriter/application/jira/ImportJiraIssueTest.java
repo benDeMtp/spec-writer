@@ -125,11 +125,18 @@ class ImportJiraIssueTest {
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.JIRA_TOKEN_REJECTED));
     }
 
+    /** 011, US4 : un ticket déjà lié renvoie sa spécification, sans nouvel import. */
     @Test
-    void ticketDejaLie() {
+    void ticketDejaLieRenvoieSaSpecification() {
         w.llm.structures.add(JiraWorld.draft("Paiement"));
-        importer.run("PAY-4");
-        assertThatThrownBy(() -> importer.run("PAY-4")).isInstanceOfSatisfying(DomainException.class,
-                e -> assertThat(e.code()).isEqualTo(ErrorCode.ALREADY_LINKED));
+        ImportJiraIssue.Imported first = importer.run("PAY-4");
+
+        ImportJiraIssue.Imported again = importer.run("PAY-4");
+
+        assertThat(again.existing()).isTrue();
+        assertThat(first.existing()).isFalse();
+        assertThat(again.session().id()).isEqualTo(first.session().id());
+        assertThat(again.version().number()).isEqualTo(1);
+        assertThat(w.sessions.list()).hasSize(1);
     }
 }

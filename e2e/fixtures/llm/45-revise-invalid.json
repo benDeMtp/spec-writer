@@ -1,0 +1,133 @@
+{
+  "operation": "revise-specification",
+  "userContains": [
+    "E2E-REVISION-INVALIDE"
+  ],
+  "response": {
+    "changed": true,
+    "reason": "x",
+    "specification": {
+      "title": "Réservation des salles de réunion",
+      "summary": "Les employés du siège réservent une salle pour un créneau et sont prévenus si elle est prise.",
+      "useCases": [
+        {
+          "title": "Réserver une salle",
+          "actor": "employé du siège",
+          "goal": "Obtenir une salle libre pour un créneau",
+          "preconditions": [
+            "L'employé est connecté"
+          ],
+          "nominalFlow": [
+            "Choisir le créneau",
+            "Choisir une salle libre",
+            "Confirmer la réservation"
+          ],
+          "alternatives": [
+            "La salle est prise : afficher les autres salles libres du même étage"
+          ],
+          "source": {
+            "kind": "NEED_EXCERPT",
+            "questionId": "",
+            "excerpt": "réserver une salle de réunion depuis leur poste",
+            "ref": ""
+          }
+        },
+        {
+          "title": "Annuler une réservation",
+          "actor": "assistante",
+          "goal": "Libérer la salle jusqu'à la veille",
+          "preconditions": [
+            "Une réservation existe"
+          ],
+          "nominalFlow": [
+            "Choisir la réservation",
+            "Annuler jusqu'à la veille"
+          ],
+          "alternatives": [],
+          "source": {
+            "kind": "DISCUSSION",
+            "questionId": "",
+            "excerpt": "",
+            "ref": "discussion:inconnue#9"
+          }
+        }
+      ],
+      "scenarios": [
+        {
+          "useCaseIndex": 0,
+          "title": "Réservation d'une salle libre",
+          "kind": "NOMINAL",
+          "asA": "employé du siège",
+          "given": [
+            "la salle Arago est libre de 10 h à 11 h"
+          ],
+          "when": [
+            "je réserve la salle Arago de 10 h à 11 h"
+          ],
+          "then": [
+            "la réservation est confirmée"
+          ],
+          "assumption": false
+        },
+        {
+          "useCaseIndex": 0,
+          "title": "Réservation au-delà de la durée maximale",
+          "kind": "EDGE",
+          "asA": "employé du siège",
+          "given": [],
+          "when": [
+            "je réserve une salle pour 5 heures"
+          ],
+          "then": [
+            "la réservation est refusée car elle dépasse 4 heures"
+          ],
+          "assumption": true
+        },
+        {
+          "useCaseIndex": 0,
+          "title": "Salle déjà prise",
+          "kind": "ERROR",
+          "asA": "employé du siège",
+          "given": [
+            "la salle Arago est réservée de 10 h à 11 h"
+          ],
+          "when": [
+            "je demande la salle Arago de 10 h à 11 h"
+          ],
+          "then": [
+            "un message m'indique que la salle est prise",
+            "les autres salles libres du même étage me sont proposées"
+          ],
+          "assumption": false
+        },
+        {
+          "useCaseIndex": 1,
+          "title": "Annulation la veille",
+          "kind": "NOMINAL",
+          "asA": "assistante",
+          "given": [
+            "une salle réservée pour demain"
+          ],
+          "when": [
+            "j'annule la réservation"
+          ],
+          "then": [
+            "la salle redevient libre"
+          ],
+          "assumption": false
+        }
+      ],
+      "assumptions": [],
+      "requirements": [
+        {
+          "category": "FUNCTIONAL",
+          "statement": "Une salle ne peut pas être réservée deux fois sur le même créneau."
+        },
+        {
+          "category": "TECHNICAL",
+          "statement": "La réservation est accessible depuis le poste de travail de l'employé."
+        }
+      ]
+    }
+  }
+}

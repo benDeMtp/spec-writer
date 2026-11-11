@@ -38,7 +38,7 @@ public class JiraIssueResource {
         ImportJiraIssue.Imported imported = importJiraIssue.run(key);
         SessionSnapshot snapshot = new SessionSnapshot(imported.session(), Questionnaire.empty(),
                 imported.truncated() ? List.of(TRUNCATED) : List.of());
-        return Response.status(Response.Status.CREATED)
+        return Response.status(imported.existing() ? Response.Status.OK : Response.Status.CREATED)
                 .entity(SessionViews.detail(snapshot, imported.version().number(), imported.ticket())).build();
     }
 }

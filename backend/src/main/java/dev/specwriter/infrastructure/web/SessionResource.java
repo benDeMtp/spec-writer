@@ -27,6 +27,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
@@ -94,10 +95,27 @@ public class SessionResource {
                 implementation(sessionId).status());
     }
 
+    /**
+     * {@code discussions} : {@code delete} (par défaut) supprime les discussions rattachées,
+     * {@code keep} les garde sans spécification (011, research.md R7).
+     */
     @DELETE
     @Path("/{id}")
-    public void delete(@PathParam("id") String id) {
-        manageSessions.delete(Ids.parse(id));
+    public void delete(@PathParam("id") String id, @QueryParam("discussions") String discussions) {
+        if (discussions != null && !"delete".equals(discussions) && !"keep".equals(discussions)) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED, "discussions : delete ou keep.");
+        }
+        manageSessions.delete(Ids.parse(id), "keep".equals(discussions));
+    }
+
+    public record DiscussionCount(int count) {
+    }
+
+    /** Discussions rattachées : la confirmation de suppression propose de les garder (011). */
+    @GET
+    @Path("/{id}/discussions/count")
+    public DiscussionCount discussions(@PathParam("id") String id) {
+        return new DiscussionCount(manageSessions.discussions(Ids.parse(id)));
     }
 
     @POST

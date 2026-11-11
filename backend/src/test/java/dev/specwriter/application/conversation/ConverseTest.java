@@ -181,6 +181,65 @@ class ConverseTest {
     }
 
     @Test
+    void discussionLaSpecificationParSectionsEnTeteEtSaVersionGardee() {
+        dev.specwriter.domain.session.Session session = w.generatedSession();
+        dev.specwriter.support.InMemorySpecificationDiscussions links = new dev.specwriter.support.InMemorySpecificationDiscussions();
+        DiscussSpecification discussions = new DiscussSpecification(w.sessions, w.versions, conversations, links, w.clock,
+                w.ids);
+        FakeLocalSearch specs = new FakeLocalSearch();
+        specs.specs.add(new dev.specwriter.domain.port.LocalSearch.SpecHit(session.id(), 1, session.name(),
+                "Extrait de la spécification discutée", false));
+        UUID other = UUID.randomUUID();
+        specs.specs.add(new dev.specwriter.domain.port.LocalSearch.SpecHit(other, 2, "Autre spécification",
+                "Les avoirs sont émis par le service Avoirs.", false));
+        Converse discussing = new Converse(w.projects, conversations, llm,
+                new ConversationSearch(index, new FakeEmbedding(), specs), DesignatedDocuments.NONE,
+                ModelCapacities.UNKNOWN, w.policy, operations, events, w.clock, w.ids, Runnable::run, discussions);
+        UUID cid = discussions.open(session.id()).conversationId();
+        llm.plans.add(new Plan(Action.SEARCH, "paiement", Set.of(SourceKind.SPECIFICATION)));
+        llm.answers.add(List.of("UC-01 [4], et l'autre spécification [8]."));
+
+        Converse.Started started = discussing.send(cid, "Que dit la spécification du paiement ?");
+
+        var first = llm.planRequests.getFirst();
+        assertThat(first.discussed()).isEqualTo(new dev.specwriter.domain.port.ConversationLlm.Discussed(session.name(), 1));
+        assertThat(first.found()).extracting(s -> s.ref()).startsWith("spec:" + session.id() + "@v1#introduction",
+                "spec:" + session.id() + "@v1#summary", "spec:" + session.id() + "@v1#use-cases",
+                "spec:" + session.id() + "@v1#UC-01");
+        assertThat(first.found()).allSatisfy(s -> assertThat(s.kind()).isEqualTo(SourceKind.SPECIFICATION));
+        // la recherche n'ajoute pas d'extrait de la spécification discutée, mais trouve les autres
+        var answered = llm.answerRequests.getFirst();
+        assertThat(answered.discussed()).isNotNull();
+        assertThat(answered.sources()).extracting(s -> s.ref()).noneMatch(r -> r.equals("spec:" + session.id() + "@v1"))
+                .contains("spec:" + other + "@v2");
+        ConversationMessage answer = conversations.messages(cid).getLast();
+        assertThat(answer.specificationVersion()).isEqualTo(1);
+        assertThat(conversations.sources(started.turnId())).extracting(CitedSource::ref)
+                .contains("spec:" + session.id() + "@v1#UC-01");
+    }
+
+    @Test
+    void discussionRefuseeSurUneSpecificationImplementeeEtOrdinaireUneFoisDetachee() {
+        dev.specwriter.domain.session.Session session = w.generatedSession();
+        dev.specwriter.support.InMemorySpecificationDiscussions links = new dev.specwriter.support.InMemorySpecificationDiscussions();
+        DiscussSpecification discussions = new DiscussSpecification(w.sessions, w.versions, conversations, links, w.clock,
+                w.ids);
+        Converse discussing = new Converse(w.projects, conversations, llm,
+                new ConversationSearch(index, new FakeEmbedding(), new FakeLocalSearch()), DesignatedDocuments.NONE,
+                ModelCapacities.UNKNOWN, w.policy, operations, events, w.clock, w.ids, Runnable::run, discussions);
+        UUID cid = discussions.open(session.id()).conversationId();
+        w.sessions.saveImplementation(session.id(), new dev.specwriter.domain.session.Implementation(
+                dev.specwriter.domain.session.ImplementationStatus.IMPLEMENTED, T, null));
+
+        refused(() -> discussing.send(cid, "Et maintenant ?"), ErrorCode.SPECIFICATION_LOCKED);
+
+        links.detachAll(session.id());
+        discussing.send(cid, "Et maintenant ?");
+        assertThat(llm.planRequests.getLast().discussed()).isNull();
+        assertThat(conversations.messages(cid).getLast().specificationVersion()).isNull();
+    }
+
+    @Test
     void sourcesHorsPlaceDitesNonComparees() {
         Converse.Sources sources = new Converse.Sources(60);
         sources.add(List.of(new ConversationSearch.Found(SourceKind.TICKET, "A-1", "Court", "Vingt caractères ici."),

@@ -122,7 +122,7 @@ un résumé qu'il rédige lui-même, souvent en anglais ; elle reste avec la ré
 au plus), avec la durée du tour. Pour l'obtenir, l'outil demande au modèle une réflexion poussée
 (`specwriter.copilot.reasoning-effort`, `high` par défaut ; Claude Sonnet 5.5 n'en partage aucune
 en dessous) : une réponse prend quelques secondes de plus. Un modèle qui ne propose pas de réflexion
-répond sans. Ailleurs (questionnaire, génération, modification assistée, Jira), un chronomètre
+répond sans. Ailleurs (questionnaire, génération, proposition d'une version, Jira), un chronomètre
 accompagne chaque attente de l'IA.
 
 **Arrêter** (ou Échap) garde le texte déjà écrit, marqué incomplet ; **Réessayer** le relance. Les
@@ -132,6 +132,34 @@ spécification** sont dans l'écran **Spécifications**.
 
 Chaque message part vers GitHub Copilot, avec votre accord. Les messages restent dans la base de
 l'outil et n'apparaissent jamais dans les journaux.
+
+## Discuter d'une spécification
+
+Sur une spécification, **Discuter avec l'IA** ouvre une discussion à côté du document (sous le
+document sur un petit écran). L'agent reçoit la dernière version entière, en tête de ses sources,
+découpée par section : il la cite par section (`[n]` mène à la section du document affiché), la
+compare au reste du projet et signale les incohérences, avec les mêmes recherches, mentions @,
+documents joints, mémoire et réflexion que la conversation. Si vous affichez une version plus
+ancienne, le panneau le dit : la discussion porte toujours sur la dernière.
+
+**Proposer une nouvelle version** ne demande rien : l'agent réécrit la spécification d'après ce
+que la discussion a établi (ce que vous avez dit ou confirmé), garde le reste à l'identique, et
+rattache chaque ajout au message qui l'établit, sinon il le marque comme hypothèse. Le chronomètre
+et sa réflexion s'affichent pendant la rédaction. La proposition se relit à côté du document
+(différences, **Appliquer**, **Abandonner**) ; appliquée, elle devient la version suivante,
+« Issue de la discussion », avec un lien vers la conversation, et la discussion passe à cette
+version (repère « Contexte : version N » dans le fil). Si la discussion n'a rien établi, l'agent le
+dit au lieu de proposer.
+
+La discussion est reprise à chaque retour sur la spécification ; **Nouvelle discussion** repart de
+zéro, l'ancienne reste dans la liste des conversations, avec la mention « Spécification : <nom> ».
+Une spécification implémentée ne se discute plus. Depuis un ticket Jira, **Discuter avec l'IA**
+importe le ticket (ou ouvre sa spécification s'il est déjà importé) et ouvre la discussion. La
+fusion d'un conflit avec Jira reste une proposition directe.
+
+Supprimer une spécification qui a des discussions propose la case **Supprimer aussi ses
+discussions**, cochée par défaut ; décochée, elles restent dans la liste, marquées « spécification
+supprimée », et se poursuivent comme des conversations ordinaires.
 
 ## Projets et connaissance du projet
 

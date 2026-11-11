@@ -64,8 +64,17 @@ public class TurnEvents {
         record Memory(ConversationHistory.Phase phase) implements Event {
         }
 
-        /** {@code durationMs} : durée du tour, de l'envoi de la question à la fin de la réponse. */
-        record Done(MessageState state, boolean historyTruncated, long durationMs) implements Event {
+        /**
+         * {@code durationMs} : durée du tour, de l'envoi de la question à la fin de la réponse. Pour
+         * une proposition (011) : {@code proposalId} quand une version est proposée, sinon
+         * {@code unchanged} et sa raison.
+         */
+        record Done(MessageState state, boolean historyTruncated, long durationMs, UUID proposalId, boolean unchanged,
+                String reason) implements Event {
+
+            public Done(MessageState state, boolean historyTruncated, long durationMs) {
+                this(state, historyTruncated, durationMs, null, false, null);
+            }
         }
 
         record Error(String code, String userMessage) implements Event {

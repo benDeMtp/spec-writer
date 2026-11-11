@@ -1,8 +1,14 @@
 /** Agent conversationnel (010, contracts/api.md). */
 export type SourceKind =
-  'TICKET' | 'DOC_SECTION' | 'ADR' | 'ARCH_ELEMENT' | 'SPECIFICATION' | 'ATTACHMENT';
+  'TICKET' | 'DOC_SECTION' | 'ADR' | 'ARCH_ELEMENT' | 'SPECIFICATION' | 'ATTACHMENT' | 'DISCUSSION';
 export type MessageRole = 'USER' | 'AGENT';
 export type MessageState = 'COMPLETE' | 'INCOMPLETE' | 'RUNNING';
+
+/** Spécification discutée (011) ; `sessionId` nul : la spécification a été supprimée. */
+export interface SpecificationRef {
+  sessionId: string | null;
+  name: string;
+}
 
 export interface ConversationSummary {
   id: string;
@@ -10,6 +16,15 @@ export interface ConversationSummary {
   name: string;
   createdAt: string;
   updatedAt: string;
+  /** Présente pour la discussion d'une spécification (011). */
+  specification?: SpecificationRef | null;
+}
+
+/** Discussion suivie d'une spécification (011). */
+export interface DiscussionView {
+  conversationId: string;
+  specificationName: string;
+  version: number;
 }
 
 /** Recherche lancée par l'agent pendant une réponse (5 au plus). */
@@ -30,7 +45,7 @@ export interface CitedSource {
 }
 
 /** Ce que fait l'agent : résumer sa mémoire, choisir une recherche, rédiger la réponse. */
-export type ThinkingStage = 'MEMORY' | 'PLAN' | 'ANSWER';
+export type ThinkingStage = 'MEMORY' | 'PLAN' | 'ANSWER' | 'REVISE';
 
 /** Réflexion résumée par le modèle pour une étape du tour. */
 export interface ThinkingPart {
@@ -57,6 +72,8 @@ export interface ConversationMessage {
   sources: CitedSource[];
   /** Absente pour une réponse antérieure à la réflexion, ou pas encore finie. */
   thinking?: Thinking | null;
+  /** Version de la spécification discutée transmise pour ce tour (011). */
+  specificationVersion?: number | null;
 }
 
 export interface ConversationDetail extends ConversationSummary {
@@ -83,7 +100,16 @@ export type TurnEvent =
   | { type: 'delta'; text: string }
   | { type: 'sources'; sources: Omit<CitedSource, 'url'>[] }
   | { type: 'memory'; phase: MemoryPhase }
-  | { type: 'done'; state: MessageState; historyTruncated: boolean; durationMs: number }
+  | {
+      type: 'done';
+      state: MessageState;
+      historyTruncated: boolean;
+      durationMs: number;
+      /** Proposition d'une nouvelle version (011) : sa référence, ou aucun changement et sa raison. */
+      proposalId?: string | null;
+      unchanged?: boolean;
+      reason?: string | null;
+    }
   | { type: 'error'; code: string; userMessage: string }
   | { type: 'gone' };
 

@@ -1,0 +1,79 @@
+{
+  "operation": "revise-specification",
+  "userContains": [
+    "IT-EDIT"
+  ],
+  "response": {
+    "changed": true,
+    "reason": "Ajoute l'annulation demandée dans la discussion.",
+    "specification": {
+      "title": "Réservation de salles avec annulation",
+      "summary": "Les employés réservent et annulent une salle.",
+      "useCases": [
+        {
+          "title": "Réserver une salle",
+          "actor": "employé",
+          "goal": "Obtenir une salle pour une réunion",
+          "preconditions": [
+            "L'employé est connecté"
+          ],
+          "nominalFlow": [
+            "Choisir un créneau",
+            "Choisir une salle",
+            "Confirmer"
+          ],
+          "alternatives": [
+            "La salle est prise : proposer une autre salle",
+            "L'employé annule sa réservation"
+          ],
+          "source": {
+            "kind": "NEED_EXCERPT",
+            "questionId": "",
+            "excerpt": "réserver une salle de réunion"
+          }
+        }
+      ],
+      "scenarios": [
+        {
+          "useCaseIndex": 0,
+          "title": "Réservation confirmée",
+          "kind": "NOMINAL",
+          "asA": "employé connecté",
+          "given": [
+            "une salle libre de 10 h à 11 h"
+          ],
+          "when": [
+            "je réserve la salle de 10 h à 11 h"
+          ],
+          "then": [
+            "la réservation est confirmée"
+          ],
+          "assumption": false
+        },
+        {
+          "useCaseIndex": 0,
+          "title": "Salle déjà prise",
+          "kind": "ERROR",
+          "asA": "employé connecté",
+          "given": [
+            "une salle réservée de 10 h à 11 h"
+          ],
+          "when": [
+            "je réserve la même salle de 10 h à 11 h"
+          ],
+          "then": [
+            "un message m'indique que la salle est prise"
+          ],
+          "assumption": false
+        }
+      ],
+      "assumptions": [],
+      "requirements": [
+        {
+          "category": "FUNCTIONAL",
+          "statement": "Une salle ne peut pas être réservée deux fois sur le même créneau."
+        }
+      ]
+    }
+  }
+}

@@ -25,6 +25,8 @@ public enum ErrorCode {
             ErrorAction.EDIT_INPUT),
     // Conversation (010)
     CONVERSATION_NOT_FOUND(404, "Cette conversation n'existe plus.", ErrorAction.NONE),
+    DISCUSSION_NOT_FOUND(404, "Cette spécification n'a pas encore de discussion.", ErrorAction.NONE),
+    NOT_A_DISCUSSION(422, "Cette conversation n'est pas la discussion d'une spécification.", ErrorAction.NONE),
     MESSAGE_TOO_LONG(422, "Un message fait 8 000 caractères au plus. Raccourcissez-le, ou joignez le texte comme document.",
             ErrorAction.EDIT_INPUT),
     NEED_DRAFT_INVALID(422, "Le besoin ou un point établi n'est pas valide : corrigez-le avant de démarrer.",

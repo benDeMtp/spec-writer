@@ -13,9 +13,12 @@ public record Thinking(List<Part> parts, long durationMs) {
 
     public static final int MAX_TEXT = 20_000;
 
-    /** Ce que fait l'agent : résumer sa mémoire, choisir une recherche, rédiger la réponse. */
+    /**
+     * Ce que fait l'agent : résumer sa mémoire, choisir une recherche, rédiger la réponse, ou une
+     * nouvelle version de la spécification discutée (011).
+     */
     public enum Stage {
-        MEMORY, PLAN, ANSWER
+        MEMORY, PLAN, ANSWER, REVISE
     }
 
     public record Part(Stage stage, String text) {

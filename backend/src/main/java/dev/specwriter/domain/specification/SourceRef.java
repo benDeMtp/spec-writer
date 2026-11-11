@@ -7,7 +7,8 @@ import java.util.UUID;
 
 /**
  * Source d'un use case : extrait du besoin, réponse, hypothèse, extrait de la fiche générale, ou
- * élément de la connaissance du projet cité par sa référence (FR-010 de 002, research.md R24).
+ * élément de la connaissance du projet cité par sa référence (FR-010 de 002, research.md R24), ou
+ * message de la discussion de la spécification (011, research.md R4).
  * {@code ref} : clé du ticket, URL de la page ou de l'ADR, nom canonique de l'élément
  * d'architecture ; {@code null} pour les autres sortes. Le champ {@code sheet} des versions
  * antérieures à la fiche générale est ignoré à la lecture.
@@ -44,7 +45,9 @@ public record SourceRef(Kind kind, UUID questionId, String excerpt, String ref) 
         PROJECT_CONTEXT,
         JIRA_ISSUE,
         DOC_PAGE,
-        ARCH_ELEMENT;
+        ARCH_ELEMENT,
+        /** Message de l'utilisateur dans la discussion d'une spécification (011), cité par sa référence. */
+        DISCUSSION;
 
         /** Sortes d'éléments de la connaissance qu'une source de cette sorte peut citer ; vide sinon. */
         public Set<KnowledgeKind> knowledgeKinds() {
@@ -54,6 +57,11 @@ public record SourceRef(Kind kind, UUID questionId, String excerpt, String ref) 
                 case ARCH_ELEMENT -> Set.of(KnowledgeKind.ARCH_ELEMENT);
                 default -> Set.of();
             };
+        }
+
+        /** Source citée par sa référence : élément de la connaissance ou message de la discussion. */
+        public boolean byRef() {
+            return this == DISCUSSION || !knowledgeKinds().isEmpty();
         }
     }
 }

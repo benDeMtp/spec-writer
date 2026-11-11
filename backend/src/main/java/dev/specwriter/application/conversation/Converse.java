@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.jboss.logging.Logger;
@@ -66,6 +67,8 @@ public class Converse {
     private final Executor executor;
     private final DesignatedDocuments designated;
     private final ConversationHistory history;
+    /** Discussions des spécifications (011) ; nul : aucune conversation n'en est une. */
+    private final DiscussSpecification discussions;
 
     public Converse(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
             ConversationSearch search, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
@@ -79,6 +82,19 @@ public class Converse {
             ConversationSearch search, DesignatedDocuments designated, ModelCapacities capacities,
             ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
             Executor executor) {
+        this(projects, conversations, llm, search, designated, capacities, consent, operations, events, clock, ids,
+                executor, null);
+    }
+
+    /**
+     * Avec les discussions des spécifications (011) : la spécification discutée passe en tête des
+     * sources, et une spécification implémentée ne se discute pas.
+     */
+    public Converse(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
+            ConversationSearch search, DesignatedDocuments designated, ModelCapacities capacities,
+            ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
+            Executor executor, DiscussSpecification discussions) {
+        this.discussions = discussions;
         this.designated = designated;
         this.history = new ConversationHistory(conversations, llm, clock);
         this.projects = projects;
@@ -107,6 +123,7 @@ public class Converse {
         List<ConversationMessage> messages = conversations.messages(conversationId);
         ConversationMessage question = ConversationMessage.user(ids.next(), conversationId, messages.size() + 1, text,
                 clock.now());
+        requireEditable(conversationId);
         consent.requireGranted(ConsentService.COPILOT);
         synchronized (this) {
             requireIdle(conversationId);
@@ -131,6 +148,7 @@ public class Converse {
                 || messages.get(at + 1).state() != MessageState.INCOMPLETE) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "Seule une réponse incomplète peut être réessayée.");
         }
+        requireEditable(conversationId);
         consent.requireGranted(ConsentService.COPILOT);
         synchronized (this) {
             requireIdle(conversationId);
@@ -217,12 +235,20 @@ public class Converse {
                     }
                     events.publish(turn, new Event.Memory(phase));
                 });
-        progress.answer = progress.answer.finished(MessageState.RUNNING, history.truncated());
+        Optional<DiscussSpecification.Context> discussed = discussions == null ? Optional.empty()
+                : discussions.of(question.conversationId());
+        ConversationLlm.Discussed about = discussed.map(c -> new ConversationLlm.Discussed(c.specificationName(),
+                c.version())).orElse(null);
+        progress.answer = progress.answer.finished(MessageState.RUNNING, history.truncated())
+                .about(discussed.map(DiscussSpecification.Context::version).orElse(null));
 
-        Sources sources = progress.sources = new Sources(budget.conversationSources());
+        Sources sources = progress.sources = new Sources(budget.conversationSources()
+                + (discussed.isPresent() ? budget.discussedSpecification() : 0));
+        discussed.ifPresent(c -> DiscussionSources.add(sources, c, budget.discussedSpecification()));
         sources.add(designated.read(projectId, question.conversationId(), question.text(), all.stream()
                 .filter(m -> m.role() == MessageRole.USER && m.ordinal() < question.ordinal())
-                .map(ConversationMessage::text).toList(), budget));
+                .map(ConversationMessage::text).toList(), budget,
+                discussed.map(DiscussSpecification.Context::attachments).orElse(List.of())));
         boolean stopped = false;
         while (!events.cancelled(turn)) {
             if (progress.steps == SearchStep.MAX_STEPS) {
@@ -231,11 +257,14 @@ public class Converse {
             }
             thinking.stage(Thinking.Stage.PLAN);
             ConversationLlm.Plan plan = llm.plan(new ConversationLlm.PlanRequest(language, sheet, history.memory(),
-                    history.exchanges(), question.text(), sources.all(), SearchStep.MAX_STEPS - progress.steps));
+                    history.exchanges(), question.text(), sources.all(), SearchStep.MAX_STEPS - progress.steps, about));
             if (plan.action() == ConversationLlm.Action.ANSWER || plan.query() == null || plan.query().isBlank()) {
                 break;
             }
-            List<ConversationSearch.Found> found = search.run(projectId, plan.query(), plan.kinds());
+            // la spécification discutée est déjà là, entière : ses extraits de recherche sont écartés
+            List<ConversationSearch.Found> found = search.run(projectId, plan.query(), plan.kinds()).stream()
+                    .filter(f -> discussed.map(c -> !DiscussionSources.isDiscussed(f.ref(), c)).orElse(true))
+                    .toList();
             sources.add(found);
             SearchStep step = new SearchStep(++progress.steps, plan.query(), plan.kinds(), found.size());
             conversations.saveStep(turn, step);
@@ -246,7 +275,7 @@ public class Converse {
             ConversationMessage saving = progress.answer;
             int[] chunks = {0};
             llm.answer(new ConversationLlm.AnswerRequest(language, sheet, history.memory(), history.exchanges(),
-                    question.text(), sources.all(), sources.notCompared(), stopped), delta -> {
+                    question.text(), sources.all(), sources.notCompared(), stopped, about), delta -> {
                         progress.text.append(delta);
                         events.publish(turn, new Event.Delta(delta));
                         if (++chunks[0] % SAVE_EVERY == 0) {
@@ -331,6 +360,11 @@ public class Converse {
             this.left = budget;
         }
 
+        /** Section de la spécification réduite à son titre : nommée parmi les sources non comparées. */
+        void notCompared(String title) {
+            notCompared.add(title);
+        }
+
         void add(List<ConversationSearch.Found> found) {
             for (ConversationSearch.Found f : found) {
                 String key = f.kind() + "|" + f.ref();
@@ -359,6 +393,12 @@ public class Converse {
     private Conversation require(UUID conversationId) {
         return conversations.find(conversationId)
                 .orElseThrow(() -> new DomainException(ErrorCode.CONVERSATION_NOT_FOUND));
+    }
+
+    private void requireEditable(UUID conversationId) {
+        if (discussions != null) {
+            discussions.requireEditable(conversationId);
+        }
     }
 
     private void requireIdle(UUID conversationId) {

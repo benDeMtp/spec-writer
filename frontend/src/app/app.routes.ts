@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import type { SpecificationPage } from './features/specification/specification.page';
 import { copilotRequiredGuard } from './core/settings/copilot-required.guard';
 
 /** Une route chargée à la demande par dossier de features/ (tâche T037). */
@@ -36,6 +37,8 @@ export const routes: Routes = [
     path: 'sessions/:id/versions/:n',
     title: 'Spécification · spec-writer',
     loadComponent: () => import('./features/specification/specification.page').then((m) => m.SpecificationPage),
+    // 011 : une rédaction ou une proposition en attente n'est pas quittée sans confirmation
+    canDeactivate: [(page: SpecificationPage) => page.canLeave()],
   },
   { path: 'sessions', title: 'Spécifications · spec-writer', loadComponent: () => import('./features/sessions/sessions.page').then((m) => m.SessionsPage) },
   {

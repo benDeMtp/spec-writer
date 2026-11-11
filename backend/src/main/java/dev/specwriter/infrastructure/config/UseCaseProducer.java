@@ -17,6 +17,8 @@ import dev.specwriter.application.conversation.ConversationSearch;
 import dev.specwriter.application.conversation.ConversationAttachments;
 import dev.specwriter.application.conversation.ConversationSuggestions;
 import dev.specwriter.application.conversation.Converse;
+import dev.specwriter.application.conversation.DiscussSpecification;
+import dev.specwriter.application.conversation.ProposeRevision;
 import dev.specwriter.application.conversation.DesignatedDocuments;
 import dev.specwriter.application.conversation.DraftNeed;
 import dev.specwriter.application.conversation.ManageConversations;
@@ -105,6 +107,7 @@ import dev.specwriter.domain.port.SecretStore;
 import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SettingsRepository;
+import dev.specwriter.domain.port.SpecificationDiscussionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.port.TextDiff;
 import dev.specwriter.domain.port.TicketLinkRepository;
@@ -139,19 +142,40 @@ public class UseCaseProducer {
             KnowledgeIndex index, EmbeddingPort embedding, LocalSearch specifications, ModelCapacities capacities,
             ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
             AnalyzeArchitecture analyze, DocSourceRepository docSources, DocumentFolder folder,
-            ConversationAttachmentRepository attachments) {
+            ConversationAttachmentRepository attachments, DiscussSpecification discussions) {
         SelectKnowledge select = new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), docSources,
                 folder, capacities);
         return new Converse(projects, conversations, llm, new ConversationSearch(index, embedding, specifications),
                 new DesignatedDocuments(select, attachments), capacities, consent, operations, events, clock, ids,
-                task -> Thread.ofVirtual().name("conversation").start(task));
+                task -> Thread.ofVirtual().name("conversation").start(task), discussions);
+    }
+
+    /** « Proposer une nouvelle version » d'après la discussion (011, US2) : la rédaction tourne sur un fil virtuel. */
+    @Produces
+    @ApplicationScoped
+    ProposeRevision proposeRevision(SessionRepository sessions, SpecificationRepository versions,
+            ConversationRepository conversations, DiscussSpecification discussions, SessionKnowledge knowledge,
+            ConversationLlm llm, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
+            TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids) {
+        return new ProposeRevision(sessions, versions, conversations, discussions, knowledge, llm, capacities, consent,
+                operations, events, proposals, clock, ids, task -> Thread.ofVirtual().name("proposition").start(task));
+    }
+
+    /** Discussions des spécifications (011). */
+    @Produces
+    @ApplicationScoped
+    DiscussSpecification discussSpecification(SessionRepository sessions, SpecificationRepository versions,
+            ConversationRepository conversations, SpecificationDiscussionRepository discussions, ClockPort clock,
+            IdGenerator ids, AttachmentRepository attachments) {
+        return new DiscussSpecification(sessions, versions, conversations, discussions, clock, ids, attachments);
     }
 
     @Produces
     @ApplicationScoped
     ManageConversations manageConversations(ProjectRepository projects, ConversationRepository conversations,
-            SessionRepository sessions, JiraAccess jira, OperationRegistry operations) {
-        return new ManageConversations(projects, conversations, sessions, jira, operations);
+            SessionRepository sessions, JiraAccess jira, OperationRegistry operations,
+            SpecificationDiscussionRepository discussions) {
+        return new ManageConversations(projects, conversations, sessions, jira, operations, discussions);
     }
 
     @Produces
@@ -370,8 +394,10 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     ManageSessions manageSessions(SessionRepository sessions, SpecificationRepository versions,
-            ProjectRepository projects, ClockPort clock, ProposalStore proposals, OperationRegistry operations) {
-        return new ManageSessions(sessions, versions, projects, clock, proposals, operations);
+            ProjectRepository projects, ClockPort clock, ProposalStore proposals, OperationRegistry operations,
+            ConversationRepository conversations, SpecificationDiscussionRepository discussions) {
+        return new ManageSessions(sessions, versions, projects, clock, proposals, operations, conversations,
+                discussions);
     }
 
     @Produces

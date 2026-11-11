@@ -20,6 +20,8 @@ public record KnowledgeBudget(int total, int roles, int adrText, int adrPart, in
     public static final int MAX_TOTAL = 200_000;
     /** Conversion prudente pour le français. */
     static final int CHARS_PER_TOKEN = 3;
+    /** Spécification discutée pour le budget standard (011). */
+    static final int DISCUSSED_SPECIFICATION = 40_000;
     /** Consignes, besoin, réponses, version en cours d'une modification et marge. */
     static final int RESERVE = 60_000;
 
@@ -40,6 +42,14 @@ public record KnowledgeBudget(int total, int roles, int adrText, int adrPart, in
                 scale(STANDARD.mentionedPart, factor), scale(STANDARD.ticketText, factor),
                 scale(STANDARD.architecture, factor), scale(STANDARD.subtaskText, factor),
                 scale(STANDARD.conversationSources, factor), scale(STANDARD.conversationHistory, factor));
+    }
+
+    /**
+     * Place de la spécification discutée, transmise entière à chaque tour de sa discussion (011,
+     * research.md R2) : prise sur {@link #RESERVE}, proportionnée au modèle comme les autres parts.
+     */
+    public int discussedSpecification() {
+        return (int) Math.floor((double) DISCUSSED_SPECIFICATION * total / STANDARD.total);
     }
 
     public boolean isStandard() {

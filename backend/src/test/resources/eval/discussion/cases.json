@@ -1,0 +1,280 @@
+{
+  "sheet": "Aurora est l'outil de facturation d'une entreprise de services : factures, avoirs, lettrage des paiements et relances.",
+  "need": "Le gestionnaire de facturation doit relancer automatiquement les clients dont une facture est impayée après son échéance, et pouvoir suspendre les relances d'une facture contestée.",
+  "name": "Relances des factures impayées",
+  "specification": {
+    "title": "Relances des factures impayées",
+    "summary": "Aurora relance automatiquement les clients dont une facture est impayée après son échéance ; une facture contestée n'est plus relancée.",
+    "details": "",
+    "useCases": [
+      {
+        "code": "UC-01",
+        "title": "Envoyer la première relance par courriel",
+        "actor": "Aurora",
+        "goal": "Rappeler au client une facture impayée",
+        "preconditions": [],
+        "nominalFlow": [
+          "Aurora repère une facture impayée 10 jours après son échéance",
+          "Aurora envoie la première relance par courriel au contact de facturation"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "NEED_EXCERPT",
+          "questionId": null,
+          "excerpt": "relancer automatiquement les clients",
+          "ref": null
+        }
+      },
+      {
+        "code": "UC-02",
+        "title": "Envoyer la troisième relance par courrier",
+        "actor": "Aurora",
+        "goal": "Mettre le client en demeure",
+        "preconditions": [],
+        "nominalFlow": [
+          "Aurora repère une facture impayée 30 jours après la deuxième relance",
+          "Aurora envoie la troisième relance par courrier recommandé"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "NEED_EXCERPT",
+          "questionId": null,
+          "excerpt": "relancer automatiquement les clients",
+          "ref": null
+        }
+      },
+      {
+        "code": "UC-03",
+        "title": "Suspendre les relances d'une facture contestée",
+        "actor": "gestionnaire de facturation",
+        "goal": "Ne plus relancer une facture en litige",
+        "preconditions": [],
+        "nominalFlow": [
+          "Le gestionnaire marque la facture comme contestée",
+          "Aurora suspend les relances de cette facture"
+        ],
+        "alternatives": [],
+        "source": {
+          "kind": "NEED_EXCERPT",
+          "questionId": null,
+          "excerpt": "suspendre les relances d'une facture contestée",
+          "ref": null
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "code": "SC-01-01",
+        "useCaseCode": "UC-01",
+        "title": "Première relance",
+        "kind": "NOMINAL",
+        "asA": "Aurora",
+        "given": [
+          "une facture échue depuis 10 jours et impayée"
+        ],
+        "when": [
+          "la relance quotidienne s'exécute"
+        ],
+        "then": [
+          "le client reçoit la première relance par courriel"
+        ],
+        "assumption": false
+      },
+      {
+        "code": "SC-02-01",
+        "useCaseCode": "UC-02",
+        "title": "Troisième relance",
+        "kind": "NOMINAL",
+        "asA": "Aurora",
+        "given": [
+          "une facture impayée 30 jours après la deuxième relance"
+        ],
+        "when": [
+          "la relance quotidienne s'exécute"
+        ],
+        "then": [
+          "le client reçoit la troisième relance par courrier recommandé"
+        ],
+        "assumption": false
+      },
+      {
+        "code": "SC-03-01",
+        "useCaseCode": "UC-03",
+        "title": "Facture contestée",
+        "kind": "NOMINAL",
+        "asA": "gestionnaire de facturation",
+        "given": [
+          "une facture impayée"
+        ],
+        "when": [
+          "je la marque comme contestée"
+        ],
+        "then": [
+          "elle n'est plus relancée"
+        ],
+        "assumption": false
+      }
+    ],
+    "assumptions": [],
+    "requirements": [],
+    "adrDeviations": []
+  },
+  "corpus": [
+    {
+      "kind": "TICKET",
+      "ref": "AUR-12",
+      "title": "Émettre un avoir sur une facture",
+      "text": "[Terminé] Le gestionnaire de facturation émet un avoir total ou partiel sur une facture émise. L'avoir reçoit un numéro de la série AV et annule le restant dû à hauteur de son montant."
+    },
+    {
+      "kind": "DOC_SECTION",
+      "ref": "https://docs.aurora.example/lettrage.html#delai",
+      "title": "Lettrage > Délai",
+      "text": "Un paiement reçu est lettré automatiquement sous 48 heures ouvrées. Au-delà, il passe dans la file des paiements à lettrer à la main."
+    },
+    {
+      "kind": "TICKET",
+      "ref": "AUR-31",
+      "title": "Lettrage manuel des paiements",
+      "text": "[En cours] Les paiements non lettrés au bout de 72 heures sont présentés au comptable pour un lettrage manuel."
+    },
+    {
+      "kind": "ADR",
+      "ref": "https://docs.aurora.example/adr/adr-004.html",
+      "title": "ADR 004 : relances par courriel seulement",
+      "text": "Statut : accepté. Les relances de paiement sont envoyées par courriel uniquement ; l'envoi postal est abandonné pour des raisons de coût."
+    },
+    {
+      "kind": "TICKET",
+      "ref": "AUR-40",
+      "title": "Relance postale des gros montants",
+      "text": "[À faire] Pour les factures de plus de 10 000 €, la troisième relance est envoyée par courrier recommandé."
+    },
+    {
+      "kind": "DOC_SECTION",
+      "ref": "https://docs.aurora.example/factures.html#numerotation",
+      "title": "Factures > Numérotation",
+      "text": "Les factures sont numérotées sans trou par exercice comptable, au format FA-AAAA-NNNNN."
+    },
+    {
+      "kind": "DOC_SECTION",
+      "ref": "https://docs.aurora.example/echeances.html",
+      "title": "Échéances",
+      "text": "Une facture peut être réglée en quatre échéances au plus, à la demande du client."
+    }
+  ],
+  "cases": [
+    {
+      "name": "citation-contestee",
+      "kind": "QUESTION",
+      "question": "Que prévoit la spécification pour une facture contestée ?",
+      "expected": [
+        "#UC-03"
+      ]
+    },
+    {
+      "name": "citation-premiere-relance",
+      "kind": "QUESTION",
+      "question": "Quand la première relance part-elle, d'après la spécification ?",
+      "expected": [
+        "#UC-01"
+      ]
+    },
+    {
+      "name": "incoherence-relance-postale",
+      "kind": "INCONSISTENCY",
+      "question": "La spécification est-elle cohérente avec les décisions d'architecture du projet ?",
+      "expected": [
+        "#UC-02",
+        "https://docs.aurora.example/adr/adr-004.html"
+      ]
+    },
+    {
+      "name": "revision-delai",
+      "kind": "REVISION",
+      "discussion": [
+        [
+          "USER",
+          "La première relance doit partir 7 jours après l'échéance, pas 10."
+        ],
+        [
+          "AGENT",
+          "La spécification prévoit 10 jours (UC-01). Voulez-vous que la proposition passe à 7 jours ?"
+        ],
+        [
+          "USER",
+          "Oui, 7 jours après l'échéance."
+        ]
+      ],
+      "mustContain": [
+        "7 jours"
+      ],
+      "preserve": [
+        "Envoyer la troisième relance par courrier",
+        "Suspendre les relances d'une facture contestée"
+      ]
+    },
+    {
+      "name": "revision-sms",
+      "kind": "REVISION",
+      "discussion": [
+        [
+          "USER",
+          "Ajoutons une relance par SMS quand le client a donné un numéro de mobile."
+        ],
+        [
+          "AGENT",
+          "Quand faut-il l'envoyer : avec la première relance, ou avec la deuxième ?"
+        ],
+        [
+          "USER",
+          "Le même jour que la deuxième relance par courriel."
+        ]
+      ],
+      "mustContain": [
+        "SMS"
+      ],
+      "preserve": [
+        "Envoyer la première relance par courriel",
+        "Envoyer la troisième relance par courrier",
+        "Suspendre les relances d'une facture contestée"
+      ]
+    },
+    {
+      "name": "sans-changement-questions",
+      "kind": "UNCHANGED",
+      "discussion": [
+        [
+          "USER",
+          "Que se passe-t-il pour une facture contestée ?"
+        ],
+        [
+          "AGENT",
+          "Ses relances sont suspendues (UC-03) tant qu'elle est contestée."
+        ],
+        [
+          "USER",
+          "Merci, c'est clair."
+        ]
+      ]
+    },
+    {
+      "name": "sans-changement-proposition-en-attente",
+      "kind": "UNCHANGED",
+      "discussion": [
+        [
+          "USER",
+          "Faut-il prévoir des relances le week-end ?"
+        ],
+        [
+          "AGENT",
+          "On pourrait décaler au lundi les relances qui tombent un samedi ou un dimanche. Voulez-vous l'ajouter ?"
+        ],
+        [
+          "USER",
+          "Je ne sais pas encore, je dois en parler au métier."
+        ]
+      ]
+    }
+  ]
+}

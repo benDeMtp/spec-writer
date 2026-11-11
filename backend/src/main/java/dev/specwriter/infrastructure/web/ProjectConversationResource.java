@@ -29,7 +29,7 @@ public class ProjectConversationResource {
     ConversationSuggestions suggestions;
 
     @GET
-    public List<Conversation> list(@PathParam("id") String id) {
+    public List<ManageConversations.Summary> list(@PathParam("id") String id) {
         return manage.list(ProjectResource.projectId(id));
     }
 

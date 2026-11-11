@@ -1,5 +1,6 @@
 import { expect, request, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './support/a11y';
+import { proposeThroughDiscussion } from './support/discussion';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, jiraURL, storageStatePath } from './support/env';
 
@@ -57,12 +58,7 @@ test.describe.serial('US9 suppression locale', () => {
     }
     expect((await page.request.post(`/api/sessions/${threeVersions}/versions`, { headers })).status()).toBe(201);
     for (const n of [2, 3]) {
-      const proposal = await (
-        await page.request.post(`/api/sessions/${threeVersions}/ai-edits`, {
-          headers,
-          data: { instruction: `Version ${n} E2E-EDIT` },
-        })
-      ).json();
+      const proposal = await proposeThroughDiscussion(page.request, headers, threeVersions, `Version ${n} E2E-EDIT`);
       const accepted = await page.request.post(`/api/sessions/${threeVersions}/ai-edits/${proposal.proposalId}/accept`, {
         headers,
       });

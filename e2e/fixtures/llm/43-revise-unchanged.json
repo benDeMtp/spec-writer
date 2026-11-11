@@ -1,0 +1,20 @@
+{
+  "operation": "revise-specification",
+  "userContains": [
+    "E2E-SANS-CHANGEMENT"
+  ],
+  "response": {
+    "changed": false,
+    "reason": "La discussion n'a posé que des questions.",
+    "specification": {
+      "title": "",
+      "summary": "",
+      "details": "",
+      "useCases": [],
+      "scenarios": [],
+      "assumptions": [],
+      "requirements": [],
+      "adrDeviations": []
+    }
+  }
+}

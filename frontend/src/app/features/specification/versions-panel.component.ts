@@ -8,9 +8,13 @@ const ORIGINS: Record<VersionSummary['origin'], string> = {
   AI_EDIT: "Modifiée avec l'IA",
   JIRA_IMPORT: 'Importée de Jira',
   CONFLICT_MERGE: 'Fusion avec Jira',
+  DISCUSSION: 'Issue de la discussion',
 };
 
-/** Historique des versions (FR-018) : chacune reste consultable. */
+/**
+ * Historique des versions (FR-018) : chacune reste consultable. Une version issue d'une discussion
+ * mène à la conversation, tant qu'elle existe (011, FR-011).
+ */
 @Component({
   selector: 'sw-versions-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -23,12 +27,24 @@ const ORIGINS: Record<VersionSummary['origin'], string> = {
           <li>
             <a
               [routerLink]="['/sessions', sessionId(), 'versions', v.number]"
+              queryParamsHandling="preserve"
               [attr.aria-current]="v.number === current() ? 'page' : null"
               [class.current]="v.number === current()"
             >
               Version {{ v.number }}
             </a>
-            <span class="meta">{{ origin(v) }}, {{ v.createdAt | date: 'd MMM y, HH:mm' }}</span>
+            <span class="meta">
+              @if (v.conversationId) {
+                <a class="origin" [routerLink]="['/conversations', v.conversationId]"
+                  >{{ origin(v)
+                  }}<span class="sw-visually-hidden"> : ouvrir la conversation</span></a
+                >
+              } @else {
+                {{ origin(v) }}
+              }
+              ,
+              {{ v.createdAt | date: 'd MMM y, HH:mm' }}
+            </span>
           </li>
         }
       </ol>
@@ -50,6 +66,9 @@ const ORIGINS: Record<VersionSummary['origin'], string> = {
     a {
       color: var(--sw-pencil);
       font-weight: 600;
+    }
+    .meta a.origin {
+      font-weight: 400;
     }
     a.current {
       color: var(--sw-ink);

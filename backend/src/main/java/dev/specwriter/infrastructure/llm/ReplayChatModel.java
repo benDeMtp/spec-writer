@@ -30,7 +30,9 @@ import tools.jackson.databind.json.JsonMapper;
 public final class ReplayChatModel implements ChatModel {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
-    private static final Pattern PLACEHOLDER = Pattern.compile("\"__([A-Z_]+?)__\"");
+    private static final Pattern PLACEHOLDER = Pattern.compile("\"__([A-Z0-9_]+?)__\"");
+    private static final Pattern DISCUSSION = Pattern.compile("DISCUSSION_(\\d+)");
+    private static final Pattern DISCUSSION_REF = Pattern.compile("ref=\"(discussion:[^\"]+)\"");
 
     /**
      * {@code response} : JSON d'une opération structurée ; {@code text} : réponse en texte libre (010) ;
@@ -88,17 +90,34 @@ public final class ReplayChatModel implements ChatModel {
 
     /**
      * Les identifiants de question sont aléatoires : {@code "__THEME__"} dans une réponse rejouée est
-     * remplacé par l'identifiant de la question de ce thème citée dans le message utilisateur.
+     * remplacé par l'identifiant de la question de ce thème citée dans le message utilisateur ;
+     * {@code "__DISCUSSION_n__"} par la référence du n-ième message de la discussion (011).
      */
     static String resolveQuestionIds(String response, String user) {
         Matcher m = PLACEHOLDER.matcher(response);
         StringBuilder out = new StringBuilder();
         while (m.find()) {
+            Matcher discussion = DISCUSSION.matcher(m.group(1));
+            if (discussion.matches()) {
+                m.appendReplacement(out, Matcher.quoteReplacement("\"" + discussionRef(user,
+                        Integer.parseInt(discussion.group(1))) + "\""));
+                continue;
+            }
             Matcher id = Pattern.compile("<reponse id=\"([^\"]+)\" theme=\"" + m.group(1) + "\"").matcher(user);
             m.appendReplacement(out, Matcher.quoteReplacement("\"" + (id.find() ? id.group(1) : m.group(1)) + "\""));
         }
         m.appendTail(out);
         return out.toString();
+    }
+
+    private static String discussionRef(String user, int n) {
+        Matcher ref = DISCUSSION_REF.matcher(user);
+        for (int i = 0; i < n; i++) {
+            if (!ref.find()) {
+                return "";
+            }
+        }
+        return ref.group(1);
     }
 
     private static List<Entry> load(Path dir) {

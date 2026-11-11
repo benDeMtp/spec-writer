@@ -183,7 +183,7 @@ final class UserMessages {
 
     /** 010 : ce que l'agent sait au moment de choisir sa prochaine recherche (titres seulement). */
     static String conversePlan(ConversationLlm.PlanRequest r) {
-        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n"
+        return language(r.language()) + "\n" + discussed(r.discussed()) + block("fiche-generale", r.generalSheet()) + "\n"
                 + block("memoire", r.memory()) + "\n" + exchange(r.history())
                 + "\n" + block("question", r.question()) + "\n" + sources(r.found(), false)
                 + "\n<recherches-restantes>" + r.searchesLeft() + "</recherches-restantes>";
@@ -191,7 +191,7 @@ final class UserMessages {
 
     /** 010 : données de la réponse ; chaque source porte le numéro qu'elle peut être citée. */
     static String converseAnswer(ConversationLlm.AnswerRequest r) {
-        return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n"
+        return language(r.language()) + "\n" + discussed(r.discussed()) + block("fiche-generale", r.generalSheet()) + "\n"
                 + block("memoire", r.memory()) + "\n" + exchange(r.history())
                 + "\n" + block("question", r.question()) + "\n" + sources(r.sources(), true) + "\n"
                 + block("non-comparees", String.join("\n", r.notCompared())) + "\n<recherche-arretee>"
@@ -206,6 +206,29 @@ final class UserMessages {
         return language(r.language()) + "\n" + block("fiche-generale", r.generalSheet()) + "\n"
                 + block("memoire", r.memory()) + "\n" + exchange(r.history())
                 + "\n" + cited.append("</sources-citees>");
+    }
+
+    /**
+     * 011 : nouvelle version d'après la discussion ; les messages de l'utilisateur portent la
+     * référence qu'une source DISCUSSION peut citer.
+     */
+    static String revise(ConversationLlm.ReviseRequest r) {
+        StringBuilder discussion = new StringBuilder("<discussion>\n").append(block("memoire", r.memory())).append('\n');
+        for (ConversationLlm.DiscussionLine line : r.discussion()) {
+            discussion.append("<message auteur=\"").append(line.role() == MessageRole.USER ? "utilisateur" : "agent")
+                    .append('"');
+            if (line.ref() != null) {
+                discussion.append(" ref=\"").append(attribute(line.ref())).append('"');
+            }
+            discussion.append(">\n").append(data(line.text())).append("\n</message>\n");
+        }
+        StringBuilder cited = new StringBuilder("<sources-citees>\n");
+        r.cited().forEach(c -> cited.append("<source sorte=\"").append(c.kind().name()).append("\" ref=\"")
+                .append(attribute(c.ref())).append("\" titre=\"").append(attribute(c.title())).append("\"/>\n"));
+        return language(r.language()) + "\n" + knowledge(r.knowledge()) + need(r.need()) + "\n" + answers(r.answers())
+                + "\n" + block("specification-courante", r.currentMarkdown()) + "\n"
+                + discussion.append("</discussion>") + "\n" + cited.append("</sources-citees>") + "\n<correction>"
+                + data(r.correction()) + "</correction>";
     }
 
     /** 010 : échanges anciens à résumer, après la mémoire précédente. */
@@ -238,6 +261,12 @@ final class UserMessages {
     }
 
     /** Valeur d'attribut : chevrons et guillemets neutralisés. */
+    /** 011 : spécification discutée, dont les sections sont en tête des sources ; rien hors discussion. */
+    private static String discussed(ConversationLlm.Discussed d) {
+        return d == null ? "" : "<specification-discutee nom=\"" + attribute(d.name()) + "\" version=\"" + d.version()
+                + "\"/>\n";
+    }
+
     private static String attribute(String text) {
         return data(text).replace("\"", "&quot;");
     }

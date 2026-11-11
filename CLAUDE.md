@@ -1,7 +1,9 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/010-agent-conversationnel/` (l'outil s'ouvre sur une conversation avec
+La feature en cours est `specs/011-discussion-specification/` (« Discuter avec l'IA » sur une
+spécification : conversation rattachée, affichée à côté du document, qui propose une nouvelle
+version relue par diff), après `specs/010-agent-conversationnel/` (l'outil s'ouvre sur une conversation avec
 un agent qui connaît le projet : recherches visibles, réponse en flux citée, incohérences,
 rédaction d'une spécification depuis la discussion ; menu Conversation et Spécifications), après
 `specs/006-documents-sharepoint/` (dossier SharePoint synchronisé par

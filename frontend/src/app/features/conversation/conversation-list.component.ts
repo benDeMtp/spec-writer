@@ -40,6 +40,11 @@ import { isProblem } from '../../core/http/problem';
                 <a [routerLink]="['/conversations', t.id]" [attr.aria-current]="t.id === currentId() ? 'page' : null">
                   {{ t.name }}
                 </a>
+                @if (t.specification; as spec) {
+                  <span class="about">
+                    Spécification : {{ spec.name }}{{ spec.sessionId ? '' : ' (spécification supprimée)' }}
+                  </span>
+                }
                 <span class="actions">
                   <button mat-button type="button" (click)="edit(t)">
                     Renommer<span class="sw-visually-hidden"> {{ t.name }}</span>
@@ -93,6 +98,11 @@ import { isProblem } from '../../core/http/problem';
     li.current a {
       background: color-mix(in srgb, var(--sw-pencil) 12%, transparent);
       font-weight: 600;
+    }
+    .about {
+      display: block;
+      color: var(--sw-ink-soft);
+      font-size: var(--sw-step--1);
     }
     .actions {
       display: flex;

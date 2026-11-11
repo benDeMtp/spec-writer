@@ -142,7 +142,7 @@ public final class IdentifierAssigner {
                     + " DOC_PAGE ou ARCH_ELEMENT)");
             return null;
         }
-        if (!kind.get().knowledgeKinds().isEmpty()) {
+        if (kind.get().byRef()) {
             if (blank(d.source().ref())) {
                 violations.add(code + " : une source " + kind.get() + " doit citer la référence de l'élément");
                 return null;

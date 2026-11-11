@@ -483,6 +483,9 @@ paths:
         '204': { description: Arrêt demandé }
   /api/conversations/{cid}/turns/{turnId}/events:
     get:
+      description: >-
+        011 : `done` d'une proposition porte `proposalId`, ou `unchanged: true` et `reason` ; `stage`
+        accepte REVISE.
       summary: >-
         Flux SSE du tour, événements déjà produits rejoués d'abord : step, delta, sources, memory
         ({ phase: STARTED|DONE|FAILED }, compactage de la mémoire), puis done ou error ; gone pour un
@@ -524,6 +527,55 @@ paths:
       responses:
         '200': { description: "{ id, name }" }
         '204': { description: Aucune }
+  /api/sessions/{id}/discussion:
+    get:
+      summary: Discussion suivie de la spécification (011)
+      responses:
+        '200': { description: "{ conversationId, specificationName, version }" }
+        '204': { description: Aucune }
+    post:
+      summary: >-
+        Ouvrir la discussion suivie, créée au besoin, ou en démarrer une nouvelle avec
+        { fresh: true } ; elle porte toujours sur la dernière version
+      responses:
+        '201': { description: "{ conversationId, specificationName, version }" }
+        '409': { description: SPECIFICATION_LOCKED }
+  /api/sessions/{id}/discussions/count:
+    get:
+      summary: Discussions rattachées, pour la confirmation de suppression (011)
+      responses:
+        '200': { description: "{ count }" }
+  /api/conversations/{cid}/proposals:
+    post:
+      summary: >-
+        « Proposer une nouvelle version » d'après la discussion (011), sans saisie ; la rédaction se
+        suit par le flux du tour (started, stage REVISE, reasoning, puis done { proposalId } ou
+        done { unchanged: true, reason }, ou error)
+      responses:
+        '202': { description: "{ turnId }" }
+        '409': { description: OPERATION_IN_PROGRESS, SPECIFICATION_LOCKED }
+        '422': { description: NOT_A_DISCUSSION, VALIDATION_FAILED (discussion vide) }
+        '428': { description: Accord Copilot manquant }
+  /api/sessions/{id}/proposals/{proposalId}:
+    get:
+      summary: Proposition à relire (baseVersion, proposed avec origin et conversationId, unifiedDiff)
+      responses:
+        '200': { description: ProposalView }
+        '404': { description: Expirée (30 min) ou déjà prise }
+    delete:
+      summary: Abandonner la proposition ; rien n'est créé
+      responses:
+        '204': { description: Abandonnée }
+  /api/sessions/{id}/ai-edits/{proposalId}/accept:
+    post:
+      summary: >-
+        Appliquer une proposition (discussion, fusion d'un conflit Jira, « C'est la même ») ; une
+        proposition de discussion donne une version DISCUSSION liée à sa conversation. La consigne en
+        un coup (POST /api/sessions/{id}/ai-edits) est retirée (011)
+      responses:
+        '201': { description: SpecificationView (origin, conversationId) }
+        '404': { description: Proposition expirée ou inconnue }
+        '409': { description: SPECIFICATION_LOCKED }
 components:
   securitySchemes:
     launchCookie: { type: apiKey, in: cookie, name: sw_launch }

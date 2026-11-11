@@ -7,7 +7,9 @@ import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
 import dev.specwriter.domain.knowledge.KnowledgeSelection;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.session.Language;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -60,6 +62,27 @@ public final class MarkdownRenderer {
     private MarkdownRenderer() {
     }
 
+    /**
+     * Ancre, dans l'écran de la spécification, de chaque rubrique de niveau 2, dans les deux langues
+     * du rendu (011, sections de la spécification discutée).
+     */
+    static Map<String, String> anchors() {
+        Map<String, String> out = new HashMap<>();
+        for (Labels l : List.of(FR, EN)) {
+            out.put(l.summary(), "summary");
+            out.put(l.details(), "details");
+            out.put(l.useCases(), "use-cases");
+            out.put(l.scenarios(), "scenarios");
+            out.put(l.assumptions(), "assumptions");
+            out.put(l.functional(), "functional");
+            out.put(l.technical(), "technical");
+            out.put(l.architecture(), "architecture");
+            out.put(l.deviations(), "deviations");
+            out.put(l.efforts(), "efforts");
+        }
+        return Map.copyOf(out);
+    }
+
     public static String render(SpecificationContent spec, Language language) {
         return render(spec, language, KnowledgeSelection.EMPTY);
     }
@@ -88,7 +111,8 @@ public final class MarkdownRenderer {
             list(md, l.alternatives(), uc.alternatives(), false, l);
             if (uc.source() != null) {
                 md.append("- **").append(l.source()).append("**" + l.colon()).append(sourceLabel(uc.source(), l));
-                if (!uc.source().attachment() && uc.source().excerpt() != null && !uc.source().excerpt().isBlank()) {
+                if (!uc.source().attachment() && uc.source().kind() != SourceRef.Kind.DISCUSSION
+                        && uc.source().excerpt() != null && !uc.source().excerpt().isBlank()) {
                     md.append(" « ").append(escape(uc.source().excerpt())).append(" »");
                 }
                 md.append('\n');
@@ -247,6 +271,9 @@ public final class MarkdownRenderer {
                     ? l.attachment() + " " + escape(source.ref().substring(Attachment.REF_PREFIX.length()))
                     : l.page() + " " + escape(source.ref());
             case ARCH_ELEMENT -> l.element() + " " + escape(source.ref());
+            // titre « Discussion du <date>, message n » donné par le code (011, research.md R4)
+            case DISCUSSION -> escape(source.excerpt() == null || source.excerpt().isBlank()
+                    ? source.ref() : source.excerpt());
         };
     }
 

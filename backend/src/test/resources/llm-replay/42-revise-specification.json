@@ -1,0 +1,17 @@
+{"operation": "revise-specification", "userContains": ["IT-REVISION", "<specification-courante>"],
+ "reasoning": "La discussion établit l'annulation.",
+ "response": {"changed": true, "reason": "Ajoute l'annulation établie dans la discussion.", "specification": {
+   "title": "Paiement en ligne", "summary": "Le client paie sa commande.", "details": "",
+   "useCases": [
+     {"title": "Payer la commande", "actor": "client connecté", "goal": "Régler son panier",
+      "preconditions": ["Panier non vide"], "nominalFlow": ["Le client valide le panier", "Il paie"], "alternatives": [],
+      "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "payer sa commande en ligne", "ref": ""}},
+     {"title": "Annuler la commande", "actor": "client connecté", "goal": "Annuler avant l'envoi",
+      "preconditions": [], "nominalFlow": ["Le client annule la commande"], "alternatives": [],
+      "source": {"kind": "DISCUSSION", "questionId": "", "excerpt": "", "ref": "__DISCUSSION_1__"}}],
+   "scenarios": [
+     {"useCaseIndex": 0, "title": "Paiement accepté", "kind": "NOMINAL", "asA": "client connecté", "given": [],
+      "when": ["je valide le paiement"], "then": ["la commande est confirmée"], "assumption": false},
+     {"useCaseIndex": 1, "title": "Annulation", "kind": "NOMINAL", "asA": "client connecté", "given": [],
+      "when": ["j'annule la commande"], "then": ["la commande est annulée"], "assumption": false}],
+   "assumptions": [], "requirements": [], "adrDeviations": []}}}
