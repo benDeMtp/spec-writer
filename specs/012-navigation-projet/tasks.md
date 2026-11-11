@@ -36,7 +36,7 @@ sur `main` dès la fusion.
 
 ## Phase 1: Setup
 
-- [ ] T001 Créer les dossiers et fichiers vides de la feature, pour que les imports se résolvent :
+- [X] T001 Créer les dossiers et fichiers vides de la feature, pour que les imports se résolvent :
   - `FA/features/shell/`, `FA/core/navigation/` ;
   - `FA/features/project-settings/`, `FA/features/project-knowledge/`.
 
@@ -47,7 +47,7 @@ sur `main` dès la fusion.
 
 ## Phase 2: Foundational (bloque toutes les histoires)
 
-- [ ] T002 [P] Test puis service `LeaveGuard` (`FA/core/navigation/leave-guard.ts`, `.spec.ts`),
+- [X] T002 [P] Test puis service `LeaveGuard` (`FA/core/navigation/leave-guard.ts`, `.spec.ts`),
   modèle dans data-model.md :
   - `register(check: () => boolean | Promise<boolean>): () => void` enregistre la vérification de
     la page et renvoie la fonction qui la retire ;
@@ -56,7 +56,7 @@ sur `main` dès la fusion.
   - une seule vérification active à la fois : la dernière enregistrée.
 
   Tests : sans vérification ; vérification qui accepte ; qui refuse ; retirée.
-- [ ] T003 Brancher `LeaveGuard` sur la spécification, sans changer son comportement :
+- [X] T003 Brancher `LeaveGuard` sur la spécification, sans changer son comportement :
   - `FA/features/specification/specification.page.ts` enregistre `canLeave()` dans `ngOnInit` et
     le retire dans `ngOnDestroy` ;
   - dans `FA/app.routes.ts`, la garde `canDeactivate` de `sessions/:id/versions/:n` devient
@@ -64,7 +64,7 @@ sur `main` dès la fusion.
 
   Les tests existants de `specification.page.spec.ts` et la D5 de `us14-discussion` doivent
   rester verts.
-- [ ] T004 [P] Test puis service `ProjectFollower` (`FA/core/projects/project-follower.ts`,
+- [X] T004 [P] Test puis service `ProjectFollower` (`FA/core/projects/project-follower.ts`,
   `.spec.ts`), research.md R3 :
   - `notice: Signal<string | null>` ;
   - `follow(projectId)` :
@@ -88,14 +88,14 @@ nomment.
 
 **Independent Test**: avec deux projets, parcourir les entrées du menu (quickstart 1 à 4).
 
-- [ ] T005 [P] [US1] Test puis fonction pure `activeEntry(path)` (`FA/features/shell/nav.ts`,
+- [X] T005 [P] [US1] Test puis fonction pure `activeEntry(path)` (`FA/features/shell/nav.ts`,
   `nav.spec.ts`) :
   - type `NavEntry` (data-model.md) ;
   - les préfixes du tableau de research.md R2, la requête et l'ancre ignorées ;
   - `/` exact pour Conversation ;
   - `/projets/...` est Projets, mais `/projet/...` ne l'est pas ;
   - adresse inconnue : `null`.
-- [ ] T006 [US1] Test puis composant `sw-main-nav` (`FA/features/shell/main-nav.component.ts`,
+- [X] T006 [US1] Test puis composant `sw-main-nav` (`FA/features/shell/main-nav.component.ts`,
   `.spec.ts`), selon contracts/ui.md, section Menu :
   - **Structure** :
     - un `<nav aria-label="Navigation principale">` ;
@@ -119,7 +119,7 @@ nomment.
 
   Tests : groupes, clé (présente ou absente), entrée active sur `/jira/FACT-1` et
   `/sessions/x/versions/1`, ouverture et fermeture du menu.
-- [ ] T007 [US1] Shell `FA/app.ts` :
+- [X] T007 [US1] Shell `FA/app.ts` :
   - remplacer la liste de liens et `conversation()` par `<sw-main-nav />` ;
   - garder le lien d'évitement, la gestion du focus après navigation, le bandeau et
     `router-outlet` ;
@@ -127,13 +127,13 @@ nomment.
     le panneau de T006).
 
   Mettre à jour `FA/app.spec.ts`.
-- [ ] T008 [US1] Sélecteur `FA/features/projects/project-switcher.component.ts` :
+- [X] T008 [US1] Sélecteur `FA/features/projects/project-switcher.component.ts` :
   - libellé « Projet » au lieu de « Projet courant » ;
   - le style de bloc du composant passe en titre de groupe, avec la marge revue ;
   - une dernière option « Gérer les projets » mène à `/projets` (cas limite d'un seul projet).
 
   Tests mis à jour.
-- [ ] T009 [P] [US1] Test puis `ProjectTitleStrategy`
+- [X] T009 [P] [US1] Test puis `ProjectTitleStrategy`
   (`FA/core/navigation/project-title.strategy.ts`, `.spec.ts`) :
   - une route qui porte `data.scope === 'project'` reçoit le titre
     `<titre> · <projet> · spec-writer` ;
@@ -142,24 +142,24 @@ nomment.
     snapshot).
 
   Fournie dans `FA/app.config.ts` (`{ provide: TitleStrategy, useClass: ProjectTitleStrategy }`).
-- [ ] T010 [US1] Routes `FA/app.routes.ts` :
+- [X] T010 [US1] Routes `FA/app.routes.ts` :
   - les titres passent sans « · spec-writer » (la stratégie l'ajoute) ;
   - `data: { scope: 'project' }` sur `''`, `conversations/:cid`, `sessions`, `nouveau`,
     `sessions/:id`, `sessions/:id/versions/:n`, `jira`, `jira/:key`.
-- [ ] T011 [P] [US1] Test puis composant `sw-project-heading`
+- [X] T011 [P] [US1] Test puis composant `sw-project-heading`
   (`FA/shared/ui/project-heading.component.ts`, `.spec.ts`) :
   - entrée `label` ;
   - rend `<h1>{{ label }} · {{ nom du projet courant }}</h1>` ;
   - sans projet chargé, `label` seul ;
   - styles de `h1` repris des pages existantes (`--sw-font-doc`, `--sw-step-3`).
-- [ ] T012 [US1] Utiliser `sw-project-heading` :
+- [X] T012 [US1] Utiliser `sw-project-heading` :
   - `FA/features/sessions/sessions.page.ts` (« Spécifications ») ;
   - `FA/features/jira-issues/jira-issues.page.ts` (« Tickets Jira ») ;
   - `FA/features/conversation/conversation.page.ts` : accueil, sans conversation ouverte
     (« Conversation »), à la place du titre actuel.
 
   Mettre à jour les tests de ces pages.
-- [ ] T013 [US1] E2E `e2e/tests/us15-navigation.spec.ts`, scénarios 1 à 4 du quickstart :
+- [X] T013 [US1] E2E `e2e/tests/us15-navigation.spec.ts`, scénarios 1 à 4 du quickstart :
   - deux groupes, clé « FACT » ;
   - `h1` et titre de l'onglet après changement de projet ;
   - `aria-current` sur `/jira/FACT-1` et une spécification ;
@@ -167,7 +167,7 @@ nomment.
 
   axe sur le menu déplié et replié. Le projet « Recette » est créé dans `beforeAll` et supprimé
   dans `afterAll` (DELETE avec `sessions=DELETE`).
-- [ ] T014 [US1] Mettre à jour les E2E qui cliquent dans le menu ou lisent « Projet courant » :
+- [X] T014 [US1] Mettre à jour les E2E qui cliquent dans le menu ou lisent « Projet courant » :
   - `e2e/tests/us7-projects.spec.ts` ;
   - `e2e/tests/us9-deletion.spec.ts` ;
   - `e2e/tests/us13-conversation.spec.ts` ;

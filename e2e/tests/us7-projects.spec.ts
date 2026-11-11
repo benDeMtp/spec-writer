@@ -44,9 +44,9 @@ test.describe.serial('US7 projets', () => {
   }
 
   async function chooseCurrent(name: string): Promise<void> {
-    await page.getByRole('combobox', { name: 'Projet courant' }).click();
+    await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('combobox').click();
     await page.getByRole('option', { name }).click();
-    await expect(page.getByRole('combobox', { name: 'Projet courant' })).toContainText(name);
+    await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('combobox')).toContainText(name);
   }
 
   async function previewProject(): Promise<string> {
@@ -107,7 +107,7 @@ test.describe.serial('US7 projets', () => {
     await expect(item).toContainText('Projet courant');
     await expect(item).toContainText(`${before.length} spécification`);
     await expect(item).toContainText('Jira : PROJ (projet par défaut)');
-    await expect(page.getByRole('combobox', { name: 'Projet courant' })).toContainText('Projet par défaut');
+    await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('combobox')).toContainText('Projet par défaut');
     await expectNoA11yViolations(page);
   });
 
@@ -148,7 +148,7 @@ test.describe.serial('US7 projets', () => {
     }
 
     await page.goto('/sessions');
-    await expect(page.getByRole('combobox', { name: 'Projet courant' })).toContainText('Facturation');
+    await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('combobox')).toContainText('Facturation');
     await expect(page.locator('ul.sessions > li')).toHaveCount(1);
     expect(await found()).toContain(specId);
     await expectNoA11yViolations(page);

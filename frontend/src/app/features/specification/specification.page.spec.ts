@@ -6,6 +6,7 @@ import { Router, provideRouter } from '@angular/router';
 import { provideMarkdown } from 'ngx-markdown';
 import { SessionDetail, Specification } from '../../core/sessions/sessions.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
+import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { SpecificationPage } from './specification.page';
 
 const SESSION = {
@@ -296,7 +297,8 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
       unifiedDiff: '',
     });
     await settle();
-    const leaving = fixture.componentInstance.canLeave();
+    // 012 : le sélecteur de projet passe par la même vérification que la garde de la route
+    const leaving = TestBed.inject(LeaveGuard).confirm();
     await settle();
     expect(document.querySelector('mat-dialog-container')?.textContent).toContain(
       'Quitter sans appliquer la proposition ?',

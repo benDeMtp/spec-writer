@@ -8,6 +8,7 @@ import { JiraApi } from '../../core/jira/jira.api';
 import { IssuePage } from '../../core/jira/jira.model';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { PagerComponent } from '../../shared/ui/pager.component';
+import { ProjectHeadingComponent } from '../../shared/ui/project-heading.component';
 
 export const ISSUES_PAGE_SIZE = 25;
 
@@ -23,9 +24,9 @@ function failure(error: unknown): string {
 @Component({
   selector: 'sw-jira-issues-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatButtonModule, PagerComponent, RouterLink],
+  imports: [DatePipe, MatButtonModule, PagerComponent, ProjectHeadingComponent, RouterLink],
   template: `
-    <h1>Tickets Jira</h1>
+    <sw-project-heading label="Tickets Jira" />
     @if (projectKey(); as key) {
       <p class="lead">Projet Jira {{ key }}, du plus récemment modifié au plus ancien.</p>
       @if (error(); as message) {

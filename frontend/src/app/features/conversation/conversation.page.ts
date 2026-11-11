@@ -25,6 +25,7 @@ import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 import { ConversationListComponent } from './conversation-list.component';
 import { ConversationThreadComponent, reason } from './conversation-thread.component';
 import { NeedDraftComponent } from './need-draft.component';
+import { ProjectHeadingComponent } from '../../shared/ui/project-heading.component';
 
 export { MAX_MESSAGE } from './conversation-thread.component';
 
@@ -37,6 +38,7 @@ export { MAX_MESSAGE } from './conversation-thread.component';
   selector: 'sw-conversation-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    ProjectHeadingComponent,
     ConversationListComponent,
     ConversationThreadComponent,
     ElapsedComponent,
@@ -57,7 +59,11 @@ export { MAX_MESSAGE } from './conversation-thread.component';
 
       <section class="thread" aria-labelledby="thread-title">
         <header class="head">
-          <h1 id="thread-title">{{ detail()?.name ?? 'Conversation' }}</h1>
+          @if (detail(); as d) {
+            <h1 id="thread-title">{{ d.name }}</h1>
+          } @else {
+            <sw-project-heading label="Conversation" headingId="thread-title" />
+          }
           @if (detail() && messages().length && !draft()) {
             <span class="draft-action">
               <button
@@ -161,6 +167,9 @@ export { MAX_MESSAGE } from './conversation-thread.component';
       font-family: var(--sw-font-doc);
       font-size: var(--sw-step-2);
       font-weight: 600;
+    }
+    sw-project-heading {
+      --sw-heading-size: var(--sw-step-2);
     }
     .lead {
       margin: 0 0 0.75rem;

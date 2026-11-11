@@ -2,6 +2,7 @@ import { DOCUMENT, DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   computed,
@@ -22,6 +23,7 @@ import { firstValueFrom } from 'rxjs';
 import { JiraApi, PushOutcome } from '../../core/jira/jira.api';
 import { ProjectsApi } from '../../core/projects/projects.api';
 import { ProjectsStore } from '../../core/projects/projects.store';
+import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira.model';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import {
@@ -756,6 +758,8 @@ export class SpecificationPage {
   );
 
   constructor() {
+    // 011, 012 : la garde de la route et le sélecteur de projet demandent confirmation à la page
+    inject(DestroyRef).onDestroy(inject(LeaveGuard).register(() => this.canLeave()));
     // la même page affiche chaque version : elle se recharge quand le numéro change dans l'URL
     effect(() => {
       const id = this.id();

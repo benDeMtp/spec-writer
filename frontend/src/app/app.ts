@@ -1,34 +1,21 @@
-import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, ElementRef, inject, viewChild } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { LaunchTokenService } from './core/launch/launch-token.service';
-import { ProjectSwitcherComponent } from './features/projects/project-switcher.component';
+import { MainNavComponent } from './features/shell/main-nav.component';
 import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 
 /** Shell : lien d'évitement, navigation, zone principale et bandeau d'erreur (T037, FR-029). */
 @Component({
   selector: 'sw-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ProblemBannerComponent, ProjectSwitcherComponent],
+  imports: [RouterOutlet, RouterLink, ProblemBannerComponent, MainNavComponent],
   template: `
     <a class="skip" href="#contenu" (click)="focusMain($event)">Aller au contenu</a>
     <div class="layout">
       <header class="rail">
         <a class="brand" routerLink="/">spec-writer</a>
-        <!-- chargé à part : mat-select et ses overlays restent hors du bundle initial -->
-        @defer (on immediate) {
-          <sw-project-switcher />
-        }
-        <nav aria-label="Navigation principale">
-          <ul>
-            <li><a routerLink="/" [class.active]="conversation()" [attr.aria-current]="conversation() ? 'page' : null">Conversation</a></li>
-            <li><a routerLink="/sessions" routerLinkActive="active" ariaCurrentWhenActive="page">Spécifications</a></li>
-            <li><a routerLink="/jira" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page">Tickets Jira</a></li>
-            <li><a routerLink="/projets" routerLinkActive="active" ariaCurrentWhenActive="page">Projets</a></li>
-            <li><a routerLink="/journal" routerLinkActive="active" ariaCurrentWhenActive="page">Journal</a></li>
-            <li><a routerLink="/configuration" routerLinkActive="active" ariaCurrentWhenActive="page">Configuration</a></li>
-          </ul>
-        </nav>
+        <sw-main-nav />
       </header>
       <main id="contenu" #main tabindex="-1">
         @if (launch.state() === 'rejected') {
@@ -77,29 +64,6 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
       color: var(--sw-ink);
       text-decoration: none;
     }
-    ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: grid;
-      gap: 0.25rem;
-    }
-    nav a {
-      display: block;
-      padding: 0.5rem 0.75rem;
-      border-radius: var(--sw-radius-field);
-      color: var(--sw-ink-soft);
-      text-decoration: none;
-    }
-    nav a:hover {
-      color: var(--sw-ink);
-      background: color-mix(in srgb, var(--sw-pencil) 8%, transparent);
-    }
-    nav a.active {
-      color: var(--sw-pencil);
-      background: color-mix(in srgb, var(--sw-pencil) 12%, transparent);
-      font-weight: 650;
-    }
     main {
       padding: clamp(1.5rem, 4vw, 3rem);
       outline: none;
@@ -123,26 +87,18 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
       .brand {
         margin-bottom: 1rem;
       }
-      ul {
-        grid-auto-flow: column;
-        overflow-x: auto;
-      }
     }
   `,
 })
 export class App {
   protected readonly launch = inject(LaunchTokenService);
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
-  /** Accueil ou conversation ouverte : l'entrée « Conversation » du menu est la page courante. */
-  protected readonly conversation = signal(false);
 
   constructor() {
     // Gestion du focus : après chaque navigation, le focus va au contenu principal.
     inject(Router)
       .events.pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe((e) => {
-        const path = (e as NavigationEnd).urlAfterRedirects.split(/[?#]/)[0];
-        this.conversation.set(path === '/' || path.startsWith('/conversations/'));
         if ((e as NavigationEnd).id > 1) {
           queueMicrotask(() => this.main().nativeElement.focus());
         }
