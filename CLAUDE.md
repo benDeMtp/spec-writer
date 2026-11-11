@@ -1,7 +1,9 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/012-navigation-projet/` (menu en deux blocs « Projet » et
+La feature en cours est `specs/013-perimetre-modules/` (racines de sources du projet, analyse
+de périmètre déterministe dans la conversation, propagation Maven et C4, rubrique « Modules
+touchés »), après `specs/012-navigation-projet/` (menu en deux blocs « Projet » et
 « Application », réglages et connaissance du projet courant, bascule du projet courant, clé Jira par
 défaut facultative, écran de session perdue), après `specs/011-discussion-specification/` (« Discuter avec l'IA » sur une
 spécification : conversation rattachée, affichée à côté du document, qui propose une nouvelle
