@@ -31,7 +31,7 @@ env -u JAVA_TOOL_OPTIONS npm --prefix e2e test -- us16-perimetre
 | 2 | Ajouter le motif `legacy/**`, puis Aperçu. | Le module `legacy/ancien` disparaît de l'aperçu. | US1-2, FR-002 |
 | 3 | Ajouter un chemin inexistant, puis un sous-dossier de `demo-rv`. | Refus, avec la raison sous le champ (chemin absent, racine imbriquée). | US1-4 |
 | 4 | Conversation : « Quels modules touche l'ajout d'un statut SUSPENDU au contrat ? » | Étape « Analyse du périmètre » ouverte. Termes `ContractStatus`, `CONTRACT_STATUS`, `contract.status`. Modules trouvés : common-contract, quarkus-contract, facturation, front, charts/facturation, avec `fichier:ligne`. La réponse cite les modules `[n]`. | US2-1, FR-009 à FR-012 |
-| 5 | Lire l'étape. | `relance` « à vérifier » avec la chaîne facturation ← quarkus-contract ← common-contract. Le pom agrégateur « agrège common-contract ». | US3-1, FR-018 |
+| 5 | Lire l'étape. | `relance` « à vérifier », avec la chaîne la plus courte depuis un module trouvé : facturation → relance (facturation contient le terme). Le pom agrégateur « agrège common-contract ». | US3-1, FR-018 |
 | 6 | Lire l'étape. | `notification` « à vérifier », relié à facturation (REST). `annuaire` trouvé par son commentaire, qualifié « non impacté » malgré l'instruction qu'il contient. | US4-1, FR-019 |
 | 7 | La qualification rejouée omet `front`. | `front` figure sous « Non qualifiés ». Aucun module de l'étape 4 ne manque. | US2-3, FR-013, FR-014, SC-004 |
 | 8 | Vérifier les pièges. | Aucune occurrence de `.env`, `settings.xml`, `node_modules/`, `target/`, du dossier exclu par `.gitignore`, du fichier binaire, ni de la cible du lien symbolique. | FR-003 à FR-005, FR-023, SC-005 |

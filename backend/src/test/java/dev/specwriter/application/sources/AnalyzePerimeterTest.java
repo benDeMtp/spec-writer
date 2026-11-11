@@ -9,7 +9,10 @@ import dev.specwriter.domain.port.SourceTree;
 import dev.specwriter.domain.project.ExclusionPatterns;
 import dev.specwriter.domain.session.Language;
 import dev.specwriter.domain.sources.Module;
+import dev.specwriter.domain.sources.ModuleDescriptor;
+import dev.specwriter.domain.sources.ModuleId;
 import dev.specwriter.domain.sources.ModuleKind;
+import dev.specwriter.domain.sources.ModuleRef;
 import dev.specwriter.domain.sources.ModuleQualification;
 import dev.specwriter.domain.sources.Occurrence;
 import dev.specwriter.domain.sources.PerimeterAnalysis;
@@ -23,8 +26,10 @@ import dev.specwriter.support.InMemorySourceRoots;
 import dev.specwriter.support.ScriptedConversationLlm;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.Test;
@@ -148,5 +153,50 @@ class AnalyzePerimeterTest {
         PerimeterAnalysis analysis = analyze.analyze(PROJECT, List.of("ContractStatus"), null, 1, () -> false);
         assertThat(analyze.qualify(analysis, Language.FR, List.of(), "q").analysis().modules()).isEmpty();
         assertThat(llm.qualifyRequests).isEmpty();
+    }
+
+    static ModuleDescriptor pom(String artifact, String... deps) {
+        return new ModuleDescriptor(artifact, "fr.demo:" + artifact, null, Set.of(deps), Set.of(), List.of(), 0);
+    }
+
+    @Test
+    void lesDependantsEtLAgregateurRejoignentLePerimetreAvecLeurChaine() {
+        declareRoot();
+        Module common = module("libs/common-contract", "common-contract");
+        Module quarkus = module("libs/quarkus-contract", "quarkus-contract");
+        Module facturation = module("modules/facturation", "facturation");
+        Module relance = module("modules/relance", "relance");
+        Module aggregates = module("", "aggregates");
+        Module annuaire = module("modules/annuaire", "annuaire");
+        Map<ModuleId, ModuleDescriptor> poms = new LinkedHashMap<>();
+        poms.put(aggregates.id(), new ModuleDescriptor("aggregates", "fr.demo:aggregates", null, Set.of(), Set.of(),
+                List.of("libs/common-contract", "modules/relance"), 0));
+        poms.put(common.id(), pom("common-contract"));
+        poms.put(quarkus.id(), pom("quarkus-contract", "fr.demo:common-contract"));
+        poms.put(facturation.id(), pom("facturation", "fr.demo:quarkus-contract"));
+        poms.put(relance.id(), pom("relance", "fr.demo:facturation"));
+        poms.put(annuaire.id(), pom("annuaire"));
+        List<SourceTree.ModuleHit> hits = List.of(
+                new SourceTree.ModuleHit(common, Map.of("ContractStatus", 3), List.of()),
+                new SourceTree.ModuleHit(facturation, Map.of("ContractStatus", 1), List.of()));
+        scan = new SourceTree.Scan(hits, List.of(aggregates, common, quarkus, facturation, relance, annuaire), poms,
+                List.of(new PerimeterAnalysis.RootStatus(ROOT, "rv", PerimeterAnalysis.RootState.SCANNED)), 40, 0,
+                List.of(), null);
+
+        PerimeterAnalysis analysis = analyze.analyze(PROJECT, List.of("ContractStatus"), null, 1, () -> false);
+
+        assertThat(analysis.modules()).extracting(m -> m.module().name()).containsExactly("common-contract",
+                "facturation", "aggregates", "quarkus-contract", "relance");
+        PerimeterModule f = analysis.modules().get(1);
+        // trouvée par un terme et par dépendance : une seule ligne, deux raisons (FR-020)
+        assertThat(f.reasons()).containsExactly(new Reason.Term("ContractStatus", 1), new Reason.Dependency(List.of(
+                ModuleRef.of(common), ModuleRef.of(quarkus), ModuleRef.of(facturation))));
+        assertThat(f.qualification()).isEqualTo(Qualification.UNQUALIFIED);
+        PerimeterModule r = analysis.modules().get(4);
+        assertThat(r.reasons()).containsExactly(new Reason.Dependency(List.of(ModuleRef.of(facturation),
+                ModuleRef.of(relance))));
+        assertThat(r.qualification()).isEqualTo(Qualification.TO_CHECK);
+        assertThat(r.occurrences()).isZero();
+        assertThat(analysis.modules().get(2).reasons()).containsExactly(new Reason.Aggregator(ModuleRef.of(common)));
     }
 }

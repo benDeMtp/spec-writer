@@ -4,5 +4,6 @@
    {"id": "__MODULE:quarkus-contract__", "qualification": "IMPACTED", "justification": "Expose le statut du contrat par son API."},
    {"id": "__MODULE:facturation__", "qualification": "IMPACTED", "justification": "Ne facture que les contrats actifs : un contrat suspendu doit être traité."},
    {"id": "__MODULE:facturation-chart__", "qualification": "TO_CHECK", "justification": "La clé contract.status du chart peut devoir accepter la nouvelle valeur."},
+   {"id": "__MODULE:relance__", "qualification": "TO_CHECK", "justification": "Dépend de la facturation : les relances d'un contrat suspendu sont à vérifier."},
    {"id": "__MODULE:ancien__", "qualification": "NOT_IMPACTED", "justification": "Code ancien hors de l'agrégateur, plus déployé."},
    {"id": "__MODULE:annuaire__", "qualification": "NOT_IMPACTED", "justification": "Simple commentaire ancien, sans usage du statut."}]}}

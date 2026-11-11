@@ -2,6 +2,7 @@ package dev.specwriter.infrastructure.sources;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.specwriter.application.sources.AnalyzePerimeter;
 import dev.specwriter.domain.port.SourceTree;
 import dev.specwriter.domain.port.SourceTree.Limits;
 import dev.specwriter.domain.port.SourceTree.ModuleHit;
@@ -9,8 +10,12 @@ import dev.specwriter.domain.project.ExclusionPatterns;
 import dev.specwriter.domain.sources.ModuleKind;
 import dev.specwriter.domain.sources.Occurrence;
 import dev.specwriter.domain.sources.PerimeterAnalysis;
+import dev.specwriter.domain.sources.PerimeterModule;
 import dev.specwriter.domain.sources.PerimeterTerms;
+import dev.specwriter.domain.sources.Reason;
 import dev.specwriter.domain.sources.SourceRoot;
+import dev.specwriter.support.FixedClock;
+import dev.specwriter.support.InMemorySourceRoots;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -132,6 +137,31 @@ class LocalSourceTreeSearchTest {
         assertThat(scan.roots()).singleElement().extracting(PerimeterAnalysis.RootStatus::state)
                 .isEqualTo(PerimeterAnalysis.RootState.SCANNED);
         assertThat(scan.incomplete()).isNull();
+    }
+
+    @Test
+    void surLArbreDeDemonstrationLesDependantsEtLAgregateurSontAjoutes() {
+        Path demo = DemoTree.copy(dir);
+        SourceRoot root = root(demo);
+        InMemorySourceRoots roots = new InMemorySourceRoots();
+        roots.save(root);
+        PerimeterAnalysis analysis = new AnalyzePerimeter(roots, tree, null, new FixedClock()).analyze(root.projectId(),
+                List.of("ContractStatus", "CONTRACT_STATUS", "contract.status"), null, 1, () -> false);
+        assertThat(analysis.modules()).extracting(m -> m.module().name()).hasSize(9).contains("relance", "aggregates");
+        assertThat(chain(analysis, "relance")).isEqualTo("facturation → relance");
+        assertThat(chain(analysis, "facturation")).isEqualTo("quarkus-contract → facturation");
+        assertThat(module(analysis, "aggregates").reasons()).singleElement().isInstanceOfSatisfying(Reason.Aggregator.class,
+                a -> assertThat(a.of().name()).isEqualTo("common-contract"));
+    }
+
+    static PerimeterModule module(PerimeterAnalysis analysis, String name) {
+        return analysis.modules().stream().filter(m -> m.module().name().equals(name)).findFirst().orElseThrow();
+    }
+
+    static String chain(PerimeterAnalysis analysis, String name) {
+        return module(analysis, name).reasons().stream().filter(Reason.Dependency.class::isInstance)
+                .map(Reason.Dependency.class::cast).findFirst().orElseThrow().chain().stream()
+                .map(r -> r.name()).collect(java.util.stream.Collectors.joining(" → "));
     }
 
     @Test

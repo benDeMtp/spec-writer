@@ -518,17 +518,17 @@ cité.
 **Goal** : chaque module qui dépend, directement ou non, d'un module trouvé figure « à
 vérifier », avec sa chaîne. L'agrégateur est signalé.
 
-**Independent Test** : quickstart 5. `relance` figure avec la chaîne facturation ←
-quarkus-contract ← common-contract, et l'agrégateur « agrège common-contract ».
+**Independent Test** : quickstart 5. `relance` figure avec la chaîne facturation → relance (la
+plus courte depuis un module trouvé), et l'agrégateur « agrège common-contract ».
 
-- [ ] T035 [US3] Compléter `MavenPomReader` :
+- [X] T035 [US3] Compléter `MavenPomReader` :
   - `dependencies`, y compris celles des `<profiles>` ;
   - `bomImports` (`<dependencyManagement>` avec `<type>pom</type>` et `<scope>import</scope>`) ;
   - `aggregated` (`<modules>`, chemins relatifs normalisés) ;
   - les valeurs `${...}` sont ignorées et comptées.
 
   Tests dans `MavenPomReaderTest`.
-- [ ] T036 [P] [US3] Test puis `BM/domain/sources/ModuleGraph.java` (data-model.md) :
+- [X] T036 [P] [US3] Test puis `BM/domain/sources/ModuleGraph.java` (data-model.md) :
   - `of(Map<ModuleId, ModuleDescriptor>)` : arêtes « dépend de » (dépendance, parent, import de
     BOM), sans coordonnée hors de l'arbre. Deux modules aux mêmes coordonnées : le premier en
     ordre de chemin l'emporte, et le doublon est signalé ;
@@ -538,7 +538,7 @@ quarkus-contract ← common-contract, et l'agrégateur « agrège common-contrac
 
   Tests `ModuleGraphTest` : A ← B ← C, cycle A ↔ B, dépendance externe, BOM, parent, deux
   graines vers un même dépendant (chaîne la plus courte).
-- [ ] T037 [US3] Propagation dans `AnalyzePerimeter.analyze` :
+- [X] T037 [US3] Propagation dans `AnalyzePerimeter.analyze` :
   - les descripteurs viennent de `Scan.descriptors` ;
   - chaque dépendant reçoit `Reason.Dependency(chain)` et l'agrégateur `Reason.Aggregator(of)` ;
   - un module trouvé par terme et par dépendance n'apparaît qu'une fois, avec ses deux raisons
@@ -547,13 +547,13 @@ quarkus-contract ← common-contract, et l'agrégateur « agrège common-contrac
 
   Tests dans `AnalyzePerimeterTest` et sur `demo-rv` (`LocalSourceTreeTest` ou un test
   d'intégration du cas d'usage).
-- [ ] T038 [US3] Afficher les raisons dans `sw-perimeter-step` :
+- [X] T038 [US3] Afficher les raisons dans `sw-perimeter-step` :
   - `DEPENDENCY` : « dépend de X », avec la chaîne en `<ol>` accessible ;
   - `AGGREGATOR` : « agrège X ».
 
   Envoyer ces raisons au LLM de qualification (`UserMessages.qualifyPerimeter`). Tests
   `.spec.ts`.
-- [ ] T039 [US3] E2E `us16-perimetre.spec.ts`, quickstart 5. Mettre à jour la réponse rejouée
+- [X] T039 [US3] E2E `us16-perimetre.spec.ts`, quickstart 5. Mettre à jour la réponse rejouée
   `52-qualify-perimeter.json` si de nouveaux modules apparaissent (relance, agrégateur), en
   gardant l'omission de `demo-front`.
 

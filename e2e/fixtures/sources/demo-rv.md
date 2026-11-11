@@ -10,7 +10,8 @@ Attendu pour `ContractStatus`, `CONTRACT_STATUS` et `contract.status` :
 
 - trouvés : common-contract, quarkus-contract, facturation, annuaire (commentaire), ancien,
   demo-front, facturation-chart ;
-- par dépendance : relance (facturation ← quarkus-contract ← common-contract) ;
+- par dépendance : relance, qui dépend de facturation (chaîne la plus courte depuis un module
+  trouvé ; facturation dépend elle-même de quarkus-contract, qui dépend de common-contract) ;
 - agrégateur : aggregates ;
 - jamais : le fichier binaire, `modules/relance/generated/` (`.gitignore`), et les pièges créés
   au lancement des tests (voir plus bas).

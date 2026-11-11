@@ -10,6 +10,9 @@ const DEFAULT_PROJECT = '00000000-0000-0000-0000-000000000001';
 
 /** Modules de l'arbre qui contiennent un terme, `legacy/**` étant exclu (Q2). */
 const FOUND = ['common-contract', 'demo-front', 'facturation', 'facturation-chart', 'annuaire', 'quarkus-contract'];
+/** Modules ajoutés par les poms : un dépendant et l'agrégateur (US3). */
+const PROPAGATED = ['relance', 'aggregates'];
+const SUMMARY = '8 modules : 3 impactés, 3 à vérifier, 1 non impacté, 1 non qualifié';
 
 /**
  * 013 : périmètre des modules touchés (quickstart). L'arbre de démonstration est copié dans un
@@ -84,6 +87,9 @@ test.describe.serial('013 périmètre des modules touchés', () => {
   const composer = () => page.getByLabel('Votre question');
   const answers = () => page.locator('li.answer');
   const names = (step: ReturnType<Page['locator']>) => step.locator('tbody tr .name').allTextContents();
+  /** Ligne d'un module, par son nom exact : une chaîne de dépendance en cite d'autres. */
+  const row = (step: ReturnType<Page['locator']>, name: string) =>
+    step.locator('tbody tr').filter({ has: page.locator('.name', { hasText: new RegExp(`^${name}$`) }) });
 
   test('Q4 : l’agent analyse le périmètre, montre chaque module et ses occurrences, et les cite', async () => {
     await page.goto('/');
@@ -95,15 +101,15 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     await expect(step.locator('details.perimeter')).toHaveAttribute('open', '');
     await expect(step.locator('summary').first()).toContainText('Analyse du périmètre · 3 termes · 1 racine');
     await expect(step).toContainText('Termes : ContractStatus, CONTRACT_STATUS, contract.status');
-    await expect(step.locator('.summary')).toHaveText('6 modules : 3 impactés, 1 à vérifier, 1 non impacté, 1 non qualifié');
+    await expect(step.locator('.summary')).toHaveText(SUMMARY);
     await expect(step.getByRole('heading', { level: 3 })).toHaveText([
       'Impactés (3)',
-      'À vérifier (1)',
+      'À vérifier (3)',
       'Non impactés (1)',
       'Non qualifiés (1)',
     ]);
 
-    const common = step.getByRole('row').filter({ hasText: 'common-contract' }).first();
+    const common = row(step, 'common-contract');
     await expect(common).toContainText('Définit l\'énumération ContractStatus');
     await common.getByText(/^Occurrences/).click();
     await expect(common).toContainText(/ContractStatus\.java:\d+/);
@@ -117,9 +123,22 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     await expectNoA11yViolations(page);
   });
 
+  test('Q5 : un module qui dépend d’un module trouvé est à vérifier, avec sa chaîne ; l’agrégateur est signalé', async () => {
+    const step = answers().first().locator('sw-perimeter-step');
+    const toCheck = step.getByRole('region', { name: 'À vérifier (3)' });
+    const relance = row(toCheck, 'relance');
+    await expect(relance).toContainText('dépend de');
+    await expect(relance.getByRole('list', { name: 'Chaîne de dépendance' }).getByRole('listitem')).toHaveText([
+      'facturation',
+      'relance',
+    ]);
+    await expect(relance).toContainText('Dépend de la facturation');
+    await expect(row(toCheck, 'aggregates')).toContainText('agrège common-contract');
+  });
+
   test('Q7 et Q8 : aucun module trouvé ne manque, aucun piège n’apparaît', async () => {
     const step = answers().first().locator('sw-perimeter-step');
-    expect((await names(step)).sort()).toEqual([...FOUND].sort());
+    expect((await names(step)).sort()).toEqual([...FOUND, ...PROPAGATED].sort());
     const unqualified = step.getByRole('region', { name: 'Non qualifiés (1)' });
     await expect(unqualified).toContainText('demo-front');
     await expect(unqualified).toContainText('L’agent ne s’est pas prononcé');
@@ -142,17 +161,17 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     await expect(answer.locator('.note')).toContainText('ajoute le module batch-suspension');
     const step = answer.locator('sw-perimeter-step');
     await expect(step).toContainText('Termes : ContractStatus, CONTRACT_STATUS, contract.status, contract_suspended');
-    await expect(step.getByRole('row').filter({ hasText: 'batch-suspension' })).toContainText('Nouveau');
-    await expect(step.getByRole('row').filter({ hasText: 'common-contract' })).not.toContainText('Nouveau');
-    expect((await names(step)).sort()).toEqual([...FOUND, 'batch-suspension'].sort());
+    await expect(row(step, 'batch-suspension')).toContainText('Nouveau');
+    await expect(row(step, 'common-contract')).not.toContainText('Nouveau');
+    expect((await names(step)).sort()).toEqual([...FOUND, ...PROPAGATED, 'batch-suspension'].sort());
   });
 
   test('Q11 : les analyses sont relues à l’identique après rechargement', async () => {
     await page.reload();
     await expect(page.locator('sw-perimeter-step')).toHaveCount(2);
     const first = answers().first().locator('sw-perimeter-step');
-    await expect(first.locator('.summary')).toHaveText('6 modules : 3 impactés, 1 à vérifier, 1 non impacté, 1 non qualifié');
-    await expect(first.getByRole('row').filter({ hasText: 'common-contract' })).toContainText('Définit l\'énumération');
+    await expect(first.locator('.summary')).toHaveText(SUMMARY);
+    await expect(row(first, 'common-contract')).toContainText('Définit l\'énumération');
   });
 
   test('Q10 et Q13 : sans racine, les analyses passées restent, la suivante renvoie aux réglages', async () => {

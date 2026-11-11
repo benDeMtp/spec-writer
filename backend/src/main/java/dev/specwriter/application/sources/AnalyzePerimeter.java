@@ -6,6 +6,10 @@ import dev.specwriter.domain.port.ConversationLlm;
 import dev.specwriter.domain.port.SourceRootRepository;
 import dev.specwriter.domain.port.SourceTree;
 import dev.specwriter.domain.session.Language;
+import dev.specwriter.domain.sources.Module;
+import dev.specwriter.domain.sources.ModuleGraph;
+import dev.specwriter.domain.sources.ModuleId;
+import dev.specwriter.domain.sources.ModuleRef;
 import dev.specwriter.domain.sources.PerimeterAnalysis;
 import dev.specwriter.domain.sources.PerimeterModule;
 import dev.specwriter.domain.sources.PerimeterTerms;
@@ -14,7 +18,11 @@ import dev.specwriter.domain.sources.SourceRoot;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import org.jboss.logging.Logger;
@@ -71,12 +79,7 @@ public class AnalyzePerimeter {
         PerimeterTerms terms = PerimeterTerms.of(rawTerms);
         Instant start = clock.now();
         SourceTree.Scan scan = tree.search(declared, terms, limits, cancelled);
-        List<PerimeterModule> modules = new ArrayList<>();
-        for (SourceTree.ModuleHit hit : scan.hits()) {
-            List<Reason> reasons = new ArrayList<>();
-            hit.countByTerm().forEach((term, n) -> reasons.add(new Reason.Term(term, n)));
-            modules.add(PerimeterModule.found(hit.module(), reasons, hit.total(), hit.samples()));
-        }
+        List<PerimeterModule> modules = propagate(scan);
         long duration = Math.max(0, Duration.between(start, clock.now()).toMillis());
         PerimeterAnalysis analysis = PerimeterAnalysis.complete(ordinal, terms.values(), terms.rejected(), scan.roots(),
                 scan.filesScanned(), scan.filesSkipped(), scan.skippedExamples(), duration, modules, List.of());
@@ -87,6 +90,44 @@ public class AnalyzePerimeter {
         LOG.infof("Périmètre : %d terme(s), %d racine(s), %d fichier(s), %d module(s), %s, %d ms", terms.values().size(),
                 declared.size(), scan.filesScanned(), analysis.modules().size(), analysis.state(), duration);
         return analysis;
+    }
+
+    /**
+     * Modules trouvés par un terme, puis leurs dépendants et leurs agrégateurs (US3) : un module
+     * atteint de plusieurs façons n'apparaît qu'une fois, avec toutes ses raisons (FR-020).
+     */
+    private static List<PerimeterModule> propagate(SourceTree.Scan scan) {
+        Map<ModuleId, PerimeterModule> byId = new LinkedHashMap<>();
+        for (SourceTree.ModuleHit hit : scan.hits()) {
+            List<Reason> reasons = new ArrayList<>();
+            hit.countByTerm().forEach((term, n) -> reasons.add(new Reason.Term(term, n)));
+            byId.put(hit.module().id(), PerimeterModule.found(hit.module(), reasons, hit.total(), hit.samples()));
+        }
+        if (scan.descriptors().isEmpty() || byId.isEmpty()) {
+            return new ArrayList<>(byId.values());
+        }
+        Map<ModuleId, Module> known = new HashMap<>();
+        scan.modules().forEach(m -> known.put(m.id(), m));
+        Set<ModuleId> seeds = Set.copyOf(byId.keySet());
+        ModuleGraph graph = ModuleGraph.of(scan.descriptors());
+        graph.dependents(seeds).forEach((id, chain) -> add(byId, known, id,
+                new Reason.Dependency(chain.stream().map(c -> ref(known, c)).toList())));
+        graph.aggregators(seeds).forEach((id, member) -> add(byId, known, id, new Reason.Aggregator(ref(known, member))));
+        return new ArrayList<>(byId.values());
+    }
+
+    private static void add(Map<ModuleId, PerimeterModule> byId, Map<ModuleId, Module> known, ModuleId id, Reason reason) {
+        PerimeterModule existing = byId.get(id);
+        if (existing != null) {
+            byId.put(id, existing.withReasons(List.of(reason)));
+        } else if (known.containsKey(id)) {
+            byId.put(id, PerimeterModule.found(known.get(id), List.of(reason), 0, List.of()));
+        }
+    }
+
+    private static ModuleRef ref(Map<ModuleId, Module> known, ModuleId id) {
+        Module m = known.get(id);
+        return new ModuleRef(id, m == null ? id.path() : m.name());
     }
 
     /** Qualification par l'agent ; en cas d'échec, l'analyse reste affichée, non qualifiée. */

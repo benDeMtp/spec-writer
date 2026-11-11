@@ -57,7 +57,14 @@ class ConversationPerimeterIT {
                 "contract.status");
         List<String> names = detail.getList(analysis + ".modules.name");
         assertThat(names).containsExactlyInAnyOrder("common-contract", "quarkus-contract", "facturation", "annuaire",
-                "ancien", "demo-front", "facturation-chart");
+                "ancien", "demo-front", "facturation-chart", "relance", "aggregates");
+        // US3 : relance dépend de facturation, l'agrégateur liste common-contract ; tous deux à vérifier
+        assertThat(detail.getList(analysis + ".modules.find { it.name == 'relance' }.reasons[0].chain.name"))
+                .containsExactly("facturation", "relance");
+        assertThat(detail.getString(analysis + ".modules.find { it.name == 'relance' }.qualification"))
+                .isEqualTo("TO_CHECK");
+        assertThat(detail.getString(analysis + ".modules.find { it.name == 'aggregates' }.reasons[0].of.name"))
+                .isEqualTo("common-contract");
         assertThat(detail.getString(analysis + ".modules.find { it.name == 'common-contract' }.qualification"))
                 .isEqualTo("IMPACTED");
         assertThat(detail.getString(analysis + ".modules.find { it.name == 'annuaire' }.qualification"))

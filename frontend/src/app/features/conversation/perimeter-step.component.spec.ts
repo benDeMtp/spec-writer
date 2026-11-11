@@ -133,6 +133,18 @@ describe('PerimeterStepComponent', () => {
     expect(relance.textContent).toContain('absent du modèle d’architecture');
   });
 
+  it('nomme le module trouvé qu’un agrégateur liste', () => {
+    const aggregates = module('aggregates', {
+      path: '',
+      qualification: 'TO_CHECK',
+      reasons: [{ ...NONE, type: 'AGGREGATOR', of: { id: 'a', name: 'common-contract' } }],
+    });
+    open(view({ modules: [aggregates], summary: { impacted: 0, toCheck: 1, notImpacted: 0, unqualified: 0 } }));
+    const row = el.querySelector('#perimeter-m1-2-0')!;
+    expect(row.textContent).toContain('agrège common-contract');
+    expect(row.querySelector('.path')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('rv · Maven');
+  });
+
   it('dit quand l’échantillon des occurrences est partiel', () => {
     open(view());
     const row = el.querySelector('#perimeter-m1-2-0')!;
