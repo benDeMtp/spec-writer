@@ -3,6 +3,8 @@ package dev.specwriter.infrastructure.docs;
 import dev.specwriter.domain.port.AttachmentReader;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.DocumentFolder;
+import dev.specwriter.domain.port.SourceTree;
+import dev.specwriter.infrastructure.sources.LocalSourceTree;
 import dev.specwriter.domain.port.DocumentationReader;
 import dev.specwriter.infrastructure.platform.ProxySettings;
 import jakarta.enterprise.inject.Produces;
@@ -24,6 +26,13 @@ public class DocumentationReaderProducer {
     @Singleton
     DocumentFolder documentFolder() {
         return new LocalDocumentFolder(DocumentFolder.Limits.DEFAULT);
+    }
+
+    /** Sources du code (013), lues à chaque analyse. */
+    @Produces
+    @Singleton
+    SourceTree sourceTree() {
+        return new LocalSourceTree();
     }
 
     /** Documents joints (009) : mêmes lecteurs et mêmes bornes, fichier temporaire du dossier de données. */

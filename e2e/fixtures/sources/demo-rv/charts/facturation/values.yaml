@@ -1,0 +1,4 @@
+contract:
+  status: ACTIVE
+config:
+  key: contract.status

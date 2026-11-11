@@ -13,6 +13,7 @@ import dev.specwriter.application.attachment.ManageAttachments;
 import dev.specwriter.application.consent.UpdateConsent;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ManageDocSources;
+import dev.specwriter.application.sources.ManageSourceRoots;
 import dev.specwriter.application.conversation.ConversationSearch;
 import dev.specwriter.application.conversation.ConversationAttachments;
 import dev.specwriter.application.conversation.ConversationSuggestions;
@@ -103,6 +104,8 @@ import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.port.LocalSearch;
 import dev.specwriter.domain.port.ModelCapacities;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.port.SourceRootRepository;
+import dev.specwriter.domain.port.SourceTree;
 import dev.specwriter.domain.port.SecretStore;
 import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.domain.port.SessionRepository;
@@ -599,6 +602,13 @@ public class UseCaseProducer {
     ManageDocSources manageDocSources(ProjectRepository projects, DocSourceRepository docSources, IdGenerator ids,
             KnowledgeIndex index, DocumentFolder folder) {
         return new ManageDocSources(projects, docSources, ids, index, folder);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageSourceRoots manageSourceRoots(ProjectRepository projects, SourceRootRepository roots, SourceTree tree,
+            IdGenerator ids, ClockPort clock) {
+        return new ManageSourceRoots(projects, roots, tree, ids, clock);
     }
 
     @Produces

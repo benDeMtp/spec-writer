@@ -14,6 +14,7 @@ import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.domain.knowledge.KnowledgeSource;
 import dev.specwriter.domain.port.KnowledgeSourceRepository;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.port.SourceRootRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.project.DocSource;
 import dev.specwriter.domain.project.Project;
@@ -50,7 +51,8 @@ public class ProjectResource {
     public record ProjectView(UUID id, String name, String description, String jiraProjectKey,
             String effectiveJiraProjectKey, String jiraKeyWarning, int sessionCount, String context,
             Instant contextUpdatedAt, List<DocSourceView> docSources, String architectureWorkspace,
-            String architectureOwnership, KnowledgeQueries.Status knowledge) {
+            String architectureOwnership, KnowledgeQueries.Status knowledge,
+            List<SourceRootResource.SourceRootView> sourceRoots) {
     }
 
     public record DocSourceView(UUID id, String kind, String location, Instant lastReadAt, Integer pagesRead,
@@ -67,6 +69,8 @@ public class ProjectResource {
     ProjectRepository projects;
     @Inject
     KnowledgeSourceRepository knowledgeSources;
+    @Inject
+    SourceRootRepository sourceRoots;
     @Inject
     KnowledgeQueries knowledge;
     @Inject
@@ -151,7 +155,8 @@ public class ProjectResource {
                 p.jiraProjectKey() == null ? null : p.jiraProjectKey().value(), jira.effectiveProject(p), warning,
                 counts.getOrDefault(p.id(), 0L).intValue(), p.context().markdown(), p.context().updatedAt(),
                 docSources.list(p.id()).stream().map(DocSourceView::of).toList(),
-                source.workspace(), source.ownership(), knowledge.status(p.id()));
+                source.workspace(), source.ownership(), knowledge.status(p.id()),
+                sourceRoots.list(p.id()).stream().map(SourceRootResource.SourceRootView::of).toList());
     }
 
     private Map<UUID, Long> sessionCounts() {

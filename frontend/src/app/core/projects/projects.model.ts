@@ -23,6 +23,31 @@ export interface Project {
   architectureWorkspace?: string | null;
   architectureOwnership?: string | null;
   knowledge?: KnowledgeStatus;
+  /** Racines de sources du code (013), lues à chaque analyse de périmètre. */
+  sourceRoots?: SourceRoot[];
+}
+
+/** Racine de sources du code (013) ; `state` est évalué à la lecture. */
+export interface SourceRoot {
+  id: string;
+  location: string;
+  label: string;
+  exclusions: string[];
+  createdAt: string;
+  state: 'OK' | 'MISSING' | 'UNREADABLE';
+}
+
+export type ModuleKind = 'MAVEN' | 'NPM' | 'HELM' | 'ROOT';
+
+/** Aperçu d'un dossier de sources : modules détectés (500 au plus) et décomptes. */
+export interface SourceRootPreview {
+  modules: { name: string; path: string; kind: ModuleKind }[];
+  moduleCount: number;
+  retainedFiles: number;
+  excludedFiles: number;
+  sensitiveFiles: number;
+  ignoredByGit: number;
+  limitReached: boolean;
 }
 
 export type DeletionMode = 'MOVE' | 'DELETE';

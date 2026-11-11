@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>fr.demo</groupId>
+    <artifactId>super</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../../super</relativePath>
+  </parent>
+  <artifactId>facturation</artifactId>
+  <packaging>jar</packaging>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>fr.demo</groupId>
+        <artifactId>bom</artifactId>
+        <version>${project.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>fr.demo</groupId>
+      <artifactId>quarkus-contract</artifactId>
+    </dependency>
+  </dependencies>
+</project>

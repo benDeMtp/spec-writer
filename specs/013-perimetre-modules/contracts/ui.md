@@ -21,12 +21,13 @@ composant `sw-source-roots`, avec l'ancre `#sources-code`.
   - Champ « Chemin du dossier » (absolu).
   - « Motifs d'exclusion (facultatif) », une ligne par motif. L'aide donne des exemples :
     `legacy/**`, `**/*.generated.java`.
-  - Bouton « Aperçu ». Le résultat s'affiche en `role="status"` : « 14 modules détectés ·
+  - Bouton « Détecter les modules ». Le résultat s'affiche en `role="status"` : « 14 modules détectés ·
     3 210 fichiers retenus · 120 exclus par vos motifs · 410 ignorés par .gitignore · 2 fichiers
     sensibles écartés », suivi de la liste des modules (nom, chemin, sorte). Au-delà de
     500 modules, le texte ajoute « (500 premiers affichés) ».
   - Bouton « Ajouter la racine ».
-- **Erreurs** : sous le champ concerné, liées par `aria-describedby`.
+- **Erreurs** : bandeau commun, comme les autres réglages du projet (chemin absent, racine imbriquée,
+  motif refusé, avec la raison). Écart au plan initial, qui prévoyait l'erreur sous le champ.
 
 ## Conversation : étape « Analyse du périmètre »
 
