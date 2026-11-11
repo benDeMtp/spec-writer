@@ -255,6 +255,18 @@ describe('ProjectSettingsPage', () => {
     expect(await leaving).toBe(false);
   });
 
+  it('prévient le navigateur au rechargement si une saisie n’est pas enregistrée', async () => {
+    await open(FACT);
+    const clean = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+    type(el.querySelector<HTMLInputElement>('input[name="workspace"]')!, '/Users/moi/autre/workspace.dsl');
+    await settle(fixture);
+    const dirty = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+  });
+
   it('#jira donne le focus au champ de la clé Jira', async () => {
     TestBed.configureTestingModule({
       providers: [

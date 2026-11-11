@@ -27,11 +27,11 @@ function draftOf(p: Project | null): Draft {
     <form class="edit" (ngSubmit)="submit()" [attr.aria-label]="label()">
       <mat-form-field appearance="outline">
         <mat-label>Nom du projet</mat-label>
-        <input matInput name="name" maxlength="80" required [ngModel]="draft().name" (ngModelChange)="patch({ name: $event })" />
+        <input matInput name="name" maxlength="80" required autocomplete="off" [ngModel]="draft().name" (ngModelChange)="patch({ name: $event })" />
       </mat-form-field>
       <mat-form-field appearance="outline">
         <mat-label>Description (facultative)</mat-label>
-        <textarea matInput name="description" maxlength="1000" rows="2" [ngModel]="draft().description" (ngModelChange)="patch({ description: $event })"></textarea>
+        <textarea matInput name="description" maxlength="1000" rows="2" autocomplete="off" [ngModel]="draft().description" (ngModelChange)="patch({ description: $event })"></textarea>
       </mat-form-field>
       <mat-form-field appearance="outline">
         <mat-label>Clé Jira (facultative)</mat-label>
@@ -39,6 +39,8 @@ function draftOf(p: Project | null): Draft {
           matInput
           [id]="keyId()"
           name="jiraProjectKey"
+          autocomplete="off"
+          spellcheck="false"
           maxlength="10"
           pattern="[A-Z][A-Z0-9_]{1,9}"
           [ngModel]="draft().jiraProjectKey"

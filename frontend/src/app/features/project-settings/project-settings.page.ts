@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -117,7 +117,7 @@ import { SheetEditorComponent } from './sheet-editor.component';
             </mat-form-field>
             <mat-form-field appearance="outline" class="grow">
               <mat-label>{{ locationLabel() }}</mat-label>
-              <input matInput name="location" maxlength="2000" [ngModel]="location()" (ngModelChange)="location.set($event)" />
+              <input matInput name="location" maxlength="2000" autocomplete="off" spellcheck="false" [ngModel]="location()" (ngModelChange)="location.set($event)" />
             </mat-form-field>
             @if (kind() === 'DOCUMENTS') {
               <mat-form-field appearance="outline" class="full">
@@ -188,7 +188,7 @@ import { SheetEditorComponent } from './sheet-editor.component';
         <form class="add" (ngSubmit)="saveWorkspace()" aria-label="Modèle d'architecture">
           <mat-form-field appearance="outline" class="grow">
             <mat-label>Chemin du fichier workspace.dsl</mat-label>
-            <input matInput name="workspace" maxlength="2000" [ngModel]="workspace()" (ngModelChange)="workspace.set($event)" />
+            <input matInput name="workspace" maxlength="2000" autocomplete="off" spellcheck="false" [ngModel]="workspace()" (ngModelChange)="workspace.set($event)" />
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Ownership du projet (facultatif)</mat-label>
@@ -342,6 +342,14 @@ export class ProjectSettingsPage {
       this.focusKey = fragment === 'jira';
       this.focusKeyField();
     });
+  }
+
+  /** Rechargement ou fermeture de l'onglet : le navigateur prévient aussi (FR-013). */
+  @HostListener('window:beforeunload', ['$event'])
+  protected warnBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.unsaved()) {
+      event.preventDefault();
+    }
   }
 
   /** Une saisie non enregistrée serait perdue en quittant la page ou en changeant de projet (FR-013). */

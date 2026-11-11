@@ -20,6 +20,8 @@ import { ProjectsStore } from '../../core/projects/projects.store';
       font-family: var(--sw-font-doc);
       font-size: var(--sw-heading-size, var(--sw-step-3));
       font-weight: 600;
+      text-wrap: balance;
+      overflow-wrap: anywhere;
     }
     .project {
       color: var(--sw-ink-soft);

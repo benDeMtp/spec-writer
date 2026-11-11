@@ -71,14 +71,35 @@ Les installeurs ne sont pas encore signés. Le système vous avertira au premier
 1. L'outil ouvre la page **Configuration** dans votre navigateur.
 2. **Se connecter à GitHub** : une page d'autorisation GitHub s'ouvre ; l'outil détecte seul la
    fin de la connexion, puis vous propose de choisir le modèle.
-3. **Jira** (facultatif) : adresse du serveur, clé du projet par défaut et jeton, puis **Tester
-   la connexion**. Si le serveur utilise une autorité de certification interne, indiquez le chemin
-   de son certificat (format PEM).
+3. **Jira** (facultatif) : adresse du serveur et jeton, puis **Tester la connexion**. La clé Jira
+   par défaut est facultative : elle sert aux projets qui n'ont pas leur propre clé. Le test
+   vérifie le projet Jira du projet courant et le nomme. Si le serveur utilise une autorité de
+   certification interne, indiquez le chemin de son certificat (format PEM).
 4. Avant le premier envoi de données à Copilot ou à Jira, l'outil vous demande votre accord. Sans
    cet accord, rien ne part vers ce service.
 
 Si l'outil est déjà lancé, rouvrez-le depuis son lanceur : l'adresse contient un jeton à usage
-unique qui ouvre votre session.
+unique qui ouvre votre session. Une fenêtre qui n'est plus reliée à l'outil (après un redémarrage,
+par exemple) n'affiche plus que « Relancez spec-writer depuis son raccourci ».
+
+### Le menu
+
+Le menu a deux blocs :
+
+- **Projet**, titré par le choix du projet courant : Conversation, Spécifications, Tickets Jira
+  (avec la clé Jira du projet), Connaissance du projet et Réglages du projet. Ces pages portent
+  sur le projet courant et le nomment dans leur titre.
+- **Application** : Projets, Configuration et Journal, qui valent pour tous les projets. Sous
+  Configuration, l'état de Copilot et de Jira reste visible.
+
+Ouvrir une spécification, un questionnaire ou une conversation d'un autre projet (par un lien, la
+recherche ou l'historique) rend ce projet courant, et l'outil l'annonce. Une proposition en
+attente ou des réglages non enregistrés demandent confirmation avant un changement de projet.
+Sur petit écran, le menu se replie derrière le bouton **Menu**.
+
+La **Configuration** présente d'abord les **Connexions** (GitHub Copilot, Jira), puis les réglages
+**Avancés** (modèle de recherche, accès des agents), avec leur portée : ils valent pour tous les
+projets, et changer de modèle de recherche demande de réindexer chaque projet.
 
 ### Proxy d'entreprise
 
@@ -163,10 +184,12 @@ supprimée », et se poursuivent comme des conversations ordinaires.
 
 ## Projets et connaissance du projet
 
-Chaque spécification appartient à un projet ; le projet courant se choisit en haut de l'écran.
-La page **Contexte** d'un projet déclare ce que l'outil doit connaître :
+Chaque spécification appartient à un projet ; le projet courant se choisit en tête du menu. La
+page **Projets** crée, supprime et choisit les projets. **Réglages du projet** regroupe, pour le
+projet courant, son nom, sa description et tout ce que l'outil doit connaître :
 
-- **Jira** : la clé du projet (sinon celle de la configuration). Les tickets sont copiés dans un
+- **Jira** : la clé du projet, sinon la clé par défaut de la configuration. Sans l'une ni l'autre,
+  le projet n'a pas de tickets Jira, et l'outil mène à ce réglage. Les tickets sont copiés dans un
   index local, puis tenus à jour en tâche de fond, sans dépasser 8 requêtes par seconde.
 - **Documentation Antora** : l'adresse du site généré, ou un dossier local de pages HTML. Les ADR
   sont reconnus, avec leur statut : pages `adr-<n>`, titres « ADR-<n> », ou pages numérotées d'un
@@ -182,6 +205,10 @@ La page **Contexte** d'un projet déclare ce que l'outil doit connaître :
   ignoré avec un avertissement), et l'ownership, facultatif, qui distingue les modules propres au
   projet des modules communs. Sans ownership, ce qui vient du modèle étendu est commun.
 - **Fiche générale** : un texte écrit à la main, qui l'emporte sur les sources.
+
+**Connaissance du projet** montre ce que l'outil en a tiré : compteurs, indexation, réindexation
+par source et recherche d'essai. Les anciennes adresses `/projets/<id>/contexte` mènent à cette page,
+après avoir rendu le projet courant.
 
 Quand des ADR ont été trouvés, leur nombre est un lien vers la page **ADR du projet** : un ADR par
 ligne, trié par numéro, avec son statut et son successeur. Les ADR remplacés ou obsolètes, qui ne
@@ -252,7 +279,7 @@ par l'administrateur Microsoft 365. Il lit le dossier que OneDrive synchronise s
    raccourci à Mes fichiers**, sur le dossier.
 3. Le dossier apparaît dans le Finder, sous `~/Library/CloudStorage/OneDrive-<Organisation>/`
    (raccourci) ou `~/Library/CloudStorage/OneDrive-SharedLibraries-<Organisation>/` (bibliothèque).
-   Déclarez ce chemin dans la page **Contexte**.
+   Déclarez ce chemin dans **Réglages du projet**, section Sources de documentation.
 4. Facultatif : clic droit sur le dossier, **Toujours conserver sur cet appareil**, pour que les
    fichiers se lisent hors ligne.
 

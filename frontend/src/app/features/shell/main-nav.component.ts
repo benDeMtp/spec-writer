@@ -73,7 +73,7 @@ const APP_LINKS: Link[] = [
                 [class.active]="active() === l.entry"
                 [attr.aria-current]="active() === l.entry ? 'page' : null"
                 >{{ l.label
-                }}@if (l.entry === 'jira' && jiraKey(); as key) {<span class="key"
+                }}@if (l.entry === 'jira' && jiraKey(); as key) {<span class="key" translate="no"
                     ><span class="sw-visually-hidden">, projet </span>{{ key }}</span
                   >}</a
               >
@@ -187,6 +187,9 @@ const APP_LINKS: Link[] = [
         border: 1px solid var(--sw-rule);
         border-radius: var(--sw-radius-field);
         cursor: pointer;
+      }
+      .toggle:hover {
+        background: color-mix(in srgb, var(--sw-pencil) 8%, var(--sw-sheet));
       }
       nav:not(.open) {
         display: none;

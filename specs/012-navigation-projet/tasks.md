@@ -423,7 +423,7 @@ Jira sans clé par défaut, puis tester (quickstart 13, 14).
 
 **Independent Test**: ouvrir l'outil sans cookie (quickstart 15).
 
-- [ ] T040 [US5] Test puis serveur, research.md R11 :
+- [X] T040 [US5] Test puis serveur, research.md R11 :
   - `BM/domain/error/ErrorCode.java` gagne `SESSION_REQUIRED(403, "Cette fenêtre n'est plus reliée
     à spec-writer. Relancez-la depuis son raccourci.", ErrorAction.NONE)` ;
   - `BM/infrastructure/web/LocalSecurityFilter.java` le renvoie quand le cookie manque ou n'est
@@ -433,16 +433,16 @@ Jira sans clé par défaut, puis tester (quickstart 13, 14).
 
   Mettre à jour `BT/infrastructure/web/LocalSecurityFilterTest.java` : sans cookie,
   `SESSION_REQUIRED` ; origine étrangère, `FORBIDDEN`.
-- [ ] T041 [US5] Test puis `FA/core/http/problem.interceptor.ts` (`.spec.ts`) : sur une réponse dont
+- [X] T041 [US5] Test puis `FA/core/http/problem.interceptor.ts` (`.spec.ts`) : sur une réponse dont
   le code est `SESSION_REQUIRED`, même silencieuse, `LaunchTokenService.state.set('rejected')`, et
   le bandeau ne s'affiche pas.
-- [ ] T042 [US5] Test puis composant `sw-session-lost` (`FA/features/shell/session-lost.component.ts`,
+- [X] T042 [US5] Test puis composant `sw-session-lost` (`FA/features/shell/session-lost.component.ts`,
   `.spec.ts`), selon contracts/ui.md :
   - `h1` « Relancez spec-writer depuis son raccourci » et l'explication ;
   - dans `FA/app.ts`, quand `launch.state() === 'rejected'`, seul ce composant est rendu : ni
     menu, ni bandeau, ni `router-outlet` ;
   - le paragraphe `.session-lost` actuel est retiré.
-- [ ] T043 [US5] E2E `e2e/tests/us15-navigation.spec.ts`, scénario 15 : nouveau contexte sans
+- [X] T043 [US5] E2E `e2e/tests/us15-navigation.spec.ts`, scénario 15 : nouveau contexte sans
   `storageState`, `/` ouvert, titre visible, aucune `navigation` « Navigation principale », axe.
   Vérifier `e2e/tests/security-local.spec.ts` et `e2e/tests/startup.spec.ts`, qui contrôlent les
   statuts 403, sans changement attendu.
@@ -453,18 +453,18 @@ Jira sans clé par défaut, puis tester (quickstart 13, 14).
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T044 [P] Documentation `README.md` :
+- [X] T044 [P] Documentation `README.md` :
   - menu en deux blocs ;
   - Réglages et Connaissance du projet, avec les nouvelles adresses ;
   - bascule du projet courant ;
   - clé Jira par défaut facultative ;
   - test de connexion sur le projet courant ;
   - écran de session perdue.
-- [ ] T045 Revue d'ergonomie de la feature : skill `web-design-guidelines` sur les fichiers de
+- [X] T045 Revue d'ergonomie de la feature : skill `web-design-guidelines` sur les fichiers de
   `FA/features/shell/`, `project-settings/`, `project-knowledge/` et `settings/`. Constats et
   suites dans `specs/012-navigation-projet/checklists/ux-review.md`, avec les corrections
   testées.
-- [ ] T046 Gates complètes :
+- [X] T046 Gates complètes :
   - `rm -f backend/target/jacoco.exec` ;
   - `./mvnw -B verify -DskipDependencyCheck` (JaCoCo, ArchUnit, SpotBugs, PMD, front) ;
   - `./mvnw -B package -DskipTests` ;
