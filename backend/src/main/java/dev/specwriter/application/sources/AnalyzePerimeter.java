@@ -3,6 +3,7 @@ package dev.specwriter.application.sources;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.ConversationLlm;
+import dev.specwriter.domain.port.KnowledgeIndex;
 import dev.specwriter.domain.port.SourceRootRepository;
 import dev.specwriter.domain.port.SourceTree;
 import dev.specwriter.domain.session.Language;
@@ -46,18 +47,21 @@ public class AnalyzePerimeter {
     private final ConversationLlm llm;
     private final ClockPort clock;
     private final SourceTree.Limits limits;
+    /** Modèle d'architecture du projet (US4) ; nul : pas de propagation par l'architecture. */
+    private final KnowledgeIndex index;
 
     public AnalyzePerimeter(SourceRootRepository roots, SourceTree tree, ConversationLlm llm, ClockPort clock) {
-        this(roots, tree, llm, clock, SourceTree.Limits.DEFAULT);
+        this(roots, tree, llm, clock, SourceTree.Limits.DEFAULT, null);
     }
 
     public AnalyzePerimeter(SourceRootRepository roots, SourceTree tree, ConversationLlm llm, ClockPort clock,
-            SourceTree.Limits limits) {
+            SourceTree.Limits limits, KnowledgeIndex index) {
         this.roots = roots;
         this.tree = tree;
         this.llm = llm;
         this.clock = clock;
         this.limits = limits;
+        this.index = index;
     }
 
     /** Vrai si le projet a au moins une racine de sources. */
@@ -79,10 +83,12 @@ public class AnalyzePerimeter {
         PerimeterTerms terms = PerimeterTerms.of(rawTerms);
         Instant start = clock.now();
         SourceTree.Scan scan = tree.search(declared, terms, limits, cancelled);
-        List<PerimeterModule> modules = propagate(scan);
+        ArchitecturePerimeter.Result linked = ArchitecturePerimeter.apply(
+                index == null ? null : index.architecture(projectId), scan.modules(), propagate(scan));
         long duration = Math.max(0, Duration.between(start, clock.now()).toMillis());
         PerimeterAnalysis analysis = PerimeterAnalysis.complete(ordinal, terms.values(), terms.rejected(), scan.roots(),
-                scan.filesScanned(), scan.filesSkipped(), scan.skippedExamples(), duration, modules, List.of());
+                scan.filesScanned(), scan.filesSkipped(), scan.skippedExamples(), duration, linked.modules(),
+                linked.architectureOnly());
         if (scan.incomplete() != null) {
             analysis = analysis.incomplete(scan.incomplete());
         }

@@ -162,10 +162,13 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
     @Override
     public ArchitectureModel architecture(UUID projectId) {
         ArchitectureModel stored = architectures.getOrDefault(projectId, ArchitectureModel.EMPTY);
+        // comme l'index SQLite : l'indice de module (013) vient du dernier modèle remplacé
+        Map<String, String> hints = new HashMap<>();
+        stored.elements().stream().filter(e -> e.moduleHint() != null).forEach(e -> hints.put(e.name(), e.moduleHint()));
         List<ArchElement> elements = of(projectId).values().stream().map(Entry::item)
-                .filter(i -> i.kind() == KnowledgeKind.ARCH_ELEMENT)
+                .filter(i -> i.kind() == KnowledgeKind.ARCH_ELEMENT && i.chunk() == 0)
                 .map(i -> new ArchElement(i.ref(), ArchElement.Type.valueOf(i.elementType()), i.scope(), i.transport(),
-                        null, null))
+                        null, null, hints.get(i.ref())))
                 .toList();
         return new ArchitectureModel(elements, stored.relations(), stored.deployments());
     }

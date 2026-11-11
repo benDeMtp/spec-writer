@@ -332,7 +332,8 @@ class SqliteKnowledgeIndexIT {
                 ArchScope.PROJECT, false, null, null), T0, T0), null, null);
         index.save(KnowledgeItem.archElement(project, new ArchElement("Suez/topic", ArchElement.Type.CONTAINER,
                 ArchScope.COMMON, true, null, null), T0, T0), null, null);
-        ArchitectureModel model = new ArchitectureModel(List.of(),
+        ArchitectureModel model = new ArchitectureModel(List.of(new ArchElement("Facturation/API",
+                ArchElement.Type.CONTAINER, ArchScope.PROJECT, false, null, null, "modules/facturation")),
                 List.of(new ArchRelation("Facturation/API", "Suez/topic", "Publie", "Kafka")),
                 List.of(new ArchDeployment("Facturation/API", "Production", "Azure", "Azure/AKS", 2, false)));
         index.replaceArchitecture(project, model);
@@ -344,6 +345,11 @@ class SqliteKnowledgeIndexIT {
         assertThat(read.elements()).extracting(ArchElement::name, ArchElement::scope, ArchElement::transport)
                 .containsExactlyInAnyOrder(tuple("Facturation/API", ArchScope.PROJECT, false),
                         tuple("Suez/topic", ArchScope.COMMON, true));
+        // 013 : l'indice de module est relu, puis effacé quand le modèle n'en donne plus
+        assertThat(read.elements()).extracting(ArchElement::name, ArchElement::moduleHint)
+                .containsExactlyInAnyOrder(tuple("Facturation/API", "modules/facturation"), tuple("Suez/topic", null));
+        index.replaceArchitecture(project, new ArchitectureModel(List.of(), model.relations(), model.deployments()));
+        assertThat(index.architecture(project).elements()).extracting(ArchElement::moduleHint).containsOnlyNulls();
     }
 
     @Test

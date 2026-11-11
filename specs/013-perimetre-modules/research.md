@@ -305,6 +305,13 @@ analyse.
 Un module sans élément correspondant porte la mention « absent du modèle d'architecture »
 (scénario 2). Cette propagation ne s'enchaîne pas : on ne prend que les relations directes.
 
+Précisions à l'implémentation :
+- seuls les modules trouvés par un terme propagent par l'architecture. Un module ajouté par
+  dépendance ne propage pas, ce qui évite un second saut déguisé ;
+- sans modèle d'architecture pour le projet, aucun module n'est dit « absent du modèle » ;
+- le pseudo-module de la racine n'a pas de statut d'architecture ;
+- un composant relié se rattache au module de son conteneur le plus proche.
+
 **Motif** : propager sur plusieurs sauts par l'architecture noierait le périmètre. Une relation
 directe suffit à signaler le consommateur ou le fournisseur.
 

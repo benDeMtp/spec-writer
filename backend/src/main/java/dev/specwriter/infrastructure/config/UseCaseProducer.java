@@ -159,8 +159,9 @@ public class UseCaseProducer {
     /** Analyse de périmètre dans les sources du code (013). */
     @Produces
     @ApplicationScoped
-    AnalyzePerimeter analyzePerimeter(SourceRootRepository roots, SourceTree tree, ConversationLlm llm, ClockPort clock) {
-        return new AnalyzePerimeter(roots, tree, llm, clock);
+    AnalyzePerimeter analyzePerimeter(SourceRootRepository roots, SourceTree tree, ConversationLlm llm, ClockPort clock,
+            KnowledgeIndex index) {
+        return new AnalyzePerimeter(roots, tree, llm, clock, SourceTree.Limits.DEFAULT, index);
     }
 
     /** « Proposer une nouvelle version » d'après la discussion (011, US2) : la rédaction tourne sur un fil virtuel. */

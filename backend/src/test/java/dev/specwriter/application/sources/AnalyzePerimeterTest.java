@@ -5,6 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.knowledge.ArchElement;
+import dev.specwriter.domain.knowledge.ArchRelation;
+import dev.specwriter.domain.knowledge.ArchScope;
+import dev.specwriter.domain.knowledge.ArchitectureModel;
+import dev.specwriter.domain.knowledge.KnowledgeItem;
 import dev.specwriter.domain.port.SourceTree;
 import dev.specwriter.domain.project.ExclusionPatterns;
 import dev.specwriter.domain.session.Language;
@@ -22,6 +27,7 @@ import dev.specwriter.domain.sources.Qualification;
 import dev.specwriter.domain.sources.Reason;
 import dev.specwriter.domain.sources.SourceRoot;
 import dev.specwriter.support.FixedClock;
+import dev.specwriter.support.InMemoryKnowledgeIndex;
 import dev.specwriter.support.InMemorySourceRoots;
 import dev.specwriter.support.ScriptedConversationLlm;
 import java.time.Instant;
@@ -198,5 +204,71 @@ class AnalyzePerimeterTest {
         assertThat(r.qualification()).isEqualTo(Qualification.TO_CHECK);
         assertThat(r.occurrences()).isZero();
         assertThat(analysis.modules().get(2).reasons()).containsExactly(new Reason.Aggregator(ModuleRef.of(common)));
+    }
+
+    static ArchElement container(String name, String hint) {
+        return new ArchElement(name, ArchElement.Type.CONTAINER, ArchScope.PROJECT, false, null, null, hint);
+    }
+
+    @Test
+    void lesModulesReliesParLArchitectureSontAVerifierSansEnchainement() {
+        declareRoot();
+        Module facturation = module("modules/facturation", "facturation");
+        Module notification = module("modules/notification", "notification");
+        Module relance = module("modules/relance", "relance");
+        Module front = new Module(ROOT, "front", "demo-front", ModuleKind.NPM, null);
+        Module root = new Module(ROOT, "", "demo-rv", ModuleKind.ROOT, null);
+        InMemoryKnowledgeIndex index = new InMemoryKnowledgeIndex();
+        List<ArchElement> elements = List.of(
+                new ArchElement("Contrats", ArchElement.Type.SOFTWARE_SYSTEM, ArchScope.PROJECT, false, null, null),
+                container("Contrats/Facturation API", "modules/facturation"),
+                container("Contrats/Notification", null),
+                container("Contrats/Relance", null),
+                container("Contrats/Archives", null));
+        // comme la synchronisation : les éléments sont enregistrés, puis le modèle remplacé
+        elements.forEach(e -> index.save(KnowledgeItem.archElement(PROJECT, e, Instant.EPOCH, Instant.EPOCH), null,
+                null));
+        index.replaceArchitecture(PROJECT, new ArchitectureModel(elements,
+                List.of(new ArchRelation("Contrats/Facturation API", "Contrats/Notification", "envoie les relances",
+                        "REST"),
+                        new ArchRelation("Contrats/Archives", "Contrats/Facturation API", "archive", "SFTP"),
+                        // un second saut, depuis notification, n'est pas suivi
+                        new ArchRelation("Contrats/Notification", "Contrats/Relance", null, null)),
+                List.of()));
+        scan = new SourceTree.Scan(List.of(new SourceTree.ModuleHit(facturation, Map.of("ContractStatus", 2), List.of()),
+                new SourceTree.ModuleHit(front, Map.of("ContractStatus", 1), List.of()),
+                new SourceTree.ModuleHit(root, Map.of("ContractStatus", 1), List.of())),
+                List.of(root, front, facturation, notification, relance), Map.of(),
+                List.of(new PerimeterAnalysis.RootStatus(ROOT, "rv", PerimeterAnalysis.RootState.SCANNED)), 10, 0,
+                List.of(), null);
+        AnalyzePerimeter withModel = new AnalyzePerimeter(roots, tree, llm, new FixedClock(), SourceTree.Limits.DEFAULT,
+                index);
+
+        PerimeterAnalysis analysis = withModel.analyze(PROJECT, List.of("ContractStatus"), null, 1, () -> false);
+
+        assertThat(analysis.modules()).extracting(m -> m.module().name()).containsExactly("facturation", "demo-rv",
+                "demo-front", "notification");
+        PerimeterModule n = analysis.modules().get(3);
+        assertThat(n.reasons()).containsExactly(new Reason.Architecture("Notification", "Facturation API",
+                "envoie les relances", "REST"));
+        assertThat(n.qualification()).isEqualTo(Qualification.TO_CHECK);
+        assertThat(n.archStatus()).isEqualTo(PerimeterModule.ArchStatus.MATCHED);
+        PerimeterModule f = analysis.modules().getFirst();
+        assertThat(f.archElement()).isEqualTo("Contrats/Facturation API");
+        assertThat(f.archStatus()).isEqualTo(PerimeterModule.ArchStatus.MATCHED);
+        assertThat(analysis.modules().get(2).archStatus()).isEqualTo(PerimeterModule.ArchStatus.ABSENT);
+        // le pseudo-module de la racine n'a pas de place dans le modèle
+        assertThat(analysis.modules().get(1).archStatus()).isNull();
+        assertThat(analysis.architectureOnly()).containsExactly(new PerimeterAnalysis.ArchLink("Archives",
+                "Facturation API", "archive", "SFTP"));
+    }
+
+    @Test
+    void sansModeleDArchitectureAucunModuleNEstDitAbsent() {
+        declareRoot();
+        scan = scan(List.of(hit("libs/a", Map.of("ContractStatus", 1))), null);
+        PerimeterAnalysis analysis = new AnalyzePerimeter(roots, tree, llm, new FixedClock(), SourceTree.Limits.DEFAULT,
+                new InMemoryKnowledgeIndex()).analyze(PROJECT, List.of("ContractStatus"), null, 1, () -> false);
+        assertThat(analysis.modules()).singleElement().extracting(PerimeterModule::archStatus).isNull();
     }
 }

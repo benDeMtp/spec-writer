@@ -568,14 +568,15 @@ plus courte depuis un module trouvé), et l'agrégateur « agrège common-contra
 **Independent Test** : quickstart 6. `notification` figure « à vérifier », relié à facturation
 (REST).
 
-- [ ] T040 [US4] Ajouter `moduleHint` à `BM/domain/knowledge/ArchElement.java` (adapter tous les
+- [X] T040 [US4] Ajouter `moduleHint` à `BM/domain/knowledge/ArchElement.java` (adapter tous les
   appels du constructeur) :
   - `StructurizrReader` lit la propriété `spec-writer.module` ;
   - `SqliteKnowledgeIndex` l'écrit dans `knowledge_item.module_hint` (élément `chunk = 0`) et la
     relit dans `architecture()`.
 
   Tests `StructurizrReaderTest` (propriété présente ou absente), et IT de l'index.
-- [ ] T041 [US4] Compléter le modèle de démonstration `e2e/fixtures/c4/` :
+- [X] T041 [US4] Compléter le modèle de démonstration `e2e/fixtures/c4/`. Écart : un workspace à part,
+  `e2e/fixtures/c4/perimetre/`, pour ne pas changer celui d'us8 ni les rubriques d'architecture :
   - conteneurs `facturation` (`spec-writer.module` = `modules/facturation`) et `notification`
     (sans propriété : correspondance par le nom) ;
   - relation facturation → notification, « envoie les relances », REST ;
@@ -583,7 +584,7 @@ plus courte depuis un module trouvé), et l'agrégateur « agrège common-contra
 
   Vérifier que les E2E qui utilisent ce modèle (`us8`) restent verts, et adapter leurs attentes
   s'ils comptent les éléments.
-- [ ] T042 [US4] Test puis propagation par l'architecture dans `AnalyzePerimeter` (research R8) :
+- [X] T042 [US4] Test puis propagation par l'architecture dans `AnalyzePerimeter` (research R8) :
   - `KnowledgeIndex.architecture(projectId)` chargé une fois ;
   - correspondance par `moduleHint` (nom ou chemin), sinon par le nom normalisé (minuscules,
     sans `-`, `_`, `.` ni espaces) ;
@@ -593,7 +594,7 @@ plus courte depuis un module trouvé), et l'agrégateur « agrège common-contra
   - `archStatus` `MATCHED` ou `ABSENT` sur les modules `MAVEN`, `NPM` et `HELM`.
 
   Pas d'enchaînement au-delà d'un saut. Tests `AnalyzePerimeterTest`.
-- [ ] T043 [US4] Afficher dans `sw-perimeter-step` :
+- [X] T043 [US4] Afficher dans `sw-perimeter-step` :
   - la raison `ARCHITECTURE` : « relié à Y (technologie, « description ») » ;
   - la mention « absent du modèle d'architecture » ;
   - la section « Éléments d'architecture sans module ».

@@ -145,6 +145,21 @@ describe('PerimeterStepComponent', () => {
     expect(row.querySelector('.path')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('rv · Maven');
   });
 
+  it('liste à part les éléments d’architecture reliés qui n’ont pas de module', () => {
+    open(
+      view({
+        architectureOnly: [
+          { element: 'Archives', related: 'Facturation API', description: 'archive les factures', technology: 'SFTP' },
+        ],
+      }),
+    );
+    const section = el.querySelector('section[aria-labelledby="perimeter-m1-2-ARCH"]')!;
+    expect(section.querySelector('h3')?.textContent?.trim()).toBe('Éléments d’architecture sans module (1)');
+    expect(section.querySelector('li')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Archives : relié à Facturation API (SFTP, « archive les factures »)',
+    );
+  });
+
   it('dit quand l’échantillon des occurrences est partiel', () => {
     open(view());
     const row = el.querySelector('#perimeter-m1-2-0')!;

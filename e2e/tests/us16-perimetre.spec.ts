@@ -6,13 +6,16 @@ import { ensureCopilotConnected } from './support/copilot';
 import { copyDemoTree } from './support/demo-tree';
 import { baseURL, stateDir, storageStatePath } from './support/env';
 
+/** Modèle d'architecture du projet : facturation reliée à notification et aux archives (US4). */
+const WORKSPACE = join(process.cwd(), 'fixtures', 'c4', 'perimetre', 'workspace.dsl');
+
 const DEFAULT_PROJECT = '00000000-0000-0000-0000-000000000001';
 
 /** Modules de l'arbre qui contiennent un terme, `legacy/**` étant exclu (Q2). */
 const FOUND = ['common-contract', 'demo-front', 'facturation', 'facturation-chart', 'annuaire', 'quarkus-contract'];
-/** Modules ajoutés par les poms : un dépendant et l'agrégateur (US3). */
-const PROPAGATED = ['relance', 'aggregates'];
-const SUMMARY = '8 modules : 3 impactés, 3 à vérifier, 1 non impacté, 1 non qualifié';
+/** Modules ajoutés par les poms (un dépendant, l'agrégateur, US3) et par l'architecture (US4). */
+const PROPAGATED = ['relance', 'aggregates', 'notification'];
+const SUMMARY = '9 modules : 3 impactés, 4 à vérifier, 1 non impacté, 1 non qualifié';
 
 /**
  * 013 : périmètre des modules touchés (quickstart). L'arbre de démonstration est copié dans un
@@ -36,6 +39,16 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     expect(created.status()).toBe(201);
     projectId = (await created.json()).id;
     await page.request.put('/api/projects/current', { headers, data: { projectId } });
+    const architecture = await page.request.put(`/api/projects/${projectId}/architecture-source`, {
+      headers,
+      data: { workspace: WORKSPACE },
+    });
+    expect(architecture.status()).toBe(200);
+    await expect
+      .poll(async () => (await (await page.request.get(`/api/projects/${projectId}/indexations/current`)).json()).status, {
+        timeout: 60_000,
+      })
+      .not.toBe('RUNNING');
   });
 
   test.afterAll(async () => {
@@ -104,9 +117,10 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     await expect(step.locator('.summary')).toHaveText(SUMMARY);
     await expect(step.getByRole('heading', { level: 3 })).toHaveText([
       'Impactés (3)',
-      'À vérifier (3)',
+      'À vérifier (4)',
       'Non impactés (1)',
       'Non qualifiés (1)',
+      'Éléments d’architecture sans module (1)',
     ]);
 
     const common = row(step, 'common-contract');
@@ -125,7 +139,7 @@ test.describe.serial('013 périmètre des modules touchés', () => {
 
   test('Q5 : un module qui dépend d’un module trouvé est à vérifier, avec sa chaîne ; l’agrégateur est signalé', async () => {
     const step = answers().first().locator('sw-perimeter-step');
-    const toCheck = step.getByRole('region', { name: 'À vérifier (3)' });
+    const toCheck = step.getByRole('region', { name: 'À vérifier (4)' });
     const relance = row(toCheck, 'relance');
     await expect(relance).toContainText('dépend de');
     await expect(relance.getByRole('list', { name: 'Chaîne de dépendance' }).getByRole('listitem')).toHaveText([
@@ -134,6 +148,17 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     ]);
     await expect(relance).toContainText('Dépend de la facturation');
     await expect(row(toCheck, 'aggregates')).toContainText('agrège common-contract');
+  });
+
+  test('Q6 : un module relié par le modèle d’architecture est à vérifier, avec la relation', async () => {
+    const step = answers().first().locator('sw-perimeter-step');
+    const notification = row(step.getByRole('region', { name: 'À vérifier (4)' }), 'notification');
+    await expect(notification).toContainText('relié à Facturation API (REST, « envoie les relances »)');
+    await expect(row(step, 'demo-front')).toContainText('absent du modèle d’architecture');
+    await expect(row(step, 'facturation')).not.toContainText('absent du modèle');
+    await expect(step.getByRole('region', { name: 'Éléments d’architecture sans module (1)' })).toContainText(
+      'Archives : relié à Facturation API (SFTP, « archive les factures »)',
+    );
   });
 
   test('Q7 et Q8 : aucun module trouvé ne manque, aucun piège n’apparaît', async () => {
