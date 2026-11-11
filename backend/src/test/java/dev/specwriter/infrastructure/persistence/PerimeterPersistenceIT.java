@@ -7,8 +7,12 @@ import dev.specwriter.domain.conversation.ConversationMessage;
 import dev.specwriter.domain.port.ConversationRepository;
 import dev.specwriter.domain.port.PerimeterRepository;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectName;
+import dev.specwriter.domain.question.Questionnaire;
+import dev.specwriter.domain.session.Need;
+import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.sources.Module;
 import dev.specwriter.domain.sources.ModuleKind;
 import dev.specwriter.domain.sources.ModuleQualification;
@@ -16,6 +20,7 @@ import dev.specwriter.domain.sources.ModuleRef;
 import dev.specwriter.domain.sources.Occurrence;
 import dev.specwriter.domain.sources.PerimeterAnalysis;
 import dev.specwriter.domain.sources.PerimeterModule;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.sources.PerimeterTerms;
 import dev.specwriter.domain.sources.Qualification;
 import dev.specwriter.domain.sources.Reason;
@@ -43,6 +48,9 @@ class PerimeterPersistenceIT {
 
     @Inject
     PerimeterRepository perimeters;
+
+    @Inject
+    SessionRepository sessions;
 
     final List<UUID> created = new ArrayList<>();
 
@@ -120,5 +128,20 @@ class PerimeterPersistenceIT {
         conversations.delete(c.id());
         assertThat(perimeters.list(older.id())).isEmpty();
         assertThat(perimeters.last(c.id())).isEmpty();
+    }
+
+    @Test
+    void lInstantaneDeLaSessionEstReluALIdentiqueEtSupprimeAvecElle() {
+        Session session = Session.start(UUID.randomUUID(), Project.DEFAULT_ID,
+                Need.of("Le gestionnaire doit pouvoir suspendre un contrat d'abonnement puis en reprendre la facturation."), null, T0);
+        sessions.save(session, Questionnaire.empty());
+        assertThat(perimeters.snapshot(session.id())).isEmpty();
+        PerimeterSnapshot snapshot = PerimeterSnapshot.of(analysis(1, "ContractStatus"));
+        perimeters.saveSnapshot(session.id(), snapshot, T0);
+        perimeters.saveSnapshot(session.id(), snapshot, T0);
+        assertThat(perimeters.snapshot(session.id())).contains(snapshot);
+
+        sessions.delete(session.id());
+        assertThat(perimeters.snapshot(session.id())).isEmpty();
     }
 }

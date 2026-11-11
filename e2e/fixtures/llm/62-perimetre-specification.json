@@ -1,0 +1,13 @@
+{"operation": "generate-specification", "userContains": ["suspendre un contrat d'abonnement"], "response": {
+  "title": "Suspension d'un contrat d'abonnement",
+  "summary": "Le gestionnaire suspend un contrat ; la facturation s'arrête jusqu'à sa reprise.",
+  "useCases": [
+    {"title": "Suspendre un contrat", "actor": "gestionnaire", "goal": "Arrêter la facturation d'un contrat",
+     "preconditions": ["le contrat est actif"], "nominalFlow": ["Choisir le contrat", "Le suspendre"], "alternatives": [],
+     "source": {"kind": "NEED_EXCERPT", "questionId": "", "excerpt": "suspendre un contrat d'abonnement"}}
+  ],
+  "scenarios": [
+    {"useCaseIndex": 0, "title": "Contrat suspendu", "kind": "NOMINAL", "asA": "gestionnaire", "given": ["un contrat actif"],
+     "when": ["je suspends le contrat"], "then": ["le contrat n'est plus facturé"], "assumption": false}
+  ],
+  "assumptions": [], "requirements": []}}

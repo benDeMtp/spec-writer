@@ -186,4 +186,6 @@ export interface EstablishedPoint {
 export interface NeedDraft {
   need: string;
   points: EstablishedPoint[];
+  /** Dernière analyse de périmètre de la conversation, que la spécification reprendra (013). */
+  perimeter?: { moduleCount: number; ordinal: number } | null;
 }

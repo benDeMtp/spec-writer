@@ -1,6 +1,8 @@
 package dev.specwriter.domain.port;
 
 import dev.specwriter.domain.sources.PerimeterAnalysis;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,4 +21,9 @@ public interface PerimeterRepository {
 
     /** Retire les analyses d'une réponse relancée. */
     void clear(UUID messageId);
+
+    /** Périmètre repris par une spécification rédigée depuis la discussion (US5) ; supprimé avec la session. */
+    void saveSnapshot(UUID sessionId, PerimeterSnapshot snapshot, Instant takenAt);
+
+    Optional<PerimeterSnapshot> snapshot(UUID sessionId);
 }

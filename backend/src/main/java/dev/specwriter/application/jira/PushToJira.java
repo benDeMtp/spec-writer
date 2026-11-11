@@ -1,9 +1,6 @@
 package dev.specwriter.application.jira;
 
 import dev.specwriter.application.knowledge.SessionKnowledge;
-import dev.specwriter.domain.knowledge.ProjectKnowledge;
-import dev.specwriter.domain.llm.QuestionAndAnswer;
-import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.application.specification.DraftValidation;
 import dev.specwriter.application.specification.OperationRegistry;
 import dev.specwriter.application.specification.ProposalStore;
@@ -16,12 +13,16 @@ import dev.specwriter.domain.jira.ConflictResolution;
 import dev.specwriter.domain.jira.IssueTrackerException;
 import dev.specwriter.domain.jira.JiraIssue;
 import dev.specwriter.domain.jira.LinkedJiraTicket;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.MergeRequest;
+import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.IssueTracker;
 import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.LlmClient;
+import dev.specwriter.domain.port.PerimeterRepository;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.port.WikiMarkup;
@@ -29,6 +30,7 @@ import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.session.SpecificationLock;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.specification.MarkdownRenderer;
 import dev.specwriter.domain.specification.SpecificationContent;
 import dev.specwriter.domain.specification.SpecificationVersion;
@@ -77,6 +79,8 @@ public class PushToJira {
     private final IdGenerator ids;
     private final SessionKnowledge knowledge;
     private final OperationRegistry operations;
+    /** Périmètre repris de la discussion (013, US5) : la version reprise de Jira le garde. */
+    private final PerimeterRepository perimeters;
 
     public PushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
@@ -97,6 +101,15 @@ public class PushToJira {
             SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
             OperationRegistry operations) {
+        this(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids, knowledge, operations,
+                null);
+    }
+
+    public PushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
+            SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
+            OperationRegistry operations, PerimeterRepository perimeters) {
+        this.perimeters = perimeters;
         this.operations = operations;
         this.knowledge = knowledge;
         this.tracker = tracker;
@@ -168,10 +181,15 @@ public class PushToJira {
         ProjectKnowledge used = knowledge.forSpecification(session, List.of());
         SpecificationContent content = ImportJiraIssue.structure(llm, markup.toMarkdown(current.description(), ticket.issueUrl()),
                 session.language(), used);
+        PerimeterSnapshot perimeter = perimeters == null ? null : perimeters.snapshot(session.id()).orElse(null);
+        if (perimeter != null) {
+            content = perimeter.withAssumptions(content, session.language());
+        }
         int number = versions.nextNumber(session.id());
         SpecificationVersion taken = new SpecificationVersion(ids.next(), session.id(), number, content,
                 "jira-import:" + current.key() + ":" + current.updated(), VersionOrigin.JIRA_IMPORT,
-                MarkdownRenderer.render(content, session.language(), used.selection()), clock.now()).withKnowledge(used);
+                MarkdownRenderer.render(content, session.language(), used.selection(), perimeter), clock.now())
+                .withKnowledge(used);
         // la feature a pu passer à « implémentée » pendant l'appel au LLM (research.md R7)
         SpecificationLock.requireEditable(sessions, session.id());
         versions.save(taken);

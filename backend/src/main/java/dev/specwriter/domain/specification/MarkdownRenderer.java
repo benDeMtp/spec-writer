@@ -7,6 +7,9 @@ import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
 import dev.specwriter.domain.knowledge.KnowledgeSelection;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.session.Language;
+import dev.specwriter.domain.sources.Occurrence;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
+import dev.specwriter.domain.sources.Qualification;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +62,15 @@ public final class MarkdownRenderer {
             "crosses infrastructures (network opening or exposure to plan)", "depends on a shared infrastructure",
             "attached document");
 
+    /** Rubrique « Modules touchés » (013, US5). */
+    private record PerimeterLabels(String title, String impacted, String toCheck, String notImpacted, String incomplete) {
+    }
+
+    private static final PerimeterLabels PERIMETER_FR = new PerimeterLabels("Modules touchés", "Impactés", "À vérifier",
+            "Non impactés", "L'analyse du périmètre est incomplète : des modules peuvent manquer.");
+    private static final PerimeterLabels PERIMETER_EN = new PerimeterLabels("Affected modules", "Impacted", "To check",
+            "Not impacted", "The perimeter analysis is incomplete: some modules may be missing.");
+
     private MarkdownRenderer() {
     }
 
@@ -77,6 +89,7 @@ public final class MarkdownRenderer {
             out.put(l.functional(), "functional");
             out.put(l.technical(), "technical");
             out.put(l.architecture(), "architecture");
+            out.put((l == FR ? PERIMETER_FR : PERIMETER_EN).title(), "perimeter");
             out.put(l.deviations(), "deviations");
             out.put(l.efforts(), "efforts");
         }
@@ -93,6 +106,15 @@ public final class MarkdownRenderer {
      * Une rubrique vide est omise : sans connaissance, le rendu est celui de 001.
      */
     public static String render(SpecificationContent spec, Language language, KnowledgeSelection knowledge) {
+        return render(spec, language, knowledge, null);
+    }
+
+    /**
+     * Rendu avec le périmètre repris de la discussion (013, US5) : la rubrique « Modules touchés »
+     * vient de l'instantané, jamais du LLM, et suit « Architecture ». Sans instantané, elle est omise.
+     */
+    public static String render(SpecificationContent spec, Language language, KnowledgeSelection knowledge,
+            PerimeterSnapshot perimeter) {
         Labels l = language == Language.EN ? EN : FR;
         StringBuilder md = new StringBuilder();
         md.append("# ").append(inline(spec.title())).append("\n\n");
@@ -145,6 +167,7 @@ public final class MarkdownRenderer {
         requirements(md, l.technical(), spec.requirements(), Requirement.Category.TECHNICAL, l);
         KnowledgeSelection k = knowledge == null ? KnowledgeSelection.EMPTY : knowledge;
         architecture(md, k, l);
+        perimeter(md, perimeter, language);
         deviations(md, spec.adrDeviations(), l);
         efforts(md, k.deploymentFacts(), l);
         return md.toString().stripTrailing() + "\n";
@@ -178,6 +201,45 @@ public final class MarkdownRenderer {
             }
             md.append('\n');
         }
+    }
+
+    private static void perimeter(StringBuilder md, PerimeterSnapshot perimeter, Language language) {
+        if (perimeter == null || perimeter.modules().isEmpty()) {
+            return;
+        }
+        PerimeterLabels p = language == Language.EN ? PERIMETER_EN : PERIMETER_FR;
+        String colon = language == Language.EN ? EN.colon() : FR.colon();
+        md.append("## ").append(p.title()).append("\n\n");
+        if (perimeter.incomplete()) {
+            md.append(escape(p.incomplete())).append("\n\n");
+        }
+        perimeterGroup(md, p.impacted(), perimeter, e -> e.qualification() == Qualification.IMPACTED, language, colon);
+        perimeterGroup(md, p.toCheck(), perimeter, PerimeterSnapshot.Entry::toCheck, language, colon);
+        perimeterGroup(md, p.notImpacted(), perimeter, e -> e.qualification() == Qualification.NOT_IMPACTED, language,
+                colon);
+    }
+
+    private static void perimeterGroup(StringBuilder md, String title, PerimeterSnapshot perimeter,
+            java.util.function.Predicate<PerimeterSnapshot.Entry> filter, Language language, String colon) {
+        List<PerimeterSnapshot.Entry> entries = perimeter.modules().stream().filter(filter).toList();
+        if (entries.isEmpty()) {
+            return;
+        }
+        md.append("### ").append(title).append("\n\n");
+        for (PerimeterSnapshot.Entry e : entries) {
+            String where = e.path().isEmpty() ? e.rootLabel() : e.rootLabel() + "/" + e.path();
+            md.append("- **").append(escape(e.name())).append("** (").append(escape(where)).append(')');
+            if (e.justification() != null && !e.justification().isBlank()) {
+                md.append(colon).append(escape(e.justification(), ITEM + ITEM));
+            }
+            md.append('\n');
+            e.reasons().forEach(r -> md.append(ITEM).append("- ").append(escape(PerimeterSnapshot.reason(r, language)))
+                    .append('\n'));
+            for (Occurrence o : e.occurrences()) {
+                md.append(ITEM).append("- ").append(escape(o.path() + ":" + o.line())).append('\n');
+            }
+        }
+        md.append('\n');
     }
 
     private static void deviations(StringBuilder md, List<SpecificationContent.AdrDeviation> deviations, Labels l) {

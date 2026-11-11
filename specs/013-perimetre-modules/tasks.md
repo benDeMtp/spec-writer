@@ -613,7 +613,7 @@ modules à vérifier sont repris en hypothèses.
 
 **Independent Test** : quickstart 12.
 
-- [ ] T044 [P] [US5] Test puis `BM/domain/sources/PerimeterSnapshot.java` : modules,
+- [X] T044 [P] [US5] Test puis `BM/domain/sources/PerimeterSnapshot.java` : modules,
   qualifications, justifications, raisons et au plus 3 occurrences par module, avec un état
   incomplet éventuel.
   - `PerimeterSnapshot.of(PerimeterAnalysis)` ;
@@ -622,7 +622,7 @@ modules à vérifier sont repris en hypothèses.
 
   Ajouter `snapshot(sessionId)` et `saveSnapshot` à `PerimeterRepository`, implémentés sur
   `session_perimeter`.
-- [ ] T045 [US5] Test puis rubrique dans `BM/domain/specification/MarkdownRenderer.java` :
+- [X] T045 [US5] Test puis rubrique dans `BM/domain/specification/MarkdownRenderer.java` :
   - surcharge `render(content, language, knowledge, PerimeterSnapshot perimeter)` ;
   - rubrique `## Modules touchés` (EN `Affected modules`) après « Architecture », avec
     l'ancre `perimeter` dans `anchors()` ;
@@ -635,25 +635,33 @@ modules à vérifier sont repris en hypothèses.
 
   Tests `MarkdownRendererTest` : présence, ordre, échappement d'un chemin contenant `*` et `_`,
   absence de la rubrique sans instantané.
-- [ ] T046 [US5] `BM/application/conversation/StartFromConversation.java` copie
+- [X] T046 [US5] `BM/application/conversation/StartFromConversation.java` copie
   `perimeters.last(conversationId)` dans l'instantané de la session créée.
 
   `DraftNeed` renvoie `perimeter: {moduleCount, ordinal} | null` (`NeedDraft`, vue web). Tests
   unitaires des deux cas d'usage.
-- [ ] T047 [US5] Rendu et hypothèses :
+- [X] T047 [US5] Rendu et hypothèses :
   - `GenerateSpecification` lit l'instantané de la session, ajoute `toAssumptions` **après** la
     réponse du LLM et **avant** `IdentifierAssigner`, puis passe l'instantané à `render` ;
   - même chose pour la révision (`ProposalStore`), `ImportJiraIssue` et `PushToJira`, pour que
     la rubrique ne disparaisse pas d'une version à l'autre de la session ;
   - les prompts de génération ne changent pas.
 
+  Écart : `ImportJiraIssue` crée une session sans discussion, donc sans instantané ; il n'est pas
+  modifié. Les hypothèses sont ajoutées après la validation de la réponse du LLM, numérotées à la
+  suite, et une hypothèse au même énoncé n'est pas répétée (révision).
+
   Tests `GenerateSpecificationTest` : hypothèses ajoutées et numérotées, rubrique présente, et
   contrôle de traçabilité (`TraceabilityValidator`) toujours vert.
-- [ ] T048 [US5] Front :
+- [X] T048 [US5] Front :
   - `FA/features/conversation/need-draft.component.ts` affiche « La spécification reprendra le
     périmètre analysé (N modules). » quand `perimeter` est présent ;
   - le sommaire des rubriques de la spécification (011) reçoit « Modules touchés », s'il est
     construit côté front à partir des ancres.
+
+  Écart : l'écran de la version affiche la rubrique en la prenant dans le Markdown de la version,
+  rendu par l'outil, plutôt qu'en élargissant la vue `SpecificationView`. Le sommaire, construit
+  côté serveur à partir des titres, reçoit l'ancre `perimeter`.
 
   Tests `.spec.ts`. E2E quickstart 12 dans `us16-perimetre.spec.ts`, avec les réponses rejouées
   `propose-need` et la génération existantes, complétées si besoin pour la discussion E2E.
@@ -668,7 +676,7 @@ modules à vérifier sont repris en hypothèses.
   (`@Tag("perf")`, exclu par défaut dans `pom.xml` comme `eval`). Il génère 60 modules et
   20 000 fichiers dans `@TempDir`, cherche 5 termes et vérifie une durée inférieure à 30 s
   (SC-003). Le lancer une fois et noter la durée dans research.md R2.
-- [ ] T050 [P] Documentation :
+- [X] T050 [P] Documentation :
   - `README.md` : section « Sources du code et analyse de périmètre » (déclarer une racine,
     exclusions, fichiers jamais lus, ce qui est envoyé à Copilot, propriété
     `spec-writer.module` dans Structurizr) ;

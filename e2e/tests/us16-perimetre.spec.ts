@@ -226,4 +226,27 @@ test.describe.serial('013 périmètre des modules touchés', () => {
       expect(log, secret).not.toContain(secret);
     }
   });
+
+  test('Q12 : la spécification rédigée depuis la discussion reprend le périmètre', async () => {
+    await page.goto('/');
+    await page.getByRole('link', { name: /E2E-PERIMETRE/ }).first().click();
+    await page.getByRole('button', { name: 'Rédiger une spécification' }).click();
+    const draft = page.getByRole('region', { name: 'Rédiger une spécification' });
+    // la dernière analyse disponible est la relance (Q9) : dix modules
+    await expect(draft).toContainText('La spécification reprendra le périmètre analysé (10 modules).');
+    await draft.getByRole('button', { name: 'Démarrer la spécification' }).click();
+    await expect(page).toHaveURL(/\/sessions\/[0-9a-f-]{36}$/);
+
+    await page.getByRole('button', { name: 'Générer la spécification' }).click();
+    await expect(page).toHaveURL(/\/versions\/1$/);
+    const perimeter = page.getByRole('region', { name: 'Modules touchés' });
+    await expect(perimeter.getByRole('heading', { level: 3 })).toHaveText(['Impactés', 'À vérifier']);
+    await expect(perimeter).toContainText('batch-suspension');
+    await expect(perimeter).toContainText('dépend de facturation → relance');
+    // les modules à vérifier sont des hypothèses à valider, numérotées après celles du LLM
+    const assumptions = page.getByRole('region', { name: 'Hypothèses' });
+    await expect(assumptions).toContainText('Le module relance (modules/relance) est à vérifier : dépend de facturation → relance.');
+    await expect(assumptions).toContainText('Le module aggregates (demo-rv) est à vérifier : agrège common-contract.');
+    await expectNoA11yViolations(page);
+  });
 });

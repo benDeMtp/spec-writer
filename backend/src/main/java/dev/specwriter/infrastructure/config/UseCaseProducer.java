@@ -201,15 +201,16 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     DraftNeed draftNeed(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
-            ModelCapacities capacities, ConsentPolicy consent, ClockPort clock) {
-        return new DraftNeed(projects, conversations, llm, capacities, consent, clock);
+            ModelCapacities capacities, ConsentPolicy consent, ClockPort clock, PerimeterRepository perimeters) {
+        return new DraftNeed(projects, conversations, llm, capacities, consent, clock, perimeters);
     }
 
     @Produces
     @ApplicationScoped
     StartFromConversation startFromConversation(ConversationRepository conversations, ProjectRepository projects,
-            StartSession startSession, ConversationAttachments attachments) {
-        return new StartFromConversation(conversations, projects, startSession, attachments::copies);
+            StartSession startSession, ConversationAttachments attachments, PerimeterRepository perimeters,
+            ClockPort clock) {
+        return new StartFromConversation(conversations, projects, startSession, attachments::copies, perimeters, clock);
     }
 
     @Produces
@@ -401,8 +402,9 @@ public class UseCaseProducer {
     @ApplicationScoped
     GenerateSpecification generateSpecification(SessionRepository sessions, SpecificationRepository versions,
             LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
-            OperationRegistry operations) {
-        return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge, operations);
+            OperationRegistry operations, PerimeterRepository perimeters) {
+        return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge, operations,
+                perimeters);
     }
 
     @Produces
@@ -485,8 +487,8 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    ProposalStore proposalStore(TextDiff diff, IdGenerator ids, ClockPort clock) {
-        return new ProposalStore(diff, ids, clock);
+    ProposalStore proposalStore(TextDiff diff, IdGenerator ids, ClockPort clock, PerimeterRepository perimeters) {
+        return new ProposalStore(diff, ids, clock, perimeters);
     }
 
     @Produces
@@ -586,9 +588,9 @@ public class UseCaseProducer {
     PushToJira pushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
-            OperationRegistry operations) {
+            OperationRegistry operations, PerimeterRepository perimeters) {
         return new PushToJira(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids,
-                knowledge, operations);
+                knowledge, operations, perimeters);
     }
 
     @Produces

@@ -3,8 +3,10 @@ package dev.specwriter.application.specification;
 import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
+import dev.specwriter.domain.port.PerimeterRepository;
 import dev.specwriter.domain.port.TextDiff;
 import dev.specwriter.domain.session.Session;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.specification.MarkdownRenderer;
 import dev.specwriter.domain.specification.SpecificationContent;
 import dev.specwriter.domain.specification.SpecificationVersion;
@@ -44,8 +46,15 @@ public class ProposalStore {
     private final TextDiff diff;
     private final IdGenerator ids;
     private final ClockPort clock;
+    /** Périmètre repris de la discussion (013, US5) : la rubrique reste d'une version à l'autre. */
+    private final PerimeterRepository perimeters;
 
     public ProposalStore(TextDiff diff, IdGenerator ids, ClockPort clock) {
+        this(diff, ids, clock, null);
+    }
+
+    public ProposalStore(TextDiff diff, IdGenerator ids, ClockPort clock, PerimeterRepository perimeters) {
+        this.perimeters = perimeters;
         this.diff = diff;
         this.ids = ids;
         this.clock = clock;
@@ -60,7 +69,11 @@ public class ProposalStore {
     public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
             Instant jiraUpdated, String jiraDescriptionHash, ProjectKnowledge knowledge, UUID conversationId) {
         purge();
-        String markdown = MarkdownRenderer.render(content, session.language(), knowledge.selection());
+        PerimeterSnapshot perimeter = perimeters == null ? null : perimeters.snapshot(session.id()).orElse(null);
+        if (perimeter != null) {
+            content = perimeter.withAssumptions(content, session.language());
+        }
+        String markdown = MarkdownRenderer.render(content, session.language(), knowledge.selection(), perimeter);
         String unified = diff.unified(base.markdown(), markdown, "v" + base.number(), "proposition");
         Proposal p = new Proposal(ids.next(), session.id(), base.number(), content, markdown, unified, origin, clock.now(),
                 jiraUpdated, jiraDescriptionHash, knowledge, conversationId);

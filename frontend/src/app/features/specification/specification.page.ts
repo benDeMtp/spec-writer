@@ -86,6 +86,15 @@ const SYNC: Record<SyncState, string> = {
 /** Référence d'un document joint (009) : cité par son nom, sans lien ni extrait. */
 const ATTACHMENT_REF = 'joint:';
 
+/** Rubrique « Modules touchés » (013) : rendue par l'outil dans le Markdown de la version, jamais par le LLM. */
+const PERIMETER = /^## (Modules touchés|Affected modules)\n([\s\S]*?)(?=^## |(?![\s\S]))/m;
+
+/** Titre et corps de la rubrique « Modules touchés » du Markdown d'une version ; nul sans périmètre repris. */
+export function perimeterSection(markdown: string | null | undefined): { title: string; body: string } | null {
+  const found = markdown ? PERIMETER.exec(markdown) : null;
+  return found ? { title: found[1], body: found[2].trim() } : null;
+}
+
 /** Version de spécification : résumé, use cases, scénarios, hypothèses et exigences (FR-010). */
 @Component({
   selector: 'sw-specification-page',
@@ -420,6 +429,12 @@ const ATTACHMENT_REF = 'joint:';
                   </section>
                 }
               }
+              @if (perimeter(v.markdown); as p) {
+                <section aria-labelledby="perimeter">
+                  <h2 id="perimeter">{{ p.title }}</h2>
+                  <markdown class="rich perimeter" [data]="p.body" />
+                </section>
+              }
               @if (v.adrDeviations?.length) {
                 <section aria-labelledby="deviations">
                   <h2 id="deviations">Écarts aux ADR</h2>
@@ -685,6 +700,7 @@ const ATTACHMENT_REF = 'joint:';
   `,
 })
 export class SpecificationPage {
+  protected readonly perimeter = perimeterSection;
   private readonly api = inject(SessionsApi);
   private readonly jira = inject(JiraApi);
   private readonly dialog = inject(MatDialog);

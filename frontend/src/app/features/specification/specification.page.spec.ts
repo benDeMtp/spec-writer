@@ -12,7 +12,7 @@ import { Project } from '../../core/projects/projects.model';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { Settings } from '../../core/settings/settings.model';
 import { SettingsStore } from '../../core/settings/settings.store';
-import { SpecificationPage } from './specification.page';
+import { SpecificationPage, perimeterSection } from './specification.page';
 
 const SESSION = {
   id: 's1',
@@ -456,5 +456,31 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(el.querySelector('#locked-reason')).toBeNull();
     expect(button("Discuter avec l'IA").disabled).toBe(false);
     expect(el.querySelector('.announce')?.textContent).toContain('Statut : En cours.');
+  });
+});
+
+describe('perimeterSection', () => {
+  it('extrait la rubrique « Modules touchés » rendue par l’outil, jusqu’à la rubrique suivante', () => {
+    const markdown = [
+      '# Suspension',
+      '## Architecture',
+      '',
+      '- Contrats/Facturation API',
+      '## Modules touchés',
+      '',
+      '### Impactés',
+      '',
+      '- **facturation** (rv/modules/facturation)',
+      '## Écarts aux ADR',
+      '',
+      '- adr-005',
+    ].join('\n');
+    expect(perimeterSection(markdown)).toEqual({
+      title: 'Modules touchés',
+      body: '### Impactés\n\n- **facturation** (rv/modules/facturation)',
+    });
+    expect(perimeterSection('# T\n## Affected modules\n\n### To check\n')?.body).toBe('### To check');
+    expect(perimeterSection('# T\n## Architecture\n')).toBeNull();
+    expect(perimeterSection(null)).toBeNull();
   });
 });

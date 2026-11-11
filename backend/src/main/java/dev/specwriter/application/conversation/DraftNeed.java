@@ -14,6 +14,7 @@ import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.ConversationLlm;
 import dev.specwriter.domain.port.ConversationRepository;
 import dev.specwriter.domain.port.ModelCapacities;
+import dev.specwriter.domain.port.PerimeterRepository;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.session.Language;
@@ -39,9 +40,17 @@ public class DraftNeed {
     private final ModelCapacities capacities;
     private final ConsentPolicy consent;
     private final ConversationHistory history;
+    /** Dernière analyse de périmètre de la conversation, annoncée avec le brouillon (013, US5). */
+    private final PerimeterRepository perimeters;
 
     public DraftNeed(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
             ModelCapacities capacities, ConsentPolicy consent, ClockPort clock) {
+        this(projects, conversations, llm, capacities, consent, clock, null);
+    }
+
+    public DraftNeed(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
+            ModelCapacities capacities, ConsentPolicy consent, ClockPort clock, PerimeterRepository perimeters) {
+        this.perimeters = perimeters;
         this.history = new ConversationHistory(conversations, llm, clock);
         this.projects = projects;
         this.conversations = conversations;
@@ -75,6 +84,8 @@ public class DraftNeed {
                 .filter(p -> p.basis() == EstablishedPoint.Basis.USER || cited.containsKey(p.sourceRef()))
                 .limit(NeedDraft.MAX_POINTS).toList();
         LOG.infof("Brouillon de besoin : %d point(s) proposé(s), %d gardé(s)", proposed.points().size(), kept.size());
-        return new NeedDraft(proposed.need(), kept);
+        NeedDraft.Perimeter perimeter = perimeters == null ? null : perimeters.last(conversationId)
+                .map(a -> new NeedDraft.Perimeter(a.modules().size(), a.ordinal())).orElse(null);
+        return new NeedDraft(proposed.need(), kept, perimeter);
     }
 }

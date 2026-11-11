@@ -9,6 +9,7 @@ import dev.specwriter.domain.sources.ModuleRef;
 import dev.specwriter.domain.sources.Occurrence;
 import dev.specwriter.domain.sources.PerimeterAnalysis;
 import dev.specwriter.domain.sources.PerimeterModule;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.sources.PerimeterTerms;
 import dev.specwriter.domain.sources.Qualification;
 import dev.specwriter.domain.sources.Reason;
@@ -16,6 +17,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -104,6 +106,42 @@ public class SqlitePerimeterRepository implements PerimeterRepository {
     public void clear(UUID messageId) {
         em.createNativeQuery("delete from perimeter_analysis where message_id = ?1").setParameter(1, messageId.toString())
                 .executeUpdate();
+    }
+
+    /** Forme JSON de l'instantané : les raisons à plat, comme dans l'analyse. */
+    record SnapshotJson(List<EntryJson> modules, boolean incomplete) {
+    }
+
+    record EntryJson(String name, String path, String rootLabel, String qualification, String justification,
+            List<PerimeterView.ReasonView> reasons, List<Occurrence> occurrences) {
+    }
+
+    @Override
+    @Transactional
+    public void saveSnapshot(UUID sessionId, PerimeterSnapshot snapshot, Instant takenAt) {
+        SnapshotJson json = new SnapshotJson(snapshot.modules().stream().map(e -> new EntryJson(e.name(), e.path(),
+                e.rootLabel(), e.qualification().name(), e.justification(),
+                e.reasons().stream().map(PerimeterView::reason).toList(), e.occurrences())).toList(), snapshot.incomplete());
+        em.createNativeQuery("delete from session_perimeter where session_id = ?1").setParameter(1, sessionId.toString())
+                .executeUpdate();
+        em.createNativeQuery("insert into session_perimeter (session_id, snapshot, taken_at) values (?1, ?2, ?3)")
+                .setParameter(1, sessionId.toString()).setParameter(2, JSON.writeValueAsString(json))
+                .setParameter(3, takenAt.toString()).executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public Optional<PerimeterSnapshot> snapshot(UUID sessionId) {
+        List<Object> rows = em.createNativeQuery("select snapshot from session_perimeter where session_id = ?1")
+                .setParameter(1, sessionId.toString()).getResultList();
+        return rows.stream().findFirst().map(r -> {
+            SnapshotJson json = JSON.readValue((String) r, SnapshotJson.class);
+            return new PerimeterSnapshot(json.modules().stream().map(e -> new PerimeterSnapshot.Entry(e.name(), e.path(),
+                    e.rootLabel(), Qualification.valueOf(e.qualification()), e.justification(),
+                    e.reasons().stream().map(SqlitePerimeterRepository::reason).toList(), e.occurrences())).toList(),
+                    json.incomplete());
+        });
     }
 
     private static final String SELECT = """
