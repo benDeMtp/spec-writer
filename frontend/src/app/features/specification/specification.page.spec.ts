@@ -305,6 +305,27 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(navigate).not.toHaveBeenCalled();
     expect(document.activeElement?.id).toBe('UC-1');
 
+    // la largeur de la discussion se règle au clavier, bornée, et reste pour la visite suivante
+    const splitter = el.querySelector<HTMLElement>('[role="separator"]')!;
+    expect(splitter.getAttribute('aria-label')).toBe('Largeur de la discussion');
+    const width = () => Number(splitter.getAttribute('aria-valuenow'));
+    const key = async (k: string) => {
+      splitter.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+      await settle();
+    };
+    await key('Home');
+    expect(width()).toBe(352);
+    await key('ArrowLeft');
+    expect(width()).toBe(384);
+    expect(localStorage.getItem('sw.discussionWidth')).toBe('384');
+    expect(el.querySelector<HTMLElement>('.workspace')!.style.getPropertyValue('--sw-discussion-width')).toBe('384px');
+    await key('ArrowRight');
+    await key('ArrowRight');
+    expect(width()).toBe(352);
+    await key('End');
+    expect(width()).toBe(Number(splitter.getAttribute('aria-valuemax')));
+    localStorage.removeItem('sw.discussionWidth');
+
     button('Fermer').click();
     await settle();
     await settle();

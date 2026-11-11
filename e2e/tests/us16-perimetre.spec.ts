@@ -28,6 +28,7 @@ test.describe.serial('013 périmètre des modules touchés', () => {
   let projectId = '';
   let demo: ReturnType<typeof copyDemoTree>;
   const headers = { Origin: baseURL };
+  let specUrl = '';
 
   test.beforeAll(async ({ browser }) => {
     demo = copyDemoTree();
@@ -240,6 +241,7 @@ test.describe.serial('013 périmètre des modules touchés', () => {
 
     await page.getByRole('button', { name: 'Générer la spécification' }).click();
     await expect(page).toHaveURL(/\/versions\/1$/);
+    specUrl = new URL(page.url()).pathname;
     const perimeter = page.getByRole('region', { name: 'Modules touchés' });
     await expect(perimeter.getByRole('heading', { level: 3 })).toHaveText(['Impactés', 'À vérifier']);
     await expect(perimeter).toContainText('batch-suspension');
@@ -249,5 +251,37 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     await expect(assumptions).toContainText('Le module relance (modules/relance) est à vérifier : dépend de facturation → relance.');
     await expect(assumptions).toContainText('Le module aggregates (demo-rv) est à vérifier : agrège common-contract.');
     await expectNoA11yViolations(page);
+  });
+
+  test('Q16 : l’analyse s’empile dans un espace étroit, et la discussion s’élargit par sa poignée', async () => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.setViewportSize({ width: 620, height: 1000 });
+    await page.goto('/');
+    await page.getByRole('link', { name: /E2E-PERIMETRE/ }).first().click();
+    const step = page.locator('sw-perimeter-step').first();
+    // chaque module devient un bloc : la justification porte son libellé, rien ne déborde
+    await expect(row(step, 'common-contract').getByText('Justification')).toBeVisible();
+    expect(await step.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
+    await expectNoA11yViolations(page);
+
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(specUrl);
+    await page.getByRole('button', { name: "Discuter avec l'IA" }).click();
+    const splitter = page.getByRole('separator', { name: 'Largeur de la discussion' });
+    const before = Number(await splitter.getAttribute('aria-valuenow'));
+    const box = (await splitter.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x - 240, box.y + 200, { steps: 5 });
+    await page.mouse.up();
+    const after = Number(await splitter.getAttribute('aria-valuenow'));
+    expect(after).toBeGreaterThan(before + 200);
+    await page.reload();
+    await expect(page.getByRole('separator', { name: 'Largeur de la discussion' })).toHaveAttribute(
+      'aria-valuenow',
+      String(after),
+    );
+    await expectNoA11yViolations(page);
+    await page.emulateMedia({ colorScheme: 'light' });
   });
 });

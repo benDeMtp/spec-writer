@@ -91,6 +91,15 @@ aurait déplié ce résumé.
 - **Citations** : dans la réponse, `[n]` vers une source `MODULE` mène à la ligne du module dans
   l'étape (ancre `#perimeter-<message>-<ordinal>-<position>`), qui reçoit le focus.
 
+- **Espace étroit** (moins de 40rem, comme le panneau de discussion d'une spécification) : chaque
+  module devient un bloc (module, puis « Raisons », puis « Justification »). Les rôles ARIA explicites
+  du tableau gardent sa lecture par colonnes. Les colonnes ont la même largeur d'un groupe à
+  l'autre, et un chemin se coupe après un `/`.
+- **Panneau de discussion d'une spécification** (011) : une poignée (`role="separator"`) entre le
+  document et la discussion règle sa largeur, à la souris ou au clavier (flèche gauche élargit,
+  flèche droite réduit, Origine et Fin aux bornes : 352 px, 70 % de l'espace). La largeur est gardée
+  dans le navigateur. Sous 64rem, le panneau passe sous le document et la poignée disparaît.
+
 ## Spécification
 
 - La rubrique « Modules touchés » est rendue dans le document : listes par qualification, avec

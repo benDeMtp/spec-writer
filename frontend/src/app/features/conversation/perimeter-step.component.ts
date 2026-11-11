@@ -92,31 +92,42 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
               @if (g.qualification === 'UNQUALIFIED' && a.qualified) {
                 <p class="hint">L’agent ne s’est pas prononcé sur ces modules.</p>
               }
-              <table>
+              <!-- rôles explicites : la sémantique du tableau reste quand il s'empile (panneau étroit) -->
+              <table role="table">
                 <caption class="visually-hidden">
                   Modules {{ g.title.toLowerCase() }}
                 </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Module</th>
-                    <th scope="col">Raisons</th>
-                    <th scope="col">Justification</th>
+                <colgroup>
+                  <col class="col-module" />
+                  <col class="col-reasons" />
+                  <col class="col-why" />
+                </colgroup>
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th scope="col" role="columnheader">Module</th>
+                    <th scope="col" role="columnheader">Raisons</th>
+                    <th scope="col" role="columnheader">Justification</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                   @for (row of g.modules; track row.module.id) {
-                    <tr [id]="anchor(row.position)" tabindex="-1">
-                      <td>
+                    <tr role="row" [id]="anchor(row.position)" tabindex="-1">
+                      <td role="cell">
                         <span class="name" translate="no">{{ row.module.name }}</span>
                         @if (row.module.isNew) {
                           <span class="badge">Nouveau</span>
                         }
                         <span class="path" translate="no">
-                          {{ row.module.rootLabel }}{{ row.module.path ? '/' + row.module.path : '' }} ·
-                          {{ kind(row.module) }}
+                          @for (part of where(row.module); track $index; let last = $last) {
+                            {{ part }}@if (!last) {
+                              /<wbr />
+                            }
+                          }
+                          · {{ kind(row.module) }}
                         </span>
                       </td>
-                      <td>
+                      <td role="cell">
+                        <span class="cell-label" aria-hidden="true">Raisons</span>
                         <ul class="reasons">
                           @for (r of row.module.reasons; track $index) {
                             <li>
@@ -159,7 +170,12 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
                           </details>
                         }
                       </td>
-                      <td>{{ row.module.justification ?? '' }}</td>
+                      <td role="cell">
+                        @if (row.module.justification) {
+                          <span class="cell-label" aria-hidden="true">Justification</span>
+                          {{ row.module.justification }}
+                        }
+                      </td>
                     </tr>
                   }
                 </tbody>
@@ -187,6 +203,7 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
   `,
   styles: `
     .perimeter {
+      container-type: inline-size;
       margin: 0 0 1rem;
       padding: 0.5rem 0.75rem;
       border: 1px solid var(--sw-rule);
@@ -205,6 +222,14 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
     table {
       border-collapse: collapse;
       width: 100%;
+      /* mêmes colonnes d'un groupe à l'autre */
+      table-layout: fixed;
+    }
+    .col-module {
+      width: 28%;
+    }
+    .col-reasons {
+      width: 40%;
     }
     th,
     td {
@@ -212,6 +237,40 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
       vertical-align: top;
       padding: 0.25rem 0.5rem 0.25rem 0;
       border-bottom: 1px solid var(--sw-rule);
+    }
+    .cell-label {
+      display: none;
+    }
+    /* panneau étroit (discussion d'une spécification) : chaque module devient un bloc */
+    @container (max-width: 40rem) {
+      table,
+      tbody,
+      tr,
+      td {
+        display: block;
+      }
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+      }
+      tr {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--sw-rule);
+      }
+      td {
+        padding: 0.125rem 0;
+        border-bottom: none;
+      }
+      .cell-label {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--sw-ink-soft);
+      }
     }
     tr:focus {
       outline: 2px solid var(--sw-pencil);
@@ -357,6 +416,11 @@ export class PerimeterStepComponent {
 
   protected anchor(position: number): string {
     return perimeterAnchor(this.messageId(), this.analysis().ordinal, position);
+  }
+
+  /** Racine et segments du chemin : la ligne se coupe après un « / », pas au milieu d'un nom. */
+  protected where(m: PerimeterModule): string[] {
+    return [m.rootLabel, ...(m.path ? m.path.split('/') : [])];
   }
 
   protected kind(m: PerimeterModule): string {
