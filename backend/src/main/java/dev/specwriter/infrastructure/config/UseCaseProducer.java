@@ -170,9 +170,10 @@ public class UseCaseProducer {
     ProposeRevision proposeRevision(SessionRepository sessions, SpecificationRepository versions,
             ConversationRepository conversations, DiscussSpecification discussions, SessionKnowledge knowledge,
             ConversationLlm llm, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
-            TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids) {
+            TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids, PerimeterRepository perimeters) {
         return new ProposeRevision(sessions, versions, conversations, discussions, knowledge, llm, capacities, consent,
-                operations, events, proposals, clock, ids, task -> Thread.ofVirtual().name("proposition").start(task));
+                operations, events, proposals, clock, ids, task -> Thread.ofVirtual().name("proposition").start(task),
+                perimeters);
     }
 
     /** Discussions des spécifications (011). */

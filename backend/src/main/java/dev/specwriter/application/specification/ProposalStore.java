@@ -35,7 +35,7 @@ public class ProposalStore {
      */
     public record Proposal(UUID id, UUID sessionId, int baseVersion, SpecificationContent content, String markdown,
             String unifiedDiff, VersionOrigin origin, Instant createdAt, Instant jiraUpdated, String jiraDescriptionHash,
-            ProjectKnowledge knowledge, UUID conversationId) {
+            ProjectKnowledge knowledge, UUID conversationId, PerimeterSnapshot perimeter) {
 
         public Instant contextUpdatedAt() {
             return knowledge.sheetUpdatedAt();
@@ -68,17 +68,41 @@ public class ProposalStore {
     /** Proposition issue de la discussion {@code conversationId} (011). */
     public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
             Instant jiraUpdated, String jiraDescriptionHash, ProjectKnowledge knowledge, UUID conversationId) {
+        return propose(session, base, content, origin, jiraUpdated, jiraDescriptionHash, knowledge, conversationId,
+                null);
+    }
+
+    /**
+     * {@code discussed} : périmètre de la discussion, corrigé par elle (013, T056) ; il remplace celui
+     * de la spécification quand la proposition est appliquée. Nul : celui de la spécification reste.
+     */
+    public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
+            Instant jiraUpdated, String jiraDescriptionHash, ProjectKnowledge knowledge, UUID conversationId,
+            PerimeterSnapshot discussed) {
         purge();
-        PerimeterSnapshot perimeter = perimeters == null ? null : perimeters.snapshot(session.id()).orElse(null);
+        PerimeterSnapshot perimeter = discussed != null ? discussed
+                : perimeters == null ? null : perimeters.snapshot(session.id()).orElse(null);
         if (perimeter != null) {
             content = perimeter.withAssumptions(content, session.language());
         }
         String markdown = MarkdownRenderer.render(content, session.language(), knowledge.selection(), perimeter);
         String unified = diff.unified(base.markdown(), markdown, "v" + base.number(), "proposition");
         Proposal p = new Proposal(ids.next(), session.id(), base.number(), content, markdown, unified, origin, clock.now(),
-                jiraUpdated, jiraDescriptionHash, knowledge, conversationId);
+                jiraUpdated, jiraDescriptionHash, knowledge, conversationId, discussed);
         proposals.put(p.id(), p);
         return p;
+    }
+
+    /** Périmètre de la spécification courante (013) ; vide sans analyse reprise. */
+    public Optional<PerimeterSnapshot> perimeter(UUID sessionId) {
+        return perimeters == null ? Optional.empty() : perimeters.snapshot(sessionId);
+    }
+
+    /** La proposition appliquée : son périmètre devient celui de la spécification (013, T056). */
+    public void adopt(Proposal p, Instant now) {
+        if (p.perimeter() != null && perimeters != null) {
+            perimeters.saveSnapshot(p.sessionId(), p.perimeter(), now);
+        }
     }
 
     /** Retire et renvoie la proposition, si elle existe, appartient à la session et n'a pas expiré. */

@@ -5,6 +5,7 @@ import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ResponseFormat;
+import dev.specwriter.domain.sources.ModuleCorrection;
 import dev.specwriter.domain.sources.ModuleQualification;
 import dev.specwriter.domain.sources.Qualification;
 import dev.specwriter.domain.conversation.EstablishedPoint;
@@ -59,7 +60,11 @@ public class LangChainConversationLlm implements ConversationLlm {
     record SummaryDto(String summary) {
     }
 
-    record RevisionDto(Boolean changed, String reason, DraftSpecification specification) {
+    record RevisionDto(Boolean changed, String reason, DraftSpecification specification,
+            List<CorrectionDto> perimeter) {
+    }
+
+    record CorrectionDto(String module, String qualification, String justification) {
     }
 
     private final ChatModel model;
@@ -177,9 +182,27 @@ public class LangChainConversationLlm implements ConversationLlm {
             if (reason.isEmpty()) {
                 throw new IllegalArgumentException("Aucun changement, sans raison");
             }
-            return new Revision(false, reason, null);
+            return new Revision(false, reason, null, corrections(dto.perimeter()));
         }
-        return new Revision(true, reason, LangChainLlmClient.normalized(dto.specification()));
+        return new Revision(true, reason, LangChainLlmClient.normalized(dto.specification()),
+                corrections(dto.perimeter()));
+    }
+
+    /** Qualifications établies par la discussion ; les entrées incomplètes ou inconnues sont écartées. */
+    static List<ModuleCorrection> corrections(List<CorrectionDto> dtos) {
+        List<ModuleCorrection> out = new ArrayList<>();
+        for (CorrectionDto c : dtos == null ? List.<CorrectionDto>of() : dtos) {
+            if (c == null || c.module() == null || c.module().isBlank() || c.qualification() == null) {
+                continue;
+            }
+            try {
+                out.add(new ModuleCorrection(c.module().strip(), Qualification.valueOf(c.qualification()),
+                        c.justification() == null ? "" : c.justification().strip()));
+            } catch (IllegalArgumentException e) {
+                LOG.debugf("Correction de périmètre écartée : qualification %s inconnue", c.qualification());
+            }
+        }
+        return List.copyOf(out);
     }
 
     /** Un résumé vide ne remplace pas la mémoire : la sortie est redemandée. */

@@ -261,4 +261,29 @@ class LangChainConversationLlmTest {
                 .hasSize(ConversationLlm.ChangeCandidate.MAX_CHANGES);
         assertThatThrownBy(() -> LangChainConversationLlm.toChanges("{}")).isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void lesQualificationsEtabliesSontLuesMemeSansChangementEtLePerimetreEstTransmis() {
+        var revision = LangChainConversationLlm.toRevision("""
+                {"changed": false, "reason": "Déjà dans la spécification.", "specification": null, "perimeter": [
+                  {"module": "uta", "qualification": "NOT_IMPACTED", "justification": " Module Quarkus. "},
+                  {"module": "", "qualification": "IMPACTED", "justification": "x"},
+                  {"module": "ub", "qualification": "PEUT-ETRE", "justification": "x"}]}""");
+        assertThat(revision.perimeter()).containsExactly(new dev.specwriter.domain.sources.ModuleCorrection("uta",
+                dev.specwriter.domain.sources.Qualification.NOT_IMPACTED, "Module Quarkus."));
+        assertThat(LangChainConversationLlm.toRevision("""
+                {"changed": false, "reason": "Rien.", "specification": null}""").perimeter()).isEmpty();
+
+        var snapshot = new dev.specwriter.domain.sources.PerimeterSnapshot(List.of(
+                new dev.specwriter.domain.sources.PerimeterSnapshot.Entry("uta", "modules/uta", "rv",
+                        dev.specwriter.domain.sources.Qualification.TO_CHECK, "Contient <Spring>.", List.of(), List.of())),
+                false);
+        var r = reviseRequest();
+        String user = UserMessages.revise(new ConversationLlm.ReviseRequest(r.language(), r.need(), r.answers(),
+                r.currentMarkdown(), r.knowledge(), r.memory(), r.discussion(), r.cited(), null, snapshot));
+        assertThat(user).contains("<perimetre>\n<module nom=\"uta\" chemin=\"modules/uta\" qualification=\"TO_CHECK\">"
+                + "Contient &lt;Spring&gt;.</module>\n</perimetre>");
+        assertThat(UserMessages.revise(r)).doesNotContain("<perimetre>");
+        assertThat(UserMessages.revise(r.withCorrection("x"))).contains("<correction>x</correction>");
+    }
 }

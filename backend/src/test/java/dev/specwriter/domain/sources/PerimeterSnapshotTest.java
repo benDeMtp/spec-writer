@@ -65,4 +65,28 @@ class PerimeterSnapshotTest {
         assertThat(snapshot.withAssumptions(content(), Language.EN).assumptions().getFirst().statement())
                 .isEqualTo("Module b (modules/b) is to be checked: depends on a → b.");
     }
+
+    @Test
+    void laDiscussionCorrigeLaQualificationSansRetirerDeModule() {
+        PerimeterSnapshot snapshot = PerimeterSnapshot.of(analysis());
+
+        PerimeterSnapshot corrected = snapshot.corrected(List.of(
+                new ModuleCorrection("C", Qualification.NOT_IMPACTED, "Module Quarkus, hors de la migration."),
+                new ModuleCorrection("modules/b", Qualification.IMPACTED, ""),
+                new ModuleCorrection("inconnu", Qualification.IMPACTED, "x"),
+                new ModuleCorrection("a", Qualification.UNQUALIFIED, "x")));
+
+        assertThat(corrected.modules()).extracting(PerimeterSnapshot.Entry::name).containsExactly("a", "b", "c");
+        assertThat(corrected.modules()).extracting(PerimeterSnapshot.Entry::qualification)
+                .containsExactly(Qualification.IMPACTED, Qualification.IMPACTED, Qualification.NOT_IMPACTED);
+        assertThat(corrected.modules().get(2).justification()).isEqualTo("Module Quarkus, hors de la migration.");
+        // sans justification, celle de l'agent reste
+        assertThat(corrected.modules().get(1).justification()).isEqualTo(snapshot.modules().get(1).justification());
+        assertThat(snapshot.corrected(List.of())).isSameAs(snapshot);
+        assertThat(snapshot.corrected(List.of(new ModuleCorrection("x".repeat(3), Qualification.IMPACTED, ""))))
+                .isSameAs(snapshot);
+        assertThat(snapshot.corrected(List.of(new ModuleCorrection("c", Qualification.NOT_IMPACTED,
+                "y".repeat(ModuleCorrection.MAX_JUSTIFICATION + 5)))).modules().get(2).justification())
+                .hasSize(ModuleCorrection.MAX_JUSTIFICATION);
+    }
 }

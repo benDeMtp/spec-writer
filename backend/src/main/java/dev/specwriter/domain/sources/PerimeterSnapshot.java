@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -52,6 +53,55 @@ public record PerimeterSnapshot(List<Entry> modules, boolean incomplete) {
                     m.qualification(), m.justification(), m.reasons(), proofs));
         }
         return new PerimeterSnapshot(entries, analysis.state() == PerimeterAnalysis.State.INCOMPLETE);
+    }
+
+    /**
+     * Instantané où les qualifications établies par la discussion remplacent celles de l'agent ; une
+     * correction vise un module par son chemin, ou par son nom s'il est unique, sans tenir compte de
+     * la casse. Une correction qui ne vise aucun module connu est ignorée : la liste ne s'allonge ni
+     * ne raccourcit.
+     */
+    public PerimeterSnapshot corrected(List<ModuleCorrection> corrections) {
+        if (corrections == null || corrections.isEmpty()) {
+            return this;
+        }
+        List<Entry> out = new ArrayList<>(modules);
+        for (ModuleCorrection c : corrections) {
+            int at = indexOf(out, c.module());
+            if (at < 0 || c.qualification() == null || c.qualification() == Qualification.UNQUALIFIED) {
+                continue;
+            }
+            Entry e = out.get(at);
+            String why = c.justification() == null ? "" : c.justification().strip();
+            if (why.length() > ModuleCorrection.MAX_JUSTIFICATION) {
+                why = why.substring(0, ModuleCorrection.MAX_JUSTIFICATION - 1).strip() + "…";
+            }
+            out.set(at, new Entry(e.name(), e.path(), e.rootLabel(), c.qualification(),
+                    why.isEmpty() ? e.justification() : why, e.reasons(), e.occurrences()));
+        }
+        return out.equals(modules) ? this : new PerimeterSnapshot(out, incomplete);
+    }
+
+    private static int indexOf(List<Entry> entries, String module) {
+        String key = module == null ? "" : module.strip().toLowerCase(Locale.ROOT);
+        if (key.isEmpty()) {
+            return -1;
+        }
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries.get(i).path().toLowerCase(Locale.ROOT).equals(key)) {
+                return i;
+            }
+        }
+        int found = -1;
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries.get(i).name().toLowerCase(Locale.ROOT).equals(key)) {
+                if (found >= 0) {
+                    return -1;
+                }
+                found = i;
+            }
+        }
+        return found;
     }
 
     /**

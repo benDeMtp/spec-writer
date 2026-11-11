@@ -53,6 +53,12 @@ final class LlmSchemas {
             .addProperty("changed", JsonBooleanSchema.builder().build())
             .addStringProperty("reason")
             .addProperty("specification", specification(List.of("DISCUSSION")))
+            .addProperty("perimeter", array(JsonObjectSchema.builder()
+                    .addStringProperty("module")
+                    .addProperty("qualification", JsonEnumSchema.builder()
+                            .enumValues("IMPACTED", "TO_CHECK", "NOT_IMPACTED").build())
+                    .addStringProperty("justification")
+                    .build()))
             .build());
 
     /** {@code extraKinds} : sortes de source propres à l'opération (DISCUSSION pour une proposition). */

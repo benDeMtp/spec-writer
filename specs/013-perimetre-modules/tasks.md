@@ -707,6 +707,18 @@ modules à vérifier sont repris en hypothèses.
     s'arrête quand elle remonte, et « Aller au dernier message » y ramène. Envoyer un message
     reprend le suivi. Valable pour l'écran Conversation et le panneau de discussion.
   - Évaluation : métriques `changesRecall` et `changesPrecision` (volet discussion).
+- [X] T056 Retour du mainteneur : une proposition qui ne change que les modules répondait
+  « aucun changement établi », car « Modules impactés » est calculé depuis le modèle C4.
+  - La proposition reprend l'analyse de périmètre de la discussion (sinon celle de la
+    spécification), transmise à `revise-specification` dans `<perimetre>`. Le LLM y rend
+    `perimeter` : les qualifications établies (`ModuleCorrection`), appliquées par
+    `PerimeterSnapshot.corrected` sans jamais retirer de module.
+  - Un périmètre différent de celui de la version courante suffit à proposer une version, même
+    quand le reste est inchangé. À l'application, il devient le périmètre de la spécification.
+  - Avec une analyse de périmètre, « Architecture » ne liste plus les modules du modèle C4 : une
+    seule liste, « Modules touchés » ; les flux et les efforts restent.
+  - `converse-answer` : l'agent ne dit plus qu'il ne peut pas modifier la spécification ; il
+    résume le changement compris et renvoie vers « Proposer une nouvelle version ».
 - [ ] T053 **Avec l'accord de l'utilisateur** : lancer l'évaluation réelle
   `./mvnw -pl backend verify -Peval -Dtest=PerimeterEval`, puis `DiscussionEval` pour
   l'opération `list-changes` de T055. Ajuster le prompt `converse-plan` si

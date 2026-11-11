@@ -166,19 +166,22 @@ public final class MarkdownRenderer {
         requirements(md, l.functional(), spec.requirements(), Requirement.Category.FUNCTIONAL, l);
         requirements(md, l.technical(), spec.requirements(), Requirement.Category.TECHNICAL, l);
         KnowledgeSelection k = knowledge == null ? KnowledgeSelection.EMPTY : knowledge;
-        architecture(md, k, l);
+        // une seule liste de modules : celle de l'analyse du code, quand la spécification en reprend une
+        boolean analysed = perimeter != null && !perimeter.modules().isEmpty();
+        architecture(md, k, l, analysed);
         perimeter(md, perimeter, language);
         deviations(md, spec.adrDeviations(), l);
         efforts(md, k.deploymentFacts(), l);
         return md.toString().stripTrailing() + "\n";
     }
 
-    private static void architecture(StringBuilder md, KnowledgeSelection k, Labels l) {
-        if (k.modules().isEmpty() && k.exchanges().isEmpty()) {
+    private static void architecture(StringBuilder md, KnowledgeSelection k, Labels l, boolean analysed) {
+        boolean modules = !analysed && !k.modules().isEmpty();
+        if (!modules && k.exchanges().isEmpty()) {
             return;
         }
         md.append("## ").append(l.architecture()).append("\n\n");
-        if (!k.modules().isEmpty()) {
+        if (modules) {
             md.append("### ").append(l.modules()).append("\n\n");
             k.modules().forEach(m -> md.append("- ").append(escape(m.name())).append(" *(")
                     .append(m.scope() == ArchScope.PROJECT ? l.own() : l.common()).append(")*\n"));

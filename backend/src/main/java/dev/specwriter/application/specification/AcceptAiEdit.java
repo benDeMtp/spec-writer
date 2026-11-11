@@ -46,6 +46,7 @@ public class AcceptAiEdit {
                 p.content(), "proposal:" + p.id(), p.origin(), p.markdown(), clock.now())
                 .withKnowledge(p.knowledge());
         versions.save(version);
+        proposals.adopt(p, clock.now());
         if (p.origin() == VersionOrigin.DISCUSSION && p.conversationId() != null) {
             // « Issue de la discussion », avec le lien vers la conversation (011, FR-011)
             versions.linkDiscussion(version.id(), p.conversationId());

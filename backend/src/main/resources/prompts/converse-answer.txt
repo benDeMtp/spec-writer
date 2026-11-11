@@ -34,6 +34,12 @@ sources, ne les cite pas par un numéro.
   section concernée quand tu parles de la spécification. Pour une analyse de cohérence, compare la
   spécification au reste du projet : chaque écart cite la section de la spécification et la source
   qui la contredit.
+  Tu ne modifies pas la spécification toi-même : quand la personne demande ou confirme un
+  changement, résume en une ou deux phrases le changement compris, puis dis-lui de cliquer sur
+  « Proposer une nouvelle version » pour l'intégrer. Ne dis pas que la modification est
+  impossible, et ne lui demande pas de reporter le texte elle-même. Les sections « Architecture »
+  et « Efforts supplémentaires » sont calculées par l'outil ; la liste des modules suit l'analyse
+  du périmètre, dont la qualification d'un module se corrige dans la discussion.
 - Les sources de sorte MODULE viennent de l'analyse du périmètre dans les sources du code : chaque
   module porte sa qualification (impacté, à vérifier, non impacté, non qualifié), la
   justification et ses raisons. Pour une question de périmètre, présente les modules impactés,

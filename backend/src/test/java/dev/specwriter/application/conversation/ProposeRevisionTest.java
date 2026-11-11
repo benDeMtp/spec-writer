@@ -39,6 +39,8 @@ import java.util.UUID;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import dev.specwriter.domain.port.ConversationLlm.ChangeCandidate;
 import dev.specwriter.domain.port.ConversationLlm.ChangeOrigin;
+import dev.specwriter.domain.sources.ModuleCorrection;
+import dev.specwriter.domain.sources.Qualification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -262,5 +264,44 @@ class ProposeRevisionTest {
         assertThat(ProposeRevision.confirmation(List.of("Add"), dev.specwriter.domain.session.Language.EN))
                 .isEqualTo("Changes to include in the new version:\n- Add");
         assertThat(conversations.messages(cid)).hasSize(2);
+    }
+
+    @Test
+    void lesModulesDeLaDiscussionEtSesCorrectionsFontUneVersionMemeSansAutreChangement() {
+        dev.specwriter.support.InMemoryPerimeters perimeters = new dev.specwriter.support.InMemoryPerimeters();
+        ProposalStore store = new ProposalStore(w.diff, w.ids, w.clock, perimeters);
+        propose = new ProposeRevision(w.sessions, w.versions, conversations, discussions,
+                dev.specwriter.application.knowledge.SessionKnowledge.sheetOnly(w.projects), llm,
+                ModelCapacities.UNKNOWN, w.policy, operations, events, store, w.clock, w.ids, Runnable::run, perimeters);
+        said("Quels modules sont touchés ?", "a et b.");
+        UUID answer = w.ids.next();
+        perimeters.conversationOf.put(answer, cid);
+        perimeters.save(answer, StartFromConversationTest.analysis(1, "libs/a", "modules/b"));
+        said("b est en Quarkus, il n'est pas impacté.", "Entendu.");
+        llm.revisions.add(new Revision(false, "Les use cases sont déjà à jour.", null,
+                List.of(new ModuleCorrection("b", Qualification.NOT_IMPACTED, "Module Quarkus, hors de la migration."))));
+
+        Event.Done done = (Event.Done) run().getLast();
+
+        assertThat(done.unchanged()).isFalse();
+        assertThat(llm.reviseRequests.getFirst().perimeter().modules()).extracting(e -> e.name())
+                .containsExactly("a", "b");
+        ProposalStore.Proposal p = store.find(session.id(), done.proposalId()).orElseThrow();
+        // le contenu reste celui de la version courante ; le module à vérifier devient une hypothèse
+        assertThat(p.content().useCases()).isEqualTo(w.versions.find(session.id(), 1).orElseThrow().content().useCases());
+        assertThat(p.content().assumptions()).extracting(x -> x.statement()).anyMatch(t -> t.contains("Le module a"));
+        assertThat(p.markdown()).contains("## Modules touchés").contains("### Non impactés")
+                .contains("**b** (rv/modules/b) : Module Quarkus, hors de la migration.");
+        new AcceptAiEdit(w.sessions, w.versions, w.tickets, store, w.clock, w.ids).run(session.id(), p.id());
+        assertThat(perimeters.snapshot(session.id()).orElseThrow().modules().get(1).qualification())
+                .isEqualTo(Qualification.NOT_IMPACTED);
+
+        // le même périmètre, déjà dans la version : rien ne change
+        llm.revisions.clear();
+        llm.revisions.add(new Revision(false, "Rien de neuf.", null,
+                List.of(new ModuleCorrection("b", Qualification.NOT_IMPACTED, "Module Quarkus, hors de la migration."))));
+        Event.Done again = (Event.Done) run().getLast();
+        assertThat(again.unchanged()).isTrue();
+        assertThat(again.reason()).isEqualTo("Rien de neuf.");
     }
 }

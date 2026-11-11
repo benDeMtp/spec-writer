@@ -1,5 +1,7 @@
 package dev.specwriter.domain.port;
 
+import dev.specwriter.domain.sources.ModuleCorrection;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.conversation.CitedSource;
 import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.NeedDraft;
@@ -129,7 +131,7 @@ public interface ConversationLlm {
      */
     record ReviseRequest(Language language, String need, List<QuestionAndAnswer> answers, String currentMarkdown,
             ProjectKnowledge knowledge, String memory, List<DiscussionLine> discussion, List<CitedSource> cited,
-            String correction) {
+            String correction, PerimeterSnapshot perimeter) {
 
         public ReviseRequest {
             answers = List.copyOf(answers);
@@ -138,14 +140,33 @@ public interface ConversationLlm {
             knowledge = knowledge == null ? ProjectKnowledge.EMPTY : knowledge;
         }
 
+        /** Sans périmètre analysé (013) : les modules ne se corrigent pas. */
+        public ReviseRequest(Language language, String need, List<QuestionAndAnswer> answers, String currentMarkdown,
+                ProjectKnowledge knowledge, String memory, List<DiscussionLine> discussion, List<CitedSource> cited,
+                String correction) {
+            this(language, need, answers, currentMarkdown, knowledge, memory, discussion, cited, correction, null);
+        }
+
         public ReviseRequest withCorrection(String newCorrection) {
             return new ReviseRequest(language, need, answers, currentMarkdown, knowledge, memory, discussion, cited,
-                    newCorrection);
+                    newCorrection, perimeter);
         }
     }
 
-    /** {@code draft} est présent si {@code changed} ; sinon {@code reason} dit pourquoi rien ne change. */
-    record Revision(boolean changed, String reason, DraftSpecification draft) {
+    /**
+     * {@code draft} est présent si {@code changed} ; sinon {@code reason} dit pourquoi rien ne change.
+     * {@code perimeter} : qualifications de modules que la discussion a établies (013), même sans
+     * autre changement.
+     */
+    record Revision(boolean changed, String reason, DraftSpecification draft, List<ModuleCorrection> perimeter) {
+
+        public Revision {
+            perimeter = perimeter == null ? List.of() : List.copyOf(perimeter);
+        }
+
+        public Revision(boolean changed, String reason, DraftSpecification draft) {
+            this(changed, reason, draft, List.of());
+        }
     }
 
     /** Données du relevé des changements discutés : version courante, mémoire et échanges (011). */

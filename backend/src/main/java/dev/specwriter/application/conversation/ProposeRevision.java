@@ -22,6 +22,7 @@ import dev.specwriter.domain.port.ConversationLlm;
 import dev.specwriter.domain.port.ConversationLlm.DiscussionLine;
 import dev.specwriter.domain.port.ConversationLlm.Revision;
 import dev.specwriter.domain.port.ConversationRepository;
+import dev.specwriter.domain.port.PerimeterRepository;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.ModelCapacities;
 import dev.specwriter.domain.port.SessionRepository;
@@ -31,6 +32,8 @@ import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Language;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.session.SpecificationLock;
+import dev.specwriter.domain.sources.ModuleCorrection;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.specification.SourceRef;
 import dev.specwriter.domain.specification.SpecificationContent;
 import dev.specwriter.domain.specification.SpecificationVersion;
@@ -44,6 +47,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -78,10 +82,12 @@ public class ProposeRevision {
     private static final class Unchanged extends RuntimeException {
         private static final long serialVersionUID = 1L;
         private final String reason;
+        private final transient List<ModuleCorrection> corrections;
 
-        Unchanged(String reason) {
+        Unchanged(String reason, List<ModuleCorrection> corrections) {
             super(null, null, false, false);
             this.reason = reason;
+            this.corrections = corrections;
         }
     }
 
@@ -100,11 +106,23 @@ public class ProposeRevision {
     private final IdGenerator ids;
     private final Executor executor;
     private final ConversationHistory history;
+    /** Analyses de périmètre de la discussion (013, T056) ; nul : les modules ne se corrigent pas. */
+    private final PerimeterRepository perimeters;
 
     public ProposeRevision(SessionRepository sessions, SpecificationRepository versions,
             ConversationRepository conversations, DiscussSpecification discussions, SessionKnowledge knowledge,
             ConversationLlm llm, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
             TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids, Executor executor) {
+        this(sessions, versions, conversations, discussions, knowledge, llm, capacities, consent, operations, events,
+                proposals, clock, ids, executor, null);
+    }
+
+    public ProposeRevision(SessionRepository sessions, SpecificationRepository versions,
+            ConversationRepository conversations, DiscussSpecification discussions, SessionKnowledge knowledge,
+            ConversationLlm llm, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
+            TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids, Executor executor,
+            PerimeterRepository perimeters) {
+        this.perimeters = perimeters;
         this.sessions = sessions;
         this.versions = versions;
         this.conversations = conversations;
@@ -281,17 +299,43 @@ public class ProposeRevision {
         String said = lines.stream().filter(l -> l.role() == MessageRole.USER).map(DiscussionLine::text)
                 .collect(Collectors.joining("\n"));
         ProjectKnowledge known = knowledge.forEdit(session, answers, said, base.markdown());
+        Optional<PerimeterSnapshot> current = proposals.perimeter(session.id());
+        PerimeterSnapshot analysed = perimeters == null ? null
+                : perimeters.last(cid).map(PerimeterSnapshot::of).orElse(current.orElse(null));
         ConversationLlm.ReviseRequest request = new ConversationLlm.ReviseRequest(language, session.need().text(),
-                answers, base.markdown(), known, prepared.memory(), lines, cited, null);
+                answers, base.markdown(), known, prepared.memory(), lines, cited, null, analysed);
         DraftValidation.Discussion discussion = new DraftValidation.Discussion(citable, base.content().useCases());
-        SpecificationContent content = DraftValidation.produce(correction -> {
-            Revision revision = llm.revise(request.withCorrection(correction));
-            if (!revision.changed()) {
-                throw new Unchanged(revision.reason());
+        List<ModuleCorrection> corrections = new ArrayList<>();
+        SpecificationContent content;
+        Unchanged perimeterOnly = null;
+        try {
+            content = DraftValidation.produce(correction -> {
+                Revision revision = llm.revise(request.withCorrection(correction));
+                if (!revision.changed()) {
+                    throw new Unchanged(revision.reason(), revision.perimeter());
+                }
+                corrections.clear();
+                corrections.addAll(revision.perimeter());
+                return revision.draft();
+            }, treated, language, ErrorCode.LLM_INVALID_OUTPUT, known, discussion);
+        } catch (Unchanged u) {
+            // seul le périmètre change : la version reprend le contenu courant avec les modules corrigés
+            if (analysed == null || analysed.corrected(u.corrections).equals(current.orElse(null))) {
+                throw u;
             }
-            return revision.draft();
-        }, treated, language, ErrorCode.LLM_INVALID_OUTPUT, known, discussion);
-        return proposals.propose(session, base, content, VersionOrigin.DISCUSSION, null, null, known, cid);
+            corrections.addAll(u.corrections);
+            content = base.content();
+            perimeterOnly = u;
+        }
+        PerimeterSnapshot perimeter = analysed == null ? null : analysed.corrected(corrections);
+        ProposalStore.Proposal p = proposals.propose(session, base, content, VersionOrigin.DISCUSSION, null, null,
+                known, cid, perimeter == null || perimeter.equals(current.orElse(null)) ? null : perimeter);
+        if (perimeterOnly != null && p.markdown().equals(base.markdown())) {
+            // le périmètre rendu est celui de la version courante : rien ne change vraiment
+            proposals.discard(session.id(), p.id());
+            throw perimeterOnly;
+        }
+        return p;
     }
 
     /**

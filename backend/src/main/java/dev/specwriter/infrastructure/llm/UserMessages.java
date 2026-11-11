@@ -3,6 +3,7 @@ package dev.specwriter.infrastructure.llm;
 import dev.specwriter.domain.sources.ModuleRef;
 import dev.specwriter.domain.sources.PerimeterAnalysis;
 import dev.specwriter.domain.sources.PerimeterModule;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.sources.Reason;
 import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.TurnSource;
@@ -297,8 +298,22 @@ final class UserMessages {
                 .append(attribute(c.ref())).append("\" titre=\"").append(attribute(c.title())).append("\"/>\n"));
         return language(r.language()) + "\n" + knowledge(r.knowledge()) + need(r.need()) + "\n" + answers(r.answers())
                 + "\n" + block("specification-courante", r.currentMarkdown()) + "\n"
-                + discussion.append("</discussion>") + "\n" + cited.append("</sources-citees>") + "\n<correction>"
-                + data(r.correction()) + "</correction>";
+                + discussion.append("</discussion>") + "\n" + cited.append("</sources-citees>") + "\n"
+                + perimeter(r.perimeter()) + "<correction>" + data(r.correction()) + "</correction>";
+    }
+
+    /** 013 : modules du périmètre analysé, avec leur qualification ; vide sans analyse. */
+    private static String perimeter(PerimeterSnapshot p) {
+        if (p == null || p.modules().isEmpty()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder("<perimetre>\n");
+        for (PerimeterSnapshot.Entry e : p.modules()) {
+            out.append("<module nom=\"").append(attribute(e.name())).append("\" chemin=\"").append(attribute(e.path()))
+                    .append("\" qualification=\"").append(e.qualification().name()).append("\">")
+                    .append(data(e.justification() == null ? "" : e.justification())).append("</module>\n");
+        }
+        return out.append("</perimetre>\n").toString();
     }
 
     /** 011 : relevé des changements que la discussion avance sur la version courante. */

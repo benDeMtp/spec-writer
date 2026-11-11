@@ -279,6 +279,8 @@ class MarkdownRendererTest {
                 - **annuaire** (rv/modules/annuaire) : Simple commentaire.
                   - contient ContractStatus ×1
                 """);
+        // une seule liste de modules : celle de l'analyse ; l'architecture garde les flux
+        assertThat(md).doesNotContain("### Modules impactés").contains("### Flux");
         assertThat(md.indexOf("## Modules touchés")).isGreaterThan(md.indexOf("## Architecture"));
         assertThat(md.indexOf("## Modules touchés")).isLessThan(md.indexOf("## Écarts aux ADR") < 0 ? md.length()
                 : md.indexOf("## Écarts aux ADR"));
