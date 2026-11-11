@@ -187,14 +187,14 @@ courant. Les messages Jira mènent aux réglages, et l'import annonce son projet
 **Independent Test**: depuis le menu, modifier la clé Jira et une source sur une même page, puis
 voir les compteurs dans Connaissance (quickstart 5 à 10).
 
-- [ ] T015 [P] [US2] Extraire le formulaire d'identité de `FA/features/projects/projects.page.ts`
+- [X] T015 [P] [US2] Extraire le formulaire d'identité de `FA/features/projects/projects.page.ts`
   dans `FA/features/projects/project-identity-form.component.ts` (`.spec.ts`) :
   - champs Nom, Description et Clé Jira (`id` configurable, `jira` sur la page de réglages) ;
   - avertissement `jiraKeyWarning` en `role="alert"` ;
   - sorties `saved(ProjectInput)` et `dirty(boolean)`.
 
   La création de projet dans `projects.page` utilise le composant, sans changement visible.
-- [ ] T016 [US2] Test puis page `FA/features/project-settings/project-settings.page.ts`
+- [X] T016 [US2] Test puis page `FA/features/project-settings/project-settings.page.ts`
   (`.spec.ts`), contracts/ui.md, section Réglages du projet :
   - `sw-project-heading label="Réglages du projet"` ;
   - quatre sections avec `h2`, dans cet ordre :
@@ -214,11 +214,11 @@ voir les compteurs dans Connaissance (quickstart 5 à 10).
     - c'est le cas d'une identité modifiée, d'une saisie de source ou d'architecture non vide, ou
       de l'éditeur de fiche ouvert ;
     - la page enregistre auprès de `LeaveGuard` une vérification qui ouvre `ConfirmDialog` :
-      titre « Quitter sans enregistrer ? », boutons « Rester » et « Quitter sans enregistrer ».
+      titre « Quitter sans enregistrer ? », boutons « Annuler » et « Quitter sans enregistrer ».
 
   Déplacer `sheet-editor.component.ts` dans `FA/features/project-settings/`. Tests : sections,
   enregistrement de l'identité, focus `#jira`, dialogue.
-- [ ] T017 [US2] Test puis page `FA/features/project-knowledge/project-knowledge.page.ts`
+- [X] T017 [US2] Test puis page `FA/features/project-knowledge/project-knowledge.page.ts`
   (`.spec.ts`) :
   - `sw-project-heading label="Connaissance du projet"` ;
   - `sw-knowledge-panel` déplacé avec son test dans `FA/features/project-knowledge/`, sur le projet
@@ -228,7 +228,7 @@ voir les compteurs dans Connaissance (quickstart 5 à 10).
   Déplacer `adrs.page.ts` et son test dans le même dossier. La page lit le projet courant au lieu
   de `:id`, son `h1` passe par `sw-project-heading label="ADR"`, et le lien de retour mène à
   `/projet/connaissance`.
-- [ ] T018 [US2] Test puis garde `followProjectGuard` (`FA/core/navigation/follow-project.guard.ts`,
+- [X] T018 [US2] Test puis garde `followProjectGuard` (`FA/core/navigation/follow-project.guard.ts`,
   `.spec.ts`), research.md R1 :
   - `canActivate` sur `projets/:id/contexte` et `projets/:id/contexte/adr` ;
   - `ProjectsStore.load()` si la liste est vide ;
@@ -236,7 +236,7 @@ voir les compteurs dans Connaissance (quickstart 5 à 10).
     (`ProblemStore.show`, code `NOT_FOUND`) ;
   - sinon `ProjectFollower.follow(id)`, puis `UrlTree` vers `/projet/connaissance` ou
     `/projet/connaissance/adr`.
-- [ ] T019 [US2] Routes `FA/app.routes.ts` :
+- [X] T019 [US2] Routes `FA/app.routes.ts` :
   - `projet/reglages` (`canDeactivate: () => inject(LeaveGuard).confirm()`) ;
   - `projet/connaissance` ;
   - `projet/connaissance/adr` ;
@@ -246,7 +246,7 @@ voir les compteurs dans Connaissance (quickstart 5 à 10).
 
   Supprimer `FA/features/project-context/project-context.page.ts` et son test, une fois leurs cas
   repris en T016 et T017.
-- [ ] T020 [US2] Page Projets `FA/features/projects/projects.page.ts` :
+- [X] T020 [US2] Page Projets `FA/features/projects/projects.page.ts` :
   - « Modifier » rend le projet courant (`ProjectFollower.follow`), puis navigue vers
     `/projet/reglages` ;
   - le lien « Contexte » devient « Connaissance » (même comportement : courant, puis
@@ -254,7 +254,7 @@ voir les compteurs dans Connaissance (quickstart 5 à 10).
   - l'édition en ligne est retirée, la création reste.
 
   Tests mis à jour.
-- [ ] T021 [US2] Tickets Jira `FA/features/jira-issues/jira-issues.page.ts`, les trois états de
+- [X] T021 [US2] Tickets Jira `FA/features/jira-issues/jira-issues.page.ts`, les trois états de
   contracts/ui.md :
   - clé du projet ;
   - clé par défaut : « (clé par défaut de l'application) », si `jiraProjectKey` est null et
@@ -265,20 +265,20 @@ voir les compteurs dans Connaissance (quickstart 5 à 10).
   - Jira non configuré : « Jira n'est pas configuré. » et « Ouvrir la configuration ».
 
   Tests des quatre cas.
-- [ ] T022 [P] [US2] Bandeau `FA/shared/ui/problem-banner.component.ts` (`.spec.ts`) :
+- [X] T022 [P] [US2] Bandeau `FA/shared/ui/problem-banner.component.ts` (`.spec.ts`) :
   - l'action `OPEN_PROJECT_SETTINGS` affiche « Ouvrir les réglages du projet » et navigue vers
     `/projet/reglages#jira` ;
   - ajouter la valeur au type `ProblemAction` de `FA/core/http/problem.ts`.
-- [ ] T023 [P] [US2] Ticket Jira `FA/features/search/item-detail.page.ts` (`.spec.ts`) : le texte
+- [X] T023 [P] [US2] Ticket Jira `FA/features/search/item-detail.page.ts` (`.spec.ts`) : le texte
   « La spécification sera ajoutée au projet <nom courant>. » s'affiche avant le bouton « Discuter
   avec l'IA ».
-- [ ] T024 [US2] Dialogue de création de ticket
+- [X] T024 [US2] Dialogue de création de ticket
   (`FA/features/jira/create-ticket-dialog.component.ts`) et `FA/features/specification/specification.page.ts` :
   - le message d'indisponibilité lié à la clé du projet propose « Ouvrir les réglages du projet » ;
   - le serveur, le jeton ou l'accord gardent la configuration (FR-010).
 
   Tests mis à jour.
-- [ ] T025 [US2] E2E `e2e/tests/us15-navigation.spec.ts`, scénarios 5 à 10 du quickstart, avec axe
+- [X] T025 [US2] E2E `e2e/tests/us15-navigation.spec.ts`, scénarios 5 à 10 du quickstart, avec axe
   sur les réglages et la connaissance. Mettre à jour `e2e/tests/us8-project-context.spec.ts` (le
   renommer en `us8-project-settings.spec.ts`) et `e2e/tests/us7-projects.spec.ts` : nouvelles
   adresses, « Connaissance », « Modifier ».
@@ -309,7 +309,7 @@ voir les compteurs dans Connaissance (quickstart 5 à 10).
   - sur 404, aucune bascule.
 
   Tests : autre projet (bascule), même projet (aucun appel), 404.
-- [ ] T028 [US3] Sélecteur `FA/features/projects/project-switcher.component.ts` (research.md R4) :
+- [X] T028 [US3] Sélecteur `FA/features/projects/project-switcher.component.ts` (research.md R4) :
   - **avant `select`** : `await LeaveGuard.confirm()`. Sur un refus, la valeur du `mat-select`
     revient à `currentId` (signal local réinitialisé) ;
   - **après `select`** : si `activeEntry` est sur une page adressée par identifiant

@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router, RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
@@ -7,6 +7,7 @@ import { JiraApi } from '../../core/jira/jira.api';
 import { JiraIssueView } from '../../core/jira/jira.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
+import { ProjectsStore } from '../../core/projects/projects.store';
 
 /**
  * Ticket Jira (FR-043) : sa description complète, et une seule action. « Discuter avec l'IA »
@@ -30,6 +31,9 @@ import { ElapsedComponent } from '../../shared/ui/elapsed.component';
             >Ouvrir dans Jira<span class="sw-visually-hidden"> (nouvel onglet)</span></a
           >
         </p>
+        @if (projectName(); as name) {
+          <p class="destination">La spécification sera ajoutée au projet {{ name }}.</p>
+        }
         <div class="actions">
           <button mat-flat-button type="button" [disabled]="importing()" (click)="evolve()">
             Discuter avec l'IA
@@ -68,6 +72,9 @@ import { ElapsedComponent } from '../../shared/ui/elapsed.component';
       margin: 0.25rem 0 0.75rem;
       color: var(--sw-ink-soft);
     }
+    .destination {
+      margin: 0 0 0.75rem;
+    }
     .actions {
       display: flex;
       flex-wrap: wrap;
@@ -96,6 +103,9 @@ export class ItemDetailPage {
   private readonly api = inject(JiraApi);
   private readonly router = inject(Router);
   private readonly consent = inject(ConsentGate);
+  /** 012 : l'import se fait dans le projet courant, annoncé avant l'action (FR-011). */
+  private readonly projects = inject(ProjectsStore);
+  protected readonly projectName = computed(() => this.projects.current()?.name ?? null);
 
   readonly key = input.required<string>();
 

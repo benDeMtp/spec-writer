@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
 import { Routes } from '@angular/router';
+import { followProjectGuard } from './core/navigation/follow-project.guard';
 import { LeaveGuard } from './core/navigation/leave-guard';
 import { copilotRequiredGuard } from './core/settings/copilot-required.guard';
 
@@ -52,15 +53,27 @@ export const routes: Routes = [
   },
   { path: 'sessions', title: 'Spécifications', data: PROJECT, loadComponent: () => import('./features/sessions/sessions.page').then((m) => m.SessionsPage) },
   {
-    path: 'projets/:id/contexte/adr',
-    title: 'ADR',
-    loadComponent: () => import('./features/project-context/adrs.page').then((m) => m.AdrsPage),
+    path: 'projet/reglages',
+    title: 'Réglages du projet',
+    data: PROJECT,
+    loadComponent: () => import('./features/project-settings/project-settings.page').then((m) => m.ProjectSettingsPage),
+    canDeactivate: [() => inject(LeaveGuard).confirm()],
   },
   {
-    path: 'projets/:id/contexte',
-    title: 'Contexte du projet',
-    loadComponent: () => import('./features/project-context/project-context.page').then((m) => m.ProjectContextPage),
+    path: 'projet/connaissance/adr',
+    title: 'ADR',
+    data: PROJECT,
+    loadComponent: () => import('./features/project-knowledge/adrs.page').then((m) => m.AdrsPage),
   },
+  {
+    path: 'projet/connaissance',
+    title: 'Connaissance du projet',
+    data: PROJECT,
+    loadComponent: () => import('./features/project-knowledge/project-knowledge.page').then((m) => m.ProjectKnowledgePage),
+  },
+  // anciennes adresses (002 à 011) : le projet devient courant, puis la page équivalente s'ouvre
+  { path: 'projets/:id/contexte/adr', canActivate: [followProjectGuard('/projet/connaissance/adr')], children: [] },
+  { path: 'projets/:id/contexte', canActivate: [followProjectGuard('/projet/connaissance')], children: [] },
   { path: 'projets', title: 'Projets', loadComponent: () => import('./features/projects/projects.page').then((m) => m.ProjectsPage) },
   { path: 'journal', title: 'Journal', loadComponent: () => import('./features/journal/journal.page').then((m) => m.JournalPage) },
   { path: 'configuration', title: 'Configuration', loadComponent: () => import('./features/settings/settings.page').then((m) => m.SettingsPage) },

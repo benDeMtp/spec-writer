@@ -82,7 +82,7 @@ Les sections apparaissent dans cet ordre, chacune avec un `h2` :
 Un lien « Voir la connaissance du projet » mène à `/projet/connaissance`.
 
 Si l'utilisateur quitte la page avec une saisie non enregistrée, ou change de projet, le dialogue
-« Quitter sans enregistrer ? » propose « Rester » et « Quitter sans enregistrer ».
+« Quitter sans enregistrer ? » propose « Annuler » et « Quitter sans enregistrer ».
 
 ## Connaissance du projet (`/projet/connaissance`)
 

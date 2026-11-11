@@ -1,30 +1,21 @@
-import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { ProjectFollower } from '../../core/projects/project-follower';
 import { ProjectsApi } from '../../core/projects/projects.api';
 import { Project, ProjectInput } from '../../core/projects/projects.model';
 import { ProjectsStore } from '../../core/projects/projects.store';
+import { SettingsStore } from '../../core/settings/settings.store';
 import { DeleteProjectChoice, DeleteProjectDialogComponent } from './delete-project-dialog.component';
-
-interface Draft {
-  name: string;
-  description: string;
-  jiraProjectKey: string;
-}
-
-const EMPTY: Draft = { name: '', description: '', jiraProjectKey: '' };
+import { ProjectIdentityFormComponent } from './project-identity-form.component';
 
 /** Projets : créer, modifier, supprimer, choisir le projet courant (US1, FR-001 à FR-007). */
 @Component({
   selector: 'sw-projects-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, NgTemplateOutlet, RouterLink],
+  imports: [MatButtonModule, ProjectIdentityFormComponent],
   template: `
     <h1>Projets</h1>
     <div class="sheet">
@@ -35,9 +26,6 @@ const EMPTY: Draft = { name: '', description: '', jiraProjectKey: '' };
       <ul class="projects">
         @for (p of store.projects(); track p.id) {
           <li>
-            @if (editing() === p.id) {
-              <ng-container *ngTemplateOutlet="form; context: { $implicit: p }" />
-            } @else {
               <div class="head">
                 <span class="name">{{ p.name }}</span>
                 @if (p.id === store.currentId()) {
@@ -52,10 +40,10 @@ const EMPTY: Draft = { name: '', description: '', jiraProjectKey: '' };
                 @if (p.id !== store.currentId()) {
                   <button mat-stroked-button type="button" (click)="select(p)">Rendre courant</button>
                 }
-                <a mat-button [routerLink]="['/projets', p.id, 'contexte']" [attr.aria-label]="'Contexte du projet ' + p.name">
-                  Contexte
-                </a>
-                <button mat-button type="button" (click)="startEdit(p)" [attr.aria-label]="'Modifier le projet ' + p.name">
+                <button mat-button type="button" (click)="open(p, '/projet/connaissance')" [attr.aria-label]="'Connaissance du projet ' + p.name">
+                  Connaissance
+                </button>
+                <button mat-button type="button" (click)="open(p, '/projet/reglages')" [attr.aria-label]="'Modifier le projet ' + p.name">
                   Modifier
                 </button>
                 <button
@@ -68,7 +56,6 @@ const EMPTY: Draft = { name: '', description: '', jiraProjectKey: '' };
                   Supprimer
                 </button>
               </div>
-            }
           </li>
         }
       </ul>
@@ -76,42 +63,19 @@ const EMPTY: Draft = { name: '', description: '', jiraProjectKey: '' };
         <p class="hint">Le dernier projet restant ne peut pas être supprimé.</p>
       }
 
-      @if (editing() === 'new') {
-        <ng-container *ngTemplateOutlet="form; context: { $implicit: null }" />
+      @if (creating()) {
+        <sw-project-identity-form
+          keyId="new-jira-key"
+          [cancellable]="true"
+          [defaultKey]="defaultKey()"
+          (saved)="create($event)"
+          (cancelled)="creating.set(false)"
+        />
       } @else {
-        <button mat-flat-button type="button" (click)="startCreate()">Nouveau projet</button>
+        <button mat-flat-button type="button" (click)="creating.set(true)">Nouveau projet</button>
       }
     </div>
 
-    <ng-template #form let-project>
-      <form class="edit" (ngSubmit)="save(project)" [attr.aria-label]="project ? 'Modifier ' + project.name : 'Nouveau projet'">
-        <mat-form-field appearance="outline">
-          <mat-label>Nom du projet</mat-label>
-          <input matInput name="name" maxlength="80" required [ngModel]="draft().name" (ngModelChange)="patch({ name: $event })" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Description (facultative)</mat-label>
-          <textarea matInput name="description" maxlength="1000" rows="2" [ngModel]="draft().description" (ngModelChange)="patch({ description: $event })"></textarea>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Clé du projet Jira (facultative)</mat-label>
-          <input
-            matInput
-            name="jiraProjectKey"
-            maxlength="10"
-            pattern="[A-Z][A-Z0-9_]{1,9}"
-            [ngModel]="draft().jiraProjectKey"
-            (ngModelChange)="patch({ jiraProjectKey: $event })"
-            aria-describedby="jira-key-hint"
-          />
-          <mat-hint id="jira-key-hint">Par exemple FACT. Sans clé, le projet Jira par défaut de la configuration est utilisé.</mat-hint>
-        </mat-form-field>
-        <div class="actions">
-          <button mat-flat-button type="submit" [disabled]="!draft().name.trim()">Enregistrer</button>
-          <button mat-button type="button" (click)="editing.set(null)">Annuler</button>
-        </div>
-      </form>
-    </ng-template>
   `,
   styles: `
     h1 {
@@ -187,12 +151,17 @@ export class ProjectsPage implements OnInit {
   private readonly api = inject(ProjectsApi);
   private readonly dialog = inject(MatDialog);
 
-  protected readonly editing = signal<string | null>(null);
-  protected readonly draft = signal<Draft>({ ...EMPTY });
+  private readonly follower = inject(ProjectFollower);
+  private readonly router = inject(Router);
+  private readonly settings = inject(SettingsStore);
+
+  protected readonly creating = signal(false);
   protected readonly announce = signal('');
   protected readonly warning = signal<string | null>(null);
+  protected readonly defaultKey = computed(() => this.settings.jira()?.defaultProjectKey ?? null);
 
   async ngOnInit(): Promise<void> {
+    void this.settings.ensureLoaded().catch(() => undefined);
     await this.store.load();
   }
 
@@ -201,43 +170,30 @@ export class ProjectsPage implements OnInit {
     const jira = p.jiraProjectKey
       ? p.jiraProjectKey
       : p.effectiveJiraProjectKey
-        ? `${p.effectiveJiraProjectKey} (projet par défaut)`
-        : 'non configuré';
+        ? `${p.effectiveJiraProjectKey} (clé par défaut de l'application)`
+        : 'aucun projet';
     return `${specs} · Jira : ${jira}`;
   }
 
-  protected patch(change: Partial<Draft>): void {
-    this.draft.update((d) => ({ ...d, ...change }));
-  }
-
-  protected startCreate(): void {
-    this.draft.set({ ...EMPTY });
-    this.editing.set('new');
-  }
-
-  protected startEdit(p: Project): void {
-    this.draft.set({ name: p.name, description: p.description ?? '', jiraProjectKey: p.jiraProjectKey ?? '' });
-    this.editing.set(p.id);
-  }
-
-  protected async save(project: Project | null): Promise<void> {
-    const d = this.draft();
-    if (!d.name.trim()) {
-      return;
-    }
-    const input: ProjectInput = {
-      name: d.name.trim(),
-      description: d.description.trim() || null,
-      jiraProjectKey: d.jiraProjectKey.trim() || null,
-    };
+  protected async create(input: ProjectInput): Promise<void> {
     try {
-      const saved = project ? await this.api.update(project.id, input) : await this.api.create(input);
-      this.editing.set(null);
+      const saved = await this.api.create(input);
+      this.creating.set(false);
       this.warning.set(saved.jiraKeyWarning);
-      this.announce.set(project ? `Projet « ${saved.name} » enregistré.` : `Projet « ${saved.name} » créé.`);
+      this.announce.set(`Projet « ${saved.name} » créé.`);
       await this.store.load();
     } catch {
       // Le bandeau affiche la cause (nom déjà utilisé, saisie invalide).
+    }
+  }
+
+  /** Réglages et connaissance portent sur le projet courant (012) : le projet le devient d'abord. */
+  protected async open(p: Project, path: string): Promise<void> {
+    try {
+      await this.follower.follow(p.id);
+      await this.router.navigateByUrl(path);
+    } catch {
+      // Le bandeau affiche la cause.
     }
   }
 

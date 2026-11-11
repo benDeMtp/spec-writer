@@ -7,6 +7,7 @@ import { isProblem } from '../../core/http/problem';
 import { JiraApi } from '../../core/jira/jira.api';
 import { IssuePage } from '../../core/jira/jira.model';
 import { ProjectsStore } from '../../core/projects/projects.store';
+import { SettingsStore } from '../../core/settings/settings.store';
 import { PagerComponent } from '../../shared/ui/pager.component';
 import { ProjectHeadingComponent } from '../../shared/ui/project-heading.component';
 
@@ -28,7 +29,10 @@ function failure(error: unknown): string {
   template: `
     <sw-project-heading label="Tickets Jira" />
     @if (projectKey(); as key) {
-      <p class="lead">Projet Jira {{ key }}, du plus récemment modifié au plus ancien.</p>
+      <p class="lead">
+        Projet Jira {{ key }}{{ usesDefaultKey() ? " (clé par défaut de l'application)" : '' }}, du plus récemment modifié au
+        plus ancien.
+      </p>
       @if (error(); as message) {
         <div class="notice" role="alert">
           <p>{{ message }} La page affichée est conservée.</p>
@@ -76,9 +80,15 @@ function failure(error: unknown): string {
       } @else if (busy()) {
         <p role="status">Chargement des tickets…</p>
       }
-    } @else {
-      <p>Aucun projet Jira n'est associé au projet courant.</p>
-      <a mat-stroked-button routerLink="/configuration">Ouvrir la configuration</a>
+    } @else if (settings.settings()) {
+      <!-- 012 : la clé se règle dans le projet ; le serveur et le jeton, dans la configuration -->
+      @if (jiraConfigured()) {
+        <p>Aucun projet Jira n'est associé à {{ projectName() }}.</p>
+        <a mat-stroked-button routerLink="/projet/reglages" fragment="jira">Renseigner la clé Jira du projet</a>
+      } @else {
+        <p>Jira n'est pas configuré.</p>
+        <a mat-stroked-button routerLink="/configuration">Ouvrir la configuration</a>
+      }
     }
   `,
   styles: `
@@ -119,9 +129,14 @@ function failure(error: unknown): string {
 export class JiraIssuesPage {
   private readonly api = inject(JiraApi);
   private readonly projects = inject(ProjectsStore);
+  protected readonly settings = inject(SettingsStore);
 
   protected readonly size = ISSUES_PAGE_SIZE;
   protected readonly projectKey = computed(() => this.projects.current()?.effectiveJiraProjectKey ?? null);
+  protected readonly projectName = computed(() => this.projects.current()?.name ?? 'ce projet');
+  /** Le projet n'a pas de clé : la clé par défaut de l'application sert de repli (FR-016 de 012). */
+  protected readonly usesDefaultKey = computed(() => !!this.projectKey() && !this.projects.current()?.jiraProjectKey);
+  protected readonly jiraConfigured = computed(() => !!this.settings.jira()?.enabled);
   protected readonly page = signal<IssuePage | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
@@ -136,6 +151,7 @@ export class JiraIssuesPage {
   });
 
   constructor() {
+    void this.settings.ensureLoaded().catch(() => undefined);
     effect(() => {
       if (this.projectKey()) {
         // seul le projet relance la liste : la page demandée ne doit pas la ramener au début

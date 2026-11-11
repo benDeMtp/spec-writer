@@ -1,7 +1,7 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
-import { baseURL, storageStatePath } from './support/env';
+import { baseURL, jiraURL, storageStatePath } from './support/env';
 
 const DEFAULT_PROJECT = '00000000-0000-0000-0000-000000000001';
 const NEED =
@@ -111,5 +111,81 @@ test.describe.serial('012 navigation par projet', () => {
     await expect(page).toHaveURL(/\/journal$/);
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await page.setViewportSize({ width: 1280, height: 900 });
+  });
+
+  test('N5 : un seul écran règle le projet, et le menu suit sa clé Jira', async () => {
+    await menu().getByRole('link', { name: 'Réglages du projet' }).click();
+    await expect(page).toHaveURL(/\/projet\/reglages$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Réglages du projet · Aurora E2E');
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText([
+      'Identité',
+      'Fiche générale',
+      'Sources de documentation',
+      "Modèle d'architecture",
+    ]);
+    await expectNoA11yViolations(page);
+    const identity = page.getByRole('form', { name: 'Identité du projet Aurora E2E' });
+    await identity.getByLabel('Clé Jira (facultative)').fill('AUR');
+    await identity.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Projet « Aurora E2E » enregistré.' })).toBeVisible();
+    await expect(menu().getByRole('link', { name: /^Tickets Jira/ })).toHaveText('Tickets Jira, projet AUR');
+  });
+
+  test('N6 : une saisie non enregistrée retient le changement de projet', async () => {
+    await page.getByLabel('Adresse du site').fill('https://docs.example.com/aurora/');
+    await switcher().click();
+    await page.getByRole('option', { name: 'Recette E2E' }).click();
+    const leave = page.getByRole('dialog', { name: 'Quitter sans enregistrer ?' });
+    await expect(leave).toBeVisible();
+    await leave.getByRole('button', { name: 'Annuler' }).click();
+    await expect(switcher()).toContainText('Aurora E2E');
+    await expect(page.getByLabel('Adresse du site')).toHaveValue('https://docs.example.com/aurora/');
+    await page.getByLabel('Adresse du site').fill('');
+  });
+
+  test('N7 : la connaissance du projet a sa page, avec les ADR et les réglages', async () => {
+    await menu().getByRole('link', { name: 'Connaissance du projet' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Connaissance du projet · Aurora E2E');
+    const main = page.getByRole('main');
+    await expect(main.getByRole('link', { name: 'ADR du projet' })).toHaveAttribute('href', '/projet/connaissance/adr');
+    await expect(main.getByRole('link', { name: 'Réglages du projet' })).toHaveAttribute('href', '/projet/reglages');
+    await expect(main.getByRole('form', { name: "Recherche d'essai" })).toBeVisible();
+    await expectNoA11yViolations(page);
+  });
+
+  test('N8 : l’ancienne adresse du contexte rend son projet courant', async () => {
+    await page.goto(`/projets/${recette}/contexte`);
+    await expect(page).toHaveURL(/\/projet\/connaissance$/);
+    await expect(switcher()).toContainText('Recette E2E');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Connaissance du projet · Recette E2E');
+  });
+
+  test('N9 : Tickets Jira sans Jira mène à la configuration', async () => {
+    await menu().getByRole('link', { name: 'Tickets Jira' }).click();
+    await expect(page.getByText("Jira n'est pas configuré.")).toBeVisible();
+    await expect(page.getByRole('main').getByRole('link', { name: 'Ouvrir la configuration' })).toHaveAttribute(
+      'href',
+      '/configuration',
+    );
+    await makeCurrent(aurora);
+  });
+
+  test('N10 : un ticket Jira annonce le projet où sa spécification sera ajoutée', async () => {
+    // le ticket se lit dans le projet Jira du projet courant : N5 a changé la clé d'Aurora
+    await page.request.put(`/api/projects/${aurora}`, { headers, data: { name: 'Aurora E2E', jiraProjectKey: 'FACT' } });
+    await page.request.put('/api/consents/JIRA', { headers, data: { granted: true } });
+    const saved = await page.request.put('/api/settings/jira', {
+      headers,
+      data: { serverUrl: jiraURL, defaultProjectKey: 'PROJ', acceptInsecureHttp: true, token: 'e2e-good-token' },
+    });
+    expect(saved.status()).toBe(200);
+    try {
+      await page.goto('/jira/FACT-1');
+      await expect(page.getByText('La spécification sera ajoutée au projet Aurora E2E.')).toBeVisible();
+      await expectNoA11yViolations(page);
+    } finally {
+      await page.request.delete('/api/settings/jira', { headers });
+      await page.request.put('/api/consents/JIRA', { headers, data: { granted: false } });
+    }
   });
 });

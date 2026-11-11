@@ -106,7 +106,7 @@ test.describe.serial('US7 projets', () => {
     const item = page.locator('ul.projects > li').filter({ hasText: 'Projet par défaut' });
     await expect(item).toContainText('Projet courant');
     await expect(item).toContainText(`${before.length} spécification`);
-    await expect(item).toContainText('Jira : PROJ (projet par défaut)');
+    await expect(item).toContainText("Jira : PROJ (clé par défaut de l'application)");
     await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('combobox')).toContainText('Projet par défaut');
     await expectNoA11yViolations(page);
   });
@@ -114,7 +114,7 @@ test.describe.serial('US7 projets', () => {
   test('P2 : une spécification du projet « Facturation » vise FACT, celle du projet par défaut PROJ', async () => {
     await page.getByRole('button', { name: 'Nouveau projet' }).click();
     await page.getByLabel('Nom du projet').fill('Facturation');
-    await page.getByLabel('Clé du projet Jira (facultative)').fill('FACT');
+    await page.getByLabel('Clé Jira (facultative)').fill('FACT');
     await expectNoA11yViolations(page);
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByRole('status')).toContainText('Projet « Facturation » créé.');

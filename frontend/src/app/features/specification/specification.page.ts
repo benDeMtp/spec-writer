@@ -227,8 +227,13 @@ const ATTACHMENT_REF = 'joint:';
             </div>
             @if (session() && !session()?.linkedTicket && !jiraReady()) {
               <p id="jira-missing" class="hint">
-                Pour créer un ticket, renseignez le serveur, le projet et le jeton Jira dans
-                <a routerLink="/configuration">la configuration</a>.
+                @if (jiraConnected()) {
+                  Pour créer un ticket, renseignez la clé Jira du projet dans
+                  <a routerLink="/projet/reglages" fragment="jira">les réglages du projet</a>.
+                } @else {
+                  Pour créer un ticket, renseignez le serveur et le jeton Jira dans
+                  <a routerLink="/configuration">la configuration</a>.
+                }
               </p>
             }
             <p role="status" aria-live="polite" class="announce">{{ status() }}</p>
@@ -729,11 +734,17 @@ export class SpecificationPage {
   protected readonly spec = signal<Specification | null>(null);
   protected readonly session = signal<SessionDetail | null>(null);
   protected readonly versions = signal<VersionSummary[]>([]);
-  /** Jira configuré : serveur, projet par défaut et jeton (FR-036). */
-  protected readonly jiraReady = computed(() => {
+  /** Jira configuré : serveur et jeton (FR-036). */
+  protected readonly jiraConnected = computed(() => {
     const j = this.settings.jira();
-    return !!j && j.enabled && j.tokenSet && !!j.defaultProjectKey;
+    return !!j && j.enabled && j.tokenSet;
   });
+  /** Projet Jira de la spécification : la clé de son projet, sinon la clé par défaut (012). */
+  protected readonly jiraProjectKey = computed(() => {
+    const projectId = this.session()?.projectId;
+    return this.projects.projects().find((p) => p.id === projectId)?.effectiveJiraProjectKey ?? null;
+  });
+  protected readonly jiraReady = computed(() => this.jiraConnected() && !!this.jiraProjectKey());
   /** Projets où la spécification peut être déplacée : tous sauf le sien (FR-004 de 002). */
   protected readonly moveTargets = computed(() => {
     const projectId = this.session()?.projectId;

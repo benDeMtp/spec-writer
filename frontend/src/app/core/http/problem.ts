@@ -1,5 +1,5 @@
 /** Erreur renvoyée par l'API (contracts/openapi.yaml, Problem). */
-export type ProblemAction = 'RETRY' | 'OPEN_SETTINGS' | 'RECONNECT' | 'EDIT_INPUT' | 'NONE';
+export type ProblemAction = 'RETRY' | 'OPEN_SETTINGS' | 'OPEN_PROJECT_SETTINGS' | 'RECONNECT' | 'EDIT_INPUT' | 'NONE';
 
 export interface Problem {
   code: string;

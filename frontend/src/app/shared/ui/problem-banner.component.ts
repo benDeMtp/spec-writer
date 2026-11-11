@@ -57,6 +57,8 @@ export class ProblemBannerComponent {
         return 'Réessayer';
       case 'OPEN_SETTINGS':
         return 'Ouvrir la configuration';
+      case 'OPEN_PROJECT_SETTINGS':
+        return 'Ouvrir les réglages du projet';
       case 'RECONNECT':
         return 'Se reconnecter';
       case 'EDIT_INPUT':
@@ -71,6 +73,9 @@ export class ProblemBannerComponent {
     this.store.dismiss();
     if (action === 'OPEN_SETTINGS' || action === 'RECONNECT') {
       void this.router.navigateByUrl('/configuration');
+    } else if (action === 'OPEN_PROJECT_SETTINGS') {
+      // 012 : la clé Jira se règle dans le projet
+      void this.router.navigateByUrl('/projet/reglages#jira');
     } else if (action === 'RETRY') {
       void this.router.navigateByUrl(this.router.url, { onSameUrlNavigation: 'reload' });
     } else if (action === 'EDIT_INPUT') {

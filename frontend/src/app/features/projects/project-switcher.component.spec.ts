@@ -6,6 +6,7 @@ import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatSelect } from '@angular/material/select';
 import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
+import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { Project } from '../../core/projects/projects.model';
 import { ProjectSwitcherComponent } from './project-switcher.component';
 
@@ -87,5 +88,38 @@ describe('ProjectSwitcherComponent', () => {
     expect(navigate).toHaveBeenCalledWith('/projets');
     expect(select().value).toBe('a');
     ctrl.verify();
+  });
+
+  it('une page qui refuse de quitter garde le projet courant', async () => {
+    TestBed.inject(LeaveGuard).register(() => false);
+    select().value = 'b';
+    select().valueChange.emit('b');
+    await settle();
+    ctrl.expectNone('/api/projects/current');
+    expect(select().value).toBe('a');
+  });
+
+  it('sur une spécification, ouvre la liste des spécifications avant de changer de projet', async () => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/sessions/s1/versions/2');
+    const navigate = vi.spyOn(router, 'navigateByUrl');
+    select().valueChange.emit('b');
+    await settle();
+    expect(navigate).toHaveBeenCalledWith('/sessions');
+    ctrl.expectOne('/api/projects/current').flush(null);
+    await settle();
+    answerLoad(RECETTE);
+    await settle();
+  });
+
+  it('une spécification dont la garde refuse : rien ne change', async () => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/sessions/s1/versions/2');
+    vi.spyOn(router, 'navigateByUrl').mockResolvedValue(false);
+    select().value = 'b';
+    select().valueChange.emit('b');
+    await settle();
+    ctrl.expectNone('/api/projects/current');
+    expect(select().value).toBe('a');
   });
 });

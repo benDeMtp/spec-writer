@@ -49,10 +49,12 @@ describe('AdrsPage', () => {
     TestBed.configureTestingModule({ providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] });
     ctrl = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(AdrsPage);
-    fixture.componentRef.setInput('id', 'p1');
     el = fixture.nativeElement;
     fixture.detectChanges();
+    // 012 : les ADR du projet courant
     ctrl.expectOne('/api/projects').flush([{ id: 'p1', name: 'Aurora' }]);
+    ctrl.expectOne('/api/projects/current').flush({ id: 'p1', name: 'Aurora' });
+    await settle(fixture);
     ctrl.expectOne('/api/projects/p1/knowledge/adrs').flush(list);
     await settle(fixture);
   }
@@ -65,7 +67,7 @@ describe('AdrsPage', () => {
 
   it('une ligne par ADR, dans l’ordre reçu, avec le résumé par statut', async () => {
     await open(LIST);
-    expect(el.querySelector('h1')?.textContent).toContain('ADR du projet Aurora');
+    expect(el.querySelector('h1')?.textContent).toBe('ADR · Aurora');
     expect(rows()).toHaveLength(6);
     expect(rows()[0].textContent).toContain('0001');
     expect(rows()[5].querySelector('td')?.textContent?.trim()).toBe('—');
@@ -108,11 +110,12 @@ describe('AdrsPage', () => {
     expect(el.querySelector('.summary')?.textContent).toContain('6 ADR');
   });
 
-  it('projet sans ADR : message et retour au contexte ; indexation en cours signalée', async () => {
+  it('projet sans ADR : message et retour à la connaissance ; indexation en cours signalée', async () => {
     await open({ adrs: [], byStatus: {}, indexing: true });
     expect(el.textContent).toContain("Aucun ADR n'a été trouvé dans la documentation de ce projet");
     expect(el.querySelector('table')).toBeNull();
-    expect(el.querySelector('a[href="/projets/p1/contexte"]')).not.toBeNull();
+    const back = Array.from(el.querySelectorAll('a[href="/projet/connaissance"]')).map((a) => a.textContent);
+    expect(back).toEqual(['Connaissance du projet', 'Revenir à la connaissance du projet']);
     expect(el.textContent).toContain('Indexation en cours');
   });
 });

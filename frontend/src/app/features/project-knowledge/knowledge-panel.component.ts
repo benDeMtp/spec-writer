@@ -92,7 +92,7 @@ const KINDS: Record<KnowledgeKind, string> = {
       <p class="counts">
         {{ countsBefore(s) }}
         @if (s.adrs > 0) {
-          <a [routerLink]="['/projets', projectId(), 'contexte', 'adr']">{{ adrCount(s) }}</a>
+          <a routerLink="/projet/connaissance/adr">{{ adrCount(s) }}</a>
         } @else {
           {{ adrCount(s) }}
         }

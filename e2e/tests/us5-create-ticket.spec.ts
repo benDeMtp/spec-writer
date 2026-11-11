@@ -128,7 +128,7 @@ test.describe.serial('US5 création du ticket Jira', () => {
     await page.goto(versionPath);
     const create = page.getByRole('button', { name: 'Créer un ticket Jira' });
     await expect(create).toBeDisabled();
-    await expect(create).toHaveAccessibleDescription(/renseignez le serveur, le projet et le jeton Jira/);
+    await expect(create).toHaveAccessibleDescription(/renseignez le serveur et le jeton Jira/);
     await expectNoA11yViolations(page);
   });
 

@@ -93,10 +93,43 @@ describe('JiraIssuesPage', () => {
     expect(el.querySelector('sw-pager .position')?.textContent?.trim()).toBe('26 à 50 sur 120');
   });
 
-  it('sans projet Jira : renvoi vers la configuration, sans appel', () => {
-    TestBed.inject(ProjectsStore).current.set({ id: 'p1', effectiveJiraProjectKey: null } as Project);
+  function settings(jira: object | null): void {
+    ctrl.expectOne('/api/settings').flush({ copilot: {}, jira });
+  }
+
+  it('clé du projet, puis clé par défaut de l’application signalée', async () => {
+    TestBed.inject(ProjectsStore).current.set({ id: 'p1', name: 'Aurora', jiraProjectKey: 'FACT', effectiveJiraProjectKey: 'FACT' } as Project);
     fixture.detectChanges();
-    expect(el.textContent).toContain("Aucun projet Jira n'est associé");
+    settings({ enabled: true });
+    expectPage(0).flush(issues(0, 1, 1));
+    await settle(fixture);
+    expect(el.querySelector('.lead')?.textContent).toContain('Projet Jira FACT, du plus récemment');
+
+    // même projet Jira : la liste n'est pas relue
+    TestBed.inject(ProjectsStore).current.set({ id: 'p2', name: 'Recette', jiraProjectKey: null, effectiveJiraProjectKey: 'FACT' } as Project);
+    await settle(fixture);
+    expect(el.querySelector('.lead')?.textContent).toContain("Projet Jira FACT (clé par défaut de l'application)");
+  });
+
+  it('sans clé, Jira configuré : renvoi vers les réglages du projet, sans appel', async () => {
+    TestBed.inject(ProjectsStore).current.set({ id: 'p1', name: 'Recette', effectiveJiraProjectKey: null } as Project);
+    fixture.detectChanges();
+    settings({ enabled: true });
+    await settle(fixture);
+    expect(el.textContent).toContain("Aucun projet Jira n'est associé à Recette.");
+    const link = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Renseigner la clé Jira du projet'));
+    expect(link?.getAttribute('href')).toBe('/projet/reglages#jira');
     ctrl.expectNone((r) => r.url.startsWith('/api/jira/projects'));
+  });
+
+  it('Jira non configuré : renvoi vers la configuration', async () => {
+    TestBed.inject(ProjectsStore).current.set({ id: 'p1', name: 'Recette', effectiveJiraProjectKey: null } as Project);
+    fixture.detectChanges();
+    settings(null);
+    await settle(fixture);
+    expect(el.textContent).toContain("Jira n'est pas configuré.");
+    expect(Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Ouvrir la configuration'))?.getAttribute('href')).toBe(
+      '/configuration',
+    );
   });
 });

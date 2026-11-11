@@ -2,10 +2,21 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, viewChild } from '@
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelect, MatSelectModule } from '@angular/material/select';
 import { Router } from '@angular/router';
+import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { ProjectsStore } from '../../core/projects/projects.store';
 
 /** Valeur de l'option « Gérer les projets », qui mène à la page Projets sans changer de projet. */
 const MANAGE = '__projets__';
+
+/**
+ * Pages adressées par une ressource d'un projet : après un changement de projet, la liste de la
+ * même entrée du menu s'ouvre (012, research.md R4).
+ */
+const LIST_OF: Partial<Record<string, string>> = {
+  '/sessions/': '/sessions',
+  '/conversations/': '/',
+  '/jira/': '/jira',
+};
 
 /** Choix du projet courant, en tête du bloc « Projet » du menu (FR-005 de 002, 012). */
 @Component({
@@ -38,6 +49,7 @@ const MANAGE = '__projets__';
 export class ProjectSwitcherComponent implements OnInit {
   protected readonly store = inject(ProjectsStore);
   private readonly router = inject(Router);
+  private readonly leave = inject(LeaveGuard);
   protected readonly manage = MANAGE;
   private readonly select = viewChild(MatSelect);
 
@@ -55,6 +67,17 @@ export class ProjectSwitcherComponent implements OnInit {
       await this.router.navigateByUrl('/projets');
       return;
     }
+    if (projectId === this.store.currentId()) {
+      return;
+    }
+    // une proposition en attente, des réglages non enregistrés : la page confirme d'abord, par la
+    // garde de sa route quand on la quitte pour la liste, sinon directement
+    const list = this.listOfCurrentPage();
+    const confirmed = list ? await this.router.navigateByUrl(list) : await this.leave.confirm();
+    if (!confirmed) {
+      this.restore();
+      return;
+    }
     try {
       await this.store.select(projectId);
     } catch {
@@ -62,6 +85,13 @@ export class ProjectSwitcherComponent implements OnInit {
       await this.store.load().catch(() => undefined);
     }
     this.restore();
+  }
+
+  /** Liste à ouvrir si la page affichée appartient à l'ancien projet, sinon null. */
+  private listOfCurrentPage(): string | null {
+    const path = this.router.url.split(/[?#]/)[0];
+    const prefix = Object.keys(LIST_OF).find((p) => path.startsWith(p));
+    return prefix ? (LIST_OF[prefix] ?? null) : null;
   }
 
   /** Revient au projet courant (choix annulé, refusé ou « Gérer les projets »). */
