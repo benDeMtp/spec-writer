@@ -1,9 +1,12 @@
 package dev.specwriter.application.jira;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.specwriter.application.search.UnifiedSearch;
 import dev.specwriter.domain.consent.ConsentService;
+import dev.specwriter.domain.error.DomainException;
+import dev.specwriter.domain.error.ErrorCode;
 import dev.specwriter.domain.project.JiraProjectKey;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.project.ProjectName;
@@ -71,5 +74,24 @@ class JiraAccessTest {
                 Duration.ofMillis(300));
         search.run("salle", null);
         assertThat(w.tracker.calls).containsExactly("search FACT salle");
+    }
+
+    @Test
+    void sansCleNiCleParDefautAucunAppelAJira() {
+        // 012 (FR-016) : la clé par défaut est facultative ; un projet sans clé n'a pas de projet Jira
+        JiraWorld bare = new JiraWorld().grant(ConsentService.JIRA).configureJiraWithoutDefaultKey();
+        Session s = bare.generatedSession();
+        assertThat(bare.jira.effectiveProject(s)).isNull();
+        PreviewJiraTicket preview = new PreviewJiraTicket(bare.versions, bare.tickets, bare.markup, bare.tracker, bare.jira);
+        assertThatThrownBy(() -> preview.run(s.id(), 1, null))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.JIRA_PROJECT_MISSING));
+        CreateJiraTicket create = new CreateJiraTicket(bare.tracker, bare.jira, bare.markup, bare.versions, bare.tickets,
+                bare.clock);
+        assertThatThrownBy(() -> create.run(s.id(), 1, true, null, Map.of()))
+                .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.JIRA_PROJECT_MISSING));
+        UnifiedSearch search = new UnifiedSearch(bare.local, bare.versions, bare.tickets, bare.tracker, bare.jira,
+                bare.projects, Duration.ofMillis(300));
+        assertThat(search.run("salle", null).jiraStatus()).isEqualTo(UnifiedSearch.JiraStatus.NOT_CONFIGURED);
+        assertThat(bare.tracker.calls).isEmpty();
     }
 }

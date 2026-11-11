@@ -195,6 +195,10 @@ public class UnifiedSearch {
             return JiraOutcome.of(JiraStatus.TOKEN_REJECTED);
         }
         JiraAccess.Target t = target.get();
+        if (t.projectKey() == null) {
+            // 012 : ni clé de projet ni clé par défaut, la part Jira est omise comme sans Jira
+            return JiraOutcome.of(JiraStatus.NOT_CONFIGURED);
+        }
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         Future<JiraSearchPage> future = executor.submit(
                 () -> tracker.searchText(t.endpoint(), t.projectKey(), q, startAt, PAGE_SIZE));

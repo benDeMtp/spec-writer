@@ -5,6 +5,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { Project } from '../../core/projects/projects.model';
 import { ProjectsStore } from '../../core/projects/projects.store';
+import { Settings } from '../../core/settings/settings.model';
+import { SettingsStore } from '../../core/settings/settings.store';
 import { MainNavComponent } from './main-nav.component';
 
 @Component({ template: '' })
@@ -110,5 +112,29 @@ describe('MainNavComponent', () => {
     toggle.click();
     await go('/journal');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('donne l’état de Copilot et de Jira sous Configuration, en texte (012)', () => {
+    const settings = TestBed.inject(SettingsStore);
+    settings.settings.set({ copilot: { state: 'CONNECTED' }, jira: null } as unknown as Settings);
+    fixture.detectChanges();
+    const states = el.querySelector('ul[aria-label="État des connexions"]')!;
+    expect(Array.from(states.querySelectorAll('li')).map((li) => li.textContent?.trim())).toEqual([
+      'Copilot : connecté',
+      'Jira : non configuré',
+    ]);
+    expect(states.querySelectorAll('.dot[aria-hidden="true"]')).toHaveLength(2);
+    // le lien garde son nom
+    expect(labels(groups()[1])).toEqual(['Projets', 'Configuration', 'Journal']);
+
+    settings.settings.set({
+      copilot: { state: 'NOT_CONFIGURED' },
+      jira: { enabled: true, tokenSet: true },
+    } as unknown as Settings);
+    fixture.detectChanges();
+    expect(Array.from(states.querySelectorAll('li')).map((li) => li.textContent?.trim())).toEqual([
+      'Copilot : non connecté',
+      'Jira : configuré',
+    ]);
   });
 });

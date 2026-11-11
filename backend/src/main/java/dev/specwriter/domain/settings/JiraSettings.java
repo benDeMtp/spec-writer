@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 public record JiraSettings(
         boolean enabled,
         String serverUrl,
+        /** Clé Jira par défaut, repli des projets sans clé ; {@code null} sans repli (012). */
         String defaultProjectKey,
         String caCertificatePath,
         String serverVersion,
@@ -36,12 +37,14 @@ public record JiraSettings(
                     "Cette adresse n'est pas chiffrée (http). Votre jeton circulerait en clair : utilisez https, "
                             + "ou confirmez l'avertissement.");
         }
-        if (projectKey == null || !PROJECT_KEY.matcher(projectKey).matches()) {
+        // 012 (FR-016) : la clé par défaut est facultative ; elle sert de repli aux projets sans clé
+        String key = projectKey == null || projectKey.isBlank() ? null : projectKey.strip();
+        if (key != null && !PROJECT_KEY.matcher(key).matches()) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED,
                     "La clé de projet doit être en majuscules, par exemple PROJ ou SPEC_2.");
         }
         String ca = caCertificatePath == null || caCertificatePath.isBlank() ? null : caCertificatePath.strip();
-        return new JiraSettings(true, url, projectKey, ca, null, null, persistence, insecure);
+        return new JiraSettings(true, url, key, ca, null, null, persistence, insecure);
     }
 
     static String normalizeUrl(String raw) {

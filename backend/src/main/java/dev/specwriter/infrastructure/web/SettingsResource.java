@@ -84,7 +84,8 @@ public class SettingsResource {
         }
     }
 
-    public record TestView(String result, String serverVersion, String userMessage) {
+    /** {@code projectKey} : projet Jira vérifié, celui du projet courant ; null sans clé (012). */
+    public record TestView(String result, String serverVersion, String userMessage, String projectKey) {
     }
 
     @Inject
@@ -183,7 +184,8 @@ public class SettingsResource {
     @Path("/jira/test")
     public TestView testJira() {
         var outcome = testJira.run();
-        return new TestView(outcome.result().name(), outcome.serverVersion(), outcome.userMessage());
+        return new TestView(outcome.result().name(), outcome.serverVersion(), outcome.userMessage(),
+                outcome.projectKey());
     }
 
     private CopilotView copilotView(CopilotSettings c) {

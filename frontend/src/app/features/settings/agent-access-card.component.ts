@@ -26,7 +26,8 @@ const OPERATIONS: Record<AgentOperation, string> = {
   imports: [DatePipe, MatButtonModule, PagerComponent],
   template: `
     <section class="sheet" aria-labelledby="agents-title">
-      <h2 id="agents-title">Accès des agents</h2>
+      <h3 id="agents-title">Accès des agents</h3>
+      <p class="scope">Les agents de code accèdent à tous les projets.</p>
       @if (state(); as s) {
         <div class="status" [class.ok]="s.enabled" role="status">
           <p>
@@ -45,7 +46,7 @@ const OPERATIONS: Record<AgentOperation, string> = {
             <button mat-stroked-button type="button" [disabled]="busy()" (click)="regenerate()">Régénérer le secret</button>
           }
         </div>
-        <h3 id="mcp-json-title">Configuration à déclarer dans l'agent</h3>
+        <h4 id="mcp-json-title">Configuration à déclarer dans l'agent</h4>
         <p class="hint">
           Claude Code, Copilot ou Cursor : ajoutez cet extrait à leur configuration MCP. Il ne contient aucun secret.
         </p>
@@ -56,7 +57,7 @@ const OPERATIONS: Record<AgentOperation, string> = {
         </div>
         <p class="announce" role="status" aria-live="polite">{{ announce() }}</p>
 
-        <h3 id="agent-log-title">Journal des accès</h3>
+        <h4 id="agent-log-title">Journal des accès</h4>
         @if (log(); as l) {
           @if (l.entries.length) {
             <table aria-labelledby="agent-log-title">
@@ -104,7 +105,7 @@ const OPERATIONS: Record<AgentOperation, string> = {
       background: var(--mat-sys-surface-container);
       border-radius: var(--sw-radius-field);
     }
-    h3 {
+    h4 {
       margin: 1.25rem 0 0.5rem;
       font-size: var(--sw-step-1);
     }

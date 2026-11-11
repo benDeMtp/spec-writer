@@ -99,8 +99,21 @@ class SettingsResourceIT {
         api().body(jiraBody("PAT")).put("/api/settings/jira").then().statusCode(200);
         api().post("/api/settings/jira/test").then().statusCode(200)
                 .body("result", equalTo("OK")).body("serverVersion", equalTo("9.12.3"))
-                .body("userMessage", notNullValue());
+                .body("userMessage", notNullValue())
+                // 012 : le projet vérifié est nommé ; le projet courant sans clé prend la clé par défaut
+                .body("projectKey", equalTo("PROJ"));
         api().get("/api/settings").then().body("jira.lastTest.result", equalTo("OK"));
+    }
+
+    @Test
+    void cleParDefautFacultative() {
+        stubHealthyJira("9.12.3", true);
+        var body = jiraBody("PAT");
+        body.remove("defaultProjectKey");
+        api().body(body).put("/api/settings/jira").then().statusCode(200).body("defaultProjectKey", nullValue());
+        api().post("/api/settings/jira/test").then().statusCode(200)
+                .body("result", equalTo("OK_NO_PROJECT")).body("projectKey", nullValue())
+                .body("userMessage", containsString("réglages du projet"));
     }
 
     @Test

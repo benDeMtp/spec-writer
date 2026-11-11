@@ -4,6 +4,8 @@ package dev.specwriter.domain.error;
 public enum ErrorAction {
     RETRY,
     OPEN_SETTINGS,
+    /** Réglages du projet courant, sur la clé Jira (012). */
+    OPEN_PROJECT_SETTINGS,
     RECONNECT,
     EDIT_INPUT,
     NONE

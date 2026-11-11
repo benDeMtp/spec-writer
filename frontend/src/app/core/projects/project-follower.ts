@@ -24,6 +24,10 @@ export class ProjectFollower {
    * défaut ; une garde qui redirige donne la page de destination.
    */
   async follow(projectId: string, shownOn: string = this.router.url): Promise<void> {
+    if (!this.store.current()) {
+      // page ouverte directement : le projet courant n'est pas encore lu, il l'est avant de comparer
+      await this.store.load();
+    }
     if (projectId === this.store.currentId()) {
       return;
     }

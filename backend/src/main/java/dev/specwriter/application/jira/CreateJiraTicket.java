@@ -91,7 +91,7 @@ public class CreateJiraTicket {
         String wiki = markup.toWiki(version.markdown());
         CreatedIssue created;
         try {
-            created = tracker.createIssue(target.endpoint(), target.projectKey(), type.id(), version.content().title(), wiki,
+            created = tracker.createIssue(target.endpoint(), target.requireProject(), type.id(), version.content().title(), wiki,
                     values);
         } catch (IssueTrackerException e) {
             throw e.toDomain();

@@ -4,14 +4,18 @@ import {
   ElementRef,
   HostListener,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs';
+import { ProblemStore } from '../../core/http/problem.store';
 import { ProjectsStore } from '../../core/projects/projects.store';
+import { SettingsStore } from '../../core/settings/settings.store';
 import { ProjectSwitcherComponent } from '../projects/project-switcher.component';
 import { NavEntry, activeEntry } from './nav';
 
@@ -88,6 +92,15 @@ const APP_LINKS: Link[] = [
                 [attr.aria-current]="active() === l.entry ? 'page' : null"
                 >{{ l.label }}</a
               >
+              @if (l.entry === 'configuration' && settings.settings()) {
+                <!-- 012 : l'état des connexions, en texte ; la pastille est décorative -->
+                <ul class="states" aria-label="État des connexions">
+                  <li [class.on]="copilotOn()">
+                    <span class="dot" aria-hidden="true"></span>{{ copilotState() }}
+                  </li>
+                  <li [class.on]="jiraOn()"><span class="dot" aria-hidden="true"></span>{{ jiraState() }}</li>
+                </ul>
+              }
             </li>
           }
         </ul>
@@ -138,6 +151,27 @@ const APP_LINKS: Link[] = [
       background: color-mix(in srgb, var(--sw-pencil) 12%, transparent);
       font-weight: 650;
     }
+    .states {
+      gap: 0.125rem;
+      margin: 0.125rem 0 0.25rem 0.75rem;
+      font-size: var(--sw-step--1);
+      color: var(--sw-ink-soft);
+    }
+    .states li {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      border: 1px solid var(--sw-ink-soft);
+    }
+    .states li.on .dot {
+      border-color: var(--sw-pencil);
+      background: var(--sw-pencil);
+    }
     .key {
       font-size: var(--sw-step--1);
       font-weight: 500;
@@ -165,6 +199,8 @@ const APP_LINKS: Link[] = [
 })
 export class MainNavComponent {
   private readonly store = inject(ProjectsStore);
+  protected readonly settings = inject(SettingsStore);
+  private readonly problems = inject(ProblemStore);
   private readonly router = inject(Router);
   private readonly toggle = viewChild.required<ElementRef<HTMLButtonElement>>('toggle');
 
@@ -184,12 +220,31 @@ export class MainNavComponent {
   protected readonly jiraKey = computed(
     () => this.store.current()?.effectiveJiraProjectKey ?? null,
   );
+  protected readonly copilotOn = computed(() => this.settings.copilotConnected());
+  protected readonly jiraOn = computed(() => {
+    const j = this.settings.jira();
+    return !!j && j.enabled && j.tokenSet;
+  });
+  protected readonly copilotState = computed(
+    () => `Copilot : ${this.copilotOn() ? 'connecté' : 'non connecté'}`,
+  );
+  protected readonly jiraState = computed(
+    () => `Jira : ${this.jiraOn() ? 'configuré' : 'non configuré'}`,
+  );
   protected readonly projectGroupLabel = computed(() => {
     const name = this.store.current()?.name;
     return name ? `Projet ${name}` : 'Projet';
   });
 
   constructor() {
+    void this.settings.ensureLoaded().catch(() => undefined);
+    // une erreur Copilot ou Jira peut changer l'état des connexions : il est relu, sans scrutation
+    effect(() => {
+      const code = this.problems.current()?.code ?? '';
+      if (code.startsWith('COPILOT_') || code.startsWith('JIRA_')) {
+        untracked(() => void this.settings.load().catch(() => undefined));
+      }
+    });
     this.router.events
       .pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe(() => this.open.set(false));

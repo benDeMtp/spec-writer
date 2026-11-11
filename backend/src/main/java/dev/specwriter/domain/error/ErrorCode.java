@@ -77,6 +77,9 @@ public enum ErrorCode {
 
     // Jira
     JIRA_NOT_CONFIGURED(409, "Jira n'est pas configuré.", ErrorAction.OPEN_SETTINGS),
+    JIRA_PROJECT_MISSING(409,
+            "Aucun projet Jira n'est associé à ce projet. Renseignez sa clé Jira dans les réglages du projet.",
+            ErrorAction.OPEN_PROJECT_SETTINGS),
     JIRA_UNREACHABLE(503, "Le serveur Jira ne répond pas. Vérifiez l'adresse ou votre connexion.", ErrorAction.RETRY),
     JIRA_TOKEN_REJECTED(401, "Le jeton Jira a été refusé. Remplacez-le dans la configuration.",
             ErrorAction.OPEN_SETTINGS),

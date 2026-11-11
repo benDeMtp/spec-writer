@@ -335,7 +335,7 @@ visible dans le menu, la clé par défaut est facultative et le test porte sur l
 **Independent Test**: Copilot connecté et Jira non configuré, vérifier les pastilles. Enregistrer
 Jira sans clé par défaut, puis tester (quickstart 13, 14).
 
-- [ ] T030 [US4] Migration `BR/db/migration/V23__jira_default_key_optional.sql` (data-model.md) :
+- [X] T030 [US4] Migration `BR/db/migration/V23__jira_default_key_optional.sql` (data-model.md) :
   - reconstruire `jira_settings` à l'identique de V2, sauf `default_project_key TEXT`, nullable
     (« `TEXT NOT NULL` → `TEXT` ») ;
   - `INSERT INTO jira_settings_new SELECT * FROM jira_settings`, `DROP TABLE`, `ALTER TABLE …
@@ -343,13 +343,13 @@ Jira sans clé par défaut, puis tester (quickstart 13, 14).
 
   IT `BT/infrastructure/persistence/settings/JiraSettingsMigrationIT.java` : ligne conservée,
   `NULL` accepté.
-- [ ] T031 [P] [US4] Test puis domaine `BM/domain/settings/JiraSettings.java`
+- [X] T031 [P] [US4] Test puis domaine `BM/domain/settings/JiraSettings.java`
   (`BT/domain/settings/JiraSettingsTest.java`) :
   - `create` accepte une clé `null`, vide ou blanche, enregistrée à `null` ;
   - une clé non vide garde la règle `[A-Z][A-Z0-9_]+` et son message.
 
   `BM/infrastructure/persistence/settings/JiraSettingsEntity.java` : colonne nullable.
-- [ ] T032 [P] [US4] Test puis codes d'erreur :
+- [X] T032 [P] [US4] Test puis codes d'erreur :
   - `BM/domain/error/ErrorAction.java` gagne `OPEN_PROJECT_SETTINGS` ;
   - `BM/domain/error/ErrorCode.java` gagne `JIRA_PROJECT_MISSING(409, "Aucun projet Jira n'est
     associé à ce projet. Renseignez sa clé Jira dans les réglages du projet.",
@@ -357,7 +357,7 @@ Jira sans clé par défaut, puis tester (quickstart 13, 14).
 
   Vérifier que `ProblemMapper` sérialise l'action, et mettre à jour le test d'énumération s'il
   existe.
-- [ ] T033 [US4] Test puis `BM/application/jira/JiraAccess.java`
+- [X] T033 [US4] Test puis `BM/application/jira/JiraAccess.java`
   (`BT/application/jira/JiraAccessTest.java`) :
   - `Target.projectKey` peut être `null` ;
   - `Target.requireProject()` lève `JIRA_PROJECT_MISSING` ;
@@ -366,7 +366,7 @@ Jira sans clé par défaut, puis tester (quickstart 13, 14).
   - `BM/application/search/UnifiedSearch.java` omet la part Jira quand `projectKey` est `null`.
 
   Tests unitaires pour chacun : aucun appel à `IssueTracker` sans clé.
-- [ ] T034 [US4] Test puis `BM/application/settings/TestJiraConnection.java`
+- [X] T034 [US4] Test puis `BM/application/settings/TestJiraConnection.java`
   (`BT/application/settings/TestJiraConnectionTest.java`), research.md R8 :
   - le constructeur reçoit `ProjectRepository` (câblage dans
     `BM/infrastructure/config/UseCaseProducer.java`) ;
@@ -376,35 +376,35 @@ Jira sans clé par défaut, puis tester (quickstart 13, 14).
     le message de data-model.md.
 
   Tests : clé du projet, clé par défaut, aucune clé, projet introuvable sur la clé du projet.
-- [ ] T035 [US4] Web `BM/infrastructure/web/SettingsResource.java` :
+- [X] T035 [US4] Web `BM/infrastructure/web/SettingsResource.java` :
   - `TestView` gagne `projectKey` ;
   - `JiraRequest.defaultProjectKey` est facultatif.
 
   IT `BT/infrastructure/web/SettingsResourceIT.java` : enregistrement sans clé, test sur la clé du
   projet courant (WireMock). IT de création de ticket sans clé effective : `409
   JIRA_PROJECT_MISSING`, action `OPEN_PROJECT_SETTINGS`. Les lancer sous Maven, car WireMock
-  échoue en dev mode. Mettre à jour `specs/002-projets-contexte-mcp/contracts/openapi.yaml`
+  échoue en dev mode. Mettre à jour `specs/001-local-spec-assistant/contracts/openapi.yaml` (où sont décrits les réglages Jira)
   (contracts/api.md).
-- [ ] T036 [US4] Carte Jira `FA/features/settings/jira-card.component.ts` (`.spec.ts`) :
+- [X] T036 [US4] Carte Jira `FA/features/settings/jira-card.component.ts` (`.spec.ts`) :
   - libellé « Clé Jira par défaut (facultatif) », avec l'aide « Utilisée pour les projets sans clé
     Jira » ;
   - validation front : vide accepté ;
   - après un test, le résultat « Projet Jira vérifié : <clé> », ou le message `OK_NO_PROJECT` ;
   - `FA/core/settings/settings.model.ts` : `defaultProjectKey: string | null`, `projectKey` dans le
     résultat du test.
-- [ ] T037 [US4] Page `FA/features/settings/settings.page.ts` (`.spec.ts`), research.md R10 :
+- [X] T037 [US4] Page `FA/features/settings/settings.page.ts` (`.spec.ts`), research.md R10 :
   - section `h2` « Connexions » (Copilot, Jira), puis `h2` « Avancé » (modèle de recherche, accès
     des agents) ;
   - phrases de portée sous le titre de `embedding-card.component.ts` et de
     `agent-access-card.component.ts`, mot pour mot comme dans contracts/ui.md.
-- [ ] T038 [US4] Pastilles d'état dans `FA/features/shell/main-nav.component.ts` (`.spec.ts`),
+- [X] T038 [US4] Pastilles d'état dans `FA/features/shell/main-nav.component.ts` (`.spec.ts`),
   research.md R9 :
   - le shell charge `SettingsStore` au démarrage (`load()` avec erreur ignorée) ;
   - sous Configuration : « Copilot : connecté » ou « Copilot : non connecté », et « Jira :
     configuré » ou « Jira : non configuré » (`enabled` et jeton présent) ;
   - pastille colorée en `aria-hidden="true"`, contraste AA du texte ;
   - relecture du store quand `ProblemStore` reçoit un code `COPILOT_*` ou `JIRA_*`.
-- [ ] T039 [US4] E2E `e2e/tests/us15-navigation.spec.ts`, scénarios 13 et 14 du quickstart, avec axe
+- [X] T039 [US4] E2E `e2e/tests/us15-navigation.spec.ts`, scénarios 13 et 14 du quickstart, avec axe
   sur la configuration. Mettre à jour :
   - `e2e/tests/us1-settings.spec.ts` (sections, clé facultative) ;
   - `e2e/tests/us5-create-ticket.spec.ts`, `e2e/tests/us6-search-edit.spec.ts`,

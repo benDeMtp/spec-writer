@@ -245,4 +245,47 @@ test.describe.serial('012 navigation par projet', () => {
     await expect(switcher()).toContainText('Aurora E2E');
     await review.getByRole('button', { name: 'Abandonner' }).click();
   });
+
+  test('N13 : la configuration sépare les connexions des réglages avancés, et le test vise le projet courant', async () => {
+    await makeCurrent(aurora);
+    await page.request.put('/api/consents/JIRA', { headers, data: { granted: true } });
+    // 012 : la clé par défaut est facultative
+    const saved = await page.request.put('/api/settings/jira', {
+      headers,
+      data: { serverUrl: jiraURL, acceptInsecureHttp: true, token: 'e2e-good-token' },
+    });
+    expect(saved.status()).toBe(200);
+    await page.goto('/configuration');
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Connexions', 'Avancé']);
+    await expect(page.getByText("S'applique à tous les projets. Changer de modèle demande de réindexer chaque projet.")).toBeVisible();
+    await expect(page.getByText('Les agents de code accèdent à tous les projets.')).toBeVisible();
+    const states = menu().getByRole('list', { name: 'État des connexions' });
+    await expect(states.getByRole('listitem')).toHaveText(['Copilot : connecté', 'Jira : configuré']);
+    await expect(page.getByLabel('Clé Jira par défaut (facultatif)')).toHaveValue('');
+
+    await page.getByRole('button', { name: 'Tester la connexion' }).click();
+    await expect(page.getByText('Projet Jira vérifié : FACT, celui du projet courant.')).toBeVisible();
+    await expectNoA11yViolations(page);
+  });
+
+  test('N14 : un projet sans clé mène à ses réglages ; la clé par défaut sert de repli', async () => {
+    await makeCurrent(recette);
+    await page.goto('/jira');
+    await expect(page.getByText("Aucun projet Jira n'est associé à Recette E2E.")).toBeVisible();
+    await page.getByRole('link', { name: 'Renseigner la clé Jira du projet' }).click();
+    await expect(page).toHaveURL(/\/projet\/reglages#jira$/);
+    await expect(page.getByLabel('Clé Jira (facultative)')).toBeFocused();
+
+    await page.request.put('/api/settings/jira', {
+      headers,
+      data: { serverUrl: jiraURL, defaultProjectKey: 'PROJ', acceptInsecureHttp: true },
+    });
+    await page.goto('/jira');
+    await expect(page.locator('.lead')).toContainText("Projet Jira PROJ (clé par défaut de l'application)");
+    await expect(menu().getByRole('link', { name: /^Tickets Jira/ })).toHaveText('Tickets Jira, projet PROJ');
+
+    await page.request.delete('/api/settings/jira', { headers });
+    await page.request.put('/api/consents/JIRA', { headers, data: { granted: false } });
+    await makeCurrent(aurora);
+  });
 });

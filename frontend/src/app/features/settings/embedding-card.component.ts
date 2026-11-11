@@ -25,7 +25,8 @@ const STATES: Record<ModelState, string> = {
   imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   template: `
     <section class="sheet" aria-labelledby="embedding-title">
-      <h2 id="embedding-title">Modèle de recherche</h2>
+      <h3 id="embedding-title">Modèle de recherche</h3>
+      <p class="scope">S'applique à tous les projets. Changer de modèle demande de réindexer chaque projet.</p>
       @if (current(); as c) {
         <div class="status" [class.ok]="c.state === 'READY'" [class.warn]="c.state === 'ERROR' || c.state === 'TERMS_ONLY'" role="status">
           <p>{{ c.defaultModel ? 'Modèle par défaut (multilingual-e5-small).' : 'Modèle du dossier ' + c.folder + '.' }}</p>

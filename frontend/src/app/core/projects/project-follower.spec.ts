@@ -20,6 +20,8 @@ const project = (id: string, name: string): Project => ({
 describe('ProjectFollower', () => {
   let follower: ProjectFollower;
   let store: {
+    current: () => Project | null;
+    load: ReturnType<typeof vi.fn>;
     currentId: () => string | null;
     projects: () => Project[];
     select: ReturnType<typeof vi.fn>;
@@ -27,8 +29,12 @@ describe('ProjectFollower', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    let current = 'a';
+    let current: string | null = 'a';
     store = {
+      current: () => (current ? project(current, current) : null),
+      load: vi.fn(async () => {
+        current = 'a';
+      }),
       currentId: () => current,
       projects: () => [project('a', 'Aurora'), project('b', 'Recette')],
       select: vi.fn(async (id: string) => {
@@ -73,5 +79,12 @@ describe('ProjectFollower', () => {
     expect(follower.notice()).toBe('Projet courant : Recette');
     follower.leftFor('/sessions');
     expect(follower.notice()).toBeNull();
+  });
+
+  it('lit le projet courant avant de comparer, quand la page est ouverte directement', async () => {
+    store.load.mockImplementationOnce(async () => undefined);
+    (store as { current: () => Project | null }).current = () => null;
+    await follower.follow('b');
+    expect(store.load).toHaveBeenCalled();
   });
 });

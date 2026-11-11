@@ -228,8 +228,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     TestJiraConnection testJiraConnection(IssueTracker tracker, SettingsRepository settings, SecretStore secrets,
-            ConsentPolicy consent, ClockPort clock) {
-        return new TestJiraConnection(tracker, settings, secrets, consent, clock);
+            ConsentPolicy consent, ProjectRepository projects, ClockPort clock) {
+        return new TestJiraConnection(tracker, settings, secrets, consent, projects, clock);
     }
 
     @Produces
