@@ -4,31 +4,32 @@ import { filter } from 'rxjs';
 import { LaunchTokenService } from './core/launch/launch-token.service';
 import { MainNavComponent } from './features/shell/main-nav.component';
 import { ProjectNoticeComponent } from './features/shell/project-notice.component';
+import { SessionLostComponent } from './features/shell/session-lost.component';
 import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 
 /** Shell : lien d'évitement, navigation, zone principale et bandeau d'erreur (T037, FR-029). */
 @Component({
   selector: 'sw-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, ProblemBannerComponent, MainNavComponent, ProjectNoticeComponent],
+  imports: [RouterOutlet, RouterLink, ProblemBannerComponent, MainNavComponent, ProjectNoticeComponent, SessionLostComponent],
   template: `
-    <a class="skip" href="#contenu" (click)="focusMain($event)">Aller au contenu</a>
-    <div class="layout">
-      <header class="rail">
-        <a class="brand" routerLink="/">spec-writer</a>
-        <sw-main-nav />
-      </header>
-      <main id="contenu" #main tabindex="-1">
-        @if (launch.state() === 'rejected') {
-          <p class="session-lost" role="alert">
-            Cette fenêtre n'est plus reliée à spec-writer. Relancez l'application depuis son raccourci pour reprendre.
-          </p>
-        }
-        <sw-problem-banner />
-        <sw-project-notice />
-        <router-outlet />
-      </main>
-    </div>
+    @if (launch.state() === 'rejected') {
+      <!-- 012 : seule la consigne de relance, sans menu ni pages vides -->
+      <sw-session-lost />
+    } @else {
+      <a class="skip" href="#contenu" (click)="focusMain($event)">Aller au contenu</a>
+      <div class="layout">
+        <header class="rail">
+          <a class="brand" routerLink="/">spec-writer</a>
+          <sw-main-nav />
+        </header>
+        <main id="contenu" #main tabindex="-1">
+          <sw-problem-banner />
+          <sw-project-notice />
+          <router-outlet />
+        </main>
+      </div>
+    }
   `,
   styles: `
     :host {
@@ -70,13 +71,6 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
       padding: clamp(1.5rem, 4vw, 3rem);
       outline: none;
     }
-    .session-lost {
-      margin: 0 0 1.5rem;
-      padding: 0.75rem 1rem;
-      border-left: 4px solid var(--sw-outcome);
-      background: var(--sw-sheet);
-      border-radius: var(--sw-radius-field);
-    }
     @media (max-width: 48rem) {
       .layout {
         grid-template-columns: 1fr;
@@ -94,7 +88,7 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 })
 export class App {
   protected readonly launch = inject(LaunchTokenService);
-  private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
+  private readonly main = viewChild<ElementRef<HTMLElement>>('main');
 
   constructor() {
     // Gestion du focus : après chaque navigation, le focus va au contenu principal.
@@ -102,13 +96,13 @@ export class App {
       .events.pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe((e) => {
         if ((e as NavigationEnd).id > 1) {
-          queueMicrotask(() => this.main().nativeElement.focus());
+          queueMicrotask(() => this.main()?.nativeElement.focus());
         }
       });
   }
 
   protected focusMain(event: Event): void {
     event.preventDefault();
-    this.main().nativeElement.focus();
+    this.main()?.nativeElement.focus();
   }
 }

@@ -3,6 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
+import { LaunchTokenService } from './core/launch/launch-token.service';
 import { routes } from './app.routes';
 
 describe('App (shell)', () => {
@@ -31,5 +32,17 @@ describe('App (shell)', () => {
       'Journal',
     ]);
     expect(el.querySelector('main#contenu')).toBeTruthy();
+  });
+
+  it('session perdue : seul l’écran de relance, sans menu (012)', () => {
+    TestBed.inject(LaunchTokenService).state.set('rejected');
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('h1')?.textContent).toBe('Relancez spec-writer depuis son raccourci');
+    expect(el.textContent).toContain('Vos données sont conservées.');
+    expect(el.querySelector('nav')).toBeNull();
+    expect(el.querySelector('sw-problem-banner')).toBeNull();
+    expect(el.querySelectorAll('main')).toHaveLength(1);
   });
 });

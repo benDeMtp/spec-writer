@@ -289,3 +289,18 @@ test.describe.serial('012 navigation par projet', () => {
     await makeCurrent(aurora);
   });
 });
+
+test('N15 : une fenêtre sans session affiche seulement l’écran de relance', async ({ browser }) => {
+  // sans cookie : la configuration fournit sinon l'état de session des autres tests
+  const bare = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
+  const page = await bare.newPage();
+  try {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Relancez spec-writer depuis son raccourci');
+    await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toHaveCount(0);
+    await expect(page.getByText('Aucune conversation')).toHaveCount(0);
+    await expectNoA11yViolations(page);
+  } finally {
+    await bare.close();
+  }
+});

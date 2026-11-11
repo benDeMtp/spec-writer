@@ -65,7 +65,8 @@ public class LocalSecurityFilter implements ContainerRequestFilter {
         }
         Cookie cookie = ctx.getCookies().get(COOKIE);
         if (cookie == null || !tokens.isValidSession(cookie.getValue())) {
-            deny(ctx, ErrorCode.FORBIDDEN);
+            // distinct des refus d'hôte et d'origine : seule une session perdue mène à l'écran de relance
+            deny(ctx, ErrorCode.SESSION_REQUIRED);
         }
     }
 

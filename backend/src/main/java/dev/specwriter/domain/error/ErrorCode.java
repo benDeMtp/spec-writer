@@ -7,6 +7,9 @@ package dev.specwriter.domain.error;
 public enum ErrorCode {
     // Sécurité locale
     FORBIDDEN(403, "Accès refusé. Rouvrez l'application depuis son lanceur.", ErrorAction.NONE),
+    /** 012 (FR-018) : cookie absent ou périmé, ou jeton de lancement refusé ; le front affiche son écran. */
+    SESSION_REQUIRED(403, "Cette fenêtre n'est plus reliée à spec-writer. Relancez-la depuis son raccourci.",
+            ErrorAction.NONE),
     AGENT_ACCESS_DENIED(401, "Accès des agents refusé : activez-le dans la configuration, ou relancez la passerelle.",
             ErrorAction.NONE),
     PAYLOAD_TOO_LARGE(413, "Le contenu envoyé est trop volumineux. Un document joint fait 20 Mo au plus.",

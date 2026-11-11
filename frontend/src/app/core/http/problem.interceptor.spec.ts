@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { ProblemBannerComponent } from '../../shared/ui/problem-banner.component';
+import { LaunchTokenService } from '../launch/launch-token.service';
 import { problemInterceptor } from './problem.interceptor';
 import { ProblemStore } from './problem.store';
 
@@ -66,6 +67,17 @@ describe('problemInterceptor et bandeau', () => {
     http.get('/api/y').subscribe({ error: () => undefined });
     ctrl.expectOne('/api/y').error(new ProgressEvent('error'), { status: 0 });
     expect(store.current()?.action).toBe('RETRY');
+  });
+
+  it('une session perdue mène à l’écran de relance, sans bandeau, même en silence (012)', () => {
+    const launch = TestBed.inject(LaunchTokenService);
+    http.get('/api/x', { headers: { 'X-Sw-Silent': '1' } }).subscribe({ error: () => undefined });
+    ctrl.expectOne('/api/x').flush(
+      { code: 'SESSION_REQUIRED', userMessage: "Cette fenêtre n'est plus reliée à spec-writer.", action: 'NONE' },
+      { status: 403, statusText: 'x' },
+    );
+    expect(launch.state()).toBe('rejected');
+    expect(store.current()).toBeNull();
   });
 
   it('respecte les requêtes silencieuses', () => {
