@@ -70,9 +70,10 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     const status = section.getByRole('status');
     await expect(status).toContainText('14 modules détectés');
     await expect(status).toContainText('2 fichiers sensibles écartés');
-    await expect(status).toContainText('demo-front');
-    await expect(status).toContainText('facturation-chart');
-    await expect(status).not.toContainText('lien-externe');
+    const modules = section.getByRole('list', { name: 'Modules détectés' });
+    await expect(modules).toContainText('demo-front');
+    await expect(modules).toContainText('facturation-chart');
+    await expect(modules).not.toContainText('lien-externe');
     await expectNoA11yViolations(page);
   });
 
@@ -81,7 +82,7 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     await section.getByLabel("Motifs d'exclusion (facultatif)").fill('legacy/**');
     await section.getByRole('button', { name: 'Détecter les modules' }).click();
     await expect(section.getByRole('status')).toContainText('13 modules détectés');
-    await expect(section.getByRole('status')).not.toContainText('ancien');
+    await expect(section.getByRole('list', { name: 'Modules détectés' })).not.toContainText('ancien');
     await section.getByRole('button', { name: 'Ajouter la racine' }).click();
     await expect(section.getByRole('listitem').filter({ hasText: 'Exclus : legacy/**' })).toContainText('demo-rv');
   });

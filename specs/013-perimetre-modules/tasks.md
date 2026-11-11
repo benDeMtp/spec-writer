@@ -672,7 +672,7 @@ modules à vérifier sont repris en hypothèses.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T049 [P] Écrire le test de performance `BT/infrastructure/sources/LocalSourceTreePerfTest.java`
+- [X] T049 [P] Écrire le test de performance `BT/infrastructure/sources/LocalSourceTreePerfTest.java`
   (`@Tag("perf")`, exclu par défaut dans `pom.xml` comme `eval`). Il génère 60 modules et
   20 000 fichiers dans `@TempDir`, cherche 5 termes et vérifie une durée inférieure à 30 s
   (SC-003). Le lancer une fois et noter la durée dans research.md R2.
@@ -681,10 +681,10 @@ modules à vérifier sont repris en hypothèses.
     exclusions, fichiers jamais lus, ce qui est envoyé à Copilot, propriété
     `spec-writer.module` dans Structurizr) ;
   - `specs/002-projets-contexte-mcp/contracts/openapi.yaml` : routes `source-roots`.
-- [ ] T051 Revue d'ergonomie et d'accessibilité dans
+- [X] T051 Revue d'ergonomie et d'accessibilité dans
   `specs/013-perimetre-modules/checklists/ux-review.md` (skill web-design-guidelines sur
   `source-roots.component.ts` et `perimeter-step.component.ts`). Corriger les écarts bloquants.
-- [ ] T052 Gates complètes, avec le dev mode arrêté :
+- [X] T052 Gates complètes, avec le dev mode arrêté :
   1. `rm -f backend/target/jacoco.exec` ;
   2. `./mvnw -B verify -DskipDependencyCheck` (JaCoCo ≥ 80 % sur le cœur, ArchUnit, SpotBugs,
      PMD, front) ;

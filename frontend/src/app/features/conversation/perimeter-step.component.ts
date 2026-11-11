@@ -56,7 +56,7 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
           <a routerLink="/projet/reglages" fragment="sources-code">Déclarer les sources du code</a>
         </p>
       } @else {
-        <p>Termes : {{ a.terms.join(', ') }}</p>
+        <p>Termes : <span translate="no">{{ a.terms.join(', ') }}</span></p>
         @if (a.rejectedTerms.length) {
           <p class="hint">
             Termes retirés :
@@ -107,11 +107,11 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
                   @for (row of g.modules; track row.module.id) {
                     <tr [id]="anchor(row.position)" tabindex="-1">
                       <td>
-                        <span class="name">{{ row.module.name }}</span>
+                        <span class="name" translate="no">{{ row.module.name }}</span>
                         @if (row.module.isNew) {
                           <span class="badge">Nouveau</span>
                         }
-                        <span class="path">
+                        <span class="path" translate="no">
                           {{ row.module.rootLabel }}{{ row.module.path ? '/' + row.module.path : '' }} ·
                           {{ kind(row.module) }}
                         </span>
@@ -145,8 +145,8 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
                             <ul>
                               @for (o of row.module.samples; track $index) {
                                 <li>
-                                  <span class="where">{{ o.path }}:{{ o.line }}</span>
-                                  <code>{{ o.excerpt }}</code>
+                                  <span class="where" translate="no">{{ o.path }}:{{ o.line }}</span>
+                                  <code translate="no">{{ o.excerpt }}</code>
                                 </li>
                               }
                             </ul>
@@ -189,8 +189,10 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
     .perimeter {
       margin: 0 0 1rem;
       padding: 0.5rem 0.75rem;
-      border-left: 3px solid var(--sw-accent, #3f51b5);
-      background: var(--sw-surface-alt, #f6f6f8);
+      border: 1px solid var(--sw-rule);
+      border-left: 3px solid var(--sw-pencil);
+      border-radius: var(--sw-radius-field);
+      background: var(--sw-sheet);
     }
     .perimeter > summary {
       cursor: pointer;
@@ -209,20 +211,26 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
       text-align: left;
       vertical-align: top;
       padding: 0.25rem 0.5rem 0.25rem 0;
-      border-bottom: 1px solid var(--sw-border, #d0d0d6);
+      border-bottom: 1px solid var(--sw-rule);
     }
     tr:focus {
-      outline: 2px solid var(--sw-accent, #3f51b5);
+      outline: 2px solid var(--sw-pencil);
+      outline-offset: 2px;
     }
     .name {
       font-weight: 600;
+      overflow-wrap: anywhere;
     }
     .path,
     .hint,
     .where {
       display: block;
-      color: var(--sw-muted, #555);
+      color: var(--sw-ink-soft);
       font-size: 0.875rem;
+    }
+    .path,
+    .where {
+      overflow-wrap: anywhere;
     }
     .badge {
       margin-left: 0.5rem;

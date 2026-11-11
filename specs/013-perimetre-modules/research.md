@@ -104,6 +104,11 @@ de taille moyenne (environ 200 Mo) prend quelques secondes en lecture parallèle
 - **Index de recherche** (FTS5) sur le code : il vieillit à chaque commit, et la spec l'exclut.
 - **Aho-Corasick** : inutile pour 10 termes au plus. `indexOf` suffit.
 
+**Mesure (T049, 2026-11-11)** : `LocalSourceTreePerfTest` (`-Pperf`) génère 60 modules et
+20 060 fichiers dans un dossier temporaire, puis cherche 5 termes : 868 ms sur le poste du
+mainteneur (Mac, SSD, fichiers déjà dans le cache du système). Le critère SC-003 (moins de 30 s)
+laisse de la marge pour un premier parcours à froid ou un disque réseau.
+
 ## R3. Exclusions : gestionnaire de versions, fichiers générés, fichiers sensibles
 
 **Décision** : trois filtres, appliqués dans cet ordre.

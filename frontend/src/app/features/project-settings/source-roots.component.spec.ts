@@ -88,8 +88,11 @@ describe('SourceRootsComponent', () => {
     expect(status.textContent).toContain(
       '2 modules détectés · 3210 fichiers retenus · 120 exclus par vos motifs · 410 ignorés par .gitignore · 2 fichiers sensibles écartés',
     );
-    expect(status.textContent?.replace(/\s+/g, ' ')).toContain('demo-front front · npm');
-    expect(status.textContent).toContain('(racine) · Maven');
+    // la liste des modules reste hors de la région annoncée : le lecteur d'écran ne lit que le bilan
+    expect(status.textContent).not.toContain('demo-front');
+    const modules = el.querySelector('ul[aria-label="Modules détectés"]')!;
+    expect(modules.textContent?.replace(/\s+/g, ' ')).toContain('demo-front front · npm');
+    expect(modules.textContent).toContain('(racine) · Maven');
 
     button(el, 'Ajouter la racine')!.click();
     ctrl.expectOne({ method: 'POST', url: '/api/projects/p1/source-roots' }).flush(RV);

@@ -32,8 +32,8 @@ const KINDS: Record<string, string> = { MAVEN: 'Maven', NPM: 'npm', HELM: 'Helm'
       <ul class="roots">
         @for (r of roots(); track r.id) {
           <li>
-            <span class="location">{{ r.label }}</span>
-            <span class="meta">{{ r.location }}</span>
+            <span class="location" translate="no">{{ r.label }}</span>
+            <span class="meta path" translate="no">{{ r.location }}</span>
             @if (r.state !== 'OK') {
               <span class="state">{{ r.state === 'MISSING' ? 'Introuvable' : 'Illisible' }}</span>
             }
@@ -96,8 +96,8 @@ const KINDS: Record<string, string> = { MAVEN: 'Maven', NPM: 'npm', HELM: 'Helm'
         <button mat-stroked-button type="submit" [disabled]="!location().trim() || busy()">Ajouter la racine</button>
       </form>
       @if (preview(); as pv) {
-        <div class="preview" role="status">
-          <p>{{ previewLabel(pv) }}</p>
+        <div class="preview">
+          <p role="status">{{ previewLabel(pv) }}</p>
           @if (pv.modules.length) {
             <ul class="modules" tabindex="0" aria-label="Modules détectés">
               @for (m of pv.modules; track m.path) {
@@ -153,6 +153,9 @@ const KINDS: Record<string, string> = { MAVEN: 'Maven', NPM: 'npm', HELM: 'Helm'
     .name {
       overflow-wrap: anywhere;
       font-weight: 600;
+    }
+    .path {
+      overflow-wrap: anywhere;
     }
     .state {
       font-weight: 600;

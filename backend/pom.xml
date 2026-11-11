@@ -40,7 +40,7 @@
     <jreleaser.version>1.16.0</jreleaser.version>
 
     <!-- Les tests taggés spike, eval et reference sont exclus du build par défaut -->
-    <surefire.excludedGroups>spike,eval,reference</surefire.excludedGroups>
+    <surefire.excludedGroups>spike,eval,reference,perf</surefire.excludedGroups>
     <surefire.groups></surefire.groups>
   </properties>
 
@@ -506,9 +506,19 @@
     <profile>
       <id>eval</id>
       <properties>
-        <surefire.excludedGroups>spike,reference</surefire.excludedGroups>
+        <surefire.excludedGroups>spike,reference,perf</surefire.excludedGroups>
         <surefire.groups>eval</surefire.groups>
         <!-- la couverture ne porte pas sur la suite d'évaluation seule -->
+        <jacoco.skip>true</jacoco.skip>
+      </properties>
+    </profile>
+
+    <!-- Performance de l'analyse de périmètre (013, SC-003) : ./mvnw -pl backend test -Pperf -->
+    <profile>
+      <id>perf</id>
+      <properties>
+        <surefire.excludedGroups>spike,eval,reference</surefire.excludedGroups>
+        <surefire.groups>perf</surefire.groups>
         <jacoco.skip>true</jacoco.skip>
       </properties>
     </profile>
@@ -517,7 +527,7 @@
     <profile>
       <id>spike</id>
       <properties>
-        <surefire.excludedGroups>eval,reference</surefire.excludedGroups>
+        <surefire.excludedGroups>eval,reference,perf</surefire.excludedGroups>
         <surefire.groups>spike</surefire.groups>
       </properties>
     </profile>
@@ -529,7 +539,7 @@
     <profile>
       <id>reference</id>
       <properties>
-        <surefire.excludedGroups>spike,eval</surefire.excludedGroups>
+        <surefire.excludedGroups>spike,eval,perf</surefire.excludedGroups>
         <surefire.groups>reference</surefire.groups>
         <jacoco.skip>true</jacoco.skip>
       </properties>
