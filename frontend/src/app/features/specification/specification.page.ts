@@ -593,8 +593,7 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
       display: flex;
       flex-wrap: wrap;
       gap: 0.25rem;
-      margin-left: auto;
-      padding-left: 0.75rem;
+      padding-left: 0.5rem;
       border-left: 1px solid var(--sw-rule);
       --mat-button-text-label-text-color: var(--mat-sys-error, #b3261e);
     }
@@ -635,8 +634,9 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     .splitter:focus-visible .grip {
       background: var(--sw-pencil);
     }
+    /* discussion ouverte : la feuille garde sa largeur de lecture, au lieu de s'étirer */
     .workspace.discussing .layout {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: minmax(0, calc(var(--sw-measure) + 10rem));
     }
     .discussion-column {
       position: sticky;
@@ -700,8 +700,6 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     .document dd {
       font-family: var(--sw-font-doc);
       line-height: 1.65;
-      /* lignes de 72 caractères au plus, même quand la feuille s'élargit (discussion ouverte) */
-      max-width: var(--sw-measure);
     }
     /* champs simples : leurs retours à la ligne sont conservés (FR-012c) */
     .document > section > ul > li,
@@ -710,7 +708,6 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     }
     .rich {
       display: block;
-      max-width: var(--sw-measure);
       font-family: var(--sw-font-doc);
       line-height: 1.65;
     }
