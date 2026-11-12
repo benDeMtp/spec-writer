@@ -28,7 +28,7 @@ env -u JAVA_TOOL_OPTIONS npm --prefix e2e test -- us16-perimetre
 | # | Action | Résultat attendu | Exigences |
 |---|---|---|---|
 | 1 | Réglages du projet → Sources du code. Saisir le chemin complet de `…/demo-rv` dans « Chemin du dossier », puis « Détecter les modules ». | « 14 modules détectés ». Liste des modules. 2 fichiers sensibles écartés, fichiers ignorés par `.gitignore` comptés. Le texte d'information est visible. | US1-1, FR-004, FR-006, FR-026 |
-| 2 | Ajouter le motif `legacy/**`, puis « Détecter les modules ». | Le module `legacy/ancien` disparaît de l'aperçu. | US1-2, FR-002 |
+| 2 | Ajouter le motif `legacy/**`, puis « Détecter les modules ». Ajouter la racine, puis « Détecter les modules » sur sa ligne. | Le module `legacy/ancien` disparaît de l’aperçu, y compris dans celui de la racine déclarée. | US1-2, FR-002 |
 | 3 | Ajouter un chemin inexistant, puis un sous-dossier de `demo-rv`. | Refus, avec la raison sous le champ (chemin absent, racine imbriquée). | US1-4 |
 | 4 | Conversation : « Quels modules touche l'ajout d'un statut SUSPENDU au contrat ? » | Étape « Analyse du périmètre » ouverte. Termes `ContractStatus`, `CONTRACT_STATUS`, `contract.status`. Modules trouvés : common-contract, quarkus-contract, facturation, front, charts/facturation, avec `fichier:ligne`. La réponse cite les modules `[n]`. | US2-1, FR-009 à FR-012 |
 | 5 | Lire l'étape. | `relance` « à vérifier », avec la chaîne la plus courte depuis un module trouvé : facturation → relance (facturation contient le terme). Le pom agrégateur « agrège common-contract ». | US3-1, FR-018 |

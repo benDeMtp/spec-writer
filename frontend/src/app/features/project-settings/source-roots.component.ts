@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,7 +22,7 @@ const KINDS: Record<string, string> = { MAVEN: 'Maven', NPM: 'npm', HELM: 'Helm'
 @Component({
   selector: 'sw-source-roots',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, NgTemplateOutlet],
   template: `
     <p class="hint" id="sources-code-info">
       Lors d'une analyse de périmètre, spec-writer envoie à GitHub Copilot les noms des modules et de courts extraits des
@@ -38,6 +39,16 @@ const KINDS: Record<string, string> = { MAVEN: 'Maven', NPM: 'npm', HELM: 'Helm'
               <span class="state">{{ r.state === 'MISSING' ? 'Introuvable' : 'Illisible' }}</span>
             }
             <span class="meta">{{ r.exclusions.length ? 'Exclus : ' + r.exclusions.join(', ') : "Aucun motif d'exclusion" }}</span>
+            <button
+              mat-button
+              type="button"
+              (click)="toggleRootPreview(r)"
+              [disabled]="busy()"
+              [attr.aria-expanded]="rootPreview()?.id === r.id"
+              [attr.aria-label]="'Détecter les modules de la racine ' + r.label"
+            >
+              Détecter les modules
+            </button>
             <button mat-button type="button" (click)="edit(r)" [attr.aria-label]="'Modifier les motifs de la racine ' + r.label">Motifs</button>
             <button mat-button type="button" (click)="remove(r)" [attr.aria-label]="'Supprimer la racine ' + r.label">Supprimer</button>
             @if (editing() === r.id) {
@@ -55,6 +66,11 @@ const KINDS: Record<string, string> = { MAVEN: 'Maven', NPM: 'npm', HELM: 'Helm'
                 <button mat-stroked-button type="submit" [disabled]="busy()">Enregistrer les exclusions</button>
                 <button mat-button type="button" (click)="editing.set(null)">Annuler</button>
               </form>
+            }
+            @if (rootPreview(); as rp) {
+              @if (rp.id === r.id) {
+                <ng-container *ngTemplateOutlet="previewTpl; context: { $implicit: rp.preview, label: r.label }" />
+              }
             }
           </li>
         }
@@ -96,22 +112,25 @@ const KINDS: Record<string, string> = { MAVEN: 'Maven', NPM: 'npm', HELM: 'Helm'
         <button mat-stroked-button type="submit" [disabled]="!location().trim() || busy()">Ajouter la racine</button>
       </form>
       @if (preview(); as pv) {
-        <div class="preview">
-          <p role="status">{{ previewLabel(pv) }}</p>
-          @if (pv.modules.length) {
-            <ul class="modules" tabindex="0" aria-label="Modules détectés">
-              @for (m of pv.modules; track m.path) {
-                <li>
-                  <span class="name">{{ m.name }}</span><span class="meta"> {{ m.path || '(racine)' }} · {{ kindLabel(m.kind) }}</span>
-                </li>
-              }
-            </ul>
-          }
-        </div>
+        <ng-container *ngTemplateOutlet="previewTpl; context: { $implicit: pv, label: null }" />
       }
     } @else {
       <p class="hint">Un projet a au plus 10 racines de sources.</p>
     }
+    <ng-template #previewTpl let-pv let-label="label">
+      <div class="preview">
+        <p role="status">{{ previewLabel(pv) }}</p>
+        @if (pv.modules.length) {
+          <ul class="modules" tabindex="0" [attr.aria-label]="label ? 'Modules détectés de la racine ' + label : 'Modules détectés'">
+            @for (m of pv.modules; track m.path) {
+              <li>
+                <span class="name">{{ m.name }}</span><span class="meta"> {{ m.path || '(racine)' }} · {{ kindLabel(m.kind) }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </ng-template>
   `,
   styles: `
     .meta,
@@ -130,6 +149,9 @@ const KINDS: Record<string, string> = { MAVEN: 'Maven', NPM: 'npm', HELM: 'Helm'
     }
     .full,
     .motifs {
+      flex: 1 1 100%;
+    }
+    .roots .preview {
       flex: 1 1 100%;
     }
     .roots,
@@ -186,6 +208,8 @@ export class SourceRootsComponent {
   protected readonly editing = signal<string | null>(null);
   protected readonly editedExclusions = signal('');
   protected readonly busy = signal(false);
+  /** Aperçu d'une racine déjà déclarée, lu avec son chemin et ses motifs enregistrés. */
+  protected readonly rootPreview = signal<{ id: string; preview: SourceRootPreview } | null>(null);
 
   /** Saisie non enregistrée, perdue en quittant la page. */
   dirty(): boolean {
@@ -231,6 +255,16 @@ export class SourceRootsComponent {
     });
   }
 
+  protected async toggleRootPreview(r: SourceRoot): Promise<void> {
+    if (this.rootPreview()?.id === r.id) {
+      this.rootPreview.set(null);
+      return;
+    }
+    await this.run(async () => {
+      this.rootPreview.set({ id: r.id, preview: await this.api.preview(this.projectId(), r.location, r.exclusions) });
+    });
+  }
+
   protected async add(): Promise<void> {
     const location = this.location().trim();
     if (!location) {
@@ -255,6 +289,9 @@ export class SourceRootsComponent {
     await this.run(async () => {
       await this.api.setExclusions(this.projectId(), r.id, lines(this.editedExclusions()));
       this.editing.set(null);
+      if (this.rootPreview()?.id === r.id) {
+        this.rootPreview.set(null);
+      }
       void this.announcer.announce(`Exclusions de la racine ${r.label} enregistrées.`);
       this.changed.emit();
     });

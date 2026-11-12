@@ -102,6 +102,37 @@ describe('SourceRootsComponent', () => {
     expect(fixture.componentInstance.dirty()).toBe(false);
   });
 
+  it('détecte les modules d’une racine déclarée avec ses motifs enregistrés, puis replie l’aperçu (T061)', async () => {
+    await open([RV]);
+    const detect = el.querySelector<HTMLButtonElement>('button[aria-label="Détecter les modules de la racine rv"]')!;
+    expect(detect.disabled).toBe(false);
+    expect(detect.getAttribute('aria-expanded')).toBe('false');
+    detect.click();
+    const preview = ctrl.expectOne('/api/projects/p1/source-roots/preview');
+    expect(preview.request.body).toEqual({ location: '/src/rv', exclusions: ['legacy/**'] });
+    preview.flush({
+      modules: [{ name: 'aggregates', path: '', kind: 'MAVEN' }],
+      moduleCount: 1,
+      retainedFiles: 10,
+      excludedFiles: 0,
+      sensitiveFiles: 0,
+      ignoredByGit: 0,
+      limitReached: false,
+    });
+    await settle(fixture);
+    expect(detect.getAttribute('aria-expanded')).toBe('true');
+    const item = el.querySelector('.roots li')!;
+    expect(item.querySelector('[role="status"]')?.textContent).toContain('1 module détecté');
+    expect(item.querySelector('ul[aria-label="Modules détectés de la racine rv"]')?.textContent).toContain('aggregates');
+    // le formulaire d'ajout reste vide : rien n'est ajouté
+    expect(fixture.componentInstance.dirty()).toBe(false);
+
+    detect.click();
+    await settle(fixture);
+    expect(item.querySelector('[role="status"]')).toBeNull();
+    expect(detect.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('signale un aperçu tronqué et une limite atteinte', async () => {
     await open([]);
     type(el.querySelector<HTMLInputElement>('input[name="root-location"]')!, '/src/rv');

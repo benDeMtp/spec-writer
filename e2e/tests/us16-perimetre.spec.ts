@@ -85,7 +85,17 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     await expect(section.getByRole('status')).toContainText('13 modules détectés');
     await expect(section.getByRole('list', { name: 'Modules détectés' })).not.toContainText('ancien');
     await section.getByRole('button', { name: 'Ajouter la racine' }).click();
-    await expect(section.getByRole('listitem').filter({ hasText: 'Exclus : legacy/**' })).toContainText('demo-rv');
+    const declared = section.getByRole('listitem').filter({ hasText: 'Exclus : legacy/**' });
+    await expect(declared).toContainText('demo-rv');
+    // T061 : la racine déclarée montre ses modules, avec ses motifs enregistrés
+    const detect = declared.getByRole('button', { name: 'Détecter les modules de la racine demo-rv' });
+    await detect.click();
+    await expect(declared.getByRole('status')).toContainText('13 modules détectés');
+    await expect(declared.getByRole('list', { name: 'Modules détectés de la racine demo-rv' })).not.toContainText('ancien');
+    await expect(detect).toHaveAttribute('aria-expanded', 'true');
+    await expectNoA11yViolations(page);
+    await detect.click();
+    await expect(declared.getByRole('status')).toHaveCount(0);
   });
 
   test('Q3 : un chemin absent ou imbriqué est refusé avec sa raison', async () => {

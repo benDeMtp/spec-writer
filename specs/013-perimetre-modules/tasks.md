@@ -766,6 +766,12 @@ modules à vérifier sont repris en hypothèses.
   - `converse-answer` : l'agent sait que cette rubrique est calculée, qu'une demande n'y change
     qu'une qualification, et ne promet ni de la supprimer ni d'en changer la présentation.
   - Les versions existantes gardent leur Markdown enregistré ; le rendu vaut pour les suivantes.
+- [X] T061 Retour du mainteneur : une racine déjà déclarée n'avait pas d'aperçu, et « Détecter les
+  modules » restait grisé une fois le formulaire d'ajout vidé. Chaque racine porte désormais son
+  bouton « Détecter les modules » (`aria-expanded`, nommé par la racine), qui déplie sous elle
+  l'aperçu lu avec son chemin et ses motifs enregistrés, et le replie au second clic ; enregistrer
+  de nouveaux motifs referme l'aperçu devenu périmé. Aucun changement du backend : l'aperçu acceptait
+  déjà un dossier déclaré. Test unitaire du composant et E2E us16 Q2.
 - [X] T053 **Avec l'accord de l'utilisateur** : lancer l'évaluation réelle
   `./mvnw -pl backend verify -Peval -Dtest=PerimeterEval`, puis `DiscussionEval` pour
   l'opération `list-changes` de T055. Ajuster le prompt `converse-plan` si

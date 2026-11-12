@@ -15,6 +15,9 @@ composant `sw-source-roots`, avec l'ancre `#sources-code`.
     seule.
   - Motifs d'exclusion modifiables : zone de texte, une ligne par motif, bouton « Enregistrer
     les exclusions ».
+  - « Détecter les modules » (T061), nommé « Détecter les modules de la racine rv », avec
+    `aria-expanded` : déplie sous la racine le même aperçu que le formulaire d'ajout, lu avec son
+    chemin et ses motifs enregistrés ; un second clic le replie.
   - « Supprimer la racine », avec une confirmation nommée : « Supprimer la racine rv ? Les
     analyses passées restent lisibles. »
 - **Formulaire d'ajout**, affiché tant qu'il y a moins de 10 racines.
