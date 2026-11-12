@@ -798,10 +798,11 @@ export class ConversationThreadComponent implements OnDestroy {
    * vers sa note sous la réponse (document joint, élément d'architecture).
    */
   protected rendered(m: ConversationMessage): string {
+    const text = demoteHeadings(m.text);
     if (!m.sources.length) {
-      return m.text;
+      return text;
     }
-    return m.text.replace(/\[(\d{1,3})\](?!\()/g, (all, n: string) => {
+    return text.replace(/\[(\d{1,3})\](?!\()/g, (all, n: string) => {
       const source = m.sources.find((s) => s.n === Number(n));
       if (!source) {
         return all;
@@ -1048,6 +1049,22 @@ function message(
     sources: [],
     thinking: null,
   };
+}
+
+/**
+ * Les titres d'une réponse descendent sous ceux de la page : le plus haut devient un titre de
+ * niveau 3, sous « Discussion avec l’IA » ou le titre de l'écran, pour un plan de page juste.
+ * Les blocs de code restent tels quels.
+ */
+export function demoteHeadings(markdown: string): string {
+  return markdown
+    .split(/(^```[\s\S]*?^```)/m)
+    .map((part, i) =>
+      i % 2
+        ? part
+        : part.replace(/^(#{1,6})(?=\s)/gm, (h) => '#'.repeat(Math.min(6, Math.max(3, h.length + 1)))),
+    )
+    .join('');
 }
 
 const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);

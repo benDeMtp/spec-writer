@@ -240,18 +240,21 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                 <a mat-button [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
               }
               @if (session()) {
-                <button
-                  mat-button
-                  type="button"
-                  [disabled]="locked()"
-                  [attr.aria-describedby]="locked() ? 'locked-reason' : null"
-                  (click)="removeVersion(v.number)"
-                >
-                  Supprimer cette version
-                </button>
-                <button mat-button type="button" (click)="removeSpecification()">
-                  Supprimer la spécification
-                </button>
+                <!-- à l'écart des autres actions, en couleur d'alerte : rien ne se supprime par mégarde -->
+                <span class="danger-zone">
+                  <button
+                    mat-button
+                    type="button"
+                    [disabled]="locked()"
+                    [attr.aria-describedby]="locked() ? 'locked-reason' : null"
+                    (click)="removeVersion(v.number)"
+                  >
+                    Supprimer cette version
+                  </button>
+                  <button mat-button type="button" (click)="removeSpecification()">
+                    Supprimer la spécification
+                  </button>
+                </span>
               }
             </div>
             @if (session() && !session()?.linkedTicket && !jiraReady()) {
@@ -583,7 +586,17 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     .actions {
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 0.5rem;
+    }
+    .danger-zone {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-left: auto;
+      padding-left: 0.75rem;
+      border-left: 1px solid var(--sw-rule);
+      --mat-button-text-label-text-color: var(--mat-sys-error, #b3261e);
     }
     .hint {
       margin: 0.5rem 0 0;
@@ -687,6 +700,8 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     .document dd {
       font-family: var(--sw-font-doc);
       line-height: 1.65;
+      /* lignes de 72 caractères au plus, même quand la feuille s'élargit (discussion ouverte) */
+      max-width: var(--sw-measure);
     }
     /* champs simples : leurs retours à la ligne sont conservés (FR-012c) */
     .document > section > ul > li,
@@ -695,6 +710,7 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     }
     .rich {
       display: block;
+      max-width: var(--sw-measure);
       font-family: var(--sw-font-doc);
       line-height: 1.65;
     }

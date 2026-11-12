@@ -747,6 +747,15 @@ modules à vérifier sont repris en hypothèses.
     messages arrivés. Seul un geste de défilement (molette, toucher, touches de défilement hors
     d'un champ, ascenseur) arrête le suivi : ni un contenu qui change de hauteur, ni un clic sur
     un lien qui défile pour le montrer.
+- [X] T059 Suite de la revue d'ergonomie de l'écran Spécification :
+  - Le texte du document garde des lignes de 72 caractères au plus, même quand la discussion
+    ouverte élargit la feuille (il en faisait environ 160).
+  - Barre d'actions : les deux suppressions sont isolées à droite, derrière un filet, en couleur
+    d'alerte ; les rôles et libellés ne changent pas.
+  - Les titres d'une réponse de l'agent descendent d'un niveau (le plus haut devient h3), hors
+    blocs de code : le plan de la page ne mêle plus la discussion au document.
+  - Écartés : les zéros barrés viennent d'Atkinson Hyperlegible, choisie pour distinguer 0 et O ;
+    un menu « Plus » aurait changé les rôles des actions sans gain suffisant.
 - [ ] T053 **Avec l'accord de l'utilisateur** : lancer l'évaluation réelle
   `./mvnw -pl backend verify -Peval -Dtest=PerimeterEval`, puis `DiscussionEval` pour
   l'opération `list-changes` de T055. Ajuster le prompt `converse-plan` si

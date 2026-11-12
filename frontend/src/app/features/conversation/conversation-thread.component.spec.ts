@@ -12,7 +12,7 @@ import {
 } from '../../core/conversations/conversations.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { MENTION_DELAYS } from '../../shared/ui/mention.directive';
-import { ConversationThreadComponent } from './conversation-thread.component';
+import { ConversationThreadComponent, demoteHeadings } from './conversation-thread.component';
 
 async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
   for (let i = 0; i < 3; i++) {
@@ -300,5 +300,14 @@ describe('ConversationThreadComponent', () => {
     expect(link.getAttribute('href')).toBe('#perimeter-a1-1-0');
     link.click();
     expect(document.activeElement?.id).toBe('perimeter-a1-1-0');
+  });
+});
+
+describe('demoteHeadings', () => {
+  it('place les titres d’une réponse sous ceux de la page, sans toucher au code', () => {
+    const text = '## Ce qui change\ntexte\n# Titre\n```bash\n# commentaire\n```\n#### Détail\n#pas un titre';
+    expect(demoteHeadings(text)).toBe(
+      '### Ce qui change\ntexte\n### Titre\n```bash\n# commentaire\n```\n##### Détail\n#pas un titre',
+    );
   });
 });
