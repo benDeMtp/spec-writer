@@ -154,10 +154,45 @@ describe('PerimeterStepComponent', () => {
       }),
     );
     const section = el.querySelector('section[aria-labelledby="perimeter-m1-2-ARCH"]')!;
+    // longue liste secondaire : repliée par défaut
+    expect(section.querySelector<HTMLDetailsElement>('details.group')!.open).toBe(false);
     expect(section.querySelector('h3')?.textContent?.trim()).toBe('Éléments d’architecture sans module (1)');
     expect(section.querySelector('li')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
       'Archives : relié à Facturation API (SFTP, « archive les factures »)',
     );
+  });
+
+  it('replie les non impactés et les analyses plus anciennes, sans retirer de module', () => {
+    const quiet = module('quiet', { qualification: 'NOT_IMPACTED', justification: 'Hors sujet.' });
+    open(view({ modules: [COMMON, quiet] }));
+    const groups = Array.from(el.querySelectorAll<HTMLDetailsElement>('details.group'));
+    expect(groups.map((g) => [g.querySelector('h3')?.textContent?.trim(), g.open])).toEqual([
+      ['Impactés (1)', true],
+      ['Non impactés (1)', false],
+    ]);
+    expect(el.textContent).toContain('quiet');
+    expect(el.querySelector<HTMLDetailsElement>('details.perimeter')!.open).toBe(true);
+
+    fixture.componentRef.setInput('latest', false);
+    fixture.detectChanges();
+    const perimeter = el.querySelector<HTMLDetailsElement>('details.perimeter')!;
+    expect(perimeter.open).toBe(false);
+    expect(perimeter.querySelector('summary')?.textContent).toContain('remplacée par une analyse plus récente');
+  });
+
+  it('dans un panneau étroit, un module tient sur une ligne et sa fiche s’ouvre à la demande', () => {
+    open(view({ modules: [COMMON, RELANCE] }));
+    (fixture.componentInstance as unknown as { compact: { set(v: boolean): void } }).compact.set(true);
+    fixture.detectChanges();
+    expect(el.querySelector('table')).toBeNull();
+    const row = el.querySelector('#perimeter-m1-2-1')!;
+    const card = row.querySelector<HTMLDetailsElement>('details.card')!;
+    expect(card.open).toBe(false);
+    expect(card.querySelector('summary')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'relance Nouveau dépend de common-contract → relance (+1)',
+    );
+    expect(card.textContent).toContain('absent du modèle d’architecture');
+    expect(el.querySelector('#perimeter-m1-2-0')!.textContent).toContain('Définit l’énumération.');
   });
 
   it('dit quand l’échantillon des occurrences est partiel', () => {

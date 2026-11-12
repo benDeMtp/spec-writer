@@ -1,5 +1,15 @@
 import { LiveAnnouncer } from '@angular/cdk/a11y';
-import { ChangeDetectionStrategy, Component, effect, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  effect,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
   PerimeterModule,
@@ -37,19 +47,29 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
   ROOT: 'racine',
 };
 
+/** En deçà de cette largeur (px), chaque module tient sur une ligne, sa fiche s'ouvre à la demande. */
+export const COMPACT_WIDTH = 640;
+
 /**
  * Étape « Analyse du périmètre » d'une réponse de l'agent (013, contracts/ui.md) : tous les modules
  * trouvés, groupés par qualification, avec leurs raisons et leurs occurrences. Aucun module n'est
- * masqué, même si la réponse de l'agent l'omet.
+ * masqué, même si la réponse de l'agent l'omet : les non impactés sont repliés, pas retirés.
+ * Dans un panneau étroit, un module tient sur une ligne (nom et raison principale) et sa fiche
+ * s'ouvre à la demande. Seule la dernière analyse du fil est ouverte.
  */
 @Component({
   selector: 'sw-perimeter-step',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [NgTemplateOutlet, RouterLink],
   template: `
     @let a = analysis();
-    <details class="perimeter" open [attr.aria-busy]="busy()">
-      <summary>{{ heading() }}</summary>
+    <details class="perimeter" [open]="latest() || !!a.unavailable" [attr.aria-busy]="busy()">
+      <summary>
+        {{ heading() }}
+        @if (!latest() && !a.unavailable) {
+          <span class="older"> · remplacée par une analyse plus récente</span>
+        }
+      </summary>
       @if (a.unavailable === 'NO_ROOTS') {
         <p>Aucune source du code n’est déclarée pour ce projet.</p>
         <p>
@@ -88,10 +108,46 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
           <p class="summary">{{ summary() }}</p>
           @for (g of groups(); track g.qualification) {
             <section [attr.aria-labelledby]="groupId(g.qualification)">
-              <h3 [id]="groupId(g.qualification)">{{ g.title }} ({{ g.modules.length }})</h3>
+            <details class="group" [open]="g.qualification !== 'NOT_IMPACTED'">
+              <summary>
+                <h3 [id]="groupId(g.qualification)">{{ g.title }} ({{ g.modules.length }})</h3>
+              </summary>
               @if (g.qualification === 'UNQUALIFIED' && a.qualified) {
                 <p class="hint">L’agent ne s’est pas prononcé sur ces modules.</p>
               }
+              @if (compact()) {
+                <ul class="rows" [attr.aria-label]="'Modules ' + g.title.toLowerCase()">
+                  @for (row of g.modules; track row.module.id) {
+                    <li [id]="anchor(row.position)" tabindex="-1">
+                      <details class="card">
+                        <summary>
+                          <span class="name" translate="no">{{ row.module.name }}</span>&ngsp;
+                          @if (row.module.isNew) {
+                            <span class="badge">Nouveau</span>&ngsp;
+                          }
+                          <span class="lead">{{ lead(row.module) }}</span>
+                        </summary>
+                        <div class="sheet">
+                          <span class="path" translate="no">
+                            @for (part of where(row.module); track $index; let last = $last) {
+                              {{ part }}@if (!last) {
+                                /<wbr />
+                              }
+                            }
+                            · {{ kind(row.module) }}
+                          </span>
+                          @if (row.module.justification) {
+                            <p class="why">{{ row.module.justification }}</p>
+                          }
+                          <ng-container
+                            *ngTemplateOutlet="evidence; context: { $implicit: row.module }"
+                          />
+                        </div>
+                      </details>
+                    </li>
+                  }
+                </ul>
+              } @else {
               <!-- rôles explicites : la sémantique du tableau reste quand il s'empile (panneau étroit) -->
               <table role="table">
                 <caption class="visually-hidden">
@@ -127,67 +183,30 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
                         </span>
                       </td>
                       <td role="cell">
-                        <span class="cell-label" aria-hidden="true">Raisons</span>
-                        <ul class="reasons">
-                          @for (r of row.module.reasons; track $index) {
-                            <li>
-                              @switch (r.type) {
-                                @case ('DEPENDENCY') {
-                                  dépend de
-                                  <ol class="chain" aria-label="Chaîne de dépendance">
-                                    @for (c of r.chain; track c.id) {
-                                      <li>{{ c.name }}</li>
-                                    }
-                                  </ol>
-                                }
-                                @default {
-                                  {{ reason(r) }}
-                                }
-                              }
-                            </li>
-                          }
-                          @if (row.module.archStatus === 'ABSENT') {
-                            <li class="hint">absent du modèle d’architecture</li>
-                          }
-                        </ul>
-                        @if (row.module.samples.length) {
-                          <details class="occurrences">
-                            <summary>Occurrences ({{ row.module.occurrences }})</summary>
-                            <ul>
-                              @for (o of row.module.samples; track $index) {
-                                <li>
-                                  <span class="where" translate="no">{{ o.path }}:{{ o.line }}</span>
-                                  <code translate="no">{{ o.excerpt }}</code>
-                                </li>
-                              }
-                            </ul>
-                            @for (t of truncated(row.module); track t.term) {
-                              <p class="hint">
-                                {{ t.shown }} premières sur {{ t.count }} pour {{ t.term }}. Affinez
-                                le terme pour un détail complet.
-                              </p>
-                            }
-                          </details>
-                        }
+                        <ng-container
+                          *ngTemplateOutlet="evidence; context: { $implicit: row.module }"
+                        />
                       </td>
                       <td role="cell">
-                        @if (row.module.justification) {
-                          <span class="cell-label" aria-hidden="true">Justification</span>
-                          {{ row.module.justification }}
-                        }
+                        {{ row.module.justification }}
                       </td>
                     </tr>
                   }
                 </tbody>
               </table>
+              }
+            </details>
             </section>
           }
         }
         @if (a.architectureOnly.length) {
           <section [attr.aria-labelledby]="groupId('ARCH')">
-            <h3 [id]="groupId('ARCH')">
-              Éléments d’architecture sans module ({{ a.architectureOnly.length }})
-            </h3>
+          <details class="group">
+            <summary>
+              <h3 [id]="groupId('ARCH')">
+                Éléments d’architecture sans module ({{ a.architectureOnly.length }})
+              </h3>
+            </summary>
             <ul>
               @for (x of a.architectureOnly; track $index) {
                 <li>
@@ -196,14 +215,62 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
                 </li>
               }
             </ul>
+          </details>
           </section>
         }
       }
     </details>
+
+    <!-- raisons et occurrences d'un module : colonne du tableau, ou fiche d'une ligne -->
+    <ng-template #evidence let-m>
+      <ul class="reasons" aria-label="Raisons">
+        @for (r of $any(m).reasons; track $index) {
+          <li>
+            @switch (r.type) {
+              @case ('DEPENDENCY') {
+                dépend de
+                <ol class="chain" aria-label="Chaîne de dépendance">
+                  @for (c of r.chain; track c.id) {
+                    <li>{{ c.name }}</li>
+                  }
+                </ol>
+              }
+              @default {
+                {{ reason(r) }}
+              }
+            }
+          </li>
+        }
+        @if ($any(m).archStatus === 'ABSENT') {
+          <li class="hint">absent du modèle d’architecture</li>
+        }
+      </ul>
+      @if ($any(m).samples.length) {
+        <details class="occurrences">
+          <summary>Occurrences ({{ $any(m).occurrences }})</summary>
+          <ul>
+            @for (o of $any(m).samples; track $index) {
+              <li>
+                <span class="where" translate="no">{{ o.path }}:{{ o.line }}</span>
+                <code translate="no">{{ o.excerpt }}</code>
+              </li>
+            }
+          </ul>
+          @for (t of truncated(m); track t.term) {
+            <p class="hint">
+              {{ t.shown }} premières sur {{ t.count }} pour {{ t.term }}. Affinez le terme pour un
+              détail complet.
+            </p>
+          }
+        </details>
+      }
+    </ng-template>
   `,
   styles: `
+    :host {
+      display: block;
+    }
     .perimeter {
-      container-type: inline-size;
       margin: 0 0 1rem;
       padding: 0.5rem 0.75rem;
       border: 1px solid var(--sw-rule);
@@ -238,39 +305,49 @@ const KINDS: Record<PerimeterModule['kind'], string> = {
       padding: 0.25rem 0.5rem 0.25rem 0;
       border-bottom: 1px solid var(--sw-rule);
     }
-    .cell-label {
-      display: none;
+    .older {
+      font-weight: 400;
+      color: var(--sw-ink-soft);
     }
-    /* panneau étroit (discussion d'une spécification) : chaque module devient un bloc */
-    @container (max-width: 40rem) {
-      table,
-      tbody,
-      tr,
-      td {
-        display: block;
-      }
-      thead {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0 0 0 0);
-      }
-      tr {
-        padding: 0.5rem 0;
-        border-bottom: 1px solid var(--sw-rule);
-      }
-      td {
-        padding: 0.125rem 0;
-        border-bottom: none;
-      }
-      .cell-label {
-        display: block;
-        margin-top: 0.25rem;
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--sw-ink-soft);
-      }
+    .group > summary {
+      cursor: pointer;
+    }
+    .group > summary h3 {
+      display: inline;
+    }
+    .group {
+      margin: 1rem 0 0.25rem;
+    }
+    .rows {
+      margin: 0.25rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .rows > li {
+      border-bottom: 1px solid var(--sw-rule);
+    }
+    .rows > li:focus {
+      outline: 2px solid var(--sw-pencil);
+      outline-offset: 2px;
+    }
+    .card > summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0 0.5rem;
+      padding: 0.3rem 0;
+      cursor: pointer;
+    }
+    .lead {
+      color: var(--sw-ink-soft);
+      font-size: 0.875rem;
+      overflow-wrap: anywhere;
+    }
+    .card .sheet {
+      padding: 0 0 0.5rem 1rem;
+    }
+    .why {
+      margin: 0.25rem 0;
     }
     tr:focus {
       outline: 2px solid var(--sw-pencil);
@@ -337,11 +414,24 @@ export class PerimeterStepComponent {
   readonly messageId = input.required<string>();
   /** Le tour est en cours : la qualification peut encore arriver. */
   readonly live = input(false);
+  /** Dernière analyse du fil : ouverte ; une analyse plus ancienne est repliée. */
+  readonly latest = input(true);
+
+  /** Panneau étroit : un module par ligne, sa fiche à la demande. */
+  protected readonly compact = signal(false);
 
   private readonly announcer = inject(LiveAnnouncer);
   private announced = '';
 
   constructor() {
+    const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    if (typeof ResizeObserver === 'function') {
+      const watch = new ResizeObserver(([entry]) =>
+        this.compact.set(entry.contentRect.width > 0 && entry.contentRect.width < COMPACT_WIDTH),
+      );
+      watch.observe(host);
+      inject(DestroyRef).onDestroy(() => watch.disconnect());
+    }
     // annonce une fois la fin du recensement, puis une fois la qualification, pendant le tour
     effect(() => {
       const a = this.analysis();
@@ -421,6 +511,20 @@ export class PerimeterStepComponent {
   /** Racine et segments du chemin : la ligne se coupe après un « / », pas au milieu d'un nom. */
   protected where(m: PerimeterModule): string[] {
     return [m.rootLabel, ...(m.path ? m.path.split('/') : [])];
+  }
+
+  /** Raison principale d'un module, et le nombre des autres : ce qu'affiche sa ligne. */
+  protected lead(m: PerimeterModule): string {
+    const first = m.reasons[0];
+    if (!first) {
+      return '';
+    }
+    const text =
+      first.type === 'DEPENDENCY'
+        ? `dépend de ${(first.chain ?? []).map((c) => c.name).join(' → ')}`
+        : this.reason(first);
+    const others = m.reasons.length - 1;
+    return others > 0 ? `${text} (+${others})` : text;
   }
 
   protected kind(m: PerimeterModule): string {

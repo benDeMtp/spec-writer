@@ -172,6 +172,11 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     // annuaire porte une instruction adressée à l'IA : la qualification rejouée reste la sienne
     await expect(step.getByRole('region', { name: 'Non impactés (1)' })).toContainText('annuaire');
 
+    // les groupes repliés (non impactés) s'ouvrent : aucun module n'y est retiré
+    const folded = step.locator('details.group:not([open]) > summary');
+    while (await folded.count()) {
+      await folded.first().click();
+    }
     for (const details of await step.locator('details.occurrences summary').all()) {
       await details.click();
     }
@@ -258,9 +263,15 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     await page.setViewportSize({ width: 620, height: 1000 });
     await page.goto('/');
     await page.getByRole('link', { name: /E2E-PERIMETRE/ }).first().click();
-    const step = page.locator('sw-perimeter-step').first();
-    // chaque module devient un bloc : la justification porte son libellé, rien ne déborde
-    await expect(row(step, 'common-contract').getByText('Justification')).toBeVisible();
+    // seule la dernière analyse est ouverte ; la première est repliée, sans module retiré
+    await expect(page.locator('details.perimeter').first()).not.toHaveAttribute('open', '');
+    const step = page.locator('sw-perimeter-step').nth(1);
+    // chaque module tient sur une ligne, nom et raison principale ; sa fiche s'ouvre à la demande
+    const line = step.locator('.rows > li').filter({ has: page.locator('.name', { hasText: /^common-contract$/ }) });
+    await expect(line.locator('details.card > summary')).toContainText('ContractStatus');
+    await expect(line.getByText("Définit l'énumération ContractStatus")).toBeHidden();
+    await line.locator('details.card > summary').click();
+    await expect(line.getByText("Définit l'énumération ContractStatus")).toBeVisible();
     expect(await step.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
     await expectNoA11yViolations(page);
 

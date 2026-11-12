@@ -153,6 +153,7 @@ const KINDS: Record<SourceKind, string> = {
                   [analysis]="p"
                   [messageId]="m.id"
                   [live]="m.state === 'RUNNING'"
+                  [latest]="latestPerimeter() === m.id + ':' + p.ordinal"
                 />
               }
               @if (m.text) {
@@ -217,18 +218,22 @@ const KINDS: Record<SourceKind, string> = {
 
     <div #dock class="dock">
     @if (!following() && messages().length) {
-      <button mat-stroked-button type="button" class="to-end" (click)="scrollToEnd(true)">
-        Aller au dernier message
-      </button>
+      <!-- dans la zone de saisie, et non par-dessus le fil : il ne cache aucun texte -->
+      <p class="to-end">
+        <button mat-stroked-button type="button" (click)="scrollToEnd(true)">
+          Aller au dernier message{{ unseen() ? ' (' + unseen() + ' nouveau' + (unseen() > 1 ? 'x' : '') + ')' : '' }}
+        </button>
+      </p>
     }
     <ng-content select="[swComposerTop]" />
     <form class="composer" (ngSubmit)="send()" novalidate>
       <label for="composer-text" class="sw-visually-hidden">Votre question</label>
+      <!-- une ligne au repos, qui grandit avec le texte : le fil garde la hauteur -->
       <textarea
         #composer
         id="composer-text"
         name="text"
-        rows="3"
+        rows="1"
         [swMention]="projectId()"
         [(ngModel)]="text"
         [maxlength]="max"
@@ -237,17 +242,15 @@ const KINDS: Record<SourceKind, string> = {
         aria-describedby="composer-help"
         (keydown)="onKey($event)"
       ></textarea>
-      @if (conversationId(); as cid) {
-        <sw-attachments
-          [projectId]="projectId()"
-          [conversationId]="cid"
-          [fields]="composerFields()"
-        />
-      }
       <div class="bar">
-        <span id="composer-help" class="hint">
-          Entrée envoie, Maj+Entrée va à la ligne. {{ text().length }} / {{ max }}
-        </span>
+        @if (conversationId(); as cid) {
+          <sw-attachments
+            compact
+            [projectId]="projectId()"
+            [conversationId]="cid"
+            [fields]="composerFields()"
+          />
+        }
         <span class="actions">
           <ng-content select="[swComposerAction]" />
           @if (running()) {
@@ -257,6 +260,11 @@ const KINDS: Record<SourceKind, string> = {
           }
         </span>
       </div>
+      <!-- l'aide est lue avec le champ ; l'afficher au focus décalerait le fil sous le pointeur -->
+      <p id="composer-help" class="sw-visually-hidden">Entrée envoie, Maj+Entrée va à la ligne.</p>
+      @if (text().length > max * 0.8) {
+        <p class="help">{{ text().length }} / {{ max }} caractères</p>
+      }
     </form>
     </div>
   `,
@@ -368,15 +376,18 @@ const KINDS: Record<SourceKind, string> = {
     .took {
       color: var(--sw-ink-soft);
     }
-    /* la réflexion arrive par le bas : la colonne inversée garde la fin visible sans script */
     .reasoning {
+      margin: 0.5rem 0 0;
+      padding: 0.25rem 0.9rem 0.5rem;
+      border-left: 2px solid var(--sw-rule);
+    }
+    /* pendant le tour, la réflexion arrive par le bas : la colonne inversée garde la fin visible ;
+       ensuite, elle se lit en entier, sans ascenseur dans le fil qui défile déjà */
+    .thinking.live .reasoning {
       display: flex;
       flex-direction: column-reverse;
       max-height: 18rem;
       overflow-y: auto;
-      margin: 0.5rem 0 0;
-      padding: 0.25rem 0.9rem 0.5rem;
-      border-left: 2px solid var(--sw-rule);
     }
     .reasoning h3 {
       margin: 0.6rem 0 0.2rem;
@@ -449,40 +460,48 @@ const KINDS: Record<SourceKind, string> = {
     }
     /* le champ de saisie, et ce que l'écran y ajoute (proposition d'une version), restent visibles */
     .to-end {
-      position: absolute;
-      bottom: calc(100% + 0.5rem);
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--sw-sheet);
-      box-shadow: 0 1px 4px color-mix(in srgb, var(--sw-ink) 25%, transparent);
+      margin: 0 0 0.5rem;
+      text-align: center;
     }
     .dock {
       position: sticky;
       bottom: 0;
       margin-top: 1.5rem;
-      padding: 0.75rem 0 1rem;
+      padding: 0.5rem 0 0.75rem;
       background: var(--sw-paper);
+      border-top: 1px solid var(--sw-rule);
     }
     textarea {
       box-sizing: border-box;
+      display: block;
       width: 100%;
-      padding: 0.75rem;
+      min-height: 2.75rem;
+      max-height: 12rem;
+      padding: 0.6rem 0.75rem;
       border: 1px solid var(--sw-rule);
       border-radius: var(--sw-radius-field);
       background: var(--sw-sheet);
       color: var(--sw-ink);
       font: inherit;
-      resize: vertical;
+      line-height: 1.5;
+      resize: none;
+      overflow-y: auto;
     }
     .bar {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
+      gap: 0.5rem 1rem;
       margin-top: 0.4rem;
       font-size: var(--sw-step--1);
     }
+    .help {
+      margin: 0.35rem 0 0;
+      color: var(--sw-ink-soft);
+      font-size: var(--sw-step--1);
+    }
+
     .actions {
       display: flex;
       flex-wrap: wrap;
@@ -523,7 +542,46 @@ export class ConversationThreadComponent implements OnDestroy {
    * dernier message.
    */
   protected readonly following = signal(true);
-  private readonly onScroll = (): void => this.following.set(this.atEnd());
+  /** Nombre de messages quand la personne a quitté la fin du fil. */
+  private readonly leftAt = signal(0);
+  /** Messages arrivés depuis que la personne a remonté le fil. */
+  protected readonly unseen = computed(() =>
+    this.following() ? 0 : Math.max(0, this.messages().length - this.leftAt()),
+  );
+  /**
+   * La personne a fait défiler elle-même (molette, clavier, toucher, ascenseur) depuis le dernier
+   * défilement automatique : seul un défilement voulu arrête le suivi, pas un contenu qui change de
+   * hauteur pendant la mise en page.
+   */
+  private intent = false;
+  private readonly onIntent = (event: Event): void => {
+    if (isScrollGesture(event)) {
+      this.intent = true;
+    }
+  };
+  private readonly onScroll = (): void => {
+    const atEnd = this.atEnd();
+    if (!atEnd && !this.intent) {
+      return;
+    }
+    if (!atEnd && this.following()) {
+      this.leftAt.set(this.messages().length);
+    }
+    this.following.set(atEnd);
+  };
+  /**
+   * Dernière analyse de périmètre du fil (`message:ordinal`) : seule ouverte, les autres sont
+   * repliées. Une analyse impossible (aucune source déclarée) ne remplace pas la précédente.
+   */
+  protected readonly latestPerimeter = computed(() => {
+    for (const m of [...this.messages()].reverse()) {
+      const p = (m.perimeters ?? []).filter((x) => !x.unavailable).at(-1);
+      if (p) {
+        return `${m.id}:${p.ordinal}`;
+      }
+    }
+    return null;
+  });
 
   protected readonly max = MAX_MESSAGE;
   protected readonly text = signal('');
@@ -545,15 +603,48 @@ export class ConversationThreadComponent implements OnDestroy {
   constructor() {
     // tout défilement compte : celui de la page, ou celui du panneau qui contient le fil
     document.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
-    inject(DestroyRef).onDestroy(() =>
-      document.removeEventListener('scroll', this.onScroll, { capture: true }),
+    const intents = ['wheel', 'touchmove', 'keydown', 'pointerdown'] as const;
+    intents.forEach((type) =>
+      document.addEventListener(type, this.onIntent, { capture: true, passive: true }),
     );
+    // un contenu qui grandit après coup (Markdown, analyse dépliée) garde la fin visible
+    const growth =
+      typeof ResizeObserver === 'function'
+        ? new ResizeObserver(() => {
+            if (untracked(this.following)) {
+              this.reveal();
+            }
+          })
+        : null;
+    afterRenderEffect(() => {
+      const log = this.end()?.nativeElement.parentElement;
+      if (log && growth) {
+        growth.disconnect();
+        growth.observe(log);
+      }
+    });
+    inject(DestroyRef).onDestroy(() => {
+      document.removeEventListener('scroll', this.onScroll, { capture: true });
+      intents.forEach((type) =>
+        document.removeEventListener(type, this.onIntent, { capture: true }),
+      );
+      growth?.disconnect();
+    });
     afterRenderEffect(() => {
       this.messages();
       this.stage();
       this.compacting();
       if (untracked(this.following)) {
         this.reveal();
+      }
+    });
+    // le champ grandit avec le texte, jusqu'à sa hauteur maximale (CSS), puis défile
+    afterRenderEffect(() => {
+      this.text();
+      const area = this.composer()?.nativeElement;
+      if (area) {
+        area.style.height = 'auto';
+        area.style.height = `${area.scrollHeight + 2}px`;
       }
     });
   }
@@ -584,6 +675,7 @@ export class ConversationThreadComponent implements OnDestroy {
       return;
     }
     end.style.scrollMarginBottom = `${(this.dock()?.nativeElement.offsetHeight ?? 0) + 8}px`;
+    this.intent = false;
     end.scrollIntoView({ block: 'end' });
   }
 
@@ -733,6 +825,13 @@ export class ConversationThreadComponent implements OnDestroy {
     event.preventDefault();
     if (href.startsWith('#')) {
       const note = this.host.nativeElement.querySelector<HTMLElement>(`[id="${href.slice(1)}"]`);
+      // un module cité peut être replié : sa fiche, son groupe et l'analyse s'ouvrent
+      let fold = note?.closest('details') ?? null;
+      while (fold) {
+        fold.open = true;
+        fold = fold.parentElement?.closest('details') ?? null;
+      }
+      note?.querySelector<HTMLDetailsElement>(':scope > details')?.setAttribute('open', '');
       note?.focus();
     } else if (href.startsWith('/')) {
       if (!this.internalLink()?.(href)) {
@@ -949,6 +1048,27 @@ function message(
     sources: [],
     thinking: null,
   };
+}
+
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
+
+/**
+ * Geste qui fait défiler : molette, toucher, touche de défilement hors d'un champ de saisie, ou
+ * appui sur un ascenseur. Un clic sur un lien, qui fait défiler pour le montrer, n'en est pas un.
+ */
+function isScrollGesture(event: Event): boolean {
+  if (event.type === 'wheel' || event.type === 'touchmove') {
+    return true;
+  }
+  const target = event.target as HTMLElement | null;
+  if (event instanceof KeyboardEvent) {
+    return SCROLL_KEYS.has(event.key) && !target?.closest('input, textarea, select, [contenteditable]');
+  }
+  if (event instanceof MouseEvent && target) {
+    // l'ascenseur est hors de la zone de contenu de l'élément qui défile
+    return event.offsetX > target.clientWidth || event.offsetY > target.clientHeight;
+  }
+  return false;
 }
 
 /** Texte annoncé : sans les marques Markdown, que le lecteur d'écran lirait telles quelles. */

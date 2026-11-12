@@ -729,6 +729,24 @@ modules à vérifier sont repris en hypothèses.
     lancement à usage unique (120 s, jamais renvoyé ni journalisé) part vers le navigateur choisi.
   - Navigateur choisi désinstallé ou en échec : repli sur celui du système, signalé dans la carte.
   - Navigateurs simulés en test et en E2E (`specwriter.browser.simulated`).
+- [X] T058 Revue d'ergonomie du panneau de discussion (retour du mainteneur, discussion de
+  19 messages : 84 000 px de haut, zone de saisie à 38 % du panneau) :
+  - Analyse du périmètre : seule la dernière analyse du fil est ouverte, les précédentes sont
+    repliées (« remplacée par une analyse plus récente ») ; une analyse sans source déclarée ne
+    remplace rien et reste ouverte. Non impactés et éléments d'architecture sans module repliés
+    par défaut, jamais retirés. Sous 640 px de large, un module tient sur une ligne (nom, raison
+    principale, nombre des autres) et sa fiche (justification, raisons, occurrences) s'ouvre à la
+    demande ; une citation ouvre la fiche du module cité.
+  - Zone de saisie : une ligne au repos qui grandit avec le texte ; « Joindre » réduit au trombone
+    (nom complet lu et affiché au survol) ; l'aide « Entrée envoie » n'est plus que lue (affichée
+    au focus, elle décalait le fil sous le pointeur), le compteur n'apparaît que près de la
+    limite. 315 px ramenés à 112 px.
+  - Réflexion de l'agent : ascenseur interne seulement pendant le tour ; ensuite elle se lit en
+    entier.
+  - « Aller au dernier message » dans la zone de saisie, et non par-dessus le texte ; il compte les
+    messages arrivés. Seul un geste de défilement (molette, toucher, touches de défilement hors
+    d'un champ, ascenseur) arrête le suivi : ni un contenu qui change de hauteur, ni un clic sur
+    un lien qui défile pour le montrer.
 - [ ] T053 **Avec l'accord de l'utilisateur** : lancer l'évaluation réelle
   `./mvnw -pl backend verify -Peval -Dtest=PerimeterEval`, puis `DiscussionEval` pour
   l'opération `list-changes` de T055. Ajuster le prompt `converse-plan` si

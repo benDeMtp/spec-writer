@@ -98,17 +98,31 @@ describe('ConversationThreadComponent', () => {
       el.querySelector<HTMLElement>('.dock')!.getBoundingClientRect = () => rect(500);
       expect(scrolled.at(-1)).toBe(end);
 
-      // la personne remonte : le fil ne bouge plus, le bouton apparaît
+      // un contenu qui change de hauteur sans geste de la personne ne coupe pas le suivi
       endTop = 900;
+      document.dispatchEvent(new Event('scroll'));
+      await settle(fixture);
+      expect(el.textContent).not.toContain('Aller au dernier message');
+
+      // un clic sur un lien, qui défile pour le montrer, n'est pas un geste de défilement
+      el.querySelector('textarea')!.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+      document.dispatchEvent(new Event('scroll'));
+      await settle(fixture);
+      expect(el.textContent).not.toContain('Aller au dernier message');
+
+      // la personne remonte : le fil ne bouge plus, le bouton apparaît
+      document.dispatchEvent(new Event('wheel'));
       document.dispatchEvent(new Event('scroll'));
       scrolled.length = 0;
       fixture.componentInstance.messages.update((l) => [...l, user('u2', 3)]);
       await settle(fixture);
       expect(scrolled).toEqual([]);
       const toEnd = Array.from(el.querySelectorAll('button')).find(
-        (b) => b.textContent?.trim() === 'Aller au dernier message',
+        (b) => b.textContent?.trim().startsWith('Aller au dernier message'),
       )!;
       expect(toEnd).toBeTruthy();
+      // il compte les messages arrivés depuis que la personne a remonté le fil
+      expect(toEnd.textContent?.trim()).toBe('Aller au dernier message (1 nouveau)');
 
       // le bouton ramène en bas et rend la main au champ de saisie
       toEnd.click();
@@ -120,6 +134,7 @@ describe('ConversationThreadComponent', () => {
 
       // redescendre à la main reprend aussi le suivi
       endTop = 900;
+      document.dispatchEvent(new Event('wheel'));
       document.dispatchEvent(new Event('scroll'));
       await settle(fixture);
       expect(el.textContent).toContain('Aller au dernier message');
