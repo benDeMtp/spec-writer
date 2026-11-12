@@ -20,7 +20,7 @@ final class TicketForm {
 
     static List<IssueType> types(IssueTracker tracker, JiraAccess.Target target) {
         try {
-            return tracker.issueTypes(target.endpoint(), target.projectKey());
+            return tracker.issueTypes(target.endpoint(), target.requireProject());
         } catch (IssueTrackerException e) {
             throw e.toDomain();
         }
@@ -44,7 +44,7 @@ final class TicketForm {
 
     static List<RequiredField> toFill(IssueTracker tracker, JiraAccess.Target target, String issueTypeId) {
         try {
-            return tracker.requiredFields(target.endpoint(), target.projectKey(), issueTypeId).stream()
+            return tracker.requiredFields(target.endpoint(), target.requireProject(), issueTypeId).stream()
                     .filter(f -> !FILLED.contains(f.id()))
                     .toList();
         } catch (IssueTrackerException e) {

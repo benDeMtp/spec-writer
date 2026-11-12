@@ -44,9 +44,9 @@ test.describe.serial('US7 projets', () => {
   }
 
   async function chooseCurrent(name: string): Promise<void> {
-    await page.getByRole('combobox', { name: 'Projet courant' }).click();
+    await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('combobox').click();
     await page.getByRole('option', { name }).click();
-    await expect(page.getByRole('combobox', { name: 'Projet courant' })).toContainText(name);
+    await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('combobox')).toContainText(name);
   }
 
   async function previewProject(): Promise<string> {
@@ -106,15 +106,15 @@ test.describe.serial('US7 projets', () => {
     const item = page.locator('ul.projects > li').filter({ hasText: 'Projet par défaut' });
     await expect(item).toContainText('Projet courant');
     await expect(item).toContainText(`${before.length} spécification`);
-    await expect(item).toContainText('Jira : PROJ (projet par défaut)');
-    await expect(page.getByRole('combobox', { name: 'Projet courant' })).toContainText('Projet par défaut');
+    await expect(item).toContainText("Jira : PROJ (clé par défaut de l'application)");
+    await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('combobox')).toContainText('Projet par défaut');
     await expectNoA11yViolations(page);
   });
 
   test('P2 : une spécification du projet « Facturation » vise FACT, celle du projet par défaut PROJ', async () => {
     await page.getByRole('button', { name: 'Nouveau projet' }).click();
     await page.getByLabel('Nom du projet').fill('Facturation');
-    await page.getByLabel('Clé du projet Jira (facultative)').fill('FACT');
+    await page.getByLabel('Clé Jira (facultative)').fill('FACT');
     await expectNoA11yViolations(page);
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByRole('status')).toContainText('Projet « Facturation » créé.');
@@ -148,7 +148,7 @@ test.describe.serial('US7 projets', () => {
     }
 
     await page.goto('/sessions');
-    await expect(page.getByRole('combobox', { name: 'Projet courant' })).toContainText('Facturation');
+    await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('combobox')).toContainText('Facturation');
     await expect(page.locator('ul.sessions > li')).toHaveCount(1);
     expect(await found()).toContain(specId);
     await expectNoA11yViolations(page);

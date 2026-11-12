@@ -91,7 +91,7 @@ describe('KnowledgePanelComponent', () => {
     await open(STATUS, null);
     const link = el.querySelector<HTMLAnchorElement>('.counts a');
     expect(link?.textContent?.trim()).toBe('3 ADR');
-    expect(link?.getAttribute('href')).toBe('/projets/p1/contexte/adr');
+    expect(link?.getAttribute('href')).toBe('/projet/connaissance/adr');
     expect(el.textContent).toContain("6 tickets · 7 sections de documentation · 3 ADR · 1 élément d'architecture");
   });
 

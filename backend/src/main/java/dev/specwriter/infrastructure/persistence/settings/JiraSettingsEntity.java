@@ -20,7 +20,7 @@ public class JiraSettingsEntity {
     @Column(name = "server_url", nullable = false)
     public String serverUrl;
 
-    @Column(name = "default_project_key", nullable = false)
+    @Column(name = "default_project_key")
     public String defaultProjectKey;
 
     @Column(name = "ca_certificate_path")

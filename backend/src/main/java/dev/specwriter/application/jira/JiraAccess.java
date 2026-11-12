@@ -30,6 +30,14 @@ public class JiraAccess {
             return new Target(endpoint, key);
         }
 
+        /** Clé du projet Jira, absente sans clé de projet ni clé par défaut (012, FR-016). */
+        public String requireProject() {
+            if (projectKey == null) {
+                throw new DomainException(ErrorCode.JIRA_PROJECT_MISSING);
+            }
+            return projectKey;
+        }
+
         public String issueUrl(String issueKey) {
             String base = endpoint.serverUrl();
             return (base.endsWith("/") ? base.substring(0, base.length() - 1) : base) + "/browse/" + issueKey;

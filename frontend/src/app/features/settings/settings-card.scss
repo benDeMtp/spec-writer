@@ -8,7 +8,7 @@
   border: 1px solid var(--sw-rule);
   border-radius: var(--sw-radius-sheet);
 }
-h2 {
+h3 {
   margin: 0 0 1rem;
   font-family: var(--sw-font-doc);
   font-size: var(--sw-step-2);
@@ -64,4 +64,10 @@ mat-form-field {
 }
 .model {
   margin-top: 0.5rem;
+}
+
+/* 012 : portée d'un réglage avancé, sous son titre */
+.scope {
+  margin: -0.5rem 0 1rem;
+  color: var(--sw-ink-soft);
 }

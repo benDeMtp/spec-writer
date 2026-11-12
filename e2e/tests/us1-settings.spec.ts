@@ -73,7 +73,7 @@ test.describe.serial('US1 configuration', () => {
   test("US1-4 : configuration Jira en http avec avertissement, consentement puis test réussi", async () => {
     await page.getByLabel('Adresse du serveur').fill(jiraURL);
     await expect(page.getByText("Cette adresse n'est pas chiffrée (http).")).toBeVisible();
-    await page.getByLabel('Clé du projet par défaut').fill('PROJ');
+    await page.getByLabel('Clé Jira par défaut (facultatif)').fill('PROJ');
     await page.getByLabel("Jeton d'accès personnel").fill('e2e-good-token');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     // Sans confirmation de l'avertissement, rien n'est enregistré

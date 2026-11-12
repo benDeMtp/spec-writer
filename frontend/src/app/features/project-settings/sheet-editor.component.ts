@@ -78,7 +78,7 @@ export class SheetEditorComponent {
 
   protected readonly draft = signal('');
   protected readonly previewing = signal(false);
-  protected readonly dirty = computed(() => this.draft().trim() !== this.markdown());
+  readonly dirty = computed(() => this.draft().trim() !== this.markdown());
 
   constructor() {
     // une fiche enregistrée remplace la saisie

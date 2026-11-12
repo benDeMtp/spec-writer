@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { KnowledgeApi } from '../../core/projects/knowledge.api';
 import { AdrList, AdrStatus, AdrSummary } from '../../core/projects/projects.model';
-import { ProjectsApi } from '../../core/projects/projects.api';
+import { ProjectsStore } from '../../core/projects/projects.store';
+import { ProjectHeadingComponent } from '../../shared/ui/project-heading.component';
 import { count } from '../../shared/text';
 
 const STATUSES: AdrStatus[] = ['ACCEPTED', 'PROPOSED', 'SUPERSEDED', 'DEPRECATED', 'UNKNOWN'];
@@ -23,10 +24,10 @@ const LABELS: Record<AdrStatus, [string, string, string]> = {
 @Component({
   selector: 'sw-adrs-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [ProjectHeadingComponent, RouterLink],
   template: `
-    <p class="back"><a [routerLink]="['/projets', id(), 'contexte']">Contexte du projet</a></p>
-    <h1>ADR du projet {{ projectName() }}</h1>
+    <p class="back"><a routerLink="/projet/connaissance">Connaissance du projet</a></p>
+    <sw-project-heading label="ADR" />
     @if (list(); as l) {
       @if (l.indexing) {
         <p class="meta" role="status">Indexation en cours : la liste peut encore changer.</p>
@@ -81,7 +82,7 @@ const LABELS: Record<AdrStatus, [string, string, string]> = {
         </table>
       } @else {
         <p>Aucun ADR n'a été trouvé dans la documentation de ce projet.</p>
-        <p><a [routerLink]="['/projets', id(), 'contexte']">Revenir au contexte du projet</a></p>
+        <p><a routerLink="/projet/connaissance">Revenir à la connaissance du projet</a></p>
       }
     }
   `,
@@ -97,14 +98,12 @@ const LABELS: Record<AdrStatus, [string, string, string]> = {
   `,
 })
 export class AdrsPage {
-  readonly id = input.required<string>();
 
   private readonly knowledge = inject(KnowledgeApi);
-  private readonly projects = inject(ProjectsApi);
+  private readonly projects = inject(ProjectsStore);
 
   protected readonly statuses = STATUSES;
   protected readonly list = signal<AdrList | null>(null);
-  protected readonly projectName = signal('');
   protected readonly filter = signal<AdrStatus | ''>('');
   protected readonly shown = computed(() => {
     const l = this.list();
@@ -113,16 +112,20 @@ export class AdrsPage {
   });
 
   constructor() {
+    // 012 : les ADR du projet courant, relus quand il change
     effect(() => {
-      const id = this.id();
-      untracked(() => void this.load(id));
+      const id = this.projects.currentId();
+      if (id) {
+        untracked(() => void this.load(id));
+      }
     });
+    if (!this.projects.current()) {
+      void this.projects.load().catch(() => undefined);
+    }
   }
 
   private async load(id: string): Promise<void> {
-    const [all, adrs] = await Promise.all([this.projects.list(), this.knowledge.adrs(id)]);
-    this.projectName.set(all.find((p) => p.id === id)?.name ?? '');
-    this.list.set(adrs);
+    this.list.set(await this.knowledge.adrs(id));
   }
 
   protected label(s: AdrStatus): string {

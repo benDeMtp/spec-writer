@@ -94,7 +94,8 @@ test.describe.serial('US8 connaissance du projet', () => {
   test("P5 : sources déclarées, indexation suivie, quittée et retrouvée", async () => {
     // première indexation : chargement du modèle de recherche et calcul des vecteurs
     test.setTimeout(120_000);
-    await page.goto(`/projets/${projectId}/contexte`);
+    // 012 : les sources se déclarent dans les réglages du projet courant
+    await page.goto('/projet/reglages');
     await page.getByLabel('Adresse du site').fill(`${jiraURL}/antora-knowledge/`);
     await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
     await expect(page.getByRole('button', { name: `Retirer la source ${jiraURL}/antora-knowledge/` })).toBeVisible();
@@ -106,7 +107,7 @@ test.describe.serial('US8 connaissance du projet', () => {
 
     // on quitte la page pendant l'indexation, puis on y revient : l'état est retrouvé
     await page.goto('/sessions');
-    await page.goto(`/projets/${projectId}/contexte`);
+    await page.goto('/projet/connaissance');
     await expect(page.locator('.counts')).toContainText('6 tickets', { timeout: 60_000 });
     await expect(page.getByRole('button', { name: 'Resynchroniser' })).toBeVisible({ timeout: 60_000 });
     const k = await knowledge();
@@ -118,7 +119,7 @@ test.describe.serial('US8 connaissance du projet', () => {
 
     // 004 : « 3 ADR » mène à la page des ADR du projet
     await page.locator('.counts').getByRole('link', { name: '3 ADR' }).click();
-    await expect(page.getByRole('heading', { name: /ADR du projet/ })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('ADR · Facturation connaissance');
     const rows = page.locator('tbody tr');
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0)).toContainText('0002');
@@ -130,7 +131,7 @@ test.describe.serial('US8 connaissance du projet', () => {
     await expect(adr5).toHaveAttribute('target', '_blank');
     await expect(page.locator('.summary')).toContainText('3 ADR : 2 acceptés, 1 remplacé');
     await expectNoA11yViolations(page);
-    await page.getByRole('link', { name: 'Contexte du projet' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Connaissance du projet' }).click();
     await expect(page.locator('.counts')).toContainText('3 ADR');
 
     // recherche d'essai : rien ne part vers Jira ni vers Copilot
@@ -327,7 +328,7 @@ test.describe.serial('US8 connaissance du projet', () => {
   });
 
   test("P7 : la fiche générale l'emporte sur les ADR ; régénérer sans changement réutilise la version", async () => {
-    await page.goto(`/projets/${projectId}/contexte`);
+    await page.goto('/projet/reglages');
     await page.getByLabel('Fiche générale (Markdown)').fill("## Décisions\n- L'ADR-005 n'est plus appliqué.");
     await page.getByRole('button', { name: 'Enregistrer la fiche' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Fiche générale enregistrée.' })).toBeVisible();
@@ -467,7 +468,7 @@ test.describe.serial('US8 connaissance du projet', () => {
 
   test('P10 : dossier de documents synchronisé, motifs et aperçu ; ses documents se cherchent sans être copiés (006)', async () => {
     test.setTimeout(120_000);
-    await page.goto(`/projets/${projectId}/contexte`);
+    await page.goto('/projet/reglages');
     const add = page.getByRole('form', { name: 'Ajouter une source' });
     await add.getByRole('combobox', { name: 'Type' }).click();
     await page.getByRole('option', { name: 'Dossier de documents (SharePoint synchronisé)' }).click();
@@ -482,6 +483,13 @@ test.describe.serial('US8 connaissance du projet', () => {
     await add.getByRole('button', { name: 'Ajouter', exact: true }).click();
     await expect(page.getByRole('button', { name: `Modifier les motifs de ${DOCUMENTS}` })).toBeVisible();
     await expect(page.getByText('Exclus : Archives/**')).toBeVisible();
+    // 012 : la connaissance a sa page ; elle s'ouvre une fois l'indexation du dossier finie
+    await expect
+      .poll(async () => (await (await page.request.get(`/api/projects/${projectId}/indexations/current`)).json()).finishedAt, {
+        timeout: 60_000,
+      })
+      .not.toBeNull();
+    await page.goto('/projet/connaissance');
     await expect(page.getByRole('button', { name: 'Resynchroniser' })).toBeVisible({ timeout: 60_000 });
 
     // recherche d'essai : un mot du PDF, un mot du classeur ; le PDF exclu n'est pas indexé

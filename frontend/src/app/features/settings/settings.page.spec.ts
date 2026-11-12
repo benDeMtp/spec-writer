@@ -251,6 +251,52 @@ describe('SettingsPage', () => {
     expect(status.textContent).toContain('Jira 9.12.3');
   });
 
+  it('présente les connexions, puis les réglages avancés avec leur portée (012)', async () => {
+    await open(connected);
+    const sections = Array.from(el.querySelectorAll('section[aria-labelledby]')).filter((n) => n.querySelector(':scope > h2'));
+    expect(sections.map((n) => n.querySelector(':scope > h2')?.textContent)).toEqual(['Connexions', 'Avancé']);
+    expect(Array.from(sections[0].querySelectorAll('h3')).map((h) => h.textContent)).toEqual(['GitHub Copilot', 'Jira']);
+    expect(Array.from(sections[1].querySelectorAll('h3')).map((h) => h.textContent)).toEqual([
+      'Modèle de recherche',
+      'Accès des agents',
+    ]);
+    expect(sections[1].textContent).toContain(
+      "S'applique à tous les projets. Changer de modèle demande de réindexer chaque projet.",
+    );
+    expect(sections[1].textContent).toContain('Les agents de code accèdent à tous les projets.');
+  });
+
+  it('enregistre Jira sans clé par défaut, puis nomme le projet vérifié par le test (012)', async () => {
+    await open({ ...connected, jira: null });
+    expect(el.textContent).toContain('Clé Jira par défaut (facultatif)');
+    const input = (name: string, value: string) => {
+      const i = el.querySelector<HTMLInputElement>(`input[formcontrolname="${name}"]`)!;
+      i.value = value;
+      i.dispatchEvent(new Event('input'));
+    };
+    input('serverUrl', 'https://jira.example.fr');
+    input('token', 'PAT');
+    button(el, 'Enregistrer')!.click();
+    const put = ctrl.expectOne({ method: 'PUT', url: '/api/settings/jira' });
+    expect(put.request.body.defaultProjectKey).toBeNull();
+    put.flush({ ...connected.jira!, defaultProjectKey: null });
+    await settle(fixture);
+    ctrl.expectOne('/api/settings').flush({ ...connected, jira: { ...connected.jira!, defaultProjectKey: null } });
+    await settle(fixture);
+
+    button(el, 'Tester la connexion')!.click();
+    ctrl.expectOne({ method: 'POST', url: '/api/settings/jira/test' }).flush({
+      result: 'OK',
+      serverVersion: '9.12.3',
+      userMessage: 'Connexion à Jira réussie.',
+      projectKey: 'FACT',
+    });
+    await settle(fixture);
+    ctrl.expectOne('/api/settings').flush(connected);
+    await settle(fixture);
+    expect(el.querySelector('.status.ok[role="status"]')?.textContent).toContain('Projet Jira vérifié : FACT');
+  });
+
   it("exige de confirmer l'avertissement http avant d'enregistrer", async () => {
     await open({ ...connected, jira: null });
     const input = (name: string, value: string) => {

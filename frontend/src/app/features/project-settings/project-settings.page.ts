@@ -1,31 +1,64 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { ContextApi } from '../../core/projects/context.api';
-import { DocSource, DocSourceKind, DocumentsPreview, Project } from '../../core/projects/projects.model';
-import { count } from '../../shared/text';
-import { ProjectsApi } from '../../core/projects/projects.api';
 import { KnowledgeApi } from '../../core/projects/knowledge.api';
-import { KnowledgePanelComponent } from './knowledge-panel.component';
+import { ProjectsApi } from '../../core/projects/projects.api';
+import { DocSource, DocSourceKind, DocumentsPreview, Project, ProjectInput } from '../../core/projects/projects.model';
+import { ProjectsStore } from '../../core/projects/projects.store';
+import { SettingsStore } from '../../core/settings/settings.store';
+import { count } from '../../shared/text';
+import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component';
+import { ProjectHeadingComponent } from '../../shared/ui/project-heading.component';
+import { ProjectIdentityFormComponent } from '../projects/project-identity-form.component';
 import { SheetEditorComponent } from './sheet-editor.component';
 
 /**
- * Contexte d'un projet (US2 de 002) : la fiche générale, rédigée à la main, et les sources de
- * documentation que spec-writer indexe (FR-008, FR-013, research.md R25).
+ * Réglages du projet courant (012, US2) : identité et clé Jira, fiche générale rédigée à la main,
+ * sources de documentation et modèle d'architecture que spec-writer indexe (FR-008, FR-013 de 002).
+ * Ce que l'outil en a tiré est dans la page Connaissance du projet.
  */
 @Component({
-  selector: 'sw-project-context-page',
+  selector: 'sw-project-settings-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, RouterLink, SheetEditorComponent, KnowledgePanelComponent],
+  imports: [
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    RouterLink,
+    ProjectHeadingComponent,
+    ProjectIdentityFormComponent,
+    SheetEditorComponent,
+  ],
   template: `
-    <p class="back"><a routerLink="/projets">Projets</a></p>
+    <sw-project-heading label="Réglages du projet" />
+    <p class="lead"><a routerLink="/projet/connaissance">Voir la connaissance du projet</a></p>
     @if (project(); as p) {
-      <h1>Contexte du projet {{ p.name }}</h1>
       <p role="status" aria-live="polite" class="announce">{{ announce() }}</p>
+      @if (warning(); as w) {
+        <p class="warning" role="alert">{{ w }}</p>
+      }
+
+      <section class="sheet" aria-labelledby="identity-title">
+        <h2 id="identity-title">Identité</h2>
+        <sw-project-identity-form
+          keyId="jira"
+          [project]="p"
+          [defaultKey]="defaultKey()"
+          [busy]="busy()"
+          (saved)="saveIdentity($event)"
+          (dirtyChange)="identityDirty.set($event)"
+        />
+      </section>
 
       <section class="sheet" aria-labelledby="fiche-title">
         <h2 id="fiche-title">Fiche générale</h2>
@@ -84,7 +117,7 @@ import { SheetEditorComponent } from './sheet-editor.component';
             </mat-form-field>
             <mat-form-field appearance="outline" class="grow">
               <mat-label>{{ locationLabel() }}</mat-label>
-              <input matInput name="location" maxlength="2000" [ngModel]="location()" (ngModelChange)="location.set($event)" />
+              <input matInput name="location" maxlength="2000" autocomplete="off" spellcheck="false" [ngModel]="location()" (ngModelChange)="location.set($event)" />
             </mat-form-field>
             @if (kind() === 'DOCUMENTS') {
               <mat-form-field appearance="outline" class="full">
@@ -155,7 +188,7 @@ import { SheetEditorComponent } from './sheet-editor.component';
         <form class="add" (ngSubmit)="saveWorkspace()" aria-label="Modèle d'architecture">
           <mat-form-field appearance="outline" class="grow">
             <mat-label>Chemin du fichier workspace.dsl</mat-label>
-            <input matInput name="workspace" maxlength="2000" [ngModel]="workspace()" (ngModelChange)="workspace.set($event)" />
+            <input matInput name="workspace" maxlength="2000" autocomplete="off" spellcheck="false" [ngModel]="workspace()" (ngModelChange)="workspace.set($event)" />
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Ownership du projet (facultatif)</mat-label>
@@ -185,30 +218,28 @@ import { SheetEditorComponent } from './sheet-editor.component';
           Ownership, facultatif : les éléments dont la propriété ownership vaut cette valeur sont propres au projet. Sans
           valeur, les éléments du modèle étendu sont communs et les autres sont propres au projet.
         </p>
-        <p class="hint">Jira : {{ p.effectiveJiraProjectKey ? 'projet ' + p.effectiveJiraProjectKey : 'aucun projet Jira' }}.</p>
-      </section>
-
-      <section class="sheet" aria-labelledby="knowledge-title">
-        <h2 id="knowledge-title">Connaissance du projet</h2>
-        <sw-knowledge-panel [projectId]="p.id" [revision]="revision()" />
       </section>
     }
   `,
   styles: `
-    h1 {
+    sw-project-heading {
+      margin: 0 0 0.5rem;
+    }
+    .lead {
       margin: 0 0 1.5rem;
-      font-family: var(--sw-font-doc);
-      font-size: var(--sw-step-3);
-      font-weight: 600;
+    }
+    .warning {
+      max-width: var(--sw-measure);
+      padding: 0.75rem 1rem;
+      border-left: 4px solid var(--sw-outcome);
+      background: color-mix(in srgb, var(--sw-outcome) 8%, transparent);
+      border-radius: var(--sw-radius-field);
     }
     h2 {
       margin: 0 0 0.5rem;
       font-family: var(--sw-font-doc);
       font-size: var(--sw-step-1);
       font-weight: 600;
-    }
-    .back {
-      margin: 0 0 0.5rem;
     }
     .announce:empty {
       display: none;
@@ -267,9 +298,13 @@ import { SheetEditorComponent } from './sheet-editor.component';
     }
   `,
 })
-export class ProjectContextPage {
-  readonly id = input.required<string>();
-
+export class ProjectSettingsPage {
+  private readonly store = inject(ProjectsStore);
+  private readonly settings = inject(SettingsStore);
+  private readonly dialog = inject(MatDialog);
+  private readonly route = inject(ActivatedRoute);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly sheetEditor = viewChild(SheetEditorComponent);
   private readonly projects = inject(ProjectsApi);
   private readonly api = inject(ContextApi);
   private readonly knowledge = inject(KnowledgeApi);
@@ -286,25 +321,105 @@ export class ProjectContextPage {
   protected readonly announce = signal('');
   protected readonly workspace = signal('');
   protected readonly ownership = signal('');
-  /** Une source ou le workspace changent : la connaissance est relue (indexation lancée par le serveur). */
-  protected readonly revision = signal(0);
+  protected readonly warning = signal<string | null>(null);
+  protected readonly identityDirty = signal(false);
+  /** `#jira` dans l'adresse : le champ de la clé reçoit le focus dès qu'il est affiché. */
+  private focusKey = false;
+  protected readonly defaultKey = computed(() => this.settings.jira()?.defaultProjectKey ?? null);
 
   constructor() {
     effect(() => {
-      const id = this.id();
-      untracked(() => void this.load(id));
+      const p = this.store.current();
+      untracked(() => this.show(p));
+    });
+    if (!this.store.current()) {
+      void this.store.load().catch(() => undefined);
+    }
+    void this.settings.ensureLoaded().catch(() => undefined);
+    inject(DestroyRef).onDestroy(inject(LeaveGuard).register(() => this.canLeave()));
+    // « Renseigner la clé Jira du projet » : #jira donne le focus au champ de la clé
+    this.route.fragment.subscribe((fragment) => {
+      this.focusKey = fragment === 'jira';
+      this.focusKeyField();
     });
   }
 
-  private async load(id: string): Promise<void> {
-    const all = await this.projects.list();
-    this.show(all.find((p) => p.id === id) ?? null);
+  /** Rechargement ou fermeture de l'onglet : le navigateur prévient aussi (FR-013). */
+  @HostListener('window:beforeunload', ['$event'])
+  protected warnBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.unsaved()) {
+      event.preventDefault();
+    }
+  }
+
+  /** Une saisie non enregistrée serait perdue en quittant la page ou en changeant de projet (FR-013). */
+  async canLeave(): Promise<boolean> {
+    if (!this.unsaved()) {
+      return true;
+    }
+    const result = await firstValueFrom(
+      this.dialog
+        .open(ConfirmDialogComponent, {
+          data: {
+            title: 'Quitter sans enregistrer ?',
+            message: 'Les modifications des réglages du projet ne sont pas enregistrées : elles seront perdues.',
+            confirm: 'Quitter sans enregistrer',
+          },
+        })
+        .afterClosed(),
+    );
+    return result === true;
+  }
+
+  private unsaved(): boolean {
+    const p = this.project();
+    return (
+      this.identityDirty() ||
+      this.location().trim() !== '' ||
+      this.editing() !== null ||
+      (this.sheetEditor()?.dirty() ?? false) ||
+      (p !== null && this.workspace().trim() !== (p.architectureWorkspace ?? '')) ||
+      (p !== null && this.ownership().trim() !== (p.architectureOwnership ?? ''))
+    );
+  }
+
+  /** Relit le projet courant après une modification : le menu et la page suivent. */
+  private async load(): Promise<void> {
+    await this.store.load();
+  }
+
+  protected async saveIdentity(input: ProjectInput): Promise<void> {
+    const p = this.project();
+    if (!p) {
+      return;
+    }
+    await this.run(async () => {
+      const saved = await this.projects.update(p.id, input);
+      this.warning.set(saved.jiraKeyWarning);
+      this.announce.set(`Projet « ${saved.name} » enregistré.`);
+      await this.load();
+    });
   }
 
   private show(p: Project | null): void {
     this.project.set(p);
     this.workspace.set(p?.architectureWorkspace ?? '');
     this.ownership.set(p?.architectureOwnership ?? '');
+    this.focusKeyField();
+  }
+
+  /** Le champ n'existe qu'une fois le projet affiché : le focus attend le rendu. */
+  private focusKeyField(): void {
+    if (!this.focusKey) {
+      return;
+    }
+    setTimeout(() => {
+      const field = this.host.nativeElement.querySelector<HTMLInputElement>('#jira');
+      if (field) {
+        this.focusKey = false;
+        field.focus();
+      }
+    });
   }
 
   protected kindLabel(s: DocSource): string {
@@ -351,8 +466,7 @@ export class ProjectContextPage {
       await this.api.setExclusions(p.id, s.id, lines(this.editedExclusions()));
       this.editing.set(null);
       this.announce.set("Motifs enregistrés. Ils s'appliquent à la prochaine indexation du dossier.");
-      await this.load(p.id);
-      this.revision.update((n) => n + 1);
+      await this.load();
     });
   }
 
@@ -371,7 +485,8 @@ export class ProjectContextPage {
       return;
     }
     await this.run(async () => {
-      this.show(await this.api.save(p.id, markdown));
+      await this.api.save(p.id, markdown);
+      await this.load();
       this.announce.set('Fiche générale enregistrée.');
     });
   }
@@ -389,8 +504,7 @@ export class ProjectContextPage {
       this.exclusions.set('');
       this.preview.set(null);
       this.announce.set('Source ajoutée. Elle est lue en arrière-plan.');
-      await this.load(p.id);
-      this.revision.update((n) => n + 1);
+      await this.load();
     });
   }
 
@@ -402,8 +516,7 @@ export class ProjectContextPage {
     await this.run(async () => {
       await this.api.deleteSource(p.id, s.id);
       this.announce.set(`Source ${s.location} retirée.`);
-      await this.load(p.id);
-      this.revision.update((n) => n + 1);
+      await this.load();
     });
   }
 
@@ -414,9 +527,9 @@ export class ProjectContextPage {
       return;
     }
     await this.run(async () => {
-      this.show(await this.knowledge.setArchitecture(p.id, workspace, this.ownership().trim() || null));
+      await this.knowledge.setArchitecture(p.id, workspace, this.ownership().trim() || null);
+      await this.load();
       this.announce.set("Modèle d'architecture enregistré. Il est lu en arrière-plan.");
-      this.revision.update((n) => n + 1);
     });
   }
 
@@ -428,8 +541,7 @@ export class ProjectContextPage {
     await this.run(async () => {
       await this.knowledge.clearArchitecture(p.id);
       this.announce.set("Modèle d'architecture retiré.");
-      await this.load(p.id);
-      this.revision.update((n) => n + 1);
+      await this.load();
     });
   }
 

@@ -54,10 +54,12 @@ test.describe.serial('010 agent conversationnel', () => {
     await expect(menu.getByRole('link')).toHaveText([
       'Conversation',
       'Spécifications',
-      'Tickets Jira',
+      /^Tickets Jira/,
+      'Connaissance du projet',
+      'Réglages du projet',
       'Projets',
-      'Journal',
       'Configuration',
+      'Journal',
     ]);
     await expect(menu.getByRole('link', { name: 'Conversation' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText('Posez une question sur le projet')).toBeVisible();

@@ -2,12 +2,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { provideMarkdown } from 'ngx-markdown';
 import { Project } from '../../core/projects/projects.model';
-import { ProjectContextPage } from './project-context.page';
-
-const STATUS = { tickets: 6, docSections: 7, adrs: 3, architectureElements: 10, syncedAt: '2026-11-04T08:00:00Z', partial: false, model: 'READY' };
+import { LeaveGuard } from '../../core/navigation/leave-guard';
+import { ProjectSettingsPage } from './project-settings.page';
 
 const FACT: Project = {
   id: 'p1',
@@ -41,9 +40,9 @@ function type(field: HTMLTextAreaElement | HTMLInputElement, value: string): voi
   field.dispatchEvent(new Event('input'));
 }
 
-describe('ProjectContextPage', () => {
+describe('ProjectSettingsPage', () => {
   let ctrl: HttpTestingController;
-  let fixture: ComponentFixture<ProjectContextPage>;
+  let fixture: ComponentFixture<ProjectSettingsPage>;
   let el: HTMLElement;
 
   async function open(project: Project): Promise<void> {
@@ -57,27 +56,28 @@ describe('ProjectContextPage', () => {
       ],
     });
     ctrl = TestBed.inject(HttpTestingController);
-    fixture = TestBed.createComponent(ProjectContextPage);
-    fixture.componentRef.setInput('id', 'p1');
+    fixture = TestBed.createComponent(ProjectSettingsPage);
     el = fixture.nativeElement;
     fixture.detectChanges();
-    ctrl.expectOne('/api/projects').flush([project]);
-    await settle(fixture);
-    knowledge();
+    ctrl.expectOne('/api/settings').flush({ jira: { defaultProjectKey: 'PROJ' } });
+    reload(project);
     await settle(fixture);
   }
 
-  /** Le panneau de la connaissance relit l'état et l'indexation. */
-  function knowledge(): void {
-    ctrl.expectOne('/api/projects/p1/knowledge').flush(STATUS);
-    ctrl.expectOne('/api/projects/p1/indexations/current').flush(null, { status: 404, statusText: 'Not Found' });
+  /** Le projet courant est relu après chaque modification : la page et le menu suivent. */
+  function reload(project: Project): void {
+    ctrl.expectOne('/api/projects').flush([project]);
+    ctrl.expectOne('/api/projects/current').flush(project);
   }
 
   afterEach(() => ctrl.verify());
 
   it('présente une seule fiche générale et les sources, sans proposition de l’IA', async () => {
     await open(FACT);
-    expect(el.querySelector('h1')?.textContent).toContain('Facturation');
+    expect(el.querySelector('h1')?.textContent).toBe('Réglages du projet · Facturation');
+    const sections = Array.from(el.querySelectorAll('section h2')).map((h) => h.textContent?.trim());
+    expect(sections).toEqual(['Identité', 'Fiche générale', 'Sources de documentation', "Modèle d'architecture"]);
+    expect(el.querySelector('a[href="/projet/connaissance"]')?.textContent).toContain('Voir la connaissance du projet');
     expect(el.querySelector('[role="tab"]')).toBeNull();
     expect(el.querySelector<HTMLTextAreaElement>('textarea[name="context"]')!.value).toBe('## Acteurs\n- Le comptable');
     expect(el.textContent).toContain('Modifiée le');
@@ -96,6 +96,8 @@ describe('ProjectContextPage', () => {
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ markdown: '## Architecture\n- Quarkus' });
     req.flush({ ...FACT, context: '## Architecture\n- Quarkus', contextUpdatedAt: '2026-11-04T08:00:00Z' });
+    await settle(fixture);
+    reload({ ...FACT, context: '## Architecture\n- Quarkus', contextUpdatedAt: '2026-11-04T08:00:00Z' });
     await settle(fixture);
     expect(el.textContent).toContain('Fiche générale enregistrée.');
     expect(button(el, 'Enregistrer la fiche')!.disabled).toBe(true);
@@ -142,9 +144,7 @@ describe('ProjectContextPage', () => {
     expect(add.request.body).toEqual({ kind: 'DOCUMENTS', location: '/Users/moi/OneDrive/Aurora', exclusions: ['Archives/**', '*.xlsx'] });
     add.flush({ id: 's2', kind: 'DOCUMENTS', location: '/Users/moi/OneDrive/Aurora', lastReadAt: null, pagesRead: null, pagesInError: null, exclusions: ['Archives/**', '*.xlsx'] });
     await settle(fixture);
-    ctrl.expectOne('/api/projects').flush([FACT]);
-    await settle(fixture);
-    knowledge();
+    reload(FACT);
     await settle(fixture);
   });
 
@@ -165,9 +165,7 @@ describe('ProjectContextPage', () => {
     expect(put.request.body).toEqual({ exclusions: ['*.pdf', 'Archives/**'] });
     put.flush({ ...docs, exclusions: ['*.pdf', 'Archives/**'] });
     await settle(fixture);
-    ctrl.expectOne('/api/projects').flush([{ ...FACT, docSources: [{ ...docs, exclusions: ['*.pdf', 'Archives/**'] }] }]);
-    await settle(fixture);
-    knowledge();
+    reload({ ...FACT, docSources: [{ ...docs, exclusions: ['*.pdf', 'Archives/**'] }] });
     await settle(fixture);
     expect(el.textContent).toContain('Motifs enregistrés');
     expect(el.querySelector('textarea[name="exclusions-s9"]')).toBeNull();
@@ -182,23 +180,18 @@ describe('ProjectContextPage', () => {
     expect(add.request.body).toEqual({ kind: 'URL', location: 'https://docs.example.com/rh/' });
     add.flush({ id: 's2', kind: 'URL', location: 'https://docs.example.com/rh/', lastReadAt: null, pagesRead: null, pagesInError: null });
     await settle(fixture);
-    ctrl.expectOne('/api/projects').flush([FACT]);
-    await settle(fixture);
-    knowledge();
+    reload(FACT);
     await settle(fixture);
     el.querySelector<HTMLButtonElement>('[aria-label="Retirer la source https://docs.example.com/billing/"]')!.click();
     ctrl.expectOne((r) => r.method === 'DELETE' && r.url === '/api/projects/p1/doc-sources/s1').flush(null);
     await settle(fixture);
-    ctrl.expectOne('/api/projects').flush([{ ...FACT, docSources: [] }]);
-    await settle(fixture);
-    knowledge();
+    reload({ ...FACT, docSources: [] });
     await settle(fixture);
     expect(el.textContent).toContain('Aucune source.');
   });
 
   it('enregistre puis retire le workspace Structurizr', async () => {
     await open(FACT);
-    expect(el.textContent).toContain('Jira : projet FACT.');
     expect(el.textContent).toContain('Ownership du projet (facultatif)');
     const ownership = el.querySelector<HTMLInputElement>('input[name="ownership"]')!;
     expect(el.querySelector(`#${ownership.getAttribute('aria-describedby')}`)?.textContent).toContain(
@@ -215,16 +208,87 @@ describe('ProjectContextPage', () => {
     expect(put.request.body).toEqual({ workspace: '/Users/moi/C4/facturation/workspace.dsl', ownership: 'facturation' });
     put.flush({ ...FACT, architectureWorkspace: '/Users/moi/C4/facturation/workspace.dsl', architectureOwnership: 'facturation' });
     await settle(fixture);
-    knowledge();
+    reload({ ...FACT, architectureWorkspace: '/Users/moi/C4/facturation/workspace.dsl', architectureOwnership: 'facturation' });
     await settle(fixture);
     expect(el.textContent).toContain("Modèle d'architecture enregistré.");
     el.querySelector<HTMLButtonElement>('[aria-label="Retirer le modèle d\'architecture"]')!.click();
     ctrl.expectOne((r) => r.method === 'DELETE' && r.url === '/api/projects/p1/architecture-source').flush(null);
     await settle(fixture);
-    ctrl.expectOne('/api/projects').flush([FACT]);
-    await settle(fixture);
-    knowledge();
+    reload(FACT);
     await settle(fixture);
     expect(el.querySelector<HTMLInputElement>('input[name="workspace"]')!.value).toBe('');
+  });
+
+  it('enregistre le nom et la clé Jira, et signale une clé inconnue', async () => {
+    await open(FACT);
+    const key = el.querySelector<HTMLInputElement>('input#jira')!;
+    expect(key.value).toBe('FACT');
+    expect(el.querySelector(`#${key.getAttribute('aria-describedby')}`)?.textContent).toContain(
+      "la clé par défaut de l'application est utilisée : PROJ",
+    );
+    type(key, 'NOPE');
+    await settle(fixture);
+    Array.from(el.querySelectorAll<HTMLButtonElement>('form[aria-label="Identité du projet Facturation"] button'))
+      .find((b) => b.textContent?.trim() === 'Enregistrer')!
+      .click();
+    const put = ctrl.expectOne((r) => r.method === 'PUT' && r.url === '/api/projects/p1');
+    expect(put.request.body).toEqual({ name: 'Facturation', description: null, jiraProjectKey: 'NOPE' });
+    put.flush({ ...FACT, jiraProjectKey: 'NOPE', jiraKeyWarning: 'Le projet Jira NOPE est introuvable.' });
+    await settle(fixture);
+    reload({ ...FACT, jiraProjectKey: 'NOPE', effectiveJiraProjectKey: 'NOPE' });
+    await settle(fixture);
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain('NOPE est introuvable');
+    expect(el.textContent).toContain('Projet « Facturation » enregistré.');
+  });
+
+  it('une saisie non enregistrée demande confirmation avant de quitter', async () => {
+    await open(FACT);
+    const guard = TestBed.inject(LeaveGuard);
+    expect(await guard.confirm()).toBe(true);
+    type(el.querySelector<HTMLInputElement>('input[name="location"]')!, 'https://docs.example.com/rh/');
+    await settle(fixture);
+    const leaving = guard.confirm();
+    await settle(fixture);
+    const dialog = document.querySelector('mat-dialog-container')!;
+    expect(dialog.textContent).toContain('Quitter sans enregistrer ?');
+    button(dialog, 'Annuler')!.click();
+    expect(await leaving).toBe(false);
+  });
+
+  it('prévient le navigateur au rechargement si une saisie n’est pas enregistrée', async () => {
+    await open(FACT);
+    const clean = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+    type(el.querySelector<HTMLInputElement>('input[name="workspace"]')!, '/Users/moi/autre/workspace.dsl');
+    await settle(fixture);
+    const dirty = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+  });
+
+  it('#jira donne le focus au champ de la clé Jira', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([{ path: 'projet/reglages', component: ProjectSettingsPage }]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideMarkdown(),
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
+      ],
+    });
+    ctrl = TestBed.inject(HttpTestingController);
+    const { RouterTestingHarness } = await import('@angular/router/testing');
+    const harness = await RouterTestingHarness.create();
+    const navigation = harness.navigateByUrl('/projet/reglages#jira');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    ctrl.expectOne('/api/settings').flush({ jira: null });
+    reload(FACT);
+    await navigation;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    harness.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(document.activeElement?.id).toBe('jira');
+    expect(TestBed.inject(Router).url).toBe('/projet/reglages#jira');
   });
 });

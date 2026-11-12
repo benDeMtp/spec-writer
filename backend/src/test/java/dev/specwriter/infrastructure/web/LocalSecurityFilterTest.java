@@ -20,14 +20,25 @@ class LocalSecurityFilterTest {
 
     @Test
     void sansCookieRefuse() {
+        // 012 (FR-018) : la session perdue a son code, que le front reconnaît pour son écran dédié
         given().header("Origin", LocalApi.origin()).get("/api/settings")
-                .then().statusCode(403).body("code", equalTo("FORBIDDEN"));
+                .then().statusCode(403).body("code", equalTo("SESSION_REQUIRED"));
+        given().header("Origin", LocalApi.origin()).cookie("sw_launch", "perime").get("/api/settings")
+                .then().statusCode(403).body("code", equalTo("SESSION_REQUIRED"));
+    }
+
+    @Test
+    void jetonDeLancementRefuseSessionPerdue() {
+        given().header("Origin", LocalApi.origin()).contentType(ContentType.JSON)
+                .body(Map.of("launchToken", "mauvais"))
+                .post("/api/session-auth").then().statusCode(403).body("code", equalTo("SESSION_REQUIRED"));
     }
 
     @Test
     void origineEtrangereRefusee() {
+        // un refus d'origine n'est pas une session perdue
         given().header("Origin", "https://evil.example").cookie("sw_launch", LocalApi.cookie())
-                .get("/api/anything").then().statusCode(403);
+                .get("/api/anything").then().statusCode(403).body("code", equalTo("FORBIDDEN"));
         given().header("Origin", "https://evil.example").contentType(ContentType.JSON)
                 .body(Map.of("launchToken", tokens.launchToken()))
                 .post("/api/session-auth").then().statusCode(403);

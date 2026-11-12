@@ -91,10 +91,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [serverUrl, defaultProjectKey]
+              required: [serverUrl]
               properties:
                 serverUrl: { type: string, format: uri }
-                defaultProjectKey: { type: string, pattern: '^[A-Z][A-Z0-9_]+$' }
+                defaultProjectKey: { type: string, nullable: true, pattern: '^[A-Z][A-Z0-9_]+$', description: 'Facultative (012) : repli des projets sans clé Jira ; absente ou vide = aucune' }
                 token: { type: string, writeOnly: true, description: Absent = conserver le jeton existant }
                 caCertificatePath: { type: string, nullable: true }
                 acceptInsecureHttp: { type: boolean, description: Confirmation de l'avertissement FR-035 }
@@ -114,9 +114,10 @@ paths:
               schema:
                 type: object
                 properties:
-                  result: { enum: [OK, UNREACHABLE, TOKEN_REJECTED, PROJECT_NOT_FOUND, MISSING_PERMISSION, UNSUPPORTED_VERSION] }
+                  result: { enum: [OK, OK_NO_PROJECT, UNREACHABLE, TOKEN_REJECTED, PROJECT_NOT_FOUND, MISSING_PERMISSION, UNSUPPORTED_VERSION, CONSENT_REQUIRED] }
                   serverVersion: { type: string }
                   userMessage: { type: string }
+                  projectKey: { type: string, nullable: true, description: 'Projet Jira vérifié (012) : clé du projet courant, sinon clé par défaut ; null avec OK_NO_PROJECT' }
   /api/consents/{service}:
     put:
       summary: Donne ou retire le consentement d'envoi à un service tiers (FR-024)
@@ -443,7 +444,7 @@ components:
         status: { type: integer }
         code: { type: string, example: NEED_TOO_SHORT }
         userMessage: { type: string, description: Ce qui s'est passé et quoi faire (FR-028) }
-        action: { enum: [RETRY, OPEN_SETTINGS, RECONNECT, EDIT_INPUT, NONE] }
+        action: { enum: [RETRY, OPEN_SETTINGS, OPEN_PROJECT_SETTINGS, RECONNECT, EDIT_INPUT, NONE] }
     Settings:
       type: object
       properties:
@@ -476,7 +477,7 @@ components:
       properties:
         enabled: { type: boolean }
         serverUrl: { type: string }
-        defaultProjectKey: { type: string }
+        defaultProjectKey: { type: string, nullable: true }
         caCertificatePath: { type: string, nullable: true }
         tokenSet: { type: boolean, description: Le jeton lui-même n'est jamais renvoyé (FR-033) }
         secretPersistence: { enum: [KEYCHAIN, MEMORY_ONLY] }

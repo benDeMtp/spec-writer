@@ -2,6 +2,7 @@ package dev.specwriter.infrastructure.web;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
@@ -98,6 +99,20 @@ class JiraLinkResourceIT {
                 .then().statusCode(409).body("code", equalTo("ALREADY_LINKED"));
         api().body(Map.of("versionNumber", 1)).post("/api/sessions/" + id + "/jira/preview").then().statusCode(200)
                 .body("mode", equalTo("UPDATE")).body("issueKey", equalTo(key));
+    }
+
+    @Test
+    void sansCleDeProjetNiCleParDefautLesReglagesDuProjet() {
+        // 012 (FR-010, FR-016) : la clé manquante se règle dans le projet, sans appel à Jira
+        api().body(Map.of("serverUrl", "http://127.0.0.1:" + jira.port(), "acceptInsecureHttp", true, "token",
+                "TEST-JIRA-PAT")).put("/api/settings/jira").then().statusCode(200);
+        String id = ExportResourceIT.generated();
+        api().body(Map.of("versionNumber", 1)).post("/api/sessions/" + id + "/jira/preview").then().statusCode(409)
+                .body("code", equalTo("JIRA_PROJECT_MISSING"))
+                .body("action", equalTo("OPEN_PROJECT_SETTINGS"));
+        api().body(Map.of("confirm", true, "versionNumber", 1, "issueTypeId", "10001")).post("/api/sessions/" + id + "/jira")
+                .then().statusCode(409).body("code", equalTo("JIRA_PROJECT_MISSING"));
+        jira.verify(0, getRequestedFor(urlPathMatching("/rest/api/2/issue/createmeta/.*")));
     }
 
     @Test

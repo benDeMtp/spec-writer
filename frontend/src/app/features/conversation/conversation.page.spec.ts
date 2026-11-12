@@ -10,6 +10,7 @@ import { ProjectsStore } from '../../core/projects/projects.store';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { MENTION_DELAYS } from '../../shared/ui/mention.directive';
 import { ConversationPage } from './conversation.page';
+import { ProjectFollower } from '../../core/projects/project-follower';
 
 async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
   for (let i = 0; i < 3; i++) {
@@ -298,6 +299,14 @@ describe('ConversationPage', () => {
     await settle(fixture);
     expect(el.querySelector('[role="alert"]')?.textContent).toContain('Connectez GitHub Copilot');
     expect(el.querySelector('textarea')!.value).toBe('Une question ?');
+  });
+
+  it('une conversation d’un autre projet rend ce projet courant (012)', async () => {
+    const follow = vi.spyOn(TestBed.inject(ProjectFollower), 'follow').mockResolvedValue();
+    await open('c1');
+    ctrl.expectOne('/api/conversations/c1').flush(detail({ projectId: 'autre' }));
+    await settle(fixture);
+    expect(follow).toHaveBeenCalledWith('autre');
   });
 
   it('rédiger : brouillon relu, point retiré, spécification démarrée et liée', async () => {

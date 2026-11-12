@@ -5,6 +5,7 @@ export type SecretPersistence = 'KEYCHAIN' | 'MEMORY_ONLY';
 export type ConsentService = 'COPILOT' | 'JIRA';
 export type JiraTestResult =
   | 'OK'
+  | 'OK_NO_PROJECT'
   | 'UNREACHABLE'
   | 'TOKEN_REJECTED'
   | 'PROJECT_NOT_FOUND'
@@ -38,7 +39,8 @@ export interface ModelInfo {
 export interface JiraSettings {
   enabled: boolean;
   serverUrl: string;
-  defaultProjectKey: string;
+  /** Repli des projets sans clé Jira ; null sans repli (012). */
+  defaultProjectKey: string | null;
   caCertificatePath: string | null;
   tokenSet: boolean;
   secretPersistence: SecretPersistence;
@@ -67,7 +69,7 @@ export interface ConnectionStatus {
 
 export interface JiraInput {
   serverUrl: string;
-  defaultProjectKey: string;
+  defaultProjectKey: string | null;
   token?: string;
   caCertificatePath?: string | null;
   acceptInsecureHttp: boolean;
@@ -77,4 +79,6 @@ export interface JiraTestOutcome {
   result: JiraTestResult;
   serverVersion: string | null;
   userMessage: string;
+  /** Projet Jira vérifié, celui du projet courant ; null sans clé (012). */
+  projectKey: string | null;
 }

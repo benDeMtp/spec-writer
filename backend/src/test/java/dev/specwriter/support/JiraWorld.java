@@ -84,6 +84,13 @@ public class JiraWorld {
         return this;
     }
 
+    /** Jira configuré sans clé par défaut (012) : seuls les projets qui ont leur clé ont un projet Jira. */
+    public JiraWorld configureJiraWithoutDefaultKey() {
+        settings.saveJira(JiraSettings.create("https://jira.example.com", null, null, false, SecretPersistence.KEYCHAIN));
+        secrets.put(SecretStore.JIRA_PAT, "TEST-JIRA-PAT");
+        return this;
+    }
+
     /** Session locale générée, avec sa version 1. */
     public Session generatedSession() {
         Session s = Session.start(ids.next(), Project.DEFAULT_ID, Need.of(NEED), null, clock.now())

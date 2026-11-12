@@ -24,6 +24,16 @@ class ProblemMapperTest {
     }
 
     @Test
+    void cleJiraManquanteMeneAuxReglagesDuProjet() {
+        // 012 (FR-010) : la clé se règle dans le projet, pas dans la configuration
+        Response r = mapper.domain(new DomainException(ErrorCode.JIRA_PROJECT_MISSING));
+        Problem p = (Problem) r.getEntity();
+        assertThat(r.getStatus()).isEqualTo(409);
+        assertThat(p.action()).isEqualTo(ErrorAction.OPEN_PROJECT_SETTINGS);
+        assertThat(p.userMessage()).contains("réglages du projet");
+    }
+
+    @Test
     void exceptionInattendueGeneriqueSansDetail() {
         Response r = mapper.unexpected(new IllegalStateException("détail interne SECRET"));
         Problem p = (Problem) r.getEntity();

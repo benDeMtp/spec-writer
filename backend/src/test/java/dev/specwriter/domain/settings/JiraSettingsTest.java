@@ -43,10 +43,19 @@ class JiraSettingsTest {
     @Test
     void cleDeProjet() {
         assertThat(create("https://j", "SPEC_2", false).defaultProjectKey()).isEqualTo("SPEC_2");
-        for (String key : new String[] {"proj", "P", "1ABC", "AB-C", null}) {
+        for (String key : new String[] {"proj", "P", "1ABC", "AB-C"}) {
             assertThatThrownBy(() -> create("https://j", key, false)).as(String.valueOf(key))
                     .isInstanceOf(DomainException.class);
         }
+    }
+
+    @Test
+    void cleParDefautFacultative() {
+        // 012 (FR-016) : sans clé par défaut, les projets sans clé n'ont pas de projet Jira
+        for (String key : new String[] {null, "", "   "}) {
+            assertThat(create("https://j", key, false).defaultProjectKey()).as(String.valueOf(key)).isNull();
+        }
+        assertThat(create("https://j", " PROJ ", false).defaultProjectKey()).isEqualTo("PROJ");
     }
 
     @Test

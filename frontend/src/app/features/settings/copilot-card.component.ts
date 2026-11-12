@@ -30,7 +30,7 @@ const SCOPE_LABELS: Record<string, string> = {
   imports: [MatButtonModule, MatFormFieldModule, MatSelectModule, MatSlideToggleModule],
   template: `
     <section class="sheet" aria-labelledby="copilot-title">
-      <h2 id="copilot-title">GitHub Copilot</h2>
+      <h3 id="copilot-title">GitHub Copilot</h3>
       @let c = store.copilot();
 
       @if (c?.state === 'CONNECTED') {

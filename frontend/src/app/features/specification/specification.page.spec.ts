@@ -6,6 +6,12 @@ import { Router, provideRouter } from '@angular/router';
 import { provideMarkdown } from 'ngx-markdown';
 import { SessionDetail, Specification } from '../../core/sessions/sessions.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
+import { LeaveGuard } from '../../core/navigation/leave-guard';
+import { ProjectFollower } from '../../core/projects/project-follower';
+import { Project } from '../../core/projects/projects.model';
+import { ProjectsStore } from '../../core/projects/projects.store';
+import { Settings } from '../../core/settings/settings.model';
+import { SettingsStore } from '../../core/settings/settings.store';
 import { SpecificationPage } from './specification.page';
 
 const SESSION = {
@@ -117,6 +123,29 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
   function section(id: string): HTMLElement {
     return el.querySelector(`section[aria-labelledby="${id}"]`)!;
   }
+
+  it('sans clé Jira pour son projet, la création de ticket mène aux réglages du projet (012)', async () => {
+    TestBed.inject(SettingsStore).settings.set({
+      copilot: {},
+      jira: { enabled: true, tokenSet: true, defaultProjectKey: null },
+    } as unknown as Settings);
+    TestBed.inject(ProjectsStore).projects.set([{ id: 'p0', name: 'Aurora', effectiveJiraProjectKey: null } as Project]);
+    await open(SESSION, [{ number: 1 }]);
+    const hint = el.querySelector('#jira-missing')!;
+    expect(text(hint)).toContain('renseignez la clé Jira du projet');
+    expect(hint.querySelector('a')?.getAttribute('href')).toBe('/projet/reglages#jira');
+
+    TestBed.inject(SettingsStore).settings.set({ copilot: {}, jira: null } as unknown as Settings);
+    fixture.detectChanges();
+    expect(text(el.querySelector('#jira-missing')!)).toContain('le serveur et le jeton Jira');
+    expect(el.querySelector('#jira-missing a')?.getAttribute('href')).toBe('/configuration');
+  });
+
+  it('une spécification d’un autre projet rend ce projet courant (012)', async () => {
+    const follow = vi.spyOn(TestBed.inject(ProjectFollower), 'follow').mockResolvedValue();
+    await open(SESSION, [{ number: 1 }]);
+    expect(follow).toHaveBeenCalledWith('p0');
+  });
 
   it('cite les tickets, ADR et éléments avec leur lien', async () => {
     await open(SESSION, []);
@@ -296,7 +325,8 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
       unifiedDiff: '',
     });
     await settle();
-    const leaving = fixture.componentInstance.canLeave();
+    // 012 : le sélecteur de projet passe par la même vérification que la garde de la route
+    const leaving = TestBed.inject(LeaveGuard).confirm();
     await settle();
     expect(document.querySelector('mat-dialog-container')?.textContent).toContain(
       'Quitter sans appliquer la proposition ?',

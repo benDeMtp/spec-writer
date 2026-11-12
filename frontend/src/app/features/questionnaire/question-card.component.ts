@@ -19,6 +19,21 @@ export const THEMES: Record<string, string> = {
   CONTRADICTION: 'Contradiction à trancher',
 };
 
+const SEPARATOR = /\s*(?:;|\n)\s*/;
+
+/** Suggestions présentes dans la réponse, qui se lit comme des segments séparés par « ; » ou un retour à la ligne. */
+export function chosen(answer: string, suggestions: readonly string[]): string[] {
+  const segments = answer.split(SEPARATOR).map((part) => part.trim());
+  return suggestions.filter((s) => segments.includes(s.trim()));
+}
+
+/** Ajoute la suggestion à la réponse, ou l'en retire si elle y est, sans toucher au texte saisi autour. */
+export function toggleSuggestion(answer: string, suggestion: string): string {
+  const segments = answer.split(SEPARATOR).map((part) => part.trim()).filter(Boolean);
+  const kept = segments.filter((part) => part !== suggestion.trim());
+  return (kept.length === segments.length ? [...segments, suggestion.trim()] : kept).join(' ; ');
+}
+
 /** Une question : justification, suggestions, valeur par défaut, réponse ou question passée (FR-005, FR-006). */
 @Component({
   selector: 'sw-question-card',
@@ -31,9 +46,16 @@ export const THEMES: Record<string, string> = {
       <h2 [id]="'q-' + q.id" tabindex="-1" #heading>{{ q.label }}</h2>
       <p class="rationale">{{ q.rationale }}</p>
       @if (q.suggestions.length) {
-        <mat-chip-listbox [attr.aria-label]="'Réponses suggérées pour : ' + q.label">
+        <p class="hint" [id]="'q-hint-' + q.id">Choisissez une ou plusieurs réponses, puis complétez si besoin.</p>
+        <mat-chip-listbox
+          [multiple]="true"
+          [attr.aria-label]="'Réponses suggérées pour : ' + q.label"
+          [attr.aria-describedby]="'q-hint-' + q.id"
+        >
           @for (s of q.suggestions; track s) {
-            <mat-chip-option [selected]="value() === s" (click)="value.set(s)">{{ s }}</mat-chip-option>
+            <mat-chip-option [selected]="selected().includes(s)" (selectionChange)="$event.isUserInput && pick(s, $event.selected)">{{
+              s
+            }}</mat-chip-option>
           }
         </mat-chip-listbox>
       }
@@ -92,6 +114,11 @@ export const THEMES: Record<string, string> = {
       margin: 0 0 0.75rem;
       color: var(--sw-ink-soft);
     }
+    .hint {
+      margin: 0 0 0.25rem;
+      color: var(--sw-ink-soft);
+      font-size: var(--sw-step--1);
+    }
     mat-chip-listbox {
       display: block;
       margin-bottom: 0.75rem;
@@ -121,11 +148,19 @@ export class QuestionCardComponent {
   readonly skipped = output<void>();
 
   protected readonly value = signal('');
+  protected readonly selected = computed(() => chosen(this.value(), this.question().suggestions));
   protected readonly defaultText = computed(
     () => `Si vous passez cette question, spec-writer retiendra « ${this.question().defaultValue ?? 'Non précisé'} » comme hypothèse.`,
   );
   protected readonly themeLabel = computed(() => THEMES[this.question().theme] ?? this.question().theme);
   private readonly heading = viewChild.required<ElementRef<HTMLElement>>('heading');
+
+  /** Plusieurs suggestions peuvent être justes ensemble : chacune s'ajoute à la réponse ou s'en retire. */
+  protected pick(suggestion: string, selected: boolean): void {
+    if (this.selected().includes(suggestion) !== selected) {
+      this.value.update((answer) => toggleSuggestion(answer, suggestion));
+    }
+  }
 
   focus(): void {
     this.heading().nativeElement.focus();

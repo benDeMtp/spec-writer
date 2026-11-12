@@ -28,7 +28,7 @@ const PROJECT_KEY = /^[A-Z][A-Z0-9_]+$/;
   ],
   template: `
     <section class="sheet" aria-labelledby="jira-title">
-      <h2 id="jira-title">Jira</h2>
+      <h3 id="jira-title">Jira</h3>
       @let j = store.jira();
       <form [formGroup]="form" (ngSubmit)="save()" novalidate>
         <mat-form-field appearance="outline">
@@ -47,9 +47,9 @@ const PROJECT_KEY = /^[A-Z][A-Z0-9_]+$/;
         }
 
         <mat-form-field appearance="outline">
-          <mat-label>Clé du projet par défaut</mat-label>
+          <mat-label>Clé Jira par défaut (facultatif)</mat-label>
           <input matInput formControlName="defaultProjectKey" autocomplete="off" />
-          <mat-hint>En majuscules, par exemple PROJ.</mat-hint>
+          <mat-hint>Utilisée pour les projets sans clé Jira. En majuscules, par exemple PROJ.</mat-hint>
           @if (form.controls.defaultProjectKey.invalid && form.controls.defaultProjectKey.touched) {
             <mat-error>La clé doit être en majuscules, par exemple PROJ ou SPEC_2.</mat-error>
           }
@@ -96,6 +96,9 @@ const PROJECT_KEY = /^[A-Z][A-Z0-9_]+$/;
       @if (outcome(); as o) {
         <div class="status" [class.ok]="o.result === 'OK'" [class.warn]="o.result !== 'OK'" role="status" aria-live="polite">
           <p>{{ o.userMessage }}@if (o.serverVersion) { (Jira {{ o.serverVersion }})}</p>
+          @if (o.projectKey) {
+            <p>Projet Jira vérifié : {{ o.projectKey }}, celui du projet courant.</p>
+          }
         </div>
       }
 
@@ -120,7 +123,8 @@ export class JiraCardComponent {
 
   protected readonly form = this.fb.nonNullable.group({
     serverUrl: ['', [Validators.required]],
-    defaultProjectKey: ['', [Validators.required, Validators.pattern(PROJECT_KEY)]],
+    // 012 : facultative, repli des projets sans clé Jira
+    defaultProjectKey: ['', [Validators.pattern(PROJECT_KEY)]],
     token: [''],
     caCertificatePath: [''],
     acceptInsecureHttp: [false],
@@ -142,7 +146,7 @@ export class JiraCardComponent {
       if (j) {
         this.form.patchValue({
           serverUrl: j.serverUrl,
-          defaultProjectKey: j.defaultProjectKey,
+          defaultProjectKey: j.defaultProjectKey ?? '',
           caCertificatePath: j.caCertificatePath ?? '',
           acceptInsecureHttp: j.insecureHttp,
         });
@@ -160,7 +164,7 @@ export class JiraCardComponent {
     try {
       await this.store.saveJira({
         serverUrl: v.serverUrl.trim(),
-        defaultProjectKey: v.defaultProjectKey.trim(),
+        defaultProjectKey: v.defaultProjectKey.trim() || null,
         token: v.token ? v.token : undefined,
         caCertificatePath: v.caCertificatePath.trim() || null,
         acceptInsecureHttp: this.insecure() && v.acceptInsecureHttp,

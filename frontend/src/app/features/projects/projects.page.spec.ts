@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { Project } from '../../core/projects/projects.model';
 import { ProjectsPage } from './projects.page';
 
@@ -58,6 +58,7 @@ describe('ProjectsPage', () => {
     fixture = TestBed.createComponent(ProjectsPage);
     el = fixture.nativeElement;
     fixture.detectChanges();
+    ctrl.expectOne('/api/settings').flush({ jira: { defaultProjectKey: 'PROJ' } });
     flushLoad([FACT, DEFAULT], DEFAULT);
     await settle(fixture);
   });
@@ -70,7 +71,7 @@ describe('ProjectsPage', () => {
     expect(items[0].textContent).toContain('Facturation');
     expect(items[0].textContent).toContain('2 spécifications');
     expect(items[0].textContent).toContain('Jira : FACT');
-    expect(items[1].textContent).toContain('PROJ (projet par défaut)');
+    expect(items[1].textContent).toContain("PROJ (clé par défaut de l'application)");
     expect(items[1].textContent).toContain('Projet courant');
     expect(button(items[0], 'Rendre courant')).toBeTruthy();
     expect(button(items[1], 'Rendre courant')).toBeUndefined();
@@ -79,6 +80,7 @@ describe('ProjectsPage', () => {
   it('crée un projet et signale une clé Jira introuvable sans bloquer', async () => {
     button(el, 'Nouveau projet')!.click();
     await settle(fixture);
+    expect(el.querySelector('mat-hint')?.textContent).toContain("la clé par défaut de l'application est utilisée : PROJ");
     type(el.querySelector<HTMLInputElement>('input[name="name"]')!, ' Paie ');
     type(el.querySelector<HTMLInputElement>('input[name="jiraProjectKey"]')!, 'NOPE');
     await settle(fixture);
@@ -112,6 +114,22 @@ describe('ProjectsPage', () => {
     expect(el.querySelectorAll('li')).toHaveLength(1);
     expect(button(el, 'Supprimer')?.disabled).toBe(true);
     expect(el.textContent).toContain('Le dernier projet restant ne peut pas être supprimé.');
+  });
+
+  it('« Modifier » et « Connaissance » rendent le projet courant, puis ouvrent sa page', async () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    button(el.querySelectorAll('li')[0], 'Modifier')!.click();
+    const req = ctrl.expectOne((r) => r.method === 'PUT' && r.url === '/api/projects/current');
+    expect(req.request.body).toEqual({ projectId: 'p1' });
+    req.flush(null);
+    await settle(fixture);
+    flushLoad([FACT, DEFAULT], FACT);
+    await settle(fixture);
+    expect(navigate).toHaveBeenCalledWith('/projet/reglages');
+
+    button(el.querySelectorAll('li')[0], 'Connaissance')!.click();
+    await settle(fixture);
+    expect(navigate).toHaveBeenLastCalledWith('/projet/connaissance');
   });
 
   it('change le projet courant', async () => {

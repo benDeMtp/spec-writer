@@ -16,12 +16,21 @@ import { JiraCardComponent } from './jira-card.component';
       <p class="notice" role="status">Connectez GitHub Copilot pour commencer un nouveau besoin.</p>
     }
     @if (store.settings()) {
-      <div class="cards">
-        <sw-copilot-card />
-        <sw-jira-card />
-        <sw-embedding-card />
-        <sw-agent-access-card />
-      </div>
+      <!-- 012 : d'abord les connexions aux services, puis les réglages avancés, avec leur portée -->
+      <section aria-labelledby="connections-title">
+        <h2 id="connections-title">Connexions</h2>
+        <div class="cards">
+          <sw-copilot-card />
+          <sw-jira-card />
+        </div>
+      </section>
+      <section aria-labelledby="advanced-title">
+        <h2 id="advanced-title">Avancé</h2>
+        <div class="cards">
+          <sw-embedding-card />
+          <sw-agent-access-card />
+        </div>
+      </section>
     } @else {
       <p role="status" aria-live="polite">Chargement de la configuration…</p>
     }
@@ -40,6 +49,15 @@ import { JiraCardComponent } from './jira-card.component';
       border-left: 4px solid var(--sw-pencil);
       background: var(--sw-sheet);
       border-radius: var(--sw-radius-field);
+    }
+    h2 {
+      margin: 0 0 1rem;
+      font-family: var(--sw-font-doc);
+      font-size: var(--sw-step-2);
+      font-weight: 600;
+    }
+    section + section {
+      margin-top: 2.5rem;
     }
     .cards {
       display: grid;

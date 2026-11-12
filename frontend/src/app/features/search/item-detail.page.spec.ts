@@ -3,6 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { provideMarkdown } from 'ngx-markdown';
+import { Project } from '../../core/projects/projects.model';
+import { ProjectsStore } from '../../core/projects/projects.store';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ItemDetailPage } from './item-detail.page';
 
@@ -26,6 +28,7 @@ describe('ItemDetailPage', () => {
       ],
     });
     const ctrl = TestBed.inject(HttpTestingController);
+    TestBed.inject(ProjectsStore).current.set({ id: 'p1', name: 'Aurora' } as Project);
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(ItemDetailPage);
     fixture.componentRef.setInput('key', 'FACT-7');
@@ -39,6 +42,8 @@ describe('ItemDetailPage', () => {
     });
     await settle(fixture);
     const el: HTMLElement = fixture.nativeElement;
+    // 012 : le projet de destination est annoncé avant l'action
+    expect(el.querySelector('.destination')?.textContent).toBe('La spécification sera ajoutée au projet Aurora.');
     const discuss = Array.from(el.querySelectorAll('button')).find(
       (b) => b.textContent?.trim() === "Discuter avec l'IA",
     )!;

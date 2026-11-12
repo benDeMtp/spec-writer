@@ -31,6 +31,6 @@ public class SessionAuthResource {
                                 .sameSite(NewCookie.SameSite.STRICT)
                                 .build())
                         .build())
-                .orElseGet(() -> ProblemMapper.respond(Problem.of(ErrorCode.FORBIDDEN)));
+                .orElseGet(() -> ProblemMapper.respond(Problem.of(ErrorCode.SESSION_REQUIRED)));
     }
 }

@@ -11,6 +11,7 @@ import { SessionsApi } from '../../core/sessions/sessions.api';
 import { IMPLEMENTATION_LABELS, SessionState, SessionSummary } from '../../core/sessions/sessions.model';
 import { confirmDeleteSpecification } from '../../shared/ui/confirm-delete-specification';
 import { SearchPage } from '../search/search.page';
+import { ProjectHeadingComponent } from '../../shared/ui/project-heading.component';
 
 const STATES: Record<SessionState, string> = {
   QUESTIONING: 'Questionnaire en cours',
@@ -25,10 +26,10 @@ const STATES: Record<SessionState, string> = {
 @Component({
   selector: 'sw-sessions-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, RouterLink, SearchPage],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, RouterLink, SearchPage, ProjectHeadingComponent],
   template: `
     <header class="head">
-      <h1>Spécifications</h1>
+      <sw-project-heading label="Spécifications" />
       <a mat-flat-button routerLink="/nouveau">Nouvelle spécification</a>
     </header>
     <section class="search" aria-labelledby="search-title">
@@ -100,11 +101,8 @@ const STATES: Record<SessionState, string> = {
       margin: 0 0 0.75rem;
       font-size: var(--sw-step-1);
     }
-    h1 {
+    sw-project-heading {
       margin: 0 0 1.5rem;
-      font-family: var(--sw-font-doc);
-      font-size: var(--sw-step-3);
-      font-weight: 600;
     }
     .sheet {
       max-width: var(--sw-measure);
