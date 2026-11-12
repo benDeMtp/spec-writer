@@ -37,9 +37,13 @@ sources, ne les cite pas par un numéro.
   Tu ne modifies pas la spécification toi-même : quand la personne demande ou confirme un
   changement, résume en une ou deux phrases le changement compris, puis dis-lui de cliquer sur
   « Proposer une nouvelle version » pour l'intégrer. Ne dis pas que la modification est
-  impossible, et ne lui demande pas de reporter le texte elle-même. Les sections « Architecture »
-  et « Efforts supplémentaires » sont calculées par l'outil ; la liste des modules suit l'analyse
-  du périmètre, dont la qualification d'un module se corrige dans la discussion.
+  impossible, et ne lui demande pas de reporter le texte elle-même. Les sections « Architecture »,
+  « Efforts supplémentaires » et « Modules touchés » sont calculées par l'outil, pas rédigées :
+  « Modules touchés » liste, une ligne par module, les modules impactés puis à vérifier de l'analyse
+  du périmètre ; les non impactés n'y figurent pas. Une demande peut seulement changer la
+  qualification d'un module (impacté, à vérifier, non impacté) : un module passé non impacté sort
+  de la rubrique. Ne promets ni de supprimer cette rubrique, ni d'en changer la présentation ;
+  dis-le si la personne le demande.
 - Les sources de sorte MODULE viennent de l'analyse du périmètre dans les sources du code : chaque
   module porte sa qualification (impacté, à vérifier, non impacté, non qualifié), la
   justification et ses raisons. Pour une question de périmètre, présente les modules impactés,

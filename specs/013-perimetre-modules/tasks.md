@@ -748,14 +748,24 @@ modules à vérifier sont repris en hypothèses.
     d'un champ, ascenseur) arrête le suivi : ni un contenu qui change de hauteur, ni un clic sur
     un lien qui défile pour le montrer.
 - [X] T059 Suite de la revue d'ergonomie de l'écran Spécification :
-  - Le texte du document garde des lignes de 72 caractères au plus, même quand la discussion
-    ouverte élargit la feuille (il en faisait environ 160).
-  - Barre d'actions : les deux suppressions sont isolées à droite, derrière un filet, en couleur
-    d'alerte ; les rôles et libellés ne changent pas.
+  - Discussion ouverte, la feuille du document garde sa largeur de lecture au lieu de s'étirer
+    (lignes d'environ 160 caractères).
+  - Barre d'actions : les deux suppressions viennent après les autres actions, derrière un filet,
+    en couleur d'alerte ; les rôles et libellés ne changent pas.
   - Les titres d'une réponse de l'agent descendent d'un niveau (le plus haut devient h3), hors
     blocs de code : le plan de la page ne mêle plus la discussion au document.
   - Écartés : les zéros barrés viennent d'Atkinson Hyperlegible, choisie pour distinguer 0 et O ;
     un menu « Plus » aurait changé les rôles des actions sans gain suffisant.
+- [X] T060 Retour du mainteneur : demander plusieurs fois de retirer les modules non impactés de la
+  spécification ne changeait rien. « Modules touchés » est rendue par l'outil (`MarkdownRenderer`),
+  avec toujours trois groupes et, par module, raisons et preuves ; la révision ne peut que changer
+  une qualification, et l'agent promettait une suppression qu'elle ne pouvait pas faire.
+  - La rubrique ne liste plus que les modules impactés puis à vérifier, un par ligne (chemin,
+    justification, sinon raison principale). Les non impactés et les `fichier:ligne` restent dans
+    l'analyse de la discussion, où l'exhaustivité sert à relire le périmètre.
+  - `converse-answer` : l'agent sait que cette rubrique est calculée, qu'une demande n'y change
+    qu'une qualification, et ne promet ni de la supprimer ni d'en changer la présentation.
+  - Les versions existantes gardent leur Markdown enregistré ; le rendu vaut pour les suivantes.
 - [ ] T053 **Avec l'accord de l'utilisateur** : lancer l'évaluation réelle
   `./mvnw -pl backend verify -Peval -Dtest=PerimeterEval`, puis `DiscussionEval` pour
   l'opération `list-changes` de T055. Ajuster le prompt `converse-plan` si

@@ -290,8 +290,9 @@ class ProposeRevisionTest {
         // le contenu reste celui de la version courante ; le module à vérifier devient une hypothèse
         assertThat(p.content().useCases()).isEqualTo(w.versions.find(session.id(), 1).orElseThrow().content().useCases());
         assertThat(p.content().assumptions()).extracting(x -> x.statement()).anyMatch(t -> t.contains("Le module a"));
-        assertThat(p.markdown()).contains("## Modules touchés").contains("### Non impactés")
-                .contains("**b** (rv/modules/b) : Module Quarkus, hors de la migration.");
+        // un module passé non impacté sort de la rubrique « Modules touchés »
+        assertThat(p.markdown()).contains("## Modules touchés").doesNotContain("Non impactés")
+                .doesNotContain("**b** (rv/modules/b)");
         new AcceptAiEdit(w.sessions, w.versions, w.tickets, store, w.clock, w.ids).run(session.id(), p.id());
         assertThat(perimeters.snapshot(session.id()).orElseThrow().modules().get(1).qualification())
                 .isEqualTo(Qualification.NOT_IMPACTED);

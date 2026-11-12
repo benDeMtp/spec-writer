@@ -7,7 +7,6 @@ import dev.specwriter.domain.knowledge.ArchitectureModel.Exchange;
 import dev.specwriter.domain.knowledge.KnowledgeSelection;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.session.Language;
-import dev.specwriter.domain.sources.Occurrence;
 import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.sources.Qualification;
 import java.util.HashMap;
@@ -62,14 +61,17 @@ public final class MarkdownRenderer {
             "crosses infrastructures (network opening or exposure to plan)", "depends on a shared infrastructure",
             "attached document");
 
-    /** Rubrique « Modules touchés » (013, US5). */
-    private record PerimeterLabels(String title, String impacted, String toCheck, String notImpacted, String incomplete) {
+    /**
+     * Rubrique « Modules touchés » (013, US5) : les modules impactés et à vérifier, un par ligne. Les
+     * non impactés et les preuves restent dans l'analyse de la discussion (T060).
+     */
+    private record PerimeterLabels(String title, String impacted, String toCheck, String incomplete) {
     }
 
     private static final PerimeterLabels PERIMETER_FR = new PerimeterLabels("Modules touchés", "Impactés", "À vérifier",
-            "Non impactés", "L'analyse du périmètre est incomplète : des modules peuvent manquer.");
+            "L'analyse du périmètre est incomplète : des modules peuvent manquer.");
     private static final PerimeterLabels PERIMETER_EN = new PerimeterLabels("Affected modules", "Impacted", "To check",
-            "Not impacted", "The perimeter analysis is incomplete: some modules may be missing.");
+            "The perimeter analysis is incomplete: some modules may be missing.");
 
     private MarkdownRenderer() {
     }
@@ -218,8 +220,6 @@ public final class MarkdownRenderer {
         }
         perimeterGroup(md, p.impacted(), perimeter, e -> e.qualification() == Qualification.IMPACTED, language, colon);
         perimeterGroup(md, p.toCheck(), perimeter, PerimeterSnapshot.Entry::toCheck, language, colon);
-        perimeterGroup(md, p.notImpacted(), perimeter, e -> e.qualification() == Qualification.NOT_IMPACTED, language,
-                colon);
     }
 
     private static void perimeterGroup(StringBuilder md, String title, PerimeterSnapshot perimeter,
@@ -232,15 +232,13 @@ public final class MarkdownRenderer {
         for (PerimeterSnapshot.Entry e : entries) {
             String where = e.path().isEmpty() ? e.rootLabel() : e.rootLabel() + "/" + e.path();
             md.append("- **").append(escape(e.name())).append("** (").append(escape(where)).append(')');
-            if (e.justification() != null && !e.justification().isBlank()) {
-                md.append(colon).append(escape(e.justification(), ITEM + ITEM));
+            // une ligne par module : sa justification, sinon sa raison principale
+            String why = e.justification() != null && !e.justification().isBlank() ? e.justification()
+                    : e.reasons().isEmpty() ? null : PerimeterSnapshot.reason(e.reasons().getFirst(), language);
+            if (why != null) {
+                md.append(colon).append(escape(why.replaceAll("\\s+", " ").strip(), ITEM));
             }
             md.append('\n');
-            e.reasons().forEach(r -> md.append(ITEM).append("- ").append(escape(PerimeterSnapshot.reason(r, language)))
-                    .append('\n'));
-            for (Occurrence o : e.occurrences()) {
-                md.append(ITEM).append("- ").append(escape(o.path() + ":" + o.line())).append('\n');
-            }
         }
         md.append('\n');
     }

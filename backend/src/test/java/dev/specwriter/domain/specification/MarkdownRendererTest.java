@@ -264,21 +264,14 @@ class MarkdownRendererTest {
                 ### Impactés
 
                 - **common-contract** (rv/libs/common\\*contract) : Définit l'énumération.
-                  - contient ContractStatus ×3
-                  - libs/common\\*contract/Contract\\_Status.java:3
 
                 ### À vérifier
 
-                - **relance** (rv/modules/relance)
-                  - dépend de facturation → relance
-                - **demo-front** (rv/front)
-                  - contient CONTRACT\\_STATUS ×1
-
-                ### Non impactés
-
-                - **annuaire** (rv/modules/annuaire) : Simple commentaire.
-                  - contient ContractStatus ×1
+                - **relance** (rv/modules/relance) : dépend de facturation → relance
+                - **demo-front** (rv/front) : contient CONTRACT\\_STATUS ×1
                 """);
+        // une ligne par module ; les non impactés et les preuves restent dans la discussion
+        assertThat(md).doesNotContain("annuaire").doesNotContain("Non impactés").doesNotContain("Contract\\_Status.java");
         // une seule liste de modules : celle de l'analyse ; l'architecture garde les flux
         assertThat(md).doesNotContain("### Modules impactés").contains("### Flux");
         assertThat(md.indexOf("## Modules touchés")).isGreaterThan(md.indexOf("## Architecture"));

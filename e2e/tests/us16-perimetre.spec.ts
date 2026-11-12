@@ -250,7 +250,11 @@ test.describe.serial('013 périmètre des modules touchés', () => {
     const perimeter = page.getByRole('region', { name: 'Modules touchés' });
     await expect(perimeter.getByRole('heading', { level: 3 })).toHaveText(['Impactés', 'À vérifier']);
     await expect(perimeter).toContainText('batch-suspension');
-    await expect(perimeter).toContainText('dépend de facturation → relance');
+    // une ligne par module, sa justification ou à défaut sa raison ; ni non impactés ni fichier:ligne
+    await expect(perimeter).toContainText("batch-suspension (demo-rv/modules/batch-suspension) : Publie l'événement contract_suspended.");
+    await expect(perimeter).toContainText('relance (demo-rv/modules/relance) : dépend de facturation → relance');
+    await expect(perimeter).not.toContainText('Non impactés');
+    await expect(perimeter).not.toContainText('.java:');
     // les modules à vérifier sont des hypothèses à valider, numérotées après celles du LLM
     const assumptions = page.getByRole('region', { name: 'Hypothèses' });
     await expect(assumptions).toContainText('Le module relance (modules/relance) est à vérifier : dépend de facturation → relance.');
