@@ -126,4 +126,33 @@ test.describe.serial('US1 configuration', () => {
     await expect(status).toContainText("Créez un nouveau jeton d'accès personnel dans Jira");
     await expectNoA11yViolations(page);
   });
+
+  test('T057 (013) : choisir le navigateur où s’ouvre spec-writer, et l’y ouvrir aussitôt', async () => {
+    const card = page.getByRole('region', { name: 'Navigateur' });
+    await card.scrollIntoViewIfNeeded();
+    const system = card.getByRole('radio', { name: 'Navigateur par défaut du système' });
+    await expect(system).toBeChecked();
+    await expect(card.getByRole('radio')).toHaveCount(3);
+    const open = card.getByRole('button', { name: 'Ouvrir spec-writer dans ce navigateur' });
+
+    await card.getByRole('radio', { name: 'Navigateur simulé B' }).check();
+    await expect(open).toBeDisabled();
+    await card.getByRole('button', { name: 'Utiliser ce navigateur' }).click();
+    await expect(card.getByRole('status')).toContainText(
+      "spec-writer s'ouvrira dans Navigateur simulé B au prochain lancement.",
+    );
+
+    await page.reload();
+    await expect(page.getByRole('region', { name: 'Navigateur' }).getByRole('radio', { name: 'Navigateur simulé B' })).toBeChecked();
+    await page.getByRole('region', { name: 'Navigateur' }).getByRole('button', { name: 'Ouvrir spec-writer dans ce navigateur' }).click();
+    await expect(page.getByRole('region', { name: 'Navigateur' }).getByRole('status')).toContainText(
+      "spec-writer s'ouvre dans Navigateur simulé B.",
+    );
+    await expectNoA11yViolations(page);
+
+    // retour au navigateur du système, pour les parcours suivants
+    await page.getByRole('region', { name: 'Navigateur' }).getByRole('radio', { name: 'Navigateur par défaut du système' }).check();
+    await page.getByRole('region', { name: 'Navigateur' }).getByRole('button', { name: 'Utiliser ce navigateur' }).click();
+    await expect(page.getByRole('region', { name: 'Navigateur' }).getByRole('status')).toContainText('le navigateur du système');
+  });
 });

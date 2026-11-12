@@ -15,6 +15,10 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
         l'ordinateur. Vos données sont conservées.
       </p>
       <p>Fermez cet onglet, puis ouvrez spec-writer depuis son raccourci : une nouvelle fenêtre s'ouvre.</p>
+      <p>
+        Pour utiliser spec-writer dans ce navigateur-ci, choisissez-le dans Configuration, rubrique « Navigateur », depuis
+        la fenêtre déjà ouverte.
+      </p>
     </main>
   `,
   styles: `

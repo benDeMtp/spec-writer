@@ -396,6 +396,46 @@ paths:
       responses:
         '200': { content: { application/json: { schema: { $ref: '#/components/schemas/EmbeddingSettings' } } } }
         '422': { description: 'Chemin relatif, dossier absent, fichier du modèle manquant, pooling inconnu' }
+  /api/settings/browser:
+    get:
+      summary: Navigateur où s'ouvre spec-writer et navigateurs détectés sur le poste (013, T057)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrowserSettings' }
+    put:
+      summary: Choisit un navigateur détecté, ou revient à celui du système (browserId vide ou absent)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                browserId: { type: string, nullable: true }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrowserSettings' }
+        '422': { description: "Navigateur non installé sur ce poste" }
+  /api/settings/browser/open:
+    post:
+      summary: >-
+        Ouvre spec-writer dans le navigateur choisi (repli sur celui du système), avec un nouveau
+        jeton de lancement à usage unique valable 120 s, jamais renvoyé ni journalisé
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opened: { type: boolean }
+                  browser:
+                    nullable: true
+                    description: Navigateur utilisé ; null pour celui du système
+                    allOf: [{ $ref: '#/components/schemas/Browser' }]
   /api/settings/agent-access:
     get:
       summary: État de l'accès des agents et ligne de configuration à déclarer dans un agent
@@ -832,6 +872,17 @@ components:
               id: { type: string, description: "JIRA, ARCHITECTURE ou identifiant de la source de documentation" }
               kind: { enum: [JIRA, DOCUMENTATION, ARCHITECTURE] }
               label: { type: string, description: "« Jira CLE », emplacement de la documentation, ou workspace" }
+    Browser:
+      type: object
+      properties:
+        id: { type: string, description: 'chrome, firefox, edge, safari, brave, vivaldi, opera, arc, chromium' }
+        name: { type: string }
+    BrowserSettings:
+      type: object
+      properties:
+        selected: { type: string, nullable: true, description: 'null : navigateur du système' }
+        missing: { type: boolean, description: 'Le navigateur choisi n’est plus installé' }
+        installed: { type: array, items: { $ref: '#/components/schemas/Browser' } }
     EmbeddingSettings:
       type: object
       properties:

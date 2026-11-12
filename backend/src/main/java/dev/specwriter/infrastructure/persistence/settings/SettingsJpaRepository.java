@@ -107,4 +107,19 @@ public class SettingsJpaRepository implements SettingsRepository {
         e.embeddingPassagePrefix = s.passagePrefix();
         em.merge(e);
     }
+
+    @Override
+    @Transactional
+    public String browser() {
+        AppSettingsEntity e = em.find(AppSettingsEntity.class, 1);
+        return e == null ? null : e.browser;
+    }
+
+    @Override
+    @Transactional
+    public void saveBrowser(String browserId) {
+        AppSettingsEntity e = Optional.ofNullable(em.find(AppSettingsEntity.class, 1)).orElseGet(AppSettingsEntity::new);
+        e.browser = browserId;
+        em.merge(e);
+    }
 }

@@ -42,6 +42,7 @@ import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.application.knowledge.ListAdrs;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
 import dev.specwriter.application.knowledge.ManageEmbeddingSettings;
+import dev.specwriter.application.settings.ManageBrowser;
 import dev.specwriter.application.knowledge.MentionQueries;
 import dev.specwriter.application.knowledge.ReadDocFile;
 import dev.specwriter.application.knowledge.RelatedIssuesStore;
@@ -94,6 +95,7 @@ import dev.specwriter.domain.port.DocumentFileStates;
 import dev.specwriter.domain.port.DocumentFiles;
 import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.domain.port.DocumentationReader;
+import dev.specwriter.domain.port.BrowserPort;
 import dev.specwriter.domain.port.EmbeddingPort;
 import dev.specwriter.domain.port.GitHubAuthenticator;
 import dev.specwriter.domain.port.IdGenerator;
@@ -647,6 +649,12 @@ public class UseCaseProducer {
     @ApplicationScoped
     ManageEmbeddingSettings manageEmbeddingSettings(SettingsRepository settings, EmbeddingPort embedding) {
         return new ManageEmbeddingSettings(settings, embedding);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageBrowser manageBrowser(SettingsRepository settings, BrowserPort browsers) {
+        return new ManageBrowser(settings, browsers);
     }
 
     @Produces

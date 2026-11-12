@@ -10,6 +10,7 @@ public class InMemorySettings implements SettingsRepository {
     private CopilotSettings copilot = CopilotSettings.initial();
     private JiraSettings jira;
     private EmbeddingSettings embedding = EmbeddingSettings.DEFAULT;
+    private String browser;
 
     @Override
     public CopilotSettings copilot() {
@@ -44,5 +45,15 @@ public class InMemorySettings implements SettingsRepository {
     @Override
     public void saveEmbedding(EmbeddingSettings settings) {
         embedding = settings;
+    }
+
+    @Override
+    public String browser() {
+        return browser;
+    }
+
+    @Override
+    public void saveBrowser(String browserId) {
+        browser = browserId;
     }
 }

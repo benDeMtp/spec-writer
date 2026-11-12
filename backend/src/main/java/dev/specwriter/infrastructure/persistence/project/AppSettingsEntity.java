@@ -5,7 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/** Ligne unique des réglages de l'application (V7, V10) : le projet courant et le modèle d'embedding. */
+/** Ligne unique des réglages de l'application (V7, V10) : le projet courant, le modèle d'embedding et le navigateur (V25). */
 @Entity
 @Table(name = "app_settings")
 public class AppSettingsEntity {
@@ -26,4 +26,7 @@ public class AppSettingsEntity {
 
     @Column(name = "embedding_passage_prefix")
     public String embeddingPassagePrefix;
+
+    @Column(name = "browser")
+    public String browser;
 }

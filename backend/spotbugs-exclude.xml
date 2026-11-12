@@ -4,4 +4,9 @@
   <Match>
     <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
   </Match>
+  <!-- 013 (T057) : /Applications est l'emplacement fixe des applications sous macOS -->
+  <Match>
+    <Class name="dev.specwriter.infrastructure.platform.DesktopBrowsers"/>
+    <Bug pattern="DMI_HARDCODED_ABSOLUTE_FILENAME"/>
+  </Match>
 </FindBugsFilter>

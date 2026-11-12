@@ -21,4 +21,9 @@ public interface SettingsRepository {
     EmbeddingSettings embedding();
 
     void saveEmbedding(EmbeddingSettings settings);
+
+    /** Navigateur choisi pour ouvrir spec-writer, ou {@code null} pour celui du système (T057). */
+    String browser();
+
+    void saveBrowser(String browserId);
 }

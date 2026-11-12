@@ -719,6 +719,16 @@ modules à vérifier sont repris en hypothèses.
     seule liste, « Modules touchés » ; les flux et les efforts restent.
   - `converse-answer` : l'agent ne dit plus qu'il ne peut pas modifier la spécification ; il
     résume le changement compris et renvoie vers « Proposer une nouvelle version ».
+- [X] T057 Retour du mainteneur : spec-writer ne s'ouvrait que dans le navigateur par défaut, et
+  un autre navigateur tombait sur « Relancez spec-writer ».
+  - Configuration, rubrique « Navigateur » : navigateur du système par défaut, ou un des
+    navigateurs détectés (`DesktopBrowsers` : applications connues sous macOS, dossiers de
+    programmes sous Windows, commandes du `PATH` sous Linux ; aucune commande lancée pour les
+    trouver). Choix enregistré dans `app_settings.browser` (V25), appliqué au lancement suivant.
+  - « Ouvrir spec-writer dans ce navigateur » : depuis une session ouverte, un nouveau jeton de
+    lancement à usage unique (120 s, jamais renvoyé ni journalisé) part vers le navigateur choisi.
+  - Navigateur choisi désinstallé ou en échec : repli sur celui du système, signalé dans la carte.
+  - Navigateurs simulés en test et en E2E (`specwriter.browser.simulated`).
 - [ ] T053 **Avec l'accord de l'utilisateur** : lancer l'évaluation réelle
   `./mvnw -pl backend verify -Peval -Dtest=PerimeterEval`, puis `DiscussionEval` pour
   l'opération `list-changes` de T055. Ajuster le prompt `converse-plan` si
