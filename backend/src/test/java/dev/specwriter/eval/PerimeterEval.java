@@ -14,7 +14,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 class PerimeterEval {
 
     @ParameterizedTest
-    @ValueSource(strings = {EvalBaseline.PERIMETER_TERM_RECALL, EvalBaseline.PERIMETER_QUALIFICATION})
+    @ValueSource(strings = {EvalBaseline.PERIMETER_TERM_RECALL, EvalBaseline.PERIMETER_QUALIFICATION,
+        EvalBaseline.PERIMETER_ANSWER_FOCUS})
     void scoreAuNiveauDeLaBase(String metric) {
         EvalRuns.Result r = EvalRuns.result();
         double score = r.conversation().get(metric);
