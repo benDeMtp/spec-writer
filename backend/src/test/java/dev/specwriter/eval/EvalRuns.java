@@ -93,7 +93,8 @@ public final class EvalRuns {
 
     public record Result(double questionRelevance, double scenarioStructure, EvalBaseline baseline, List<CaseRun> runs,
             Map<String, Double> conversation, List<ConversationRuns.CaseRun> conversationRuns,
-            List<DiscussionRuns.CaseRun> discussionRuns, List<PerimeterRuns.CaseRun> perimeterRuns) {
+            List<DiscussionRuns.CaseRun> discussionRuns, List<PerimeterRuns.CaseRun> perimeterRuns,
+            List<PerimeterAnswerRuns.CaseRun> perimeterAnswerRuns) {
     }
 
     private EvalRuns() {
@@ -143,6 +144,7 @@ public final class EvalRuns {
         List<ConversationRuns.CaseRun> conversations = new ArrayList<>();
         List<DiscussionRuns.CaseRun> discussions = new ArrayList<>();
         List<PerimeterRuns.CaseRun> perimeters = new ArrayList<>();
+        List<PerimeterAnswerRuns.CaseRun> perimeterAnswers = new ArrayList<>();
         String cliVersion;
         try (EvalCopilot copilot = new EvalCopilot(home, Optional.ofNullable(System.getProperty("specwriter.copilot.cli-path")))) {
             cliVersion = copilot.cliVersion();
@@ -153,6 +155,7 @@ public final class EvalRuns {
                 conversations.addAll(ConversationRuns.run(copilot.conversationLlm(model), run));
                 discussions.addAll(DiscussionRuns.run(copilot.conversationLlm(model), run));
                 perimeters.addAll(PerimeterRuns.run(copilot.conversationLlm(model), run));
+                perimeterAnswers.addAll(PerimeterAnswerRuns.run(copilot.conversationLlm(model), run));
             }
         }
         List<double[]> perRun = new ArrayList<>();
@@ -182,8 +185,10 @@ public final class EvalRuns {
         for (String metric : List.of(EvalBaseline.PERIMETER_TERM_RECALL, EvalBaseline.PERIMETER_QUALIFICATION)) {
             conversation.put(metric, round(PerimeterRuns.score(perimeters, metric, runs)));
         }
+        conversation.put(EvalBaseline.PERIMETER_ANSWER_FOCUS,
+                round(PerimeterAnswerRuns.score(perimeterAnswers, runs)));
         Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations, discussions,
-                perimeters);
+                perimeters, perimeterAnswers);
         write(out, model.orElse("défaut du compte"), cliVersion, runs);
         return out;
     }
@@ -321,6 +326,22 @@ public final class EvalRuns {
             d.put("recall", round(c.recall()));
             d.put("agreement", round(c.agreement()));
             d.put("found", c.found());
+            if (c.error() != null) {
+                d.put("error", c.error());
+            }
+            return d;
+        }).toList());
+        out.put("perimeterAnswer", r.perimeterAnswerRuns().stream().map(c -> {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("case", c.caseName());
+            d.put("run", c.run());
+            d.put("passed", c.passed());
+            d.put("impacted", c.impacted());
+            d.put("notImpacted", c.notImpacted());
+            d.put("cited", c.cited());
+            if (!c.passed()) {
+                d.put("excerpt", c.excerpt());
+            }
             if (c.error() != null) {
                 d.put("error", c.error());
             }
