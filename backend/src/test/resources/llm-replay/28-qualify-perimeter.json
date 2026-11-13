@@ -1,0 +1,5 @@
+{"operation": "qualify-perimeter", "userContains": ["IT-PERIMETRE"],
+ "response": {"modules": [
+   {"id": "__MODULE:common-contract__", "qualification": "IMPACTED", "justification": "Définit l'énumération ContractStatus."},
+   {"id": "__MODULE:facturation__", "qualification": "IMPACTED", "justification": "Facture selon le statut du contrat."},
+   {"id": "__MODULE:annuaire__", "qualification": "NOT_IMPACTED", "justification": "Simple commentaire ancien."}]}}

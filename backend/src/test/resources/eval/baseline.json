@@ -11,7 +11,11 @@
     "revisionCompleteness": 0.9,
     "revisionPreservation": 0.9,
     "revisionStructure": 1.0,
-    "unchangedRecall": 0.9
+    "unchangedRecall": 0.9,
+    "changesRecall": 0.9,
+    "changesPrecision": 0.9,
+    "perimeterTermRecall": 0.9,
+    "perimeterQualification": 0.8
   },
   "scores": {
     "questionRelevance": 0.9,
@@ -24,6 +28,10 @@
     "revisionCompleteness": 0.9,
     "revisionPreservation": 0.9,
     "revisionStructure": 1.0,
-    "unchangedRecall": 0.9
+    "unchangedRecall": 0.9,
+    "changesRecall": 0.9,
+    "changesPrecision": 0.9,
+    "perimeterTermRecall": 0.9,
+    "perimeterQualification": 0.8
   }
 }

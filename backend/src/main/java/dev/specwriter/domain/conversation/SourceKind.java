@@ -6,5 +6,5 @@ package dev.specwriter.domain.conversation;
  * proposition de version (011).
  */
 public enum SourceKind {
-    TICKET, DOC_SECTION, ADR, ARCH_ELEMENT, SPECIFICATION, ATTACHMENT, DISCUSSION
+    TICKET, DOC_SECTION, ADR, ARCH_ELEMENT, SPECIFICATION, ATTACHMENT, DISCUSSION, MODULE
 }

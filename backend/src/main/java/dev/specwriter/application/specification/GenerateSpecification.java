@@ -1,23 +1,25 @@
 package dev.specwriter.application.specification;
 
 import dev.specwriter.application.knowledge.SessionKnowledge;
-import dev.specwriter.domain.knowledge.ProjectKnowledge;
-import dev.specwriter.domain.llm.QuestionAndAnswer;
-import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.error.ErrorCode;
+import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.GenerationRequest;
+import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.port.ClockPort;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.LlmClient;
+import dev.specwriter.domain.port.PerimeterRepository;
+import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.port.SessionRepository;
 import dev.specwriter.domain.port.SpecificationRepository;
 import dev.specwriter.domain.question.Question;
 import dev.specwriter.domain.question.Questionnaire;
 import dev.specwriter.domain.session.Session;
 import dev.specwriter.domain.session.SpecificationLock;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.specification.InputFingerprint;
 import dev.specwriter.domain.specification.MarkdownRenderer;
 import dev.specwriter.domain.specification.SpecificationContent;
@@ -46,6 +48,8 @@ public class GenerateSpecification {
     private final IdGenerator ids;
     private final String toolVersion;
     private final SessionKnowledge knowledge;
+    /** Périmètre repris de la discussion (013, US5) ; nul hors de l'application. */
+    private final PerimeterRepository perimeters;
 
     public GenerateSpecification(SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
             LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids, String toolVersion) {
@@ -61,6 +65,13 @@ public class GenerateSpecification {
     public GenerateSpecification(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
             ConsentPolicy consent, ClockPort clock, IdGenerator ids, String toolVersion, SessionKnowledge knowledge,
             OperationRegistry operations) {
+        this(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge, operations, null);
+    }
+
+    public GenerateSpecification(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
+            ConsentPolicy consent, ClockPort clock, IdGenerator ids, String toolVersion, SessionKnowledge knowledge,
+            OperationRegistry operations, PerimeterRepository perimeters) {
+        this.perimeters = perimeters;
         this.operations = operations;
         this.sessions = sessions;
         this.knowledge = knowledge;
@@ -103,9 +114,15 @@ public class GenerateSpecification {
         SpecificationContent content = DraftValidation.produce(
                 correction -> llm.generateSpecification(correction == null ? request : request.withCorrection(correction)),
                 treated, session.language(), ErrorCode.LLM_INVALID_OUTPUT, used);
+        // 013 : les modules à vérifier deviennent des hypothèses, numérotées après celles du LLM
+        PerimeterSnapshot perimeter = perimeters == null ? null : perimeters.snapshot(sessionId).orElse(null);
+        if (perimeter != null) {
+            content = perimeter.withAssumptions(content, session.language());
+        }
         SpecificationVersion version = new SpecificationVersion(ids.next(), sessionId, versions.nextNumber(sessionId),
                 content, fingerprint, VersionOrigin.GENERATED,
-                MarkdownRenderer.render(content, session.language(), used.selection()), clock.now()).withKnowledge(used);
+                MarkdownRenderer.render(content, session.language(), used.selection(), perimeter), clock.now())
+                .withKnowledge(used);
         // la feature a pu passer à « implémentée » pendant l'appel au LLM (research.md R7)
         SpecificationLock.requireEditable(sessions, sessionId);
         versions.save(version);

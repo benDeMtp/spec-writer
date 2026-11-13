@@ -159,4 +159,36 @@ class GenerateSpecificationTest {
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.LLM_UNAVAILABLE));
         assertThat(sessions.questionnaire(sessionId).orElseThrow().treated()).hasSize(1);
     }
+
+    @Test
+    void lePerimetreRepriseDonneSaRubriqueEtSesHypotheses() {
+        dev.specwriter.support.InMemoryPerimeters perimeters = new dev.specwriter.support.InMemoryPerimeters();
+        perimeters.saveSnapshot(sessionId, new dev.specwriter.domain.sources.PerimeterSnapshot(List.of(
+                new dev.specwriter.domain.sources.PerimeterSnapshot.Entry("facturation", "modules/facturation", "rv",
+                        dev.specwriter.domain.sources.Qualification.IMPACTED, "Facture les contrats actifs.",
+                        List.of(new dev.specwriter.domain.sources.Reason.Term("ContractStatus", 2)), List.of()),
+                new dev.specwriter.domain.sources.PerimeterSnapshot.Entry("relance", "modules/relance", "rv",
+                        dev.specwriter.domain.sources.Qualification.TO_CHECK, null, List.of(), List.of())), false),
+                Instant.EPOCH);
+        GenerateSpecification withPerimeter = new GenerateSpecification(sessions, versions, llm, policy, clock, ids, "0.1.0",
+                dev.specwriter.application.knowledge.SessionKnowledge.sheetOnly(new InMemoryProjects()),
+                new OperationRegistry(), perimeters);
+        llm.drafts.add(valid("Réservation"));
+
+        GenerateSpecification.Generated g = withPerimeter.run(sessionId);
+
+        // l'hypothèse de la question passée d'abord, puis celle de l'outil pour le module à vérifier
+        assertThat(g.version().content().assumptions()).extracting(Assumption::code, Assumption::origin).containsExactly(
+                org.assertj.core.groups.Tuple.tuple("H-01", Assumption.Origin.SKIPPED_QUESTION),
+                org.assertj.core.groups.Tuple.tuple("H-02", Assumption.Origin.TOOL_INFERENCE));
+        assertThat(g.version().content().assumptions().get(1).statement())
+                .isEqualTo("Le module relance (modules/relance) est à vérifier.");
+        assertThat(g.version().markdown()).contains("## Modules touchés").contains("- **facturation** (rv/modules/facturation)")
+                .contains("**H-02** : Le module relance (modules/relance) est à vérifier.");
+        // la sortie reste conforme au contrôle de traçabilité
+        java.util.Set<UUID> treated = new java.util.HashSet<>();
+        sessions.questionnaire(sessionId).orElseThrow().treated().forEach(q -> treated.add(q.id()));
+        assertThat(dev.specwriter.domain.specification.TraceabilityValidator.validate(g.version().content(), treated)
+                .isEmpty()).isTrue();
+    }
 }

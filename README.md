@@ -328,6 +328,50 @@ les sources ; pour un dossier de documents, les fichiers supprimés ou exclus so
 réindexation du dossier. Une erreur inattendue dans une source n'arrête que son étape : les autres sources sont
 indexées, et l'indexation se termine « avec des erreurs ».
 
+## Sources du code et analyse de périmètre
+
+Pour une évolution technique, l'agent peut recenser tous les modules du code qu'elle touche, sans
+en oublier. Il ne lit pas le code au hasard d'une recherche : spec-writer parcourt toutes les
+sources et liste chaque module qui contient un des termes. L'agent propose seulement ces termes, puis
+qualifie les modules trouvés, sans pouvoir en retirer un.
+
+1. **Déclarer les racines.** Dans **Réglages du projet › Sources du code**, ajoutez le dossier
+   d'un arbre de sources (jusqu'à 10 par projet : application, pipelines, charts Helm…). Deux
+   racines ne peuvent pas se contenir. **Détecter les modules** montre ce que l'outil reconnaît :
+   un module par `pom.xml`, `package.json` ou `Chart.yaml`.
+2. **Exclure.** Des motifs d'exclusion (`legacy/**`, `**/*.generated.java`) retirent des dossiers
+   ou des fichiers. Le `.gitignore` est respecté, ainsi que les dossiers générés (`target/`,
+   `node_modules/`…) et les dossiers cachés.
+3. **Demander.** Dans la conversation : « Quels modules touche l'ajout d'un statut SUSPENDU au
+   contrat ? ». L'étape « Analyse du périmètre » montre les termes cherchés, puis tous les modules
+   trouvés, groupés en impactés, à vérifier, non impactés et non qualifiés, avec leurs raisons et
+   leurs occurrences (`fichier:ligne`). Pour relancer avec d'autres termes, répondez par exemple
+   « cherche aussi contract_suspended » : les modules nouveaux sont marqués.
+4. **Rédiger.** Une spécification rédigée depuis la discussion reprend la dernière analyse dans
+   sa rubrique « Modules touchés ». Les modules à vérifier y deviennent des hypothèses à valider.
+
+Au-delà des modules qui contiennent un terme, l'analyse ajoute « à vérifier » :
+- les modules Maven qui en dépendent, directement ou non (dépendance, parent, import de BOM), avec
+  la chaîne de dépendance, et le pom qui les agrège ;
+- les modules reliés par le modèle d'architecture (une seule relation, dans les deux sens). Un
+  conteneur Structurizr se rattache à son module par son nom, ou par la propriété
+  `spec-writer.module`, qui vaut le nom ou le chemin du module :
+
+  ```text
+  facturation = container "Facturation API" {
+      properties {
+          "spec-writer.module" "modules/facturation"
+      }
+  }
+  ```
+
+**Ce qui est lu et envoyé.** Le code n'est ni copié ni indexé : il est relu à chaque analyse, en
+lecture seule, et aucune commande n'est lancée. Les fichiers sensibles (`.env`, clés,
+`settings.xml`, keystores) ne sont jamais lus, ni les liens symboliques, ni les fichiers binaires
+ou de plus de 1 Mo. GitHub Copilot reçoit les noms des modules et au plus quelques courts extraits
+des lignes trouvées (200 caractères chacun). Le journal ne garde que des compteurs. Une analyse
+s'arrête à 50 000 fichiers ou 120 secondes, et le dit.
+
 ## Statut d'implémentation
 
 Une spécification est « brouillon », « prête à implémenter », « en cours » ou « implémentée ».

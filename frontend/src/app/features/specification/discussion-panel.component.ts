@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   OnDestroy,
   OnInit,
   inject,
@@ -12,6 +13,7 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { ConversationsApi, TurnStream } from '../../core/conversations/conversations.api';
 import {
+  ChangeCandidate,
   ConversationDetail,
   ConversationMessage,
   DiscussionView,
@@ -20,6 +22,7 @@ import {
 import { Proposal } from '../../core/jira/jira.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
+import { ChangePickerComponent } from './change-picker.component';
 import { ConversationThreadComponent, reason } from '../conversation/conversation-thread.component';
 
 /**
@@ -32,7 +35,7 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
 @Component({
   selector: 'sw-discussion-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ConversationThreadComponent, ElapsedComponent, MatButtonModule],
+  imports: [ChangePickerComponent, ConversationThreadComponent, ElapsedComponent, MatButtonModule],
   template: `
     <section class="discussion" aria-labelledby="discussion-title">
       <header class="top">
@@ -71,42 +74,6 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
       @if (problem()) {
         <p class="problem" role="alert">{{ problem() }}</p>
       }
-      <div class="propose">
-        <button
-          mat-stroked-button
-          type="button"
-          [disabled]="!canPropose()"
-          [attr.aria-describedby]="proposeHint() ? 'propose-hint' : null"
-          (click)="propose()"
-        >
-          Proposer une nouvelle version
-        </button>
-        @if (proposeHint(); as hint) {
-          <p id="propose-hint" class="hint">{{ hint }}</p>
-        }
-      </div>
-      @if (proposing()) {
-        <details class="thinking live">
-          <summary>
-            <span class="activity">L’agent rédige une nouvelle version</span>
-            <sw-elapsed [since]="proposingSince()" />
-          </summary>
-          <div class="reasoning">
-            @if (proposingReasoning()) {
-              <p>{{ proposingReasoning() }}</p>
-            } @else {
-              <p class="hint">Le modèle n’a pas encore partagé sa réflexion.</p>
-            }
-            <p class="hint">Résumé de sa réflexion rédigé par le modèle, souvent en anglais.</p>
-          </div>
-        </details>
-      }
-      @if (unchanged(); as why) {
-        <p class="unchanged" role="note">
-          Aucun changement établi par la discussion : {{ sentence(why) }} Précisez ce qui doit
-          changer dans un message, puis proposez à nouveau.
-        </p>
-      }
       <sw-conversation-thread
         #thread
         [conversationId]="view()?.conversationId ?? null"
@@ -116,7 +83,59 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
         [(messages)]="messages"
         placeholder="Votre question sur la spécification…"
         (finished)="onFinished($event)"
-      />
+      >
+        <div swComposerTop>
+          @if (candidates(); as found) {
+            <sw-change-picker
+              [candidates]="found"
+              (confirmed)="propose($event)"
+              (cancelled)="cancelPick()"
+            />
+          }
+          @if (listing()) {
+            <p class="hint" role="status">
+              L’agent relève les changements avancés par la discussion…
+            </p>
+          }
+          @if (proposing()) {
+            <details class="thinking live">
+              <summary>
+                <span class="activity">L’agent rédige une nouvelle version</span>
+                <sw-elapsed [since]="proposingSince()" />
+              </summary>
+              <div class="reasoning">
+                @if (proposingReasoning()) {
+                  <p>{{ proposingReasoning() }}</p>
+                } @else {
+                  <p class="hint">Le modèle n’a pas encore partagé sa réflexion.</p>
+                }
+                <p class="hint">Résumé de sa réflexion rédigé par le modèle, souvent en anglais.</p>
+              </div>
+            </details>
+          }
+          @if (unchanged(); as why) {
+            <p class="unchanged" role="note">
+              Aucun changement établi par la discussion : {{ sentence(why) }} Précisez ce qui doit
+              changer dans un message, puis proposez à nouveau.
+            </p>
+          }
+          @if (proposeHint(); as hint) {
+            <p id="propose-hint" class="hint propose-hint">{{ hint }}</p>
+          }
+        </div>
+        <button
+          #proposeButton
+          swComposerAction
+          mat-stroked-button
+          type="button"
+          [disabled]="!canPropose()"
+          [attr.aria-describedby]="proposeHint() ? 'propose-hint' : null"
+          [attr.aria-expanded]="candidates() !== null"
+          (click)="pick()"
+        >
+          Proposer une nouvelle version
+        </button>
+      </sw-conversation-thread>
     </section>
   `,
   styles: `
@@ -156,11 +175,8 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
     .hint {
       color: var(--sw-ink-soft);
     }
-    .propose {
-      margin: 0 0 0.75rem;
-    }
-    .propose .hint {
-      margin: 0.25rem 0 0;
+    .propose-hint {
+      margin: 0 0 0.5rem;
       font-size: var(--sw-step--1, 0.875rem);
     }
     .thinking {
@@ -175,6 +191,10 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
       gap: 0.5rem;
       cursor: pointer;
       font-weight: 600;
+    }
+    .reasoning {
+      max-height: 10rem;
+      overflow-y: auto;
     }
     .reasoning p {
       margin: 0.5rem 0 0;
@@ -208,6 +228,9 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   private readonly consent = inject(ConsentGate);
   private stream: TurnStream | null = null;
   private readonly thread = viewChild.required<ConversationThreadComponent>('thread');
+  private readonly proposeButton = viewChild('proposeButton', {
+    read: ElementRef<HTMLButtonElement>,
+  });
 
   protected readonly view = signal<DiscussionView | null>(null);
   protected readonly messages = signal<ConversationMessage[]>([]);
@@ -218,6 +241,9 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   protected readonly proposingSince = signal<number | null>(null);
   protected readonly proposingReasoning = signal('');
   protected readonly unchanged = signal<string | null>(null);
+  /** Changements relevés, à cocher ; nul hors de ce choix. */
+  protected readonly candidates = signal<ChangeCandidate[] | null>(null);
+  protected readonly listing = signal(false);
   /** Une proposition attend sa relecture : la page la signale par `reviewing`. */
   readonly reviewing = input(false);
 
@@ -226,7 +252,14 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   }
 
   protected canPropose(): boolean {
-    return !this.proposeHint() && !this.busy() && !this.proposing() && !!this.view();
+    return (
+      !this.proposeHint() &&
+      !this.busy() &&
+      !this.proposing() &&
+      !this.listing() &&
+      this.candidates() === null &&
+      !!this.view()
+    );
   }
 
   /** Pourquoi « Proposer une nouvelle version » est indisponible ; vide sinon. */
@@ -257,11 +290,43 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
     }
   }
 
-  protected async propose(): Promise<void> {
+  /** L'agent relève les changements avancés par la discussion ; la personne coche ceux à retenir. */
+  protected async pick(): Promise<void> {
     const view = this.view();
     if (!view || !this.canPropose() || !(await this.consent.ensure('COPILOT'))) {
       return;
     }
+    this.problem.set('');
+    this.unchanged.set(null);
+    this.listing.set(true);
+    try {
+      const found = await this.api.changes(view.conversationId);
+      this.candidates.set(found);
+      this.thread().say(
+        found.length
+          ? `${found.length === 1 ? 'Un changement relevé' : `${found.length} changements relevés`} : cochez ceux à intégrer.`
+          : 'Aucun changement relevé : décrivez ce qui doit changer.',
+      );
+    } catch (e) {
+      this.problem.set(reason(e, 'Les changements n’ont pas pu être relevés. Réessayez.'));
+    } finally {
+      this.listing.set(false);
+    }
+  }
+
+  protected cancelPick(): void {
+    this.candidates.set(null);
+    setTimeout(() => this.proposeButton()?.nativeElement.focus());
+  }
+
+  /** Les changements retenus entrent dans la discussion, puis l'agent rédige la version. */
+  protected async propose(changes: string[]): Promise<void> {
+    const view = this.view();
+    if (!view || this.proposing()) {
+      return;
+    }
+    this.candidates.set(null);
+    setTimeout(() => this.thread().focus());
     this.problem.set('');
     this.unchanged.set(null);
     this.proposingReasoning.set('');
@@ -270,7 +335,14 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
     this.drafting.emit(true);
     this.thread().say('L’agent rédige une nouvelle version de la spécification.');
     try {
-      const { turnId } = await this.api.propose(view.conversationId);
+      const { turnId, message } = await this.api.propose(view.conversationId, changes);
+      if (message) {
+        this.messages.update((all) => [
+          ...all,
+          { ...message, steps: message.steps ?? [], sources: message.sources ?? [] },
+        ]);
+        this.thread().scrollToEnd();
+      }
       this.stream = this.api.follow(view.conversationId, turnId, (e) => void this.onProposal(e));
     } catch (e) {
       this.endProposal();
@@ -351,6 +423,7 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
 
   private async open(fresh: boolean): Promise<void> {
     this.busy.set(true);
+    this.candidates.set(null);
     this.problem.set('');
     this.thread().reset();
     try {

@@ -19,6 +19,7 @@ import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component
 import { ProjectHeadingComponent } from '../../shared/ui/project-heading.component';
 import { ProjectIdentityFormComponent } from '../projects/project-identity-form.component';
 import { SheetEditorComponent } from './sheet-editor.component';
+import { SourceRootsComponent } from './source-roots.component';
 
 /**
  * Réglages du projet courant (012, US2) : identité et clé Jira, fiche générale rédigée à la main,
@@ -38,6 +39,7 @@ import { SheetEditorComponent } from './sheet-editor.component';
     ProjectHeadingComponent,
     ProjectIdentityFormComponent,
     SheetEditorComponent,
+    SourceRootsComponent,
   ],
   template: `
     <sw-project-heading label="Réglages du projet" />
@@ -179,6 +181,11 @@ import { SheetEditorComponent } from './sheet-editor.component';
         }
       </section>
 
+      <section class="sheet" aria-labelledby="sources-code">
+        <h2 id="sources-code" tabindex="-1">Sources du code</h2>
+        <sw-source-roots [projectId]="p.id" [roots]="p.sourceRoots ?? []" (changed)="load()" />
+      </section>
+
       <section class="sheet" aria-labelledby="architecture-title">
         <h2 id="architecture-title">Modèle d'architecture</h2>
         <p class="hint">
@@ -305,6 +312,7 @@ export class ProjectSettingsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly sheetEditor = viewChild(SheetEditorComponent);
+  private readonly sourceRoots = viewChild(SourceRootsComponent);
   private readonly projects = inject(ProjectsApi);
   private readonly api = inject(ContextApi);
   private readonly knowledge = inject(KnowledgeApi);
@@ -325,6 +333,8 @@ export class ProjectSettingsPage {
   protected readonly identityDirty = signal(false);
   /** `#jira` dans l'adresse : le champ de la clé reçoit le focus dès qu'il est affiché. */
   private focusKey = false;
+  /** `#sources-code` (013) : le titre « Sources du code » reçoit le focus. */
+  private focusSources = false;
   protected readonly defaultKey = computed(() => this.settings.jira()?.defaultProjectKey ?? null);
 
   constructor() {
@@ -340,6 +350,7 @@ export class ProjectSettingsPage {
     // « Renseigner la clé Jira du projet » : #jira donne le focus au champ de la clé
     this.route.fragment.subscribe((fragment) => {
       this.focusKey = fragment === 'jira';
+      this.focusSources = fragment === 'sources-code';
       this.focusKeyField();
     });
   }
@@ -378,13 +389,14 @@ export class ProjectSettingsPage {
       this.location().trim() !== '' ||
       this.editing() !== null ||
       (this.sheetEditor()?.dirty() ?? false) ||
+      (this.sourceRoots()?.dirty() ?? false) ||
       (p !== null && this.workspace().trim() !== (p.architectureWorkspace ?? '')) ||
       (p !== null && this.ownership().trim() !== (p.architectureOwnership ?? ''))
     );
   }
 
   /** Relit le projet courant après une modification : le menu et la page suivent. */
-  private async load(): Promise<void> {
+  protected async load(): Promise<void> {
     await this.store.load();
   }
 
@@ -410,14 +422,19 @@ export class ProjectSettingsPage {
 
   /** Le champ n'existe qu'une fois le projet affiché : le focus attend le rendu. */
   private focusKeyField(): void {
-    if (!this.focusKey) {
+    if (!this.focusKey && !this.focusSources) {
       return;
     }
     setTimeout(() => {
-      const field = this.host.nativeElement.querySelector<HTMLInputElement>('#jira');
-      if (field) {
+      // plusieurs rendus peuvent être en attente : seul le premier qui trouve la cible la sert
+      if (!this.focusKey && !this.focusSources) {
+        return;
+      }
+      const target = this.host.nativeElement.querySelector<HTMLElement>(this.focusKey ? '#jira' : '#sources-code');
+      if (target) {
         this.focusKey = false;
-        field.focus();
+        this.focusSources = false;
+        target.focus();
       }
     });
   }

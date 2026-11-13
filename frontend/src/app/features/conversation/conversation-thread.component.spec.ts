@@ -5,10 +5,14 @@ import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { Router, provideRouter } from '@angular/router';
 import { provideMarkdown } from 'ngx-markdown';
 import { TURN_STREAM } from '../../core/conversations/conversations.api';
-import { ConversationMessage } from '../../core/conversations/conversations.model';
+import {
+  ConversationMessage,
+  PerimeterView,
+  TurnEvent,
+} from '../../core/conversations/conversations.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { MENTION_DELAYS } from '../../shared/ui/mention.directive';
-import { ConversationThreadComponent } from './conversation-thread.component';
+import { ConversationThreadComponent, demoteHeadings } from './conversation-thread.component';
 
 async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
   for (let i = 0; i < 3; i++) {
@@ -47,6 +51,7 @@ describe('ConversationThreadComponent', () => {
   let fixture: ComponentFixture<ConversationThreadComponent>;
   let el: HTMLElement;
   let opened: string[];
+  let emit: (event: TurnEvent) => void;
 
   beforeEach(() => {
     opened = [];
@@ -61,8 +66,9 @@ describe('ConversationThreadComponent', () => {
         { provide: ConsentGate, useValue: { ensure: async () => true } },
         {
           provide: TURN_STREAM,
-          useValue: (url: string) => {
+          useValue: (url: string, onEvent: (event: TurnEvent) => void) => {
             opened.push(url);
+            emit = onEvent;
             return { close: () => undefined };
           },
         },
@@ -72,6 +78,74 @@ describe('ConversationThreadComponent', () => {
     fixture = TestBed.createComponent(ConversationThreadComponent);
     fixture.componentRef.setInput('projectId', 'p1');
     el = fixture.nativeElement;
+  });
+
+  it('suit les nouveaux messages tant qu’on est en bas, et propose d’y revenir sinon', async () => {
+    document.body.appendChild(el);
+    const scrolled: Element[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    let endTop = 0;
+    const rect = (top: number) => ({ top }) as DOMRect;
+    try {
+      fixture.componentRef.setInput('conversationId', 'c1');
+      fixture.componentInstance.messages.set([user('u1', 1), agent('a1', 2, null)]);
+      await settle(fixture);
+      const end = el.querySelector<HTMLElement>('.end')!;
+      end.getBoundingClientRect = () => rect(endTop);
+      el.querySelector<HTMLElement>('.dock')!.getBoundingClientRect = () => rect(500);
+      expect(scrolled.at(-1)).toBe(end);
+
+      // un contenu qui change de hauteur sans geste de la personne ne coupe pas le suivi
+      endTop = 900;
+      document.dispatchEvent(new Event('scroll'));
+      await settle(fixture);
+      expect(el.textContent).not.toContain('Aller au dernier message');
+
+      // un clic sur un lien, qui défile pour le montrer, n'est pas un geste de défilement
+      el.querySelector('textarea')!.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+      document.dispatchEvent(new Event('scroll'));
+      await settle(fixture);
+      expect(el.textContent).not.toContain('Aller au dernier message');
+
+      // la personne remonte : le fil ne bouge plus, le bouton apparaît
+      document.dispatchEvent(new Event('wheel'));
+      document.dispatchEvent(new Event('scroll'));
+      scrolled.length = 0;
+      fixture.componentInstance.messages.update((l) => [...l, user('u2', 3)]);
+      await settle(fixture);
+      expect(scrolled).toEqual([]);
+      const toEnd = Array.from(el.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim().startsWith('Aller au dernier message'),
+      )!;
+      expect(toEnd).toBeTruthy();
+      // il compte les messages arrivés depuis que la personne a remonté le fil
+      expect(toEnd.textContent?.trim()).toBe('Aller au dernier message (1 nouveau)');
+
+      // le bouton ramène en bas et rend la main au champ de saisie
+      toEnd.click();
+      endTop = 450;
+      await settle(fixture);
+      expect(scrolled).toContain(end);
+      expect(document.activeElement?.id).toBe('composer-text');
+      expect(el.textContent).not.toContain('Aller au dernier message');
+
+      // redescendre à la main reprend aussi le suivi
+      endTop = 900;
+      document.dispatchEvent(new Event('wheel'));
+      document.dispatchEvent(new Event('scroll'));
+      await settle(fixture);
+      expect(el.textContent).toContain('Aller au dernier message');
+      endTop = 560;
+      document.dispatchEvent(new Event('scroll'));
+      await settle(fixture);
+      expect(el.textContent).not.toContain('Aller au dernier message');
+    } finally {
+      Element.prototype.scrollIntoView = original;
+      el.remove();
+    }
   });
 
   it('repère « Contexte : version N » devant la première réponse de chaque version', async () => {
@@ -158,5 +232,82 @@ describe('ConversationThreadComponent', () => {
     expect(sent).toBe(1);
     expect(opened).toEqual(['/api/conversations/c9/turns/a1/events']);
     expect(fixture.componentInstance.running()).toBe(true);
+  });
+
+  it('affiche l’analyse du périmètre et mène une citation de module à sa ligne', async () => {
+    const analysis = (qualified: boolean): PerimeterView => ({
+      ordinal: 1,
+      terms: ['ContractStatus'],
+      rejectedTerms: [],
+      roots: [{ rootId: 'r1', label: 'rv', state: 'SCANNED' }],
+      state: 'COMPLETE',
+      incompleteReason: null,
+      filesScanned: 12,
+      filesSkipped: 0,
+      skippedExamples: [],
+      durationMs: 300,
+      qualified,
+      summary: { impacted: qualified ? 1 : 0, toCheck: 0, notImpacted: 0, unqualified: qualified ? 0 : 1 },
+      modules: [
+        {
+          id: 'r1/libs/common-contract',
+          rootLabel: 'rv',
+          path: 'libs/common-contract',
+          name: 'common-contract',
+          kind: 'MAVEN',
+          occurrences: 1,
+          isNew: false,
+          qualification: qualified ? 'IMPACTED' : 'UNQUALIFIED',
+          justification: null,
+          reasons: [],
+          architecture: null,
+          archStatus: null,
+          samples: [],
+        },
+      ],
+      architectureOnly: [],
+      unavailable: null,
+    });
+    fixture.componentRef.setInput('conversationId', 'c1');
+    fixture.componentInstance.messages.set([user('u1', 1)]);
+    fixture.componentInstance.resume('c1', 'a1');
+    fixture.componentInstance.messages.update((list) => [
+      ...list,
+      { ...agent('a1', 2, null, ''), state: 'RUNNING' },
+    ]);
+    emit({ type: 'perimeter', analysis: analysis(false) });
+    emit({ type: 'perimeter', analysis: analysis(true) });
+    await settle(fixture);
+    expect(el.querySelectorAll('sw-perimeter-step')).toHaveLength(1);
+    expect(el.querySelector('sw-perimeter-step h3')?.textContent).toContain('Impactés (1)');
+
+    fixture.componentInstance.messages.update((list) =>
+      list.map((m) =>
+        m.id === 'a1'
+          ? {
+              ...m,
+              state: 'COMPLETE' as const,
+              text: 'Touché : [1].',
+              sources: [
+                { n: 1, kind: 'MODULE' as const, ref: 'module:r1/libs/common-contract', title: 'common-contract', url: null },
+              ],
+            }
+          : m,
+      ),
+    );
+    await settle(fixture);
+    const link = el.querySelector<HTMLAnchorElement>('.note a')!;
+    expect(link.getAttribute('href')).toBe('#perimeter-a1-1-0');
+    link.click();
+    expect(document.activeElement?.id).toBe('perimeter-a1-1-0');
+  });
+});
+
+describe('demoteHeadings', () => {
+  it('place les titres d’une réponse sous ceux de la page, sans toucher au code', () => {
+    const text = '## Ce qui change\ntexte\n# Titre\n```bash\n# commentaire\n```\n#### Détail\n#pas un titre';
+    expect(demoteHeadings(text)).toBe(
+      '### Ce qui change\ntexte\n### Titre\n```bash\n# commentaire\n```\n##### Détail\n#pas un titre',
+    );
   });
 });

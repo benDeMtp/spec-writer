@@ -1,0 +1,4 @@
+{"operation": "propose-need", "userContains": ["E2E-PERIMETRE"], "response": {
+  "need": "Le gestionnaire doit pouvoir suspendre un contrat d'abonnement : la facturation s'arrête pendant la suspension.",
+  "points": []
+}}

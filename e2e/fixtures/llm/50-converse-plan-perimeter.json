@@ -1,0 +1,2 @@
+{"operation": "converse-plan", "userContains": ["<question>\nE2E-PERIMETRE", "<recherches-restantes>5</recherches-restantes>"],
+ "response": {"action": "PERIMETER", "query": "", "kinds": [], "terms": ["ContractStatus", "CONTRACT_STATUS", "contract.status"]}}

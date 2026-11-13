@@ -104,6 +104,43 @@ paths:
       responses:
         '200': { content: { application/json: { schema: { $ref: '#/components/schemas/DocumentsPreview' } } } }
         '422': { description: Dossier illisible ou motif refusé }
+  /api/projects/{id}/source-roots:
+    get:
+      summary: Racines de sources du code du projet (013, US1), avec leur état lu à la demande
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/SourceRoot' } } } } }
+    post:
+      summary: Déclare une racine de sources (013, US1) ; rien n'est copié ni indexé
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRootInput' } } } }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRoot' } } } }
+        '422': { description: 'Chemin non absolu, absent ou illisible, motif refusé, racine déjà déclarée ou imbriquée, plus de 10 racines' }
+  /api/projects/{id}/source-roots/{rootId}/exclusions:
+    put:
+      summary: Remplace les motifs d'exclusion d'une racine (013) ; pris en compte à la prochaine analyse
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [exclusions]
+              properties:
+                exclusions: { type: array, maxItems: 50, items: { type: string, maxLength: 200 } }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRoot' } } } }
+        '404': { description: Racine inconnue ou d'un autre projet }
+        '422': { description: Motif refusé }
+  /api/projects/{id}/source-roots/{rootId}:
+    delete:
+      summary: Retire une racine ; les analyses passées restent lisibles
+      responses: { '204': { description: Supprimée } }
+  /api/projects/{id}/source-roots/preview:
+    post:
+      summary: Modules détectés sous un dossier (013), par leurs descripteurs seuls (pom.xml, package.json, Chart.yaml)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRootInput' } } } }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/SourceRootPreview' } } } }
+        '422': { description: Dossier absent ou illisible, ou motif refusé }
   /api/projects/{id}/architecture-source:
     put:
       summary: Déclare le workspace Structurizr du projet (FR-013, FR-038) ; démarre une indexation complète
@@ -359,6 +396,46 @@ paths:
       responses:
         '200': { content: { application/json: { schema: { $ref: '#/components/schemas/EmbeddingSettings' } } } }
         '422': { description: 'Chemin relatif, dossier absent, fichier du modèle manquant, pooling inconnu' }
+  /api/settings/browser:
+    get:
+      summary: Navigateur où s'ouvre spec-writer et navigateurs détectés sur le poste (013, T057)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrowserSettings' }
+    put:
+      summary: Choisit un navigateur détecté, ou revient à celui du système (browserId vide ou absent)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                browserId: { type: string, nullable: true }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrowserSettings' }
+        '422': { description: "Navigateur non installé sur ce poste" }
+  /api/settings/browser/open:
+    post:
+      summary: >-
+        Ouvre spec-writer dans le navigateur choisi (repli sur celui du système), avec un nouveau
+        jeton de lancement à usage unique valable 120 s, jamais renvoyé ni journalisé
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opened: { type: boolean }
+                  browser:
+                    nullable: true
+                    description: Navigateur utilisé ; null pour celui du système
+                    allOf: [{ $ref: '#/components/schemas/Browser' }]
   /api/settings/agent-access:
     get:
       summary: État de l'accès des agents et ligne de configuration à déclarer dans un agent
@@ -545,14 +622,25 @@ paths:
       summary: Discussions rattachées, pour la confirmation de suppression (011)
       responses:
         '200': { description: "{ count }" }
+  /api/conversations/{cid}/proposals/candidates:
+    post:
+      summary: >-
+        Changements de la spécification que la discussion avance, à cocher avant la rédaction
+        (011, feature 013 T055) ; rien n'est gardé
+      responses:
+        '200': { description: "{ changes: [{ text, origin: USER | AGENT }] }" }
+        '409': { description: OPERATION_IN_PROGRESS, SPECIFICATION_LOCKED }
+        '422': { description: NOT_A_DISCUSSION, VALIDATION_FAILED (discussion vide) }
+        '428': { description: Accord Copilot manquant }
   /api/conversations/{cid}/proposals:
     post:
       summary: >-
-        « Proposer une nouvelle version » d'après la discussion (011), sans saisie ; la rédaction se
-        suit par le flux du tour (started, stage REVISE, reasoning, puis done { proposalId } ou
-        done { unchanged: true, reason }, ou error)
+        « Proposer une nouvelle version » d'après la discussion (011) ; le corps facultatif
+        { changes: [texte] } ajoute d'abord les changements retenus à la discussion, au nom de la
+        personne ; la rédaction se suit par le flux du tour (started, stage REVISE, reasoning, puis
+        done { proposalId } ou done { unchanged: true, reason }, ou error)
       responses:
-        '202': { description: "{ turnId }" }
+        '202': { description: "{ turnId, message } ; message : les changements retenus, ou null" }
         '409': { description: OPERATION_IN_PROGRESS, SPECIFICATION_LOCKED }
         '422': { description: NOT_A_DISCUSSION, VALIDATION_FAILED (discussion vide) }
         '428': { description: Accord Copilot manquant }
@@ -603,6 +691,7 @@ components:
             architectureOwnership: { type: string }
             knowledge: { $ref: '#/components/schemas/KnowledgeStatus' }
             docSources: { type: array, items: { $ref: '#/components/schemas/DocSource' } }
+            sourceRoots: { type: array, items: { $ref: '#/components/schemas/SourceRoot' } }
             sessionCount: { type: integer }
     DocSourceInput:
       type: object
@@ -649,6 +738,39 @@ components:
             id: { type: string }
             name: { type: string }
             multiplier: { type: number, nullable: true }
+    SourceRootInput:
+      type: object
+      required: [location]
+      properties:
+        location: { type: string, maxLength: 2000, description: Chemin absolu du dossier }
+        exclusions: { type: array, maxItems: 50, items: { type: string, maxLength: 200 } }
+    SourceRoot:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        location: { type: string }
+        label: { type: string, description: Nom du dossier }
+        exclusions: { type: array, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+        state: { type: string, enum: [OK, MISSING, UNREADABLE] }
+    SourceRootPreview:
+      type: object
+      properties:
+        modules:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              path: { type: string }
+              kind: { type: string, enum: [MAVEN, NPM, HELM, ROOT] }
+        moduleCount: { type: integer, description: Total exact, au-delà des 500 renvoyés }
+        retainedFiles: { type: integer }
+        excludedFiles: { type: integer }
+        sensitiveFiles: { type: integer }
+        ignoredByGit: { type: integer }
+        limitReached: { type: boolean }
     DocumentsPreview:
       type: object
       properties:
@@ -750,6 +872,17 @@ components:
               id: { type: string, description: "JIRA, ARCHITECTURE ou identifiant de la source de documentation" }
               kind: { enum: [JIRA, DOCUMENTATION, ARCHITECTURE] }
               label: { type: string, description: "« Jira CLE », emplacement de la documentation, ou workspace" }
+    Browser:
+      type: object
+      properties:
+        id: { type: string, description: 'chrome, firefox, edge, safari, brave, vivaldi, opera, arc, chromium' }
+        name: { type: string }
+    BrowserSettings:
+      type: object
+      properties:
+        selected: { type: string, nullable: true, description: 'null : navigateur du système' }
+        missing: { type: boolean, description: 'Le navigateur choisi n’est plus installé' }
+        installed: { type: array, items: { $ref: '#/components/schemas/Browser' } }
     EmbeddingSettings:
       type: object
       properties:

@@ -93,7 +93,7 @@ public final class EvalRuns {
 
     public record Result(double questionRelevance, double scenarioStructure, EvalBaseline baseline, List<CaseRun> runs,
             Map<String, Double> conversation, List<ConversationRuns.CaseRun> conversationRuns,
-            List<DiscussionRuns.CaseRun> discussionRuns) {
+            List<DiscussionRuns.CaseRun> discussionRuns, List<PerimeterRuns.CaseRun> perimeterRuns) {
     }
 
     private EvalRuns() {
@@ -142,6 +142,7 @@ public final class EvalRuns {
         List<CaseRun> all = new ArrayList<>();
         List<ConversationRuns.CaseRun> conversations = new ArrayList<>();
         List<DiscussionRuns.CaseRun> discussions = new ArrayList<>();
+        List<PerimeterRuns.CaseRun> perimeters = new ArrayList<>();
         String cliVersion;
         try (EvalCopilot copilot = new EvalCopilot(home, Optional.ofNullable(System.getProperty("specwriter.copilot.cli-path")))) {
             cliVersion = copilot.cliVersion();
@@ -151,6 +152,7 @@ public final class EvalRuns {
                 }
                 conversations.addAll(ConversationRuns.run(copilot.conversationLlm(model), run));
                 discussions.addAll(DiscussionRuns.run(copilot.conversationLlm(model), run));
+                perimeters.addAll(PerimeterRuns.run(copilot.conversationLlm(model), run));
             }
         }
         List<double[]> perRun = new ArrayList<>();
@@ -174,10 +176,14 @@ public final class EvalRuns {
                 round(ConversationRuns.score(conversations, ConversationRuns.Kind.INCONSISTENCY, runs)));
         for (String metric : List.of(EvalBaseline.DISCUSSION_CITATION, EvalBaseline.DISCUSSION_INCONSISTENCY,
                 EvalBaseline.REVISION_COMPLETENESS, EvalBaseline.REVISION_PRESERVATION, EvalBaseline.REVISION_STRUCTURE,
-                EvalBaseline.UNCHANGED_RECALL)) {
+                EvalBaseline.UNCHANGED_RECALL, EvalBaseline.CHANGES_RECALL, EvalBaseline.CHANGES_PRECISION)) {
             conversation.put(metric, round(DiscussionRuns.score(discussions, metric, runs)));
         }
-        Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations, discussions);
+        for (String metric : List.of(EvalBaseline.PERIMETER_TERM_RECALL, EvalBaseline.PERIMETER_QUALIFICATION)) {
+            conversation.put(metric, round(PerimeterRuns.score(perimeters, metric, runs)));
+        }
+        Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations, discussions,
+                perimeters);
         write(out, model.orElse("défaut du compte"), cliVersion, runs);
         return out;
     }
@@ -304,6 +310,19 @@ public final class EvalRuns {
             }
             if (!c.passed()) {
                 d.put("excerpt", c.excerpt());
+            }
+            return d;
+        }).toList());
+        out.put("perimeter", r.perimeterRuns().stream().map(c -> {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("case", c.caseName());
+            d.put("run", c.run());
+            d.put("terms", c.terms());
+            d.put("recall", round(c.recall()));
+            d.put("agreement", round(c.agreement()));
+            d.put("found", c.found());
+            if (c.error() != null) {
+                d.put("error", c.error());
             }
             return d;
         }).toList());

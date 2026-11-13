@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>fr.demo</groupId>
+    <artifactId>super</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../../super</relativePath>
+  </parent>
+  <artifactId>relance</artifactId>
+  <packaging>jar</packaging>
+  <dependencies>
+    <dependency>
+      <groupId>fr.demo</groupId>
+      <artifactId>facturation</artifactId>
+    </dependency>
+  </dependencies>
+</project>

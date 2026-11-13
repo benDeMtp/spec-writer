@@ -9,6 +9,11 @@ import dev.specwriter.domain.knowledge.KnowledgeSelection;
 import dev.specwriter.domain.scenario.AcceptanceScenario;
 import dev.specwriter.domain.scenario.AcceptanceScenario.Kind;
 import dev.specwriter.domain.session.Language;
+import dev.specwriter.domain.sources.ModuleRef;
+import dev.specwriter.domain.sources.Occurrence;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
+import dev.specwriter.domain.sources.Qualification;
+import dev.specwriter.domain.sources.Reason;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -224,5 +229,64 @@ class MarkdownRendererTest {
         String md = MarkdownRenderer.render(c, Language.FR, KnowledgeSelection.EMPTY);
         assertThat(md).isEqualTo(MarkdownRenderer.render(c, Language.FR)).doesNotContain("## Architecture")
                 .doesNotContain("## Efforts supplémentaires").doesNotContain("## Écarts aux ADR");
+    }
+
+    static final PerimeterSnapshot PERIMETER = new PerimeterSnapshot(
+            List.of(entry("common-contract", "libs/common*contract", Qualification.IMPACTED,
+                    "Définit l'énumération.", List.of(new Reason.Term("ContractStatus", 3)),
+                    List.of(new Occurrence("libs/common*contract/Contract_Status.java", 3,
+                            "ContractStatus", ""))),
+                    entry("relance", "modules/relance", Qualification.TO_CHECK, null,
+                            List.of(new Reason.Dependency(List.of(
+                                    new ModuleRef(null, "facturation"),
+                                    new ModuleRef(null, "relance")))), List.of()),
+                    entry("demo-front", "front", Qualification.UNQUALIFIED, null,
+                            List.of(new Reason.Term("CONTRACT_STATUS", 1)), List.of()),
+                    entry("annuaire", "modules/annuaire", Qualification.NOT_IMPACTED,
+                            "Simple commentaire.", List.of(new Reason.Term("ContractStatus", 1)),
+                            List.of())),
+            true);
+
+    static PerimeterSnapshot.Entry entry(String name, String path,
+            Qualification q, String why, List<Reason> reasons,
+            List<Occurrence> occurrences) {
+        return new PerimeterSnapshot.Entry(name, path, "rv", q, why, reasons, occurrences);
+    }
+
+    @Test
+    void rubriqueModulesTouchesApresLArchitectureEchappee() {
+        String md = MarkdownRenderer.render(spec(refused(false), List.of(), List.of()), Language.FR, FACTS, PERIMETER);
+        assertThat(md).contains("""
+                ## Modules touchés
+
+                L'analyse du périmètre est incomplète : des modules peuvent manquer.
+
+                ### Impactés
+
+                - **common-contract** (rv/libs/common\\*contract) : Définit l'énumération.
+
+                ### À vérifier
+
+                - **relance** (rv/modules/relance) : dépend de facturation → relance
+                - **demo-front** (rv/front) : contient CONTRACT\\_STATUS ×1
+                """);
+        // une ligne par module ; les non impactés et les preuves restent dans la discussion
+        assertThat(md).doesNotContain("annuaire").doesNotContain("Non impactés").doesNotContain("Contract\\_Status.java");
+        // une seule liste de modules : celle de l'analyse ; l'architecture garde les flux
+        assertThat(md).doesNotContain("### Modules impactés").contains("### Flux");
+        assertThat(md.indexOf("## Modules touchés")).isGreaterThan(md.indexOf("## Architecture"));
+        assertThat(md.indexOf("## Modules touchés")).isLessThan(md.indexOf("## Écarts aux ADR") < 0 ? md.length()
+                : md.indexOf("## Écarts aux ADR"));
+        assertThat(MarkdownRenderer.render(spec(refused(false), List.of(), List.of()), Language.EN, FACTS, PERIMETER))
+                .contains("## Affected modules").contains("### To check").contains("depends on facturation → relance");
+        assertThat(MarkdownRenderer.anchors()).containsEntry("Modules touchés", "perimeter")
+                .containsEntry("Affected modules", "perimeter");
+    }
+
+    @Test
+    void sansInstantaneAucuneRubriqueModulesTouches() {
+        SpecificationContent c = spec(refused(false), List.of(), List.of());
+        assertThat(MarkdownRenderer.render(c, Language.FR, FACTS, null)).isEqualTo(MarkdownRenderer.render(c, Language.FR,
+                FACTS)).doesNotContain("Modules touchés");
     }
 }

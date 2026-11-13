@@ -113,12 +113,37 @@ class ProposalResourceIT {
     }
 
     @Test
+    void lesChangementsReleveesSontCochesPuisRetenusDansLaDiscussion() {
+        String cid = discuss(false, "IT-DISCUSSION IT-REVISION Le client annule tant que la commande n'est pas envoyée.");
+
+        api().post("/api/conversations/" + cid + "/proposals/candidates").then().statusCode(200)
+                .body("changes.size()", equalTo(2))
+                .body("changes[0].text", equalTo("Ajouter l'annulation de la commande tant qu'elle n'est pas envoyée"))
+                .body("changes[0].origin", equalTo("USER")).body("changes[1].origin", equalTo("AGENT"));
+
+        String turn = api().body(Map.of("changes", java.util.List.of("Ajouter l'annulation", " ", "Ajouter l'annulation")))
+                .post("/api/conversations/" + cid + "/proposals").then().statusCode(202)
+                .body("message.role", equalTo("USER"))
+                .body("message.text", equalTo("Changements retenus pour la nouvelle version :\n- Ajouter l'annulation"))
+                .extract().path("turnId");
+        String stream = api().accept("text/event-stream").get("/api/conversations/" + cid + "/turns/" + turn + "/events")
+                .then().statusCode(200).extract().asString();
+        assertThat(stream).contains("event:done");
+        api().get("/api/conversations/" + cid).then().statusCode(200).body("messages.size()", equalTo(3))
+                .body("messages[2].text", equalTo("Changements retenus pour la nouvelle version :\n- Ajouter l'annulation"))
+                .body("messages[2].specificationVersion", equalTo(1));
+        api().delete("/api/conversations/" + cid).then().statusCode(204);
+    }
+
+    @Test
     void aucunChangementAbandonEtRefus() {
         String cid = discuss(false, "IT-DISCUSSION IT-SANS-CHANGEMENT Que dit l'UC-01 ?");
 
         String stream = stream(cid);
 
         assertThat(stream).contains("\"unchanged\":true").contains("La discussion n'a posé que des questions.");
+        api().post("/api/conversations/" + cid + "/proposals/candidates").then().statusCode(200)
+                .body("changes.size()", equalTo(0));
         String base = "/api/sessions/" + session.id();
         api().delete(base + "/proposals/" + UUID.randomUUID()).then().statusCode(204);
         api().get(base + "/proposals/" + UUID.randomUUID()).then().statusCode(404);

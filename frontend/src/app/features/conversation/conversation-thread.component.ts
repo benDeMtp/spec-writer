@@ -2,15 +2,18 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   OnDestroy,
+  afterRenderEffect,
   computed,
   inject,
   input,
   model,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -33,8 +36,12 @@ import { AttachmentsComponent } from '../../shared/ui/attachments.component';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ElapsedComponent, formatDuration } from '../../shared/ui/elapsed.component';
 import { MentionDirective } from '../../shared/ui/mention.directive';
+import { PerimeterStepComponent, perimeterAnchor } from './perimeter-step.component';
 
 export const MAX_MESSAGE = 8_000;
+
+/** En deçà de cette distance (px) entre la fin du fil et le champ de saisie, le fil suit les messages. */
+export const FOLLOW_TOLERANCE = 80;
 
 const STAGES: Record<ThinkingStage, string> = {
   MEMORY: 'Résumé des échanges anciens',
@@ -51,6 +58,7 @@ const KINDS: Record<SourceKind, string> = {
   SPECIFICATION: 'Spécification',
   ATTACHMENT: 'Document joint',
   DISCUSSION: 'Discussion',
+  MODULE: 'Module',
 };
 
 /**
@@ -70,6 +78,7 @@ const KINDS: Record<SourceKind, string> = {
     MatProgressBarModule,
     MarkdownComponent,
     MentionDirective,
+    PerimeterStepComponent,
     RouterLink,
   ],
   template: `
@@ -139,6 +148,14 @@ const KINDS: Record<SourceKind, string> = {
                   </ol>
                 </details>
               }
+              @for (p of m.perimeters ?? []; track p.ordinal) {
+                <sw-perimeter-step
+                  [analysis]="p"
+                  [messageId]="m.id"
+                  [live]="m.state === 'RUNNING'"
+                  [latest]="latestPerimeter() === m.id + ':' + p.ordinal"
+                />
+              }
               @if (m.text) {
                 <article class="note">
                   <markdown [data]="rendered(m)" />
@@ -189,6 +206,7 @@ const KINDS: Record<SourceKind, string> = {
           }
         }
       </ol>
+      <div #end class="end"></div>
     </div>
 
     <ng-content />
@@ -198,13 +216,24 @@ const KINDS: Record<SourceKind, string> = {
       <p class="problem" role="alert">{{ problem() }}</p>
     }
 
+    <div #dock class="dock">
+    @if (!following() && messages().length) {
+      <!-- dans la zone de saisie, et non par-dessus le fil : il ne cache aucun texte -->
+      <p class="to-end">
+        <button mat-stroked-button type="button" (click)="scrollToEnd(true)">
+          Aller au dernier message{{ unseen() ? ' (' + unseen() + ' nouveau' + (unseen() > 1 ? 'x' : '') + ')' : '' }}
+        </button>
+      </p>
+    }
+    <ng-content select="[swComposerTop]" />
     <form class="composer" (ngSubmit)="send()" novalidate>
       <label for="composer-text" class="sw-visually-hidden">Votre question</label>
+      <!-- une ligne au repos, qui grandit avec le texte : le fil garde la hauteur -->
       <textarea
         #composer
         id="composer-text"
         name="text"
-        rows="3"
+        rows="1"
         [swMention]="projectId()"
         [(ngModel)]="text"
         [maxlength]="max"
@@ -213,24 +242,31 @@ const KINDS: Record<SourceKind, string> = {
         aria-describedby="composer-help"
         (keydown)="onKey($event)"
       ></textarea>
-      @if (conversationId(); as cid) {
-        <sw-attachments
-          [projectId]="projectId()"
-          [conversationId]="cid"
-          [fields]="composerFields()"
-        />
-      }
       <div class="bar">
-        <span id="composer-help" class="hint">
-          Entrée envoie, Maj+Entrée va à la ligne. {{ text().length }} / {{ max }}
-        </span>
-        @if (running()) {
-          <button mat-stroked-button type="button" (click)="stop()">Arrêter</button>
-        } @else {
-          <button mat-flat-button type="submit" [disabled]="!text().trim()">Envoyer</button>
+        @if (conversationId(); as cid) {
+          <sw-attachments
+            compact
+            [projectId]="projectId()"
+            [conversationId]="cid"
+            [fields]="composerFields()"
+          />
         }
+        <span class="actions">
+          <ng-content select="[swComposerAction]" />
+          @if (running()) {
+            <button mat-stroked-button type="button" (click)="stop()">Arrêter</button>
+          } @else {
+            <button mat-flat-button type="submit" [disabled]="!text().trim()">Envoyer</button>
+          }
+        </span>
       </div>
+      <!-- l'aide est lue avec le champ ; l'afficher au focus décalerait le fil sous le pointeur -->
+      <p id="composer-help" class="sw-visually-hidden">Entrée envoie, Maj+Entrée va à la ligne.</p>
+      @if (text().length > max * 0.8) {
+        <p class="help">{{ text().length }} / {{ max }} caractères</p>
+      }
     </form>
+    </div>
   `,
   styles: `
     .log {
@@ -340,15 +376,18 @@ const KINDS: Record<SourceKind, string> = {
     .took {
       color: var(--sw-ink-soft);
     }
-    /* la réflexion arrive par le bas : la colonne inversée garde la fin visible sans script */
     .reasoning {
+      margin: 0.5rem 0 0;
+      padding: 0.25rem 0.9rem 0.5rem;
+      border-left: 2px solid var(--sw-rule);
+    }
+    /* pendant le tour, la réflexion arrive par le bas : la colonne inversée garde la fin visible ;
+       ensuite, elle se lit en entier, sans ascenseur dans le fil qui défile déjà */
+    .thinking.live .reasoning {
       display: flex;
       flex-direction: column-reverse;
       max-height: 18rem;
       overflow-y: auto;
-      margin: 0.5rem 0 0;
-      padding: 0.25rem 0.9rem 0.5rem;
-      border-left: 2px solid var(--sw-rule);
     }
     .reasoning h3 {
       margin: 0.6rem 0 0.2rem;
@@ -419,31 +458,55 @@ const KINDS: Record<SourceKind, string> = {
       padding: 0.5rem 0.75rem;
       border-left: 4px solid var(--mat-sys-error, #b3261e);
     }
-    .composer {
+    /* le champ de saisie, et ce que l'écran y ajoute (proposition d'une version), restent visibles */
+    .to-end {
+      margin: 0 0 0.5rem;
+      text-align: center;
+    }
+    .dock {
       position: sticky;
       bottom: 0;
       margin-top: 1.5rem;
-      padding: 0.75rem 0 1rem;
+      padding: 0.5rem 0 0.75rem;
       background: var(--sw-paper);
+      border-top: 1px solid var(--sw-rule);
     }
     textarea {
       box-sizing: border-box;
+      display: block;
       width: 100%;
-      padding: 0.75rem;
+      min-height: 2.75rem;
+      max-height: 12rem;
+      padding: 0.6rem 0.75rem;
       border: 1px solid var(--sw-rule);
       border-radius: var(--sw-radius-field);
       background: var(--sw-sheet);
       color: var(--sw-ink);
       font: inherit;
-      resize: vertical;
+      line-height: 1.5;
+      resize: none;
+      overflow-y: auto;
     }
     .bar {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
+      gap: 0.5rem 1rem;
       margin-top: 0.4rem;
       font-size: var(--sw-step--1);
+    }
+    .help {
+      margin: 0.35rem 0 0;
+      color: var(--sw-ink-soft);
+      font-size: var(--sw-step--1);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.5rem;
     }
   `,
 })
@@ -471,6 +534,54 @@ export class ConversationThreadComponent implements OnDestroy {
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly composer = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
+  private readonly end = viewChild<ElementRef<HTMLElement>>('end');
+  private readonly dock = viewChild<ElementRef<HTMLElement>>('dock');
+  /**
+   * Le fil suit les nouveaux messages et la réponse en flux tant que la personne est en bas ; il
+   * cesse quand elle remonte, et reprend quand elle redescend, envoie un message ou demande le
+   * dernier message.
+   */
+  protected readonly following = signal(true);
+  /** Nombre de messages quand la personne a quitté la fin du fil. */
+  private readonly leftAt = signal(0);
+  /** Messages arrivés depuis que la personne a remonté le fil. */
+  protected readonly unseen = computed(() =>
+    this.following() ? 0 : Math.max(0, this.messages().length - this.leftAt()),
+  );
+  /**
+   * La personne a fait défiler elle-même (molette, clavier, toucher, ascenseur) depuis le dernier
+   * défilement automatique : seul un défilement voulu arrête le suivi, pas un contenu qui change de
+   * hauteur pendant la mise en page.
+   */
+  private intent = false;
+  private readonly onIntent = (event: Event): void => {
+    if (isScrollGesture(event)) {
+      this.intent = true;
+    }
+  };
+  private readonly onScroll = (): void => {
+    const atEnd = this.atEnd();
+    if (!atEnd && !this.intent) {
+      return;
+    }
+    if (!atEnd && this.following()) {
+      this.leftAt.set(this.messages().length);
+    }
+    this.following.set(atEnd);
+  };
+  /**
+   * Dernière analyse de périmètre du fil (`message:ordinal`) : seule ouverte, les autres sont
+   * repliées. Une analyse impossible (aucune source déclarée) ne remplace pas la précédente.
+   */
+  protected readonly latestPerimeter = computed(() => {
+    for (const m of [...this.messages()].reverse()) {
+      const p = (m.perimeters ?? []).filter((x) => !x.unavailable).at(-1);
+      if (p) {
+        return `${m.id}:${p.ordinal}`;
+      }
+    }
+    return null;
+  });
 
   protected readonly max = MAX_MESSAGE;
   protected readonly text = signal('');
@@ -488,6 +599,85 @@ export class ConversationThreadComponent implements OnDestroy {
   protected readonly stage = signal<ThinkingStage | null>(null);
   readonly running = computed(() => this.messages().some((m) => m.state === 'RUNNING'));
   private stream: TurnStream | null = null;
+
+  constructor() {
+    // tout défilement compte : celui de la page, ou celui du panneau qui contient le fil
+    document.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
+    const intents = ['wheel', 'touchmove', 'keydown', 'pointerdown'] as const;
+    intents.forEach((type) =>
+      document.addEventListener(type, this.onIntent, { capture: true, passive: true }),
+    );
+    // un contenu qui grandit après coup (Markdown, analyse dépliée) garde la fin visible
+    const growth =
+      typeof ResizeObserver === 'function'
+        ? new ResizeObserver(() => {
+            if (untracked(this.following)) {
+              this.reveal();
+            }
+          })
+        : null;
+    afterRenderEffect(() => {
+      const log = this.end()?.nativeElement.parentElement;
+      if (log && growth) {
+        growth.disconnect();
+        growth.observe(log);
+      }
+    });
+    inject(DestroyRef).onDestroy(() => {
+      document.removeEventListener('scroll', this.onScroll, { capture: true });
+      intents.forEach((type) =>
+        document.removeEventListener(type, this.onIntent, { capture: true }),
+      );
+      growth?.disconnect();
+    });
+    afterRenderEffect(() => {
+      this.messages();
+      this.stage();
+      this.compacting();
+      if (untracked(this.following)) {
+        this.reveal();
+      }
+    });
+    // le champ grandit avec le texte, jusqu'à sa hauteur maximale (CSS), puis défile
+    afterRenderEffect(() => {
+      this.text();
+      const area = this.composer()?.nativeElement;
+      if (area) {
+        area.style.height = 'auto';
+        area.style.height = `${area.scrollHeight + 2}px`;
+      }
+    });
+  }
+
+  /** Va au dernier message et reprend le suivi ; `focus` rend la main au champ de saisie. */
+  scrollToEnd(focus = false): void {
+    this.following.set(true);
+    this.reveal();
+    if (focus) {
+      this.focus();
+    }
+  }
+
+  /** Vrai si la fin du fil est visible au-dessus du champ de saisie, à la tolérance près. */
+  private atEnd(): boolean {
+    const end = this.end()?.nativeElement;
+    const dock = this.dock()?.nativeElement;
+    if (!end || !dock) {
+      return true;
+    }
+    return end.getBoundingClientRect().top - dock.getBoundingClientRect().top <= FOLLOW_TOLERANCE;
+  }
+
+  /** Amène la fin du fil juste au-dessus du champ de saisie, qui reste collé en bas. */
+  private reveal(): void {
+    const end = this.end()?.nativeElement;
+    if (!end || typeof end.scrollIntoView !== 'function') {
+      return;
+    }
+    end.style.scrollMarginBottom = `${(this.dock()?.nativeElement.offsetHeight ?? 0) + 8}px`;
+    this.intent = false;
+    end.scrollIntoView({ block: 'end' });
+  }
 
   ngOnDestroy(): void {
     this.stream?.close();
@@ -588,20 +778,36 @@ export class ConversationThreadComponent implements OnDestroy {
     return `source-${m.id}-${s.n}`;
   }
 
+  /** Ligne du module dans l'étape « Analyse du périmètre » du message, pour une source MODULE. */
+  private moduleAnchor(m: ConversationMessage, s: CitedSource): string | null {
+    if (s.kind !== 'MODULE') {
+      return null;
+    }
+    const id = s.ref.replace(/^module:/, '');
+    for (const p of [...(m.perimeters ?? [])].reverse()) {
+      const position = p.modules.findIndex((x) => x.id === id);
+      if (position >= 0) {
+        return perimeterAnchor(m.id, p.ordinal, position);
+      }
+    }
+    return null;
+  }
+
   /**
    * Les appels de note `[n]` deviennent des liens : vers la source quand elle a une adresse, sinon
    * vers sa note sous la réponse (document joint, élément d'architecture).
    */
   protected rendered(m: ConversationMessage): string {
+    const text = demoteHeadings(m.text);
     if (!m.sources.length) {
-      return m.text;
+      return text;
     }
-    return m.text.replace(/\[(\d{1,3})\](?!\()/g, (all, n: string) => {
+    return text.replace(/\[(\d{1,3})\](?!\()/g, (all, n: string) => {
       const source = m.sources.find((s) => s.n === Number(n));
       if (!source) {
         return all;
       }
-      const target = source.url ?? `#${this.sourceId(m, source)}`;
+      const target = source.url ?? `#${this.moduleAnchor(m, source) ?? this.sourceId(m, source)}`;
       return `[[${n}]](${target} "${source.title.replace(/"/g, '')}")`;
     });
   }
@@ -620,6 +826,13 @@ export class ConversationThreadComponent implements OnDestroy {
     event.preventDefault();
     if (href.startsWith('#')) {
       const note = this.host.nativeElement.querySelector<HTMLElement>(`[id="${href.slice(1)}"]`);
+      // un module cité peut être replié : sa fiche, son groupe et l'analyse s'ouvrent
+      let fold = note?.closest('details') ?? null;
+      while (fold) {
+        fold.open = true;
+        fold = fold.parentElement?.closest('details') ?? null;
+      }
+      note?.querySelector<HTMLDetailsElement>(':scope > details')?.setAttribute('open', '');
       note?.focus();
     } else if (href.startsWith('/')) {
       if (!this.internalLink()?.(href)) {
@@ -662,6 +875,7 @@ export class ConversationThreadComponent implements OnDestroy {
       }
       this.turnStart.set(Date.now());
       const started = await this.api.send(conversationId, text);
+      this.following.set(true);
       this.text.set('');
       this.messages.update((list) => [
         ...list,
@@ -760,6 +974,15 @@ export class ConversationThreadComponent implements OnDestroy {
           `Recherche : ${event.step.query}, ${event.step.hits} élément${event.step.hits > 1 ? 's' : ''}.`,
         );
         break;
+      case 'perimeter':
+        this.patch(turnId, (m) => ({
+          ...m,
+          perimeters: [
+            ...(m.perimeters ?? []).filter((p) => p.ordinal !== event.analysis.ordinal),
+            event.analysis,
+          ].sort((a, b) => a.ordinal - b.ordinal),
+        }));
+        break;
       case 'delta':
         this.patch(turnId, (m) => ({ ...m, text: m.text + event.text }));
         break;
@@ -826,6 +1049,43 @@ function message(
     sources: [],
     thinking: null,
   };
+}
+
+/**
+ * Les titres d'une réponse descendent sous ceux de la page : le plus haut devient un titre de
+ * niveau 3, sous « Discussion avec l’IA » ou le titre de l'écran, pour un plan de page juste.
+ * Les blocs de code restent tels quels.
+ */
+export function demoteHeadings(markdown: string): string {
+  return markdown
+    .split(/(^```[\s\S]*?^```)/m)
+    .map((part, i) =>
+      i % 2
+        ? part
+        : part.replace(/^(#{1,6})(?=\s)/gm, (h) => '#'.repeat(Math.min(6, Math.max(3, h.length + 1)))),
+    )
+    .join('');
+}
+
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
+
+/**
+ * Geste qui fait défiler : molette, toucher, touche de défilement hors d'un champ de saisie, ou
+ * appui sur un ascenseur. Un clic sur un lien, qui fait défiler pour le montrer, n'en est pas un.
+ */
+function isScrollGesture(event: Event): boolean {
+  if (event.type === 'wheel' || event.type === 'touchmove') {
+    return true;
+  }
+  const target = event.target as HTMLElement | null;
+  if (event instanceof KeyboardEvent) {
+    return SCROLL_KEYS.has(event.key) && !target?.closest('input, textarea, select, [contenteditable]');
+  }
+  if (event instanceof MouseEvent && target) {
+    // l'ascenseur est hors de la zone de contenu de l'élément qui défile
+    return event.offsetX > target.clientWidth || event.offsetY > target.clientHeight;
+  }
+  return false;
 }
 
 /** Texte annoncé : sans les marques Markdown, que le lecteur d'écran lirait telles quelles. */

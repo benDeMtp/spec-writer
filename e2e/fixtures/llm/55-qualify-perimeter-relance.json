@@ -1,0 +1,4 @@
+{"operation": "qualify-perimeter", "userContains": ["<question>\nE2E-RELANCE"],
+ "response": {"modules": [
+   {"id": "__MODULE:common-contract__", "qualification": "IMPACTED", "justification": "Définit l'énumération ContractStatus."},
+   {"id": "__MODULE:batch-suspension__", "qualification": "IMPACTED", "justification": "Publie l'événement contract_suspended."}]}}

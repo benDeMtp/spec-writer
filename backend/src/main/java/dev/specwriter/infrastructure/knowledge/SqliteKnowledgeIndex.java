@@ -314,6 +314,18 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
                     .setParameter(4, r.destination()).setParameter(5, bounded(r.description()))
                     .setParameter(6, bounded(r.technology())).executeUpdate();
         }
+        // indice de module (013) : les éléments sont déjà enregistrés, chacun reçoit le sien ou rien
+        em.createNativeQuery("update knowledge_item set module_hint = null where project_id = ?1 and kind = 'ARCH_ELEMENT'")
+                .setParameter(1, project).executeUpdate();
+        for (ArchElement e : model.elements()) {
+            if (e.moduleHint() != null) {
+                em.createNativeQuery("""
+                        update knowledge_item set module_hint = ?3
+                        where project_id = ?1 and kind = 'ARCH_ELEMENT' and ref = ?2 and chunk = 0""")
+                        .setParameter(1, project).setParameter(2, e.name()).setParameter(3, bounded(e.moduleHint()))
+                        .executeUpdate();
+            }
+        }
         position = 0;
         for (ArchDeployment d : model.deployments()) {
             em.createNativeQuery("""
@@ -332,7 +344,7 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
     public ArchitectureModel architecture(UUID projectId) {
         String project = projectId.toString();
         List<Object[]> elements = em.createNativeQuery("""
-                select ref, element_type, scope, transport from knowledge_item
+                select ref, element_type, scope, transport, module_hint from knowledge_item
                 where project_id = ?1 and kind = 'ARCH_ELEMENT' and chunk = 0 order by ref""")
                 .setParameter(1, project).getResultList();
         List<Object[]> relations = em.createNativeQuery("""
@@ -345,7 +357,8 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
         return new ArchitectureModel(
                 elements.stream().filter(r -> r[1] != null && r[2] != null)
                         .map(r -> new ArchElement((String) r[0], ArchElement.Type.valueOf((String) r[1]),
-                                ArchScope.valueOf((String) r[2]), ((Number) r[3]).intValue() == 1, null, null))
+                                ArchScope.valueOf((String) r[2]), ((Number) r[3]).intValue() == 1, null, null,
+                                (String) r[4]))
                         .toList(),
                 relations.stream().map(r -> new ArchRelation((String) r[0], (String) r[1], (String) r[2], (String) r[3]))
                         .toList(),

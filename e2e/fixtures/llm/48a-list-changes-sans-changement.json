@@ -1,0 +1,5 @@
+{
+  "operation": "list-changes",
+  "userContains": ["E2E-SANS-CHANGEMENT"],
+  "response": { "changes": [] }
+}

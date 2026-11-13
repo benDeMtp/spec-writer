@@ -1,0 +1,2 @@
+{"operation": "converse-plan", "userContains": ["IT-PERIMETRE", "<perimetre-disponible>oui</perimetre-disponible>"],
+ "response": {"action": "PERIMETER", "query": "", "kinds": [], "terms": ["ContractStatus", "CONTRACT_STATUS", "contract.status"]}}

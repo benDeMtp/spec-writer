@@ -13,6 +13,8 @@ import dev.specwriter.application.attachment.ManageAttachments;
 import dev.specwriter.application.consent.UpdateConsent;
 import dev.specwriter.application.context.EditContext;
 import dev.specwriter.application.context.ManageDocSources;
+import dev.specwriter.application.sources.AnalyzePerimeter;
+import dev.specwriter.application.sources.ManageSourceRoots;
 import dev.specwriter.application.conversation.ConversationSearch;
 import dev.specwriter.application.conversation.ConversationAttachments;
 import dev.specwriter.application.conversation.ConversationSuggestions;
@@ -40,6 +42,7 @@ import dev.specwriter.application.knowledge.KnowledgeQueries;
 import dev.specwriter.application.knowledge.ListAdrs;
 import dev.specwriter.application.knowledge.ManageArchitectureSource;
 import dev.specwriter.application.knowledge.ManageEmbeddingSettings;
+import dev.specwriter.application.settings.ManageBrowser;
 import dev.specwriter.application.knowledge.MentionQueries;
 import dev.specwriter.application.knowledge.ReadDocFile;
 import dev.specwriter.application.knowledge.RelatedIssuesStore;
@@ -92,6 +95,7 @@ import dev.specwriter.domain.port.DocumentFileStates;
 import dev.specwriter.domain.port.DocumentFiles;
 import dev.specwriter.domain.port.DocumentFolder;
 import dev.specwriter.domain.port.DocumentationReader;
+import dev.specwriter.domain.port.BrowserPort;
 import dev.specwriter.domain.port.EmbeddingPort;
 import dev.specwriter.domain.port.GitHubAuthenticator;
 import dev.specwriter.domain.port.IdGenerator;
@@ -102,7 +106,10 @@ import dev.specwriter.domain.port.LinkedTicketRepository;
 import dev.specwriter.domain.port.LlmClient;
 import dev.specwriter.domain.port.LocalSearch;
 import dev.specwriter.domain.port.ModelCapacities;
+import dev.specwriter.domain.port.PerimeterRepository;
 import dev.specwriter.domain.port.ProjectRepository;
+import dev.specwriter.domain.port.SourceRootRepository;
+import dev.specwriter.domain.port.SourceTree;
 import dev.specwriter.domain.port.SecretStore;
 import dev.specwriter.domain.port.SessionRelationRepository;
 import dev.specwriter.domain.port.SessionRepository;
@@ -142,12 +149,21 @@ public class UseCaseProducer {
             KnowledgeIndex index, EmbeddingPort embedding, LocalSearch specifications, ModelCapacities capacities,
             ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
             AnalyzeArchitecture analyze, DocSourceRepository docSources, DocumentFolder folder,
-            ConversationAttachmentRepository attachments, DiscussSpecification discussions) {
+            ConversationAttachmentRepository attachments, DiscussSpecification discussions, AnalyzePerimeter perimeter,
+            PerimeterRepository perimeters) {
         SelectKnowledge select = new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), docSources,
                 folder, capacities);
         return new Converse(projects, conversations, llm, new ConversationSearch(index, embedding, specifications),
                 new DesignatedDocuments(select, attachments), capacities, consent, operations, events, clock, ids,
-                task -> Thread.ofVirtual().name("conversation").start(task), discussions);
+                task -> Thread.ofVirtual().name("conversation").start(task), discussions, perimeter, perimeters);
+    }
+
+    /** Analyse de périmètre dans les sources du code (013). */
+    @Produces
+    @ApplicationScoped
+    AnalyzePerimeter analyzePerimeter(SourceRootRepository roots, SourceTree tree, ConversationLlm llm, ClockPort clock,
+            KnowledgeIndex index) {
+        return new AnalyzePerimeter(roots, tree, llm, clock, SourceTree.Limits.DEFAULT, index);
     }
 
     /** « Proposer une nouvelle version » d'après la discussion (011, US2) : la rédaction tourne sur un fil virtuel. */
@@ -156,9 +172,10 @@ public class UseCaseProducer {
     ProposeRevision proposeRevision(SessionRepository sessions, SpecificationRepository versions,
             ConversationRepository conversations, DiscussSpecification discussions, SessionKnowledge knowledge,
             ConversationLlm llm, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
-            TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids) {
+            TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids, PerimeterRepository perimeters) {
         return new ProposeRevision(sessions, versions, conversations, discussions, knowledge, llm, capacities, consent,
-                operations, events, proposals, clock, ids, task -> Thread.ofVirtual().name("proposition").start(task));
+                operations, events, proposals, clock, ids, task -> Thread.ofVirtual().name("proposition").start(task),
+                perimeters);
     }
 
     /** Discussions des spécifications (011). */
@@ -174,8 +191,8 @@ public class UseCaseProducer {
     @ApplicationScoped
     ManageConversations manageConversations(ProjectRepository projects, ConversationRepository conversations,
             SessionRepository sessions, JiraAccess jira, OperationRegistry operations,
-            SpecificationDiscussionRepository discussions) {
-        return new ManageConversations(projects, conversations, sessions, jira, operations, discussions);
+            SpecificationDiscussionRepository discussions, PerimeterRepository perimeters) {
+        return new ManageConversations(projects, conversations, sessions, jira, operations, discussions, perimeters);
     }
 
     @Produces
@@ -187,15 +204,16 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     DraftNeed draftNeed(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
-            ModelCapacities capacities, ConsentPolicy consent, ClockPort clock) {
-        return new DraftNeed(projects, conversations, llm, capacities, consent, clock);
+            ModelCapacities capacities, ConsentPolicy consent, ClockPort clock, PerimeterRepository perimeters) {
+        return new DraftNeed(projects, conversations, llm, capacities, consent, clock, perimeters);
     }
 
     @Produces
     @ApplicationScoped
     StartFromConversation startFromConversation(ConversationRepository conversations, ProjectRepository projects,
-            StartSession startSession, ConversationAttachments attachments) {
-        return new StartFromConversation(conversations, projects, startSession, attachments::copies);
+            StartSession startSession, ConversationAttachments attachments, PerimeterRepository perimeters,
+            ClockPort clock) {
+        return new StartFromConversation(conversations, projects, startSession, attachments::copies, perimeters, clock);
     }
 
     @Produces
@@ -387,8 +405,9 @@ public class UseCaseProducer {
     @ApplicationScoped
     GenerateSpecification generateSpecification(SessionRepository sessions, SpecificationRepository versions,
             LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
-            OperationRegistry operations) {
-        return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge, operations);
+            OperationRegistry operations, PerimeterRepository perimeters) {
+        return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge, operations,
+                perimeters);
     }
 
     @Produces
@@ -471,8 +490,8 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    ProposalStore proposalStore(TextDiff diff, IdGenerator ids, ClockPort clock) {
-        return new ProposalStore(diff, ids, clock);
+    ProposalStore proposalStore(TextDiff diff, IdGenerator ids, ClockPort clock, PerimeterRepository perimeters) {
+        return new ProposalStore(diff, ids, clock, perimeters);
     }
 
     @Produces
@@ -572,9 +591,9 @@ public class UseCaseProducer {
     PushToJira pushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
-            OperationRegistry operations) {
+            OperationRegistry operations, PerimeterRepository perimeters) {
         return new PushToJira(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids,
-                knowledge, operations);
+                knowledge, operations, perimeters);
     }
 
     @Produces
@@ -603,6 +622,13 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
+    ManageSourceRoots manageSourceRoots(ProjectRepository projects, SourceRootRepository roots, SourceTree tree,
+            IdGenerator ids, ClockPort clock) {
+        return new ManageSourceRoots(projects, roots, tree, ids, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
     SynchronizeKnowledge synchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
             DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
             DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
@@ -623,6 +649,12 @@ public class UseCaseProducer {
     @ApplicationScoped
     ManageEmbeddingSettings manageEmbeddingSettings(SettingsRepository settings, EmbeddingPort embedding) {
         return new ManageEmbeddingSettings(settings, embedding);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageBrowser manageBrowser(SettingsRepository settings, BrowserPort browsers) {
+        return new ManageBrowser(settings, browsers);
     }
 
     @Produces

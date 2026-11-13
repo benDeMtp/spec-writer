@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>fr.demo</groupId>
+    <artifactId>super</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../../super</relativePath>
+  </parent>
+  <artifactId>spring-utils</artifactId>
+  <packaging>jar</packaging>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+    </dependency>
+  </dependencies>
+</project>

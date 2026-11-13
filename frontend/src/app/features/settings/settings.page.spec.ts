@@ -74,6 +74,8 @@ describe('SettingsPage', () => {
     ctrl.match('/api/settings/embedding').forEach((r) =>
       r.flush({ state: 'READY', modelId: 'multilingual-e5-small', problem: null, defaultModel: true, folder: null, pooling: 'MEAN', queryPrefix: null, passagePrefix: null }),
     );
+    // la carte du navigateur liste les navigateurs installés ; elle est testée à part
+    ctrl.match('/api/settings/browser').forEach((r) => r.flush({ selected: null, missing: false, installed: [] }));
     // la carte des agents charge son état ; elle est testée à part
     ctrl.match('/api/settings/agent-access').forEach((r) =>
       r.flush({ enabled: false, command: 'spec-writer-mcp', mcpJson: '{}' }),
@@ -259,6 +261,7 @@ describe('SettingsPage', () => {
     expect(Array.from(sections[1].querySelectorAll('h3')).map((h) => h.textContent)).toEqual([
       'Modèle de recherche',
       'Accès des agents',
+      'Navigateur',
     ]);
     expect(sections[1].textContent).toContain(
       "S'applique à tous les projets. Changer de modèle demande de réindexer chaque projet.",

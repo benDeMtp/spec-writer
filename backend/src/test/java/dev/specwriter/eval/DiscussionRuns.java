@@ -172,10 +172,11 @@ final class DiscussionRuns {
             ProposeRevision revise = new ProposeRevision(sessions, versions, conversations, discussions,
                     SessionKnowledge.sheetOnly(projects), llm, ModelCapacities.UNKNOWN, consent, operations, events,
                     proposals, clock, ids, Runnable::run);
+            Map<String, Boolean> checks = new LinkedHashMap<>();
+            checks.putAll(changes(c, kind, revise));
             List<TurnEvents.Event> seen = new ArrayList<>();
             events.subscribe(revise.propose(conversationId).turnId(), seen::add);
             TurnEvents.Event last = seen.getLast();
-            Map<String, Boolean> checks = new LinkedHashMap<>();
             String outcome;
             String excerpt = "";
             if (last instanceof TurnEvents.Event.Done done && done.proposalId() != null) {
@@ -219,6 +220,31 @@ final class DiscussionRuns {
                 }
             }
             return new CaseRun(c.path("name").asString(), kind, run, checks, List.of(), outcome, excerpt);
+        }
+
+        /**
+         * Relevé des changements avant la rédaction : une révision voit chaque changement attendu
+         * relevé comme dit par la personne ; une discussion sans changement n'en voit aucun à son nom.
+         */
+        Map<String, Boolean> changes(JsonNode c, Kind kind, ProposeRevision revise) {
+            List<ConversationLlm.ChangeCandidate> found;
+            try {
+                found = revise.changes(conversationId);
+            } catch (RuntimeException e) {
+                return Map.of(kind == Kind.REVISION ? EvalBaseline.CHANGES_RECALL : EvalBaseline.CHANGES_PRECISION,
+                        false);
+            }
+            List<String> said = found.stream().filter(f -> f.origin() == ConversationLlm.ChangeOrigin.USER)
+                    .map(f -> f.text().toLowerCase(Locale.ROOT)).toList();
+            if (kind != Kind.REVISION) {
+                return Map.of(EvalBaseline.CHANGES_PRECISION, said.isEmpty());
+            }
+            boolean all = !said.isEmpty();
+            for (JsonNode m : c.path("mustContain")) {
+                String term = m.asString().toLowerCase(Locale.ROOT);
+                all &= said.stream().anyMatch(t -> t.contains(term));
+            }
+            return Map.of(EvalBaseline.CHANGES_RECALL, all);
         }
     }
 

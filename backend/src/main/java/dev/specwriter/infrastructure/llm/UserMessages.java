@@ -1,5 +1,10 @@
 package dev.specwriter.infrastructure.llm;
 
+import dev.specwriter.domain.sources.ModuleRef;
+import dev.specwriter.domain.sources.PerimeterAnalysis;
+import dev.specwriter.domain.sources.PerimeterModule;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
+import dev.specwriter.domain.sources.Reason;
 import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.TurnSource;
 import dev.specwriter.domain.knowledge.ArchitectureModel;
@@ -186,7 +191,72 @@ final class UserMessages {
         return language(r.language()) + "\n" + discussed(r.discussed()) + block("fiche-generale", r.generalSheet()) + "\n"
                 + block("memoire", r.memory()) + "\n" + exchange(r.history())
                 + "\n" + block("question", r.question()) + "\n" + sources(r.found(), false)
-                + "\n<recherches-restantes>" + r.searchesLeft() + "</recherches-restantes>";
+                + "\n<recherches-restantes>" + r.searchesLeft() + "</recherches-restantes>"
+                + "\n<perimetre-disponible>" + (r.perimeterAvailable() ? "oui" : "non") + "</perimetre-disponible>"
+                + "\n" + block("dernier-perimetre", String.join("\n", r.lastPerimeterTerms()));
+    }
+
+    /** Volume transmis au plus pour qualifier une analyse de périmètre (013, research.md R7). */
+    static final int PERIMETER_BUDGET = 40_000;
+    /** Extraits transmis au plus par module. */
+    static final int PERIMETER_EXCERPTS = 5;
+    /**
+     * Volume transmis au plus, extraits compris : les modules suivants ne sont pas transmis et
+     * restent non qualifiés, toujours affichés.
+     */
+    static final int PERIMETER_LIMIT = 120_000;
+
+    /**
+     * 013 : modules d'une analyse de périmètre à qualifier, dans l'ordre de l'analyse (trouvés par un
+     * terme d'abord, occurrences décroissantes) ; au-delà du budget, les modules suivants sont
+     * transmis sans extrait. Les extraits sont des données échappées.
+     */
+    static String qualifyPerimeter(ConversationLlm.QualifyRequest r) {
+        PerimeterAnalysis a = r.analysis();
+        StringBuilder out = new StringBuilder(language(r.language())).append('\n').append(exchange(r.history()))
+                .append('\n').append(block("question", r.question())).append('\n')
+                .append(block("termes", String.join("\n", a.terms()))).append('\n')
+                .append("<analyse etat=\"").append(a.state().name()).append("\"")
+                .append(a.incompleteReason() == null ? "" : " raison=\"" + a.incompleteReason().name() + "\"")
+                .append("/>\n<modules>\n");
+        int used = out.length();
+        int left = a.modules().size();
+        for (PerimeterModule m : a.modules()) {
+            StringBuilder module = new StringBuilder("<module id=\"").append(attribute(m.module().id().toString()))
+                    .append("\" nom=\"").append(attribute(m.module().name())).append("\" sorte=\"")
+                    .append(m.module().kind().name()).append("\" chemin=\"").append(attribute(m.module().path()))
+                    .append("\">\n");
+            for (Reason reason : m.reasons()) {
+                module.append("<raison>").append(data(reason(reason))).append("</raison>\n");
+            }
+            StringBuilder excerpts = new StringBuilder();
+            m.samples().stream().limit(PERIMETER_EXCERPTS).forEach(o -> excerpts.append("<extrait fichier=\"")
+                    .append(attribute(o.path())).append("\" ligne=\"").append(o.line()).append("\">")
+                    .append(data(o.excerpt())).append("</extrait>\n"));
+            if (used + module.length() + excerpts.length() <= PERIMETER_BUDGET) {
+                module.append(excerpts);
+            }
+            module.append("</module>\n");
+            if (used + module.length() > PERIMETER_LIMIT) {
+                out.append("<modules-non-transmis nombre=\"").append(left).append("\"/>\n");
+                break;
+            }
+            used += module.length();
+            left--;
+            out.append(module);
+        }
+        return out.append("</modules>").toString();
+    }
+
+    private static String reason(Reason reason) {
+        return switch (reason) {
+            case Reason.Term t -> t.term() + " : " + t.count() + (t.count() > 1 ? " lignes" : " ligne");
+            case Reason.Dependency d -> "dépend de " + String.join(" → ",
+                    d.chain().stream().map(ModuleRef::name).toList());
+            case Reason.Aggregator g -> "agrège " + g.of().name();
+            case Reason.Architecture x -> "relié à " + x.related() + " (" + (x.technology() == null ? "" : x.technology())
+                    + (x.description() == null ? "" : ", " + x.description()) + ")";
+        };
     }
 
     /** 010 : données de la réponse ; chaque source porte le numéro qu'elle peut être citée. */
@@ -195,7 +265,8 @@ final class UserMessages {
                 + block("memoire", r.memory()) + "\n" + exchange(r.history())
                 + "\n" + block("question", r.question()) + "\n" + sources(r.sources(), true) + "\n"
                 + block("non-comparees", String.join("\n", r.notCompared())) + "\n<recherche-arretee>"
-                + (r.searchStopped() ? "oui" : "non") + "</recherche-arretee>";
+                + (r.searchStopped() ? "oui" : "non") + "</recherche-arretee>"
+                + (r.perimeterUnavailable() ? "\n<perimetre-indisponible>oui</perimetre-indisponible>" : "");
     }
 
     /** 010 : échange et sources citées, pour rédiger un besoin. */
@@ -227,8 +298,33 @@ final class UserMessages {
                 .append(attribute(c.ref())).append("\" titre=\"").append(attribute(c.title())).append("\"/>\n"));
         return language(r.language()) + "\n" + knowledge(r.knowledge()) + need(r.need()) + "\n" + answers(r.answers())
                 + "\n" + block("specification-courante", r.currentMarkdown()) + "\n"
-                + discussion.append("</discussion>") + "\n" + cited.append("</sources-citees>") + "\n<correction>"
-                + data(r.correction()) + "</correction>";
+                + discussion.append("</discussion>") + "\n" + cited.append("</sources-citees>") + "\n"
+                + perimeter(r.perimeter()) + "<correction>" + data(r.correction()) + "</correction>";
+    }
+
+    /** 013 : modules du périmètre analysé, avec leur qualification ; vide sans analyse. */
+    private static String perimeter(PerimeterSnapshot p) {
+        if (p == null || p.modules().isEmpty()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder("<perimetre>\n");
+        for (PerimeterSnapshot.Entry e : p.modules()) {
+            out.append("<module nom=\"").append(attribute(e.name())).append("\" chemin=\"").append(attribute(e.path()))
+                    .append("\" qualification=\"").append(e.qualification().name()).append("\">")
+                    .append(data(e.justification() == null ? "" : e.justification())).append("</module>\n");
+        }
+        return out.append("</perimetre>\n").toString();
+    }
+
+    /** 011 : relevé des changements que la discussion avance sur la version courante. */
+    static String changes(ConversationLlm.ChangesRequest r) {
+        StringBuilder discussion = new StringBuilder("<discussion>\n").append(block("memoire", r.memory())).append('\n');
+        for (ConversationLlm.DiscussionLine line : r.discussion()) {
+            discussion.append("<message auteur=\"").append(line.role() == MessageRole.USER ? "utilisateur" : "agent")
+                    .append("\">\n").append(data(line.text())).append("\n</message>\n");
+        }
+        return language(r.language()) + "\n" + block("specification-courante", r.currentMarkdown()) + "\n"
+                + discussion.append("</discussion>");
     }
 
     /** 010 : échanges anciens à résumer, après la mémoire précédente. */

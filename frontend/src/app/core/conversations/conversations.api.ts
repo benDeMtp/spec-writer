@@ -4,10 +4,12 @@ import { firstValueFrom } from 'rxjs';
 import { Proposal } from '../jira/jira.model';
 import { SessionDetail } from '../sessions/sessions.model';
 import {
+  ChangeCandidate,
   ConversationDetail,
   ConversationSummary,
   DiscussionView,
   NeedDraft,
+  ProposalStarted,
   Started,
   TurnEvent,
 } from './conversations.model';
@@ -27,6 +29,7 @@ const NAMES = [
   'stage',
   'reasoning',
   'step',
+  'perimeter',
   'delta',
   'sources',
   'memory',
@@ -185,12 +188,26 @@ export class ConversationsApi {
     );
   }
 
-  /** « Proposer une nouvelle version » (011) : la rédaction se suit par `follow`. */
-  propose(id: string): Promise<{ turnId: string }> {
+  /** Changements que la discussion avance, à cocher avant la rédaction (011) ; rien n'est gardé. */
+  changes(id: string): Promise<ChangeCandidate[]> {
     return firstValueFrom(
-      this.http.post<{ turnId: string }>(
-        `/api/conversations/${encodeURIComponent(id)}/proposals`,
+      this.http.post<{ changes: ChangeCandidate[] }>(
+        `/api/conversations/${encodeURIComponent(id)}/proposals/candidates`,
         {},
+        { headers: SILENT },
+      ),
+    ).then((r) => r.changes);
+  }
+
+  /**
+   * « Proposer une nouvelle version » (011) : les changements retenus entrent dans la discussion
+   * (`message`), puis la rédaction se suit par `follow`.
+   */
+  propose(id: string, changes: string[] = []): Promise<ProposalStarted> {
+    return firstValueFrom(
+      this.http.post<ProposalStarted>(
+        `/api/conversations/${encodeURIComponent(id)}/proposals`,
+        { changes },
         { headers: SILENT },
       ),
     );

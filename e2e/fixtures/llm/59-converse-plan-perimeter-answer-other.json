@@ -1,0 +1,2 @@
+{"operation": "converse-plan", "userContains": ["<question>\nE2E-"],
+ "response": {"action": "ANSWER", "query": "", "kinds": [], "terms": []}}

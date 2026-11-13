@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, input } from '@angular/core';
 import { SettingsStore } from '../../core/settings/settings.store';
 import { AgentAccessCardComponent } from './agent-access-card.component';
+import { BrowserCardComponent } from './browser-card.component';
 import { CopilotCardComponent } from './copilot-card.component';
 import { EmbeddingCardComponent } from './embedding-card.component';
 import { JiraCardComponent } from './jira-card.component';
@@ -9,7 +10,7 @@ import { JiraCardComponent } from './jira-card.component';
 @Component({
   selector: 'sw-settings-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AgentAccessCardComponent, CopilotCardComponent, EmbeddingCardComponent, JiraCardComponent],
+  imports: [AgentAccessCardComponent, BrowserCardComponent, CopilotCardComponent, EmbeddingCardComponent, JiraCardComponent],
   template: `
     <h1>Configuration</h1>
     @if (raison() === 'copilot' && !store.copilotConnected()) {
@@ -29,6 +30,7 @@ import { JiraCardComponent } from './jira-card.component';
         <div class="cards">
           <sw-embedding-card />
           <sw-agent-access-card />
+          <sw-browser-card />
         </div>
       </section>
     } @else {

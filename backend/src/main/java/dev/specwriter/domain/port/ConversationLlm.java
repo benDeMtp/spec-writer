@@ -1,5 +1,7 @@
 package dev.specwriter.domain.port;
 
+import dev.specwriter.domain.sources.ModuleCorrection;
+import dev.specwriter.domain.sources.PerimeterSnapshot;
 import dev.specwriter.domain.conversation.CitedSource;
 import dev.specwriter.domain.conversation.MessageRole;
 import dev.specwriter.domain.conversation.NeedDraft;
@@ -9,6 +11,8 @@ import dev.specwriter.domain.knowledge.ProjectKnowledge;
 import dev.specwriter.domain.llm.DraftSpecification;
 import dev.specwriter.domain.llm.QuestionAndAnswer;
 import dev.specwriter.domain.session.Language;
+import dev.specwriter.domain.sources.ModuleQualification;
+import dev.specwriter.domain.sources.PerimeterAnalysis;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -33,7 +37,17 @@ public interface ConversationLlm {
      * résumé des échanges anciens (vide s'il n'y en a pas), avant {@code history}, les récents.
      */
     record PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history, String question,
-            List<TurnSource> found, int searchesLeft, Discussed discussed) {
+            List<TurnSource> found, int searchesLeft, Discussed discussed, boolean perimeterAvailable,
+            List<String> lastPerimeterTerms) {
+
+        public PlanRequest {
+            lastPerimeterTerms = lastPerimeterTerms == null ? List.of() : List.copyOf(lastPerimeterTerms);
+        }
+
+        public PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history,
+                String question, List<TurnSource> found, int searchesLeft, Discussed discussed) {
+            this(language, generalSheet, memory, history, question, found, searchesLeft, discussed, false, List.of());
+        }
 
         public PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history,
                 String question, List<TurnSource> found, int searchesLeft) {
@@ -41,15 +55,36 @@ public interface ConversationLlm {
         }
     }
 
+    /** Chercher dans la connaissance, analyser le périmètre dans les sources du code (013), ou répondre. */
     enum Action {
-        SEARCH, ANSWER
+        SEARCH, PERIMETER, ANSWER
     }
 
-    record Plan(Action action, String query, Set<SourceKind> kinds) {
+    /** {@code terms} : termes à chercher dans les sources du code, pour l'action {@code PERIMETER}. */
+    record Plan(Action action, String query, Set<SourceKind> kinds, List<String> terms) {
+
+        public Plan {
+            terms = terms == null ? List.of() : List.copyOf(terms);
+        }
+
+        public Plan(Action action, String query, Set<SourceKind> kinds) {
+            this(action, query, kinds, List.of());
+        }
 
         public static Plan answer() {
             return new Plan(Action.ANSWER, null, Set.of());
         }
+
+        public static Plan perimeter(List<String> terms) {
+            return new Plan(Action.PERIMETER, null, Set.of(), terms);
+        }
+    }
+
+    /**
+     * Données de la qualification d'une analyse de périmètre (013, research.md R7) : la question,
+     * l'échange récent et l'analyse, extraits compris.
+     */
+    record QualifyRequest(Language language, List<Exchange> history, String question, PerimeterAnalysis analysis) {
     }
 
     /**
@@ -58,7 +93,13 @@ public interface ConversationLlm {
      */
     record AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
             String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped,
-            Discussed discussed) {
+            Discussed discussed, boolean perimeterUnavailable) {
+
+        public AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
+                String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped,
+                Discussed discussed) {
+            this(language, generalSheet, memory, history, question, sources, notCompared, searchStopped, discussed, false);
+        }
 
         public AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
                 String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped) {
@@ -90,7 +131,7 @@ public interface ConversationLlm {
      */
     record ReviseRequest(Language language, String need, List<QuestionAndAnswer> answers, String currentMarkdown,
             ProjectKnowledge knowledge, String memory, List<DiscussionLine> discussion, List<CitedSource> cited,
-            String correction) {
+            String correction, PerimeterSnapshot perimeter) {
 
         public ReviseRequest {
             answers = List.copyOf(answers);
@@ -99,14 +140,54 @@ public interface ConversationLlm {
             knowledge = knowledge == null ? ProjectKnowledge.EMPTY : knowledge;
         }
 
+        /** Sans périmètre analysé (013) : les modules ne se corrigent pas. */
+        public ReviseRequest(Language language, String need, List<QuestionAndAnswer> answers, String currentMarkdown,
+                ProjectKnowledge knowledge, String memory, List<DiscussionLine> discussion, List<CitedSource> cited,
+                String correction) {
+            this(language, need, answers, currentMarkdown, knowledge, memory, discussion, cited, correction, null);
+        }
+
         public ReviseRequest withCorrection(String newCorrection) {
             return new ReviseRequest(language, need, answers, currentMarkdown, knowledge, memory, discussion, cited,
-                    newCorrection);
+                    newCorrection, perimeter);
         }
     }
 
-    /** {@code draft} est présent si {@code changed} ; sinon {@code reason} dit pourquoi rien ne change. */
-    record Revision(boolean changed, String reason, DraftSpecification draft) {
+    /**
+     * {@code draft} est présent si {@code changed} ; sinon {@code reason} dit pourquoi rien ne change.
+     * {@code perimeter} : qualifications de modules que la discussion a établies (013), même sans
+     * autre changement.
+     */
+    record Revision(boolean changed, String reason, DraftSpecification draft, List<ModuleCorrection> perimeter) {
+
+        public Revision {
+            perimeter = perimeter == null ? List.of() : List.copyOf(perimeter);
+        }
+
+        public Revision(boolean changed, String reason, DraftSpecification draft) {
+            this(changed, reason, draft, List.of());
+        }
+    }
+
+    /** Données du relevé des changements discutés : version courante, mémoire et échanges (011). */
+    record ChangesRequest(Language language, String currentMarkdown, String memory, List<DiscussionLine> discussion) {
+
+        public ChangesRequest {
+            discussion = List.copyOf(discussion);
+        }
+    }
+
+    /** Qui a avancé un changement : la personne, ou l'agent sans confirmation de la personne. */
+    enum ChangeOrigin {
+        USER,
+        AGENT
+    }
+
+    /** Changement de la spécification repéré dans la discussion, à confirmer par la personne. */
+    record ChangeCandidate(String text, ChangeOrigin origin) {
+
+        public static final int MAX_TEXT = 300;
+        public static final int MAX_CHANGES = 10;
     }
 
     /**
@@ -119,6 +200,12 @@ public interface ConversationLlm {
     }
 
     Plan plan(PlanRequest request);
+
+    /**
+     * Qualifie les modules d'une analyse de périmètre (013) : impacté, à vérifier ou non impacté,
+     * avec une justification. Un module omis reste non qualifié ; aucun n'est retiré.
+     */
+    List<ModuleQualification> qualify(QualifyRequest request);
 
     /**
      * Rédige la réponse en Markdown en flux : chaque morceau est passé à {@code deltas} ; s'arrête
@@ -140,4 +227,10 @@ public interface ConversationLlm {
      * ou dit qu'elle n'a établi aucun changement (011, FR-007, FR-009).
      */
     Revision revise(ReviseRequest request);
+
+    /**
+     * Relève les changements de la spécification que la discussion a avancés, pour que la personne
+     * coche ceux à intégrer avant la rédaction ; une liste vide si la discussion n'en avance aucun.
+     */
+    List<ChangeCandidate> changes(ChangesRequest request);
 }

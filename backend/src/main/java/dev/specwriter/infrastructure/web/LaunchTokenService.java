@@ -10,7 +10,11 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,6 +27,9 @@ import org.jboss.logging.Logger;
  * contre un cookie de session locale (research.md R14). Tout est en mémoire : un redémarrage
  * invalide les sessions.
  *
+ * <p>Une session ouverte peut demander un nouveau jeton pour ouvrir spec-writer dans un autre
+ * navigateur (013, T057) : à usage unique lui aussi, il expire après {@value #ISSUED_TTL_SECONDS} s.
+ *
  * <p>En dev mode seulement, les sessions sont aussi écrites dans {@code specwriter.dev.session-file}
  * ({@code rw-------}), pour survivre au rechargement à chaud (research.md R17). Le jeton de
  * lancement, lui, n'est jamais écrit.
@@ -34,10 +41,14 @@ public class LaunchTokenService {
 
     private static final Logger LOG = Logger.getLogger(LaunchTokenService.class);
 
+    static final long ISSUED_TTL_SECONDS = 120;
+
     private final String launchToken = random();
     private final AtomicBoolean consumed = new AtomicBoolean();
     private final Set<String> sessions = ConcurrentHashMap.newKeySet();
+    private final Map<String, Instant> issued = new ConcurrentHashMap<>();
     private final Optional<Path> store;
+    private final Clock clock;
 
     @Inject
     public LaunchTokenService(@ConfigProperty(name = "specwriter.dev.session-file") Optional<String> sessionFile) {
@@ -48,6 +59,11 @@ public class LaunchTokenService {
 
     /** @param store fichier des sessions, ou {@code null} pour tout garder en mémoire */
     LaunchTokenService(Path store) {
+        this(store, Clock.systemUTC());
+    }
+
+    LaunchTokenService(Path store, Clock clock) {
+        this.clock = clock;
         this.store = Optional.ofNullable(store);
         this.store.ifPresent(this::load);
     }
@@ -57,18 +73,33 @@ public class LaunchTokenService {
         return launchToken;
     }
 
-    /** Échange le jeton de lancement contre une valeur de cookie ; une seule fois. */
+    /** Nouveau jeton à usage unique, pour ouvrir spec-writer dans un autre navigateur (T057). */
+    public String issue() {
+        Instant now = clock.instant();
+        issued.values().removeIf(expiry -> !expiry.isAfter(now));
+        String token = random();
+        issued.put(token, now.plus(Duration.ofSeconds(ISSUED_TTL_SECONDS)));
+        return token;
+    }
+
+    /** Échange un jeton de lancement contre une valeur de cookie ; une seule fois par jeton. */
     public Optional<String> exchange(String candidate) {
-        if (candidate == null || !constantTimeEquals(candidate, launchToken)) {
-            return Optional.empty();
-        }
-        if (!consumed.compareAndSet(false, true)) {
+        if (candidate == null || !(consumeLaunch(candidate) || consumeIssued(candidate))) {
             return Optional.empty();
         }
         String session = random();
         sessions.add(session);
         store.ifPresent(this::save);
         return Optional.of(session);
+    }
+
+    private boolean consumeLaunch(String candidate) {
+        return constantTimeEquals(candidate, launchToken) && consumed.compareAndSet(false, true);
+    }
+
+    private boolean consumeIssued(String candidate) {
+        Instant expiry = issued.remove(candidate);
+        return expiry != null && expiry.isAfter(clock.instant());
     }
 
     public boolean isValidSession(String cookie) {

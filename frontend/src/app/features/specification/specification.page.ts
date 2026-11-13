@@ -86,6 +86,29 @@ const SYNC: Record<SyncState, string> = {
 /** Référence d'un document joint (009) : cité par son nom, sans lien ni extrait. */
 const ATTACHMENT_REF = 'joint:';
 
+const DISCUSSION_MIN = 352;
+const DISCUSSION_DEFAULT = 480;
+const DISCUSSION_STEP = 32;
+const DISCUSSION_KEY = 'sw.discussionWidth';
+
+function storedDiscussionWidth(): number {
+  try {
+    const saved = Number(globalThis.localStorage?.getItem(DISCUSSION_KEY));
+    return Number.isFinite(saved) && saved >= DISCUSSION_MIN ? saved : DISCUSSION_DEFAULT;
+  } catch {
+    return DISCUSSION_DEFAULT;
+  }
+}
+
+/** Rubrique « Modules touchés » (013) : rendue par l'outil dans le Markdown de la version, jamais par le LLM. */
+const PERIMETER = /^## (Modules touchés|Affected modules)\n([\s\S]*?)(?=^## |(?![\s\S]))/m;
+
+/** Titre et corps de la rubrique « Modules touchés » du Markdown d'une version ; nul sans périmètre repris. */
+export function perimeterSection(markdown: string | null | undefined): { title: string; body: string } | null {
+  const found = markdown ? PERIMETER.exec(markdown) : null;
+  return found ? { title: found[1], body: found[2].trim() } : null;
+}
+
 /** Version de spécification : résumé, use cases, scénarios, hypothèses et exigences (FR-010). */
 @Component({
   selector: 'sw-specification-page',
@@ -107,7 +130,12 @@ const ATTACHMENT_REF = 'joint:';
   ],
   template: `
     @if (spec(); as v) {
-      <div class="workspace" [class.discussing]="discussing() && !locked()">
+      <div
+        class="workspace"
+        #workspace
+        [class.discussing]="discussing() && !locked()"
+        [style.--sw-discussion-width]="discussionWidth() + 'px'"
+      >
         <div class="main">
           <header class="head">
             <h1 id="introduction" tabindex="-1">{{ v.title }}</h1>
@@ -212,18 +240,21 @@ const ATTACHMENT_REF = 'joint:';
                 <a mat-button [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
               }
               @if (session()) {
-                <button
-                  mat-button
-                  type="button"
-                  [disabled]="locked()"
-                  [attr.aria-describedby]="locked() ? 'locked-reason' : null"
-                  (click)="removeVersion(v.number)"
-                >
-                  Supprimer cette version
-                </button>
-                <button mat-button type="button" (click)="removeSpecification()">
-                  Supprimer la spécification
-                </button>
+                <!-- à l'écart des autres actions, en couleur d'alerte : rien ne se supprime par mégarde -->
+                <span class="danger-zone">
+                  <button
+                    mat-button
+                    type="button"
+                    [disabled]="locked()"
+                    [attr.aria-describedby]="locked() ? 'locked-reason' : null"
+                    (click)="removeVersion(v.number)"
+                  >
+                    Supprimer cette version
+                  </button>
+                  <button mat-button type="button" (click)="removeSpecification()">
+                    Supprimer la spécification
+                  </button>
+                </span>
               }
             </div>
             @if (session() && !session()?.linkedTicket && !jiraReady()) {
@@ -420,6 +451,12 @@ const ATTACHMENT_REF = 'joint:';
                   </section>
                 }
               }
+              @if (perimeter(v.markdown); as p) {
+                <section aria-labelledby="perimeter">
+                  <h2 id="perimeter">{{ p.title }}</h2>
+                  <markdown class="rich perimeter" [data]="p.body" />
+                </section>
+              }
               @if (v.adrDeviations?.length) {
                 <section aria-labelledby="deviations">
                   <h2 id="deviations">Écarts aux ADR</h2>
@@ -485,7 +522,24 @@ const ATTACHMENT_REF = 'joint:';
           }
         </div>
         @if (discussing() && !locked()) {
-          <div class="discussion-column">
+          <!-- poignée : tirer, ou flèches au clavier, pour régler la largeur de la discussion -->
+          <div
+            class="splitter"
+            role="separator"
+            tabindex="0"
+            aria-orientation="vertical"
+            aria-label="Largeur de la discussion"
+            aria-controls="discussion-column"
+            [attr.aria-valuenow]="discussionWidth()"
+            [attr.aria-valuemin]="minDiscussion"
+            [attr.aria-valuemax]="maxDiscussionWidth()"
+            [attr.aria-valuetext]="discussionWidth() + ' pixels'"
+            (pointerdown)="startResize($event)"
+            (keydown)="resizeByKey($event)"
+          >
+            <span class="grip" aria-hidden="true"></span>
+          </div>
+          <div class="discussion-column" id="discussion-column">
             <sw-discussion-panel
               #discussionPanel
               [sessionId]="id()"
@@ -532,7 +586,16 @@ const ATTACHMENT_REF = 'joint:';
     .actions {
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 0.5rem;
+    }
+    .danger-zone {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      padding-left: 0.5rem;
+      border-left: 1px solid var(--sw-rule);
+      --mat-button-text-label-text-color: var(--mat-sys-error, #b3261e);
     }
     .hint {
       margin: 0.5rem 0 0;
@@ -543,12 +606,37 @@ const ATTACHMENT_REF = 'joint:';
     }
     .workspace.discussing {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(22rem, 30rem);
-      gap: 1.5rem;
+      grid-template-columns: minmax(0, 1fr) 0.75rem var(--sw-discussion-width, 30rem);
+      column-gap: 0.5rem;
       align-items: start;
     }
+    .splitter {
+      align-self: stretch;
+      display: flex;
+      justify-content: center;
+      cursor: col-resize;
+      touch-action: none;
+      border-radius: var(--sw-radius-field);
+    }
+    .splitter:focus-visible {
+      outline: 2px solid var(--sw-pencil);
+      outline-offset: 2px;
+    }
+    .grip {
+      position: sticky;
+      top: calc(50vh - 1.5rem);
+      width: 4px;
+      height: 3rem;
+      border-radius: 2px;
+      background: var(--sw-rule);
+    }
+    .splitter:hover .grip,
+    .splitter:focus-visible .grip {
+      background: var(--sw-pencil);
+    }
+    /* discussion ouverte : la feuille garde sa largeur de lecture, au lieu de s'étirer */
     .workspace.discussing .layout {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: minmax(0, calc(var(--sw-measure) + 10rem));
     }
     .discussion-column {
       position: sticky;
@@ -578,6 +666,9 @@ const ATTACHMENT_REF = 'joint:';
     @media (max-width: 64rem) {
       .workspace.discussing {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .splitter {
+        display: none;
       }
       .back-to-discussion {
         display: block;
@@ -685,6 +776,7 @@ const ATTACHMENT_REF = 'joint:';
   `,
 })
 export class SpecificationPage {
+  protected readonly perimeter = perimeterSection;
   private readonly api = inject(SessionsApi);
   private readonly jira = inject(JiraApi);
   private readonly dialog = inject(MatDialog);
@@ -708,6 +800,10 @@ export class SpecificationPage {
   });
   /** Discussion avec l'IA ouverte à côté du document (011). */
   protected readonly discussing = signal(false);
+  /** Largeur du panneau de discussion, réglable par la poignée et gardée d'une visite à l'autre. */
+  protected readonly minDiscussion = DISCUSSION_MIN;
+  protected readonly discussionWidth = signal(storedDiscussionWidth());
+  private readonly workspace = viewChild<ElementRef<HTMLElement>>('workspace');
   /** L'agent rédige une nouvelle version : le panneau reste ouvert. */
   protected readonly drafting = signal(false);
   private readonly route = inject(ActivatedRoute);
@@ -814,6 +910,69 @@ export class SpecificationPage {
   }
 
   /** Fermeture du panneau : le focus revient au bouton qui l'a ouvert. */
+  /** Largeur maximale de la discussion : 70 % de l'espace de travail, pour garder le document lisible. */
+  protected maxDiscussionWidth(): number {
+    const width = this.workspace()?.nativeElement.getBoundingClientRect().width || window.innerWidth;
+    return Math.max(DISCUSSION_MIN, Math.round(width * 0.7));
+  }
+
+  /** Glisser la poignée : la discussion s'étend jusqu'au bord droit de l'espace de travail. */
+  protected startResize(event: PointerEvent): void {
+    const workspace = this.workspace()?.nativeElement;
+    if (event.button !== 0 || !workspace) {
+      return;
+    }
+    event.preventDefault();
+    const handle = event.currentTarget as HTMLElement;
+    handle.setPointerCapture?.(event.pointerId);
+    const right = workspace.getBoundingClientRect().right;
+    const max = this.maxDiscussionWidth();
+    const move = (e: PointerEvent) => this.setDiscussionWidth(right - e.clientX, max);
+    const end = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      this.saveDiscussionWidth();
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  }
+
+  /** Clavier : flèche gauche élargit la discussion, flèche droite la réduit ; Origine et Fin aux bornes. */
+  protected resizeByKey(event: KeyboardEvent): void {
+    const max = this.maxDiscussionWidth();
+    const current = this.discussionWidth();
+    const next =
+      event.key === 'ArrowLeft'
+        ? current + DISCUSSION_STEP
+        : event.key === 'ArrowRight'
+          ? current - DISCUSSION_STEP
+          : event.key === 'Home'
+            ? DISCUSSION_MIN
+            : event.key === 'End'
+              ? max
+              : null;
+    if (next === null) {
+      return;
+    }
+    event.preventDefault();
+    this.setDiscussionWidth(next, max);
+    this.saveDiscussionWidth();
+  }
+
+  private setDiscussionWidth(width: number, max: number): void {
+    this.discussionWidth.set(Math.round(Math.min(max, Math.max(DISCUSSION_MIN, width))));
+  }
+
+  private saveDiscussionWidth(): void {
+    try {
+      globalThis.localStorage?.setItem(DISCUSSION_KEY, String(this.discussionWidth()));
+    } catch {
+      // stockage refusé : la largeur vaut pour la visite
+    }
+  }
+
   protected closeDiscussion(): void {
     this.discussing.set(false);
     void this.syncDiscussionUrl();

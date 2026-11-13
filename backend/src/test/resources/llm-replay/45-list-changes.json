@@ -1,0 +1,6 @@
+{"operation": "list-changes", "userContains": ["IT-REVISION"],
+ "response": {"changes": [
+   {"text": "Ajouter l'annulation de la commande tant qu'elle n'est pas envoyée", "origin": "USER"},
+   {"text": "Ajouter un délai de rétractation de 14 jours", "origin": "AGENT"},
+   {"text": "Ajouter l'annulation de la commande tant qu'elle n'est pas envoyée", "origin": "USER"},
+   {"text": "  ", "origin": "AGENT"}]}}

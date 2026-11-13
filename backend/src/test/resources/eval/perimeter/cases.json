@@ -1,0 +1,35 @@
+{
+  "sheet": "Plateforme de gestion de contrats : contrats d'abonnement, facturation, relances et front de consultation.",
+  "trees": {
+    "boutique": {
+      "panier/pom.xml": "<project><modelVersion>4.0.0</modelVersion><groupId>fr.boutique</groupId><artifactId>panier</artifactId><version>1</version></project>",
+      "panier/src/main/java/fr/boutique/panier/Checkout.java": "package fr.boutique.panier;\n\nimport fr.boutique.paiement.PaymentMethod;\n\nclass Checkout {\n    PaymentMethod method = PaymentMethod.CARD;\n}\n",
+      "paiement/pom.xml": "<project><modelVersion>4.0.0</modelVersion><groupId>fr.boutique</groupId><artifactId>paiement</artifactId><version>1</version></project>",
+      "paiement/src/main/java/fr/boutique/paiement/PaymentMethod.java": "package fr.boutique.paiement;\n\npublic enum PaymentMethod {\n    CARD,\n    TRANSFER\n}\n",
+      "paiement/src/main/resources/application.properties": "payment.methods.enabled=CARD,TRANSFER\n",
+      "catalogue/pom.xml": "<project><modelVersion>4.0.0</modelVersion><groupId>fr.boutique</groupId><artifactId>catalogue</artifactId><version>1</version></project>",
+      "catalogue/src/main/java/fr/boutique/catalogue/VatRate.java": "package fr.boutique.catalogue;\n\npublic enum VatRate {\n    BOOKS(5.5),\n    STANDARD(20);\n\n    final double percent;\n\n    VatRate(double percent) {\n        this.percent = percent;\n    }\n}\n",
+      "catalogue/src/main/java/fr/boutique/catalogue/Book.java": "package fr.boutique.catalogue;\n\nclass Book {\n    VatRate vat = VatRate.BOOKS;\n}\n",
+      "vitrine/package.json": "{\"name\": \"vitrine\", \"version\": \"1.0.0\", \"private\": true}\n",
+      "vitrine/src/prices.ts": "export const VAT_BOOKS = 5.5;\n"
+    }
+  },
+  "cases": [
+    {"name": "statut-suspendu", "tree": "demo-rv", "question": "Quels modules touche l'ajout d'un statut SUSPENDU au contrat ?",
+     "expected": {"common-contract": "IMPACTED", "quarkus-contract": "ANY", "facturation": "IMPACTED", "demo-front": "ANY", "annuaire": "NOT_IMPACTED"}},
+    {"name": "cle-configuration", "tree": "demo-rv", "question": "On renomme la clé de configuration contract.status : quels modules sont concernés ?",
+     "expected": {"facturation": "IMPACTED", "facturation-chart": "IMPACTED"}},
+    {"name": "topic-suspension", "tree": "demo-rv", "question": "Le topic contract_suspended change de nom. Qui est touché ?",
+     "expected": {"batch-suspension": "IMPACTED"}},
+    {"name": "front-statuts", "tree": "demo-rv", "question": "Le front doit afficher la liste CONTRACT_STATUS avec des libellés. Quels modules ?",
+     "expected": {"demo-front": "IMPACTED"}},
+    {"name": "api-statut", "tree": "demo-rv", "question": "La ressource ContractResource renvoie désormais le statut en texte. Périmètre ?",
+     "expected": {"quarkus-contract": "IMPACTED"}},
+    {"name": "supprimer-closed", "tree": "demo-rv", "question": "Quels modules faut-il modifier pour supprimer la valeur CLOSED de l'énumération ContractStatus ?",
+     "expected": {"common-contract": "IMPACTED", "demo-front": "ANY", "facturation": "ANY", "quarkus-contract": "ANY"}},
+    {"name": "paiement-paypal", "tree": "boutique", "question": "Quels modules touche l'ajout du moyen de paiement PAYPAL à PaymentMethod ?",
+     "expected": {"paiement": "IMPACTED", "panier": "ANY"}},
+    {"name": "tva-livres", "tree": "boutique", "question": "Le taux de TVA des livres (VatRate.BOOKS) passe à 7 %. Quels modules ?",
+     "expected": {"catalogue": "IMPACTED", "vitrine": "ANY", "paiement": "NOT_IMPACTED_IF_FOUND"}}
+  ]
+}

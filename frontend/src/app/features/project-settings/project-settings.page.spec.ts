@@ -76,7 +76,7 @@ describe('ProjectSettingsPage', () => {
     await open(FACT);
     expect(el.querySelector('h1')?.textContent).toBe('Réglages du projet · Facturation');
     const sections = Array.from(el.querySelectorAll('section h2')).map((h) => h.textContent?.trim());
-    expect(sections).toEqual(['Identité', 'Fiche générale', 'Sources de documentation', "Modèle d'architecture"]);
+    expect(sections).toEqual(['Identité', 'Fiche générale', 'Sources de documentation', 'Sources du code', "Modèle d'architecture"]);
     expect(el.querySelector('a[href="/projet/connaissance"]')?.textContent).toContain('Voir la connaissance du projet');
     expect(el.querySelector('[role="tab"]')).toBeNull();
     expect(el.querySelector<HTMLTextAreaElement>('textarea[name="context"]')!.value).toBe('## Acteurs\n- Le comptable');
@@ -290,5 +290,33 @@ describe('ProjectSettingsPage', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(document.activeElement?.id).toBe('jira');
     expect(TestBed.inject(Router).url).toBe('/projet/reglages#jira');
+    // le projet relu (nouveau rendu) ne déplace pas le focus vers une autre ancre (013)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.activeElement?.id).toBe('jira');
+  });
+
+  it('#sources-code donne le focus au titre « Sources du code » (013)', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([{ path: 'projet/reglages', component: ProjectSettingsPage }]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideMarkdown(),
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
+      ],
+    });
+    ctrl = TestBed.inject(HttpTestingController);
+    const { RouterTestingHarness } = await import('@angular/router/testing');
+    const harness = await RouterTestingHarness.create();
+    const navigation = harness.navigateByUrl('/projet/reglages#sources-code');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    ctrl.expectOne('/api/settings').flush({ jira: null });
+    reload({ ...FACT, sourceRoots: [{ id: 'r1', location: '/src/rv', label: 'rv', exclusions: [], createdAt: '2026-11-11T09:00:00Z', state: 'OK' }] });
+    await navigation;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    harness.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(document.activeElement?.id).toBe('sources-code');
+    expect(document.activeElement?.textContent).toBe('Sources du code');
   });
 });

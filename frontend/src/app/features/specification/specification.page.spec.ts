@@ -12,7 +12,7 @@ import { Project } from '../../core/projects/projects.model';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { Settings } from '../../core/settings/settings.model';
 import { SettingsStore } from '../../core/settings/settings.store';
-import { SpecificationPage } from './specification.page';
+import { SpecificationPage, perimeterSection } from './specification.page';
 
 const SESSION = {
   id: 's1',
@@ -305,6 +305,27 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(navigate).not.toHaveBeenCalled();
     expect(document.activeElement?.id).toBe('UC-1');
 
+    // la largeur de la discussion se règle au clavier, bornée, et reste pour la visite suivante
+    const splitter = el.querySelector<HTMLElement>('[role="separator"]')!;
+    expect(splitter.getAttribute('aria-label')).toBe('Largeur de la discussion');
+    const width = () => Number(splitter.getAttribute('aria-valuenow'));
+    const key = async (k: string) => {
+      splitter.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+      await settle();
+    };
+    await key('Home');
+    expect(width()).toBe(352);
+    await key('ArrowLeft');
+    expect(width()).toBe(384);
+    expect(localStorage.getItem('sw.discussionWidth')).toBe('384');
+    expect(el.querySelector<HTMLElement>('.workspace')!.style.getPropertyValue('--sw-discussion-width')).toBe('384px');
+    await key('ArrowRight');
+    await key('ArrowRight');
+    expect(width()).toBe(352);
+    await key('End');
+    expect(width()).toBe(Number(splitter.getAttribute('aria-valuemax')));
+    localStorage.removeItem('sw.discussionWidth');
+
     button('Fermer').click();
     await settle();
     await settle();
@@ -456,5 +477,31 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(el.querySelector('#locked-reason')).toBeNull();
     expect(button("Discuter avec l'IA").disabled).toBe(false);
     expect(el.querySelector('.announce')?.textContent).toContain('Statut : En cours.');
+  });
+});
+
+describe('perimeterSection', () => {
+  it('extrait la rubrique « Modules touchés » rendue par l’outil, jusqu’à la rubrique suivante', () => {
+    const markdown = [
+      '# Suspension',
+      '## Architecture',
+      '',
+      '- Contrats/Facturation API',
+      '## Modules touchés',
+      '',
+      '### Impactés',
+      '',
+      '- **facturation** (rv/modules/facturation)',
+      '## Écarts aux ADR',
+      '',
+      '- adr-005',
+    ].join('\n');
+    expect(perimeterSection(markdown)).toEqual({
+      title: 'Modules touchés',
+      body: '### Impactés\n\n- **facturation** (rv/modules/facturation)',
+    });
+    expect(perimeterSection('# T\n## Affected modules\n\n### To check\n')?.body).toBe('### To check');
+    expect(perimeterSection('# T\n## Architecture\n')).toBeNull();
+    expect(perimeterSection(null)).toBeNull();
   });
 });

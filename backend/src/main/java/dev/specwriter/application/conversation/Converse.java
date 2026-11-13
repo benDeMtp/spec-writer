@@ -1,6 +1,8 @@
 package dev.specwriter.application.conversation;
 
 import dev.specwriter.application.conversation.TurnEvents.Event;
+import dev.specwriter.application.sources.AnalyzePerimeter;
+import dev.specwriter.application.sources.PerimeterView;
 import dev.specwriter.application.specification.OperationRegistry;
 import dev.specwriter.domain.consent.ConsentPolicy;
 import dev.specwriter.domain.consent.ConsentService;
@@ -21,10 +23,12 @@ import dev.specwriter.domain.port.ConversationLlm.Exchange;
 import dev.specwriter.domain.port.ConversationRepository;
 import dev.specwriter.domain.port.IdGenerator;
 import dev.specwriter.domain.port.ModelCapacities;
+import dev.specwriter.domain.port.PerimeterRepository;
 import dev.specwriter.domain.port.ProjectRepository;
 import dev.specwriter.domain.project.Project;
 import dev.specwriter.domain.session.Language;
 import dev.specwriter.domain.session.LanguageDetector;
+import dev.specwriter.domain.sources.PerimeterAnalysis;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -69,6 +73,9 @@ public class Converse {
     private final ConversationHistory history;
     /** Discussions des spécifications (011) ; nul : aucune conversation n'en est une. */
     private final DiscussSpecification discussions;
+    /** Analyse de périmètre dans les sources du code (013) ; nulle : l'agent ne la propose pas. */
+    private final AnalyzePerimeter perimeter;
+    private final PerimeterRepository perimeters;
 
     public Converse(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
             ConversationSearch search, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
@@ -94,6 +101,18 @@ public class Converse {
             ConversationSearch search, DesignatedDocuments designated, ModelCapacities capacities,
             ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
             Executor executor, DiscussSpecification discussions) {
+        this(projects, conversations, llm, search, designated, capacities, consent, operations, events, clock, ids,
+                executor, discussions, null, null);
+    }
+
+    /** Avec l'analyse de périmètre dans les sources du code (013). */
+    public Converse(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
+            ConversationSearch search, DesignatedDocuments designated, ModelCapacities capacities,
+            ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
+            Executor executor, DiscussSpecification discussions, AnalyzePerimeter perimeter,
+            PerimeterRepository perimeters) {
+        this.perimeter = perimeter;
+        this.perimeters = perimeters;
         this.discussions = discussions;
         this.designated = designated;
         this.history = new ConversationHistory(conversations, llm, clock);
@@ -154,6 +173,9 @@ public class Converse {
             requireIdle(conversationId);
             ConversationMessage answer = messages.get(at + 1).withText("").finished(MessageState.RUNNING, false);
             conversations.clearTurn(answer.id());
+            if (perimeters != null) {
+                perimeters.clear(answer.id());
+            }
             conversations.saveMessage(answer);
             conversations.save(conversation.touched(clock.now()));
             launch(conversation.projectId(), messages.get(at), answer);
@@ -250,6 +272,11 @@ public class Converse {
                 .map(ConversationMessage::text).toList(), budget,
                 discussed.map(DiscussSpecification.Context::attachments).orElse(List.of())));
         boolean stopped = false;
+        boolean perimeterAvailable = perimeter != null && perimeter.available(projectId);
+        List<String> lastTerms = perimeters == null ? List.of()
+                : perimeters.last(question.conversationId()).map(PerimeterAnalysis::terms).orElse(List.of());
+        boolean perimeterDone = false;
+        boolean perimeterUnavailable = false;
         while (!events.cancelled(turn)) {
             if (progress.steps == SearchStep.MAX_STEPS) {
                 stopped = true;
@@ -257,7 +284,18 @@ public class Converse {
             }
             thinking.stage(Thinking.Stage.PLAN);
             ConversationLlm.Plan plan = llm.plan(new ConversationLlm.PlanRequest(language, sheet, history.memory(),
-                    history.exchanges(), question.text(), sources.all(), SearchStep.MAX_STEPS - progress.steps, about));
+                    history.exchanges(), question.text(), sources.all(), SearchStep.MAX_STEPS - progress.steps, about,
+                    perimeterAvailable && !perimeterDone, lastTerms));
+            if (plan.action() == ConversationLlm.Action.PERIMETER) {
+                // une analyse par réponse au plus : une seconde demande vaut une réponse (research.md R6)
+                if (perimeter == null || perimeterDone) {
+                    break;
+                }
+                perimeterDone = true;
+                perimeterUnavailable = !analyzePerimeter(projectId, question, plan.terms(), progress, sources, language,
+                        history.exchanges());
+                continue;
+            }
             if (plan.action() == ConversationLlm.Action.ANSWER || plan.query() == null || plan.query().isBlank()) {
                 break;
             }
@@ -275,7 +313,8 @@ public class Converse {
             ConversationMessage saving = progress.answer;
             int[] chunks = {0};
             llm.answer(new ConversationLlm.AnswerRequest(language, sheet, history.memory(), history.exchanges(),
-                    question.text(), sources.all(), sources.notCompared(), stopped, about), delta -> {
+                    question.text(), sources.all(), sources.notCompared(), stopped, about, perimeterUnavailable),
+                    delta -> {
                         progress.text.append(delta);
                         events.publish(turn, new Event.Delta(delta));
                         if (++chunks[0] % SAVE_EVERY == 0) {
@@ -283,6 +322,37 @@ public class Converse {
                         }
                     }, () -> events.cancelled(turn));
         }
+    }
+
+    /**
+     * Analyse de périmètre d'un tour (013) : recensement publié aussitôt, puis qualification par
+     * l'agent ; les modules deviennent des sources citables. Renvoie faux si le projet n'a pas de
+     * racine de sources.
+     */
+    private boolean analyzePerimeter(UUID projectId, ConversationMessage question, List<String> terms, Progress progress,
+            Sources sources, Language language, List<Exchange> exchanges) {
+        UUID turn = progress.answer.id();
+        PerimeterAnalysis previous = perimeters.last(question.conversationId()).orElse(null);
+        PerimeterAnalysis analysis;
+        try {
+            analysis = perimeter.analyze(projectId, terms, previous, progress.steps + 1, () -> events.cancelled(turn));
+        } catch (DomainException e) {
+            // aucun terme valide : l'agent répond sans analyse
+            return true;
+        }
+        progress.steps++;
+        perimeters.save(turn, analysis);
+        events.publish(turn, new Event.Perimeter(PerimeterView.of(analysis)));
+        if (analysis.unavailable() != null) {
+            return false;
+        }
+        if (!events.cancelled(turn)) {
+            analysis = perimeter.qualify(analysis, language, exchanges, question.text()).analysis();
+            perimeters.save(turn, analysis);
+            events.publish(turn, new Event.Perimeter(PerimeterView.of(analysis)));
+        }
+        sources.add(PerimeterSources.of(analysis));
+        return true;
     }
 
     private void fail(Progress progress, ThinkingLog thinking, Instant begin, ErrorCode code, String userMessage) {

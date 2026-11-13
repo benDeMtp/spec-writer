@@ -178,7 +178,12 @@ class StructurizrReaderTest {
                 workspace {
                     model {
                         a = softwareSystem "A" {
-                            api = container "Api"
+                            api = container "Api" {
+                                properties {
+                                    "spec-writer.module" " modules/api "
+                                }
+                            }
+                            batch = container "Batch"
                         }
                     }
                 }
@@ -186,7 +191,11 @@ class StructurizrReaderTest {
         Result r = reader.read(copy.resolve("simple.dsl").toString(), null);
         assertThat(r.failed()).isFalse();
         assertThat(r.model().elements()).extracting(ArchElement::name, ArchElement::scope)
-                .containsExactlyInAnyOrder(tuple("A", ArchScope.PROJECT), tuple("A/Api", ArchScope.PROJECT));
+                .containsExactlyInAnyOrder(tuple("A", ArchScope.PROJECT), tuple("A/Api", ArchScope.PROJECT),
+                        tuple("A/Batch", ArchScope.PROJECT));
+        // 013 : la propriété spec-writer.module désigne le module de code ; sans elle, rien
+        assertThat(r.model().elements()).extracting(ArchElement::name, ArchElement::moduleHint)
+                .containsExactlyInAnyOrder(tuple("A", null), tuple("A/Api", "modules/api"), tuple("A/Batch", null));
         assertThat(r.model().deployments()).isEmpty();
     }
 

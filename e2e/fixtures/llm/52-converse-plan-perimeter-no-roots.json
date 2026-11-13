@@ -1,0 +1,2 @@
+{"operation": "converse-plan", "userContains": ["<question>\nE2E-SANS-RACINE", "<recherches-restantes>5</recherches-restantes>", "<perimetre-disponible>non</perimetre-disponible>"],
+ "response": {"action": "PERIMETER", "query": "", "kinds": [], "terms": ["ContractStatus"]}}

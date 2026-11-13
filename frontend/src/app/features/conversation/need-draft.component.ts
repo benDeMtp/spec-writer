@@ -95,6 +95,13 @@ import { ElapsedComponent } from '../../shared/ui/elapsed.component';
         } @else {
           <p class="hint">Aucun point établi : le questionnaire posera toutes ses questions.</p>
         }
+        @if (draft().perimeter; as perimeter) {
+          <p class="hint perimeter">
+            La spécification reprendra le périmètre analysé ({{ perimeter.moduleCount }} module{{
+              perimeter.moduleCount > 1 ? 's' : ''
+            }}).
+          </p>
+        }
 
         @if (problem()) {
           <p class="problem" role="alert">{{ problem() }}</p>

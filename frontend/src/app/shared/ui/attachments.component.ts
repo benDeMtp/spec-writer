@@ -4,6 +4,7 @@ import {
   Component,
   ElementRef,
   OnDestroy,
+  booleanAttribute,
   computed,
   effect,
   inject,
@@ -22,6 +23,7 @@ import { MENTION_DELAYS } from './mention.directive';
 import { betterModelLabel, mentionLabel } from './mention-status.component';
 
 export const MAX_ATTACHMENTS = 5;
+let sequence = 0;
 const ACCEPT = '.docx,.xlsx,.pdf,.html,.htm';
 const NUMBER = new Intl.NumberFormat('fr-FR');
 
@@ -35,19 +37,42 @@ const NUMBER = new Intl.NumberFormat('fr-FR');
   selector: 'sw-attachments',
   imports: [MatButtonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.compact]': 'compact()' },
   template: `
     <section class="attachments" aria-label="Documents joints">
       <input #picker type="file" class="picker" [accept]="accept" tabindex="-1" aria-hidden="true" (change)="picked()" />
       <div class="bar">
         <button
-          mat-stroked-button
+          [matButton]="compact() ? 'text' : 'outlined'"
+          [class.icon-only]="compact() && !busy()"
+          [attr.aria-label]="compact() && !busy() ? 'Joindre un document' : null"
+          [attr.title]="compact() && !busy() ? 'Joindre un document' : null"
           type="button"
           [disabled]="disabled() || busy() || items().length >= max"
+          [attr.aria-describedby]="hintId"
           (click)="picker.click()"
         >
-          {{ busy() ? 'Lecture du document…' : 'Joindre un document' }}
+          @if (busy()) {
+            Lecture du document…
+          } @else if (compact()) {
+            <!-- zone de saisie : le trombone seul ; le nom complet est lu et s'affiche au survol -->
+            <svg class="clip" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d="M16.5 6.5 8.4 14.6a2 2 0 0 0 2.8 2.8l8.5-8.5a4 4 0 0 0-5.6-5.6l-8.8 8.8a6 6 0 0 0 8.5 8.5l7.4-7.4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+          } @else {
+            Joindre un document
+          }
         </button>
-        <span class="hint">Word, Excel, PDF ou HTML ; {{ max }} documents au plus. Seul le texte est gardé.</span>
+        <!-- zone de saisie (compact) : le format reste lu avec le bouton, sans occuper de ligne -->
+        <span [id]="hintId" class="hint" [class.sw-visually-hidden]="compact()"
+          >Word, Excel, PDF ou HTML ; {{ max }} documents au plus. Seul le texte est gardé.</span
+        >
       </div>
       <p class="live" aria-live="polite" role="status">{{ message() }}</p>
       @if (items().length) {
@@ -82,6 +107,17 @@ const NUMBER = new Intl.NumberFormat('fr-FR');
   styles: `
     .attachments {
       margin: 0.5rem 0;
+    }
+    :host(.compact) .attachments {
+      margin: 0;
+    }
+    .clip {
+      vertical-align: -0.25em;
+    }
+    /* cible tactile d'au moins 44 px */
+    .icon-only {
+      min-width: 2.75rem;
+      padding: 0 0.5rem;
     }
     .picker {
       display: none;
@@ -132,6 +168,9 @@ const NUMBER = new Intl.NumberFormat('fr-FR');
 })
 export class AttachmentsComponent implements OnDestroy {
   readonly projectId = input<string | null>(null);
+  /** Dans une zone de saisie : le format accepté n'est lu qu'avec le bouton (lecteur d'écran). */
+  readonly compact = input(false, { transform: booleanAttribute });
+  protected readonly hintId = `attachments-hint-${++sequence}`;
   /** Session démarrée : ses documents ; sinon, des brouillons. */
   readonly sessionId = input<string | null>(null);
   /** Conversation (010) : ses documents, lus par l'agent et repris dans la spécification. */

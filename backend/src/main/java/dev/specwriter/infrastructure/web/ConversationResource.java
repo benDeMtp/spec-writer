@@ -201,6 +201,7 @@ public class ConversationResource {
             case TurnEvents.Event.Step s -> "step";
             case TurnEvents.Event.Delta d -> "delta";
             case TurnEvents.Event.Sources s -> "sources";
+            case TurnEvents.Event.Perimeter p -> "perimeter";
             case TurnEvents.Event.Memory m -> "memory";
             case TurnEvents.Event.Done d -> "done";
             case TurnEvents.Event.Error e -> "error";

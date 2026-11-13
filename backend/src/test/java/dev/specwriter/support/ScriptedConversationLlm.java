@@ -3,6 +3,7 @@ package dev.specwriter.support;
 import dev.specwriter.domain.conversation.NeedDraft;
 import dev.specwriter.domain.error.DomainException;
 import dev.specwriter.domain.port.ConversationLlm;
+import dev.specwriter.domain.sources.ModuleQualification;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -25,6 +26,9 @@ public class ScriptedConversationLlm implements ConversationLlm {
     public final List<CompactRequest> compactRequests = new ArrayList<>();
     public final Deque<Revision> revisions = new ArrayDeque<>();
     public final List<ReviseRequest> reviseRequests = new ArrayList<>();
+    /** Relevés des changements successifs ; le dernier se répète. Vide : aucun changement. */
+    public final Deque<List<ChangeCandidate>> changes = new ArrayDeque<>();
+    public final List<ChangesRequest> changesRequests = new ArrayList<>();
     public String reviseReasoning;
     /** Panne à la prochaine proposition. */
     public DomainException reviseFailure;
@@ -87,6 +91,23 @@ public class ScriptedConversationLlm implements ConversationLlm {
         return text.toString();
     }
 
+    /** Qualifications scriptées (013) ; vide : aucun module qualifié. */
+    public final Deque<List<ModuleQualification>> qualifications = new ArrayDeque<>();
+    public final List<QualifyRequest> qualifyRequests = new ArrayList<>();
+    /** Panne à la prochaine qualification. */
+    public DomainException qualifyFailure;
+
+    @Override
+    public List<ModuleQualification> qualify(QualifyRequest request) {
+        qualifyRequests.add(request);
+        if (qualifyFailure != null) {
+            DomainException e = qualifyFailure;
+            qualifyFailure = null;
+            throw e;
+        }
+        return qualifications.isEmpty() ? List.of() : qualifications.removeFirst();
+    }
+
     @Override
     public NeedDraft draftNeed(DraftRequest request) {
         draftRequests.add(request);
@@ -103,6 +124,15 @@ public class ScriptedConversationLlm implements ConversationLlm {
             throw e;
         }
         return revisions.size() > 1 ? revisions.removeFirst() : revisions.getFirst();
+    }
+
+    @Override
+    public List<ChangeCandidate> changes(ChangesRequest request) {
+        changesRequests.add(request);
+        if (changes.isEmpty()) {
+            return List.of();
+        }
+        return changes.size() > 1 ? changes.removeFirst() : changes.getFirst();
     }
 
     /** Résumé scripté : « Résumé n » ; n compte les compactages. */

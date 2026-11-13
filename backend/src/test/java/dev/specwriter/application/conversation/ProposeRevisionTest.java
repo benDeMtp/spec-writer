@@ -37,6 +37,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
+import dev.specwriter.domain.port.ConversationLlm.ChangeCandidate;
+import dev.specwriter.domain.port.ConversationLlm.ChangeOrigin;
+import dev.specwriter.domain.sources.ModuleCorrection;
+import dev.specwriter.domain.sources.Qualification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -211,5 +215,94 @@ class ProposeRevisionTest {
         w.sessions.saveImplementation(session.id(), new Implementation(ImplementationStatus.IMPLEMENTED,
                 Instant.parse("2026-11-10T09:00:00Z"), null));
         refused(() -> propose.propose(cid), ErrorCode.SPECIFICATION_LOCKED);
+    }
+
+    @Test
+    void lesChangementsAvancesSontReleves() {
+        said("Le client peut-il annuler ?", "Proposons aussi un délai de rétractation.");
+        llm.changes.add(List.of(new ChangeCandidate("Ajouter l'annulation", ChangeOrigin.USER),
+                new ChangeCandidate("Ajouter un délai de rétractation", ChangeOrigin.AGENT)));
+
+        assertThat(propose.changes(cid)).extracting(ChangeCandidate::origin)
+                .containsExactly(ChangeOrigin.USER, ChangeOrigin.AGENT);
+
+        var request = llm.changesRequests.getFirst();
+        assertThat(request.currentMarkdown()).isEqualTo(w.versions.find(session.id(), 1).orElseThrow().markdown());
+        assertThat(request.discussion()).extracting(l -> l.role()).containsExactly(MessageRole.USER, MessageRole.AGENT);
+        assertThat(conversations.messages(cid)).hasSize(2);
+        try (var busy = operations.begin(cid)) {
+            refused(() -> propose.changes(cid), ErrorCode.OPERATION_IN_PROGRESS);
+        }
+    }
+
+    @Test
+    void lesChangementsRetenusEntrentDansLaDiscussionAvantLaRedaction() {
+        said("Le client peut-il annuler ?", "Proposons un délai de rétractation.");
+        llm.revisions.add(new Revision(true, "Ajoute l'annulation.", revised("discussion:" + cid + "#3")));
+
+        ProposeRevision.Started started = propose.propose(cid, List.of(" Ajouter   l'annulation ", "",
+                "Ajouter l'annulation", "Ajouter un délai de rétractation"));
+
+        ConversationMessage m = started.message();
+        assertThat(m.role()).isEqualTo(MessageRole.USER);
+        assertThat(m.ordinal()).isEqualTo(3);
+        assertThat(m.specificationVersion()).isEqualTo(1);
+        assertThat(m.text()).isEqualTo("Changements retenus pour la nouvelle version :\n- Ajouter l'annulation\n"
+                + "- Ajouter un délai de rétractation");
+        assertThat(conversations.messages(cid)).last().isEqualTo(m);
+        assertThat(llm.reviseRequests.getFirst().discussion().getLast().ref()).isEqualTo("discussion:" + cid + "#3");
+        assertThat(propose.propose(cid, null).message()).isNull();
+    }
+
+    @Test
+    void lesChangementsRetenusSontBornes() {
+        said("Ajoute l'annulation.", "Entendu.");
+        refused(() -> propose.propose(cid, List.of("x".repeat(ProposeRevision.MAX_CHANGE + 1))),
+                ErrorCode.VALIDATION_FAILED);
+        refused(() -> propose.propose(cid, java.util.stream.IntStream.rangeClosed(0, ProposeRevision.MAX_CHANGES)
+                .mapToObj(n -> "Changement " + n).toList()), ErrorCode.VALIDATION_FAILED);
+        assertThat(ProposeRevision.confirmation(List.of("Add"), dev.specwriter.domain.session.Language.EN))
+                .isEqualTo("Changes to include in the new version:\n- Add");
+        assertThat(conversations.messages(cid)).hasSize(2);
+    }
+
+    @Test
+    void lesModulesDeLaDiscussionEtSesCorrectionsFontUneVersionMemeSansAutreChangement() {
+        dev.specwriter.support.InMemoryPerimeters perimeters = new dev.specwriter.support.InMemoryPerimeters();
+        ProposalStore store = new ProposalStore(w.diff, w.ids, w.clock, perimeters);
+        propose = new ProposeRevision(w.sessions, w.versions, conversations, discussions,
+                dev.specwriter.application.knowledge.SessionKnowledge.sheetOnly(w.projects), llm,
+                ModelCapacities.UNKNOWN, w.policy, operations, events, store, w.clock, w.ids, Runnable::run, perimeters);
+        said("Quels modules sont touchés ?", "a et b.");
+        UUID answer = w.ids.next();
+        perimeters.conversationOf.put(answer, cid);
+        perimeters.save(answer, StartFromConversationTest.analysis(1, "libs/a", "modules/b"));
+        said("b est en Quarkus, il n'est pas impacté.", "Entendu.");
+        llm.revisions.add(new Revision(false, "Les use cases sont déjà à jour.", null,
+                List.of(new ModuleCorrection("b", Qualification.NOT_IMPACTED, "Module Quarkus, hors de la migration."))));
+
+        Event.Done done = (Event.Done) run().getLast();
+
+        assertThat(done.unchanged()).isFalse();
+        assertThat(llm.reviseRequests.getFirst().perimeter().modules()).extracting(e -> e.name())
+                .containsExactly("a", "b");
+        ProposalStore.Proposal p = store.find(session.id(), done.proposalId()).orElseThrow();
+        // le contenu reste celui de la version courante ; le module à vérifier devient une hypothèse
+        assertThat(p.content().useCases()).isEqualTo(w.versions.find(session.id(), 1).orElseThrow().content().useCases());
+        assertThat(p.content().assumptions()).extracting(x -> x.statement()).anyMatch(t -> t.contains("Le module a"));
+        // un module passé non impacté sort de la rubrique « Modules touchés »
+        assertThat(p.markdown()).contains("## Modules touchés").doesNotContain("Non impactés")
+                .doesNotContain("**b** (rv/modules/b)");
+        new AcceptAiEdit(w.sessions, w.versions, w.tickets, store, w.clock, w.ids).run(session.id(), p.id());
+        assertThat(perimeters.snapshot(session.id()).orElseThrow().modules().get(1).qualification())
+                .isEqualTo(Qualification.NOT_IMPACTED);
+
+        // le même périmètre, déjà dans la version : rien ne change
+        llm.revisions.clear();
+        llm.revisions.add(new Revision(false, "Rien de neuf.", null,
+                List.of(new ModuleCorrection("b", Qualification.NOT_IMPACTED, "Module Quarkus, hors de la migration."))));
+        Event.Done again = (Event.Done) run().getLast();
+        assertThat(again.unchanged()).isTrue();
+        assertThat(again.reason()).isEqualTo("Rien de neuf.");
     }
 }

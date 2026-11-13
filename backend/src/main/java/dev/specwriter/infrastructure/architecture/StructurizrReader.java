@@ -53,6 +53,8 @@ public class StructurizrReader implements ArchitectureReader {
 
     private static final Logger LOG = Logger.getLogger(StructurizrReader.class);
     private static final String OWNERSHIP = "ownership";
+    /** Nom ou chemin du module de code qui réalise l'élément (013, research.md R8). */
+    static final String MODULE = "spec-writer.module";
     /** Dossier d'infrastructure partagée entre workspaces (research.md R21). */
     private static final String SHARED_FOLDER = "infra";
     private static final int MAX_FILES = 500;
@@ -149,7 +151,7 @@ public class StructurizrReader implements ArchitectureReader {
             String technology = technology(e);
             boolean transport = ArchitectureModel.isTransport(e.getTagsAsSet(), technology);
             elements.add(new ArchElement(name, type.get(), scope(e, name, ownership, common), transport,
-                    blankToNull(e.getDescription()), technology));
+                    blankToNull(e.getDescription()), technology, e.getProperties().get(MODULE)));
         }
         elements.sort(Comparator.comparing(ArchElement::name));
         return elements;

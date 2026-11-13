@@ -96,4 +96,20 @@ class DraftNeedTest {
         List<EstablishedPoint> eleven = IntStream.range(0, 11).mapToObj(i -> point(Basis.USER, null)).toList();
         assertThatThrownBy(() -> new NeedDraft("x", eleven)).isInstanceOf(DomainException.class);
     }
+
+    @Test
+    void leBrouillonAnnonceLePerimetreQueLaSpecificationReprendra() {
+        exchange();
+        dev.specwriter.support.InMemoryPerimeters perimeters = new dev.specwriter.support.InMemoryPerimeters();
+        DraftNeed withPerimeter = new DraftNeed(w.projects, conversations, llm, ModelCapacities.UNKNOWN, w.policy, w.clock,
+                perimeters);
+        llm.drafts.add(new NeedDraft("Permettre au gestionnaire d'annuler un avoir émis par erreur.", List.of()));
+        assertThat(withPerimeter.draft(conversation.id()).perimeter()).isNull();
+
+        UUID answer = UUID.randomUUID();
+        perimeters.conversationOf.put(answer, conversation.id());
+        perimeters.save(answer, StartFromConversationTest.analysis(3, "libs/a", "modules/b"));
+        llm.drafts.add(new NeedDraft("Permettre au gestionnaire d'annuler un avoir émis par erreur.", List.of()));
+        assertThat(withPerimeter.draft(conversation.id()).perimeter()).isEqualTo(new NeedDraft.Perimeter(2, 3));
+    }
 }
