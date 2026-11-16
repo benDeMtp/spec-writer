@@ -9,7 +9,7 @@ const ENTRIES: JournalEntry[] = [
   {
     at: '2026-11-03T10:02:00Z',
     level: 'ERROR',
-    logger: 'dev.specwriter.application.context.ContextGenerations',
+    logger: 'fr.kawamind.application.context.ContextGenerations',
     message: 'Génération du contexte en échec : erreur inattendue',
     cause: 'java.lang.IllegalStateException: [MASQUÉ]',
     stack: ['at a.b.C.d(C.java:1)'],
@@ -17,7 +17,7 @@ const ENTRIES: JournalEntry[] = [
   {
     at: '2026-11-03T10:01:00Z',
     level: 'WARN',
-    logger: 'dev.specwriter.infrastructure.docs.AntoraReader',
+    logger: 'fr.kawamind.infrastructure.docs.AntoraReader',
     message: 'Documentation : https://docs.example.com/tarifs.html non lue (HTTP_ERROR, HTTP 500)',
     cause: null,
     stack: [],
@@ -73,7 +73,7 @@ describe('JournalPage', () => {
 
     items[0].querySelector<HTMLButtonElement>('button')!.click();
     await settle(fixture);
-    expect(copied[0]).toContain('ERROR dev.specwriter.application.context.ContextGenerations');
+    expect(copied[0]).toContain('ERROR fr.kawamind.application.context.ContextGenerations');
     expect(copied[0]).toContain('at a.b.C.d(C.java:1)');
     expect(el.textContent).toContain('Entrée copiée.');
   });

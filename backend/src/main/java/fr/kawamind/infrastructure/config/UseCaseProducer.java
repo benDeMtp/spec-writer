@@ -1,0 +1,692 @@
+package fr.kawamind.infrastructure.config;
+
+import fr.kawamind.application.agent.AgentChangeStatus;
+import fr.kawamind.application.agent.AgentJournal;
+import fr.kawamind.application.agent.FeatureKnowledge;
+import fr.kawamind.application.agent.GetFeature;
+import fr.kawamind.application.agent.ListFeatures;
+import fr.kawamind.application.agent.ListProjectsForAgent;
+import fr.kawamind.application.agent.ManageAgentAccess;
+import fr.kawamind.application.agent.SearchKnowledgeForAgent;
+import fr.kawamind.application.attachment.AttachmentDrafts;
+import fr.kawamind.application.attachment.ManageAttachments;
+import fr.kawamind.application.consent.UpdateConsent;
+import fr.kawamind.application.context.EditContext;
+import fr.kawamind.application.context.ManageDocSources;
+import fr.kawamind.application.sources.AnalyzePerimeter;
+import fr.kawamind.application.sources.ManageSourceRoots;
+import fr.kawamind.application.conversation.ConversationSearch;
+import fr.kawamind.application.conversation.ConversationAttachments;
+import fr.kawamind.application.conversation.ConversationSuggestions;
+import fr.kawamind.application.conversation.Converse;
+import fr.kawamind.application.conversation.DiscussSpecification;
+import fr.kawamind.application.conversation.ProposeRevision;
+import fr.kawamind.application.conversation.DesignatedDocuments;
+import fr.kawamind.application.conversation.DraftNeed;
+import fr.kawamind.application.conversation.ManageConversations;
+import fr.kawamind.application.conversation.StartFromConversation;
+import fr.kawamind.application.conversation.TurnEvents;
+import fr.kawamind.application.jira.CreateJiraTicket;
+import fr.kawamind.application.jira.GetJiraIssue;
+import fr.kawamind.application.jira.ImportJiraIssue;
+import fr.kawamind.application.jira.JiraAccess;
+import fr.kawamind.application.jira.ListProjectIssues;
+import fr.kawamind.application.jira.PreviewJiraTicket;
+import fr.kawamind.application.jira.PushToJira;
+import fr.kawamind.application.jira.RetryRelatedLink;
+import fr.kawamind.application.knowledge.AnalyzeArchitecture;
+import fr.kawamind.application.knowledge.CompareWithIssue;
+import fr.kawamind.application.knowledge.FindRelatedIssues;
+import fr.kawamind.application.knowledge.Indexations;
+import fr.kawamind.application.knowledge.KnowledgeQueries;
+import fr.kawamind.application.knowledge.ListAdrs;
+import fr.kawamind.application.knowledge.ManageArchitectureSource;
+import fr.kawamind.application.knowledge.ManageEmbeddingSettings;
+import fr.kawamind.application.settings.ManageBrowser;
+import fr.kawamind.application.knowledge.MentionQueries;
+import fr.kawamind.application.knowledge.ReadDocFile;
+import fr.kawamind.application.knowledge.RelatedIssuesStore;
+import fr.kawamind.application.knowledge.ReportSubtasks;
+import fr.kawamind.application.knowledge.SelectKnowledge;
+import fr.kawamind.application.knowledge.SessionKnowledge;
+import fr.kawamind.application.knowledge.StoryFamily;
+import fr.kawamind.application.knowledge.SynchronizeKnowledge;
+import fr.kawamind.application.project.CheckJiraProjectKey;
+import fr.kawamind.application.project.CreateProject;
+import fr.kawamind.application.project.DeleteProject;
+import fr.kawamind.application.project.MoveSession;
+import fr.kawamind.application.project.SelectCurrentProject;
+import fr.kawamind.application.project.UpdateProject;
+import fr.kawamind.application.search.UnifiedSearch;
+import fr.kawamind.application.session.AnswerQuestion;
+import fr.kawamind.application.session.ChangeStatus;
+import fr.kawamind.application.session.ConcludeQuestionnaire;
+import fr.kawamind.application.session.EvolveSpecification;
+import fr.kawamind.application.session.ManageSessions;
+import fr.kawamind.application.session.ResolveRelatedIssue;
+import fr.kawamind.application.session.StartSession;
+import fr.kawamind.application.settings.DeleteJiraSettings;
+import fr.kawamind.application.settings.DisconnectCopilot;
+import fr.kawamind.application.settings.PollCopilotConnection;
+import fr.kawamind.application.settings.RefreshModelCapacities;
+import fr.kawamind.application.settings.SaveJiraSettings;
+import fr.kawamind.application.settings.SelectModel;
+import fr.kawamind.application.settings.StartCopilotConnection;
+import fr.kawamind.application.settings.TestJiraConnection;
+import fr.kawamind.application.specification.AcceptAiEdit;
+import fr.kawamind.application.specification.DeleteVersion;
+import fr.kawamind.application.specification.GenerateSpecification;
+import fr.kawamind.application.specification.OperationRegistry;
+import fr.kawamind.application.specification.ProposalStore;
+import fr.kawamind.application.specification.ProposeAiEdit;
+import fr.kawamind.domain.consent.ConsentPolicy;
+import fr.kawamind.domain.port.AgentAccessRepository;
+import fr.kawamind.domain.port.AgentEndpoint;
+import fr.kawamind.domain.port.ArchitectureReader;
+import fr.kawamind.domain.port.AttachmentReader;
+import fr.kawamind.domain.port.AttachmentRepository;
+import fr.kawamind.domain.port.ClockPort;
+import fr.kawamind.domain.port.ConsentRepository;
+import fr.kawamind.domain.port.ConversationAttachmentRepository;
+import fr.kawamind.domain.port.ConversationLlm;
+import fr.kawamind.domain.port.ConversationRepository;
+import fr.kawamind.domain.port.DocSourceRepository;
+import fr.kawamind.domain.port.DocumentFileStates;
+import fr.kawamind.domain.port.DocumentFiles;
+import fr.kawamind.domain.port.DocumentFolder;
+import fr.kawamind.domain.port.DocumentationReader;
+import fr.kawamind.domain.port.BrowserPort;
+import fr.kawamind.domain.port.EmbeddingPort;
+import fr.kawamind.domain.port.GitHubAuthenticator;
+import fr.kawamind.domain.port.IdGenerator;
+import fr.kawamind.domain.port.IssueTracker;
+import fr.kawamind.domain.port.KnowledgeIndex;
+import fr.kawamind.domain.port.KnowledgeSourceRepository;
+import fr.kawamind.domain.port.LinkedTicketRepository;
+import fr.kawamind.domain.port.LlmClient;
+import fr.kawamind.domain.port.LocalSearch;
+import fr.kawamind.domain.port.ModelCapacities;
+import fr.kawamind.domain.port.PerimeterRepository;
+import fr.kawamind.domain.port.ProjectRepository;
+import fr.kawamind.domain.port.SourceRootRepository;
+import fr.kawamind.domain.port.SourceTree;
+import fr.kawamind.domain.port.SecretStore;
+import fr.kawamind.domain.port.SessionRelationRepository;
+import fr.kawamind.domain.port.SessionRepository;
+import fr.kawamind.domain.port.SettingsRepository;
+import fr.kawamind.domain.port.SpecificationDiscussionRepository;
+import fr.kawamind.domain.port.SpecificationRepository;
+import fr.kawamind.domain.port.TextDiff;
+import fr.kawamind.domain.port.TicketLinkRepository;
+import fr.kawamind.domain.port.WikiMarkup;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Produces;
+import java.time.Duration;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+/** Câblage des cas d'usage, qui restent sans dépendance au framework (plan.md, architecture hexagonale). */
+@ApplicationScoped
+public class UseCaseProducer {
+
+    /** Documents joints avant le démarrage, en mémoire (009, research.md R3). */
+    @Produces
+    @ApplicationScoped
+    AttachmentDrafts attachmentDrafts(AttachmentReader reader, ClockPort clock, IdGenerator ids) {
+        return new AttachmentDrafts(reader, clock, ids);
+    }
+
+    /** Événements des tours de l'agent, en mémoire (010, research.md R2). */
+    @Produces
+    @ApplicationScoped
+    TurnEvents turnEvents(ClockPort clock) {
+        return new TurnEvents(clock);
+    }
+
+    /** Agent conversationnel (010) : chaque tour tourne sur un fil virtuel. */
+    @Produces
+    @ApplicationScoped
+    Converse converse(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
+            KnowledgeIndex index, EmbeddingPort embedding, LocalSearch specifications, ModelCapacities capacities,
+            ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
+            AnalyzeArchitecture analyze, DocSourceRepository docSources, DocumentFolder folder,
+            ConversationAttachmentRepository attachments, DiscussSpecification discussions, AnalyzePerimeter perimeter,
+            PerimeterRepository perimeters) {
+        SelectKnowledge select = new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), docSources,
+                folder, capacities);
+        return new Converse(projects, conversations, llm, new ConversationSearch(index, embedding, specifications),
+                new DesignatedDocuments(select, attachments), capacities, consent, operations, events, clock, ids,
+                task -> Thread.ofVirtual().name("conversation").start(task), discussions, perimeter, perimeters);
+    }
+
+    /** Analyse de périmètre dans les sources du code (013). */
+    @Produces
+    @ApplicationScoped
+    AnalyzePerimeter analyzePerimeter(SourceRootRepository roots, SourceTree tree, ConversationLlm llm, ClockPort clock,
+            KnowledgeIndex index) {
+        return new AnalyzePerimeter(roots, tree, llm, clock, SourceTree.Limits.DEFAULT, index);
+    }
+
+    /** « Proposer une nouvelle version » d'après la discussion (011, US2) : la rédaction tourne sur un fil virtuel. */
+    @Produces
+    @ApplicationScoped
+    ProposeRevision proposeRevision(SessionRepository sessions, SpecificationRepository versions,
+            ConversationRepository conversations, DiscussSpecification discussions, SessionKnowledge knowledge,
+            ConversationLlm llm, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
+            TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids, PerimeterRepository perimeters) {
+        return new ProposeRevision(sessions, versions, conversations, discussions, knowledge, llm, capacities, consent,
+                operations, events, proposals, clock, ids, task -> Thread.ofVirtual().name("proposition").start(task),
+                perimeters);
+    }
+
+    /** Discussions des spécifications (011). */
+    @Produces
+    @ApplicationScoped
+    DiscussSpecification discussSpecification(SessionRepository sessions, SpecificationRepository versions,
+            ConversationRepository conversations, SpecificationDiscussionRepository discussions, ClockPort clock,
+            IdGenerator ids, AttachmentRepository attachments) {
+        return new DiscussSpecification(sessions, versions, conversations, discussions, clock, ids, attachments);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageConversations manageConversations(ProjectRepository projects, ConversationRepository conversations,
+            SessionRepository sessions, JiraAccess jira, OperationRegistry operations,
+            SpecificationDiscussionRepository discussions, PerimeterRepository perimeters) {
+        return new ManageConversations(projects, conversations, sessions, jira, operations, discussions, perimeters);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConversationSuggestions conversationSuggestions(KnowledgeIndex index) {
+        return new ConversationSuggestions(index);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DraftNeed draftNeed(ProjectRepository projects, ConversationRepository conversations, ConversationLlm llm,
+            ModelCapacities capacities, ConsentPolicy consent, ClockPort clock, PerimeterRepository perimeters) {
+        return new DraftNeed(projects, conversations, llm, capacities, consent, clock, perimeters);
+    }
+
+    @Produces
+    @ApplicationScoped
+    StartFromConversation startFromConversation(ConversationRepository conversations, ProjectRepository projects,
+            StartSession startSession, ConversationAttachments attachments, PerimeterRepository perimeters,
+            ClockPort clock) {
+        return new StartFromConversation(conversations, projects, startSession, attachments::copies, perimeters, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConversationAttachments conversationAttachments(ConversationRepository conversations,
+            ConversationAttachmentRepository attachments, AttachmentReader reader, ClockPort clock, IdGenerator ids) {
+        return new ConversationAttachments(conversations, attachments, reader, clock, ids);
+    }
+
+    /** Documents joints d'une session démarrée (009, US3). */
+    @Produces
+    @ApplicationScoped
+    ManageAttachments manageAttachments(SessionRepository sessions, AttachmentRepository attachments,
+            AttachmentReader reader, ClockPort clock, IdGenerator ids) {
+        return new ManageAttachments(sessions, attachments, reader, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConsentPolicy consentPolicy(ConsentRepository consents) {
+        return new ConsentPolicy(consents);
+    }
+
+    @Produces
+    @ApplicationScoped
+    UpdateConsent updateConsent(ConsentRepository consents, ClockPort clock) {
+        return new UpdateConsent(consents, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    TestJiraConnection testJiraConnection(IssueTracker tracker, SettingsRepository settings, SecretStore secrets,
+            ConsentPolicy consent, ProjectRepository projects, ClockPort clock) {
+        return new TestJiraConnection(tracker, settings, secrets, consent, projects, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SaveJiraSettings saveJiraSettings(SettingsRepository settings, SecretStore secrets) {
+        return new SaveJiraSettings(settings, secrets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DeleteJiraSettings deleteJiraSettings(SettingsRepository settings, SecretStore secrets) {
+        return new DeleteJiraSettings(settings, secrets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    StartCopilotConnection startCopilotConnection(GitHubAuthenticator authenticator) {
+        return new StartCopilotConnection(authenticator);
+    }
+
+    @Produces
+    @ApplicationScoped
+    PollCopilotConnection pollCopilotConnection(GitHubAuthenticator authenticator, SettingsRepository settings) {
+        return new PollCopilotConnection(authenticator, settings);
+    }
+
+    @Produces
+    @ApplicationScoped
+    RefreshModelCapacities refreshModelCapacities(GitHubAuthenticator authenticator, SettingsRepository settings) {
+        return new RefreshModelCapacities(authenticator, settings);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DisconnectCopilot disconnectCopilot(GitHubAuthenticator authenticator, SettingsRepository settings,
+            SecretStore secrets) {
+        return new DisconnectCopilot(authenticator, settings, secrets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SelectModel selectModel(SettingsRepository settings) {
+        return new SelectModel(settings);
+    }
+
+    /** Version de l'outil, prise en compte dans l'empreinte des entrées (FR-014). */
+    @ConfigProperty(name = "quarkus.application.version", defaultValue = "dev")
+    String toolVersion;
+
+    @Produces
+    @ApplicationScoped
+    StartSession startSession(SessionRepository sessions, ProjectRepository projects, LlmClient llm,
+            ConsentPolicy consent, ClockPort clock, IdGenerator ids, FindRelatedIssues findRelated,
+            RelatedIssuesStore related, SessionKnowledge knowledge, AttachmentDrafts drafts,
+            AttachmentRepository attachments) {
+        return new StartSession(sessions, projects, llm, consent, clock, ids, findRelated, related, knowledge, drafts,
+                attachments);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AnalyzeArchitecture analyzeArchitecture(KnowledgeIndex index, LlmClient llm, ConsentPolicy consent) {
+        return new AnalyzeArchitecture(index, llm, consent);
+    }
+
+    /** Connaissance transmise aux opérations de l'IA (research.md R24), selon le modèle choisi (008). */
+    @Produces
+    @ApplicationScoped
+    SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
+            ModelCapacities capacities, AttachmentRepository attachments) {
+        return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder, capacities,
+                attachments);
+    }
+
+    /** Mentions @ d'un document (007) : suggestions et état, avec la place calculée comme à la génération. */
+    @Produces
+    @ApplicationScoped
+    MentionQueries mentionQueries(ProjectRepository projects, SessionRepository sessions, KnowledgeIndex index,
+            EmbeddingPort embedding, AnalyzeArchitecture analyze, ModelCapacities capacities, AttachmentDrafts drafts,
+            AttachmentRepository attachments, ConversationAttachmentRepository conversationAttachments) {
+        return new MentionQueries(projects, sessions, index,
+                new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), null, null, capacities,
+                        attachments), drafts, attachments, conversationAttachments);
+    }
+
+    /** Sous-tâches de la story liée, rattachées aux cas d'usage d'une version (research.md R29). */
+    @Produces
+    @ApplicationScoped
+    ReportSubtasks reportSubtasks(SessionRepository sessions, SpecificationRepository versions, StoryFamily families,
+            KnowledgeIndex index, EmbeddingPort embedding, JiraAccess jira, IssueTracker tracker,
+            @ConfigProperty(name = "specwriter.knowledge.subtask-min-z", defaultValue = "1.5") double minZ) {
+        return new ReportSubtasks(sessions, versions, families, index, embedding, jira, tracker, minZ);
+    }
+
+    /** Famille de la story liée à une session : parent, sous-tâches et liens (research.md R29). */
+    @Produces
+    @ApplicationScoped
+    StoryFamily storyFamily(LinkedTicketRepository tickets, TicketLinkRepository links) {
+        return new StoryFamily(tickets, links);
+    }
+
+    @Produces
+    @ApplicationScoped
+    RelatedIssuesStore relatedIssuesStore() {
+        return new RelatedIssuesStore();
+    }
+
+    @Produces
+    @ApplicationScoped
+    FindRelatedIssues findRelatedIssues(KnowledgeIndex index, EmbeddingPort embedding, LlmClient llm,
+            ConsentPolicy consent, JiraAccess jira, IssueTracker tracker, Indexations indexations,
+            KnowledgeSourceRepository sources, StoryFamily families) {
+        return new FindRelatedIssues(index, embedding, llm, consent, jira, tracker, indexations, sources, families);
+    }
+
+    @Produces
+    @ApplicationScoped
+    CompareWithIssue compareWithIssue(SessionRepository sessions, RelatedIssuesStore related, JiraAccess jira,
+            IssueTracker tracker, WikiMarkup markup, LlmClient llm, ConsentPolicy consent) {
+        return new CompareWithIssue(sessions, related, jira, tracker, markup, llm, consent);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ResolveRelatedIssue resolveRelatedIssue(SessionRepository sessions, ProjectRepository projects,
+            RelatedIssuesStore related, SessionRelationRepository relations, ImportJiraIssue importIssue,
+            ProposeAiEdit proposeEdit, ManageSessions manageSessions, LlmClient llm, ClockPort clock, IdGenerator ids,
+            SessionKnowledge knowledge) {
+        return new ResolveRelatedIssue(sessions, projects, related, relations, importIssue, proposeEdit, manageSessions,
+                llm, clock, ids, knowledge);
+    }
+
+    @Produces
+    @ApplicationScoped
+    RetryRelatedLink retryRelatedLink(IssueTracker tracker, JiraAccess jira, LinkedTicketRepository tickets,
+            SessionRelationRepository relations) {
+        return new RetryRelatedLink(tracker, jira, tickets, relations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AnswerQuestion answerQuestion(SessionRepository sessions, LlmClient llm, ConsentPolicy consent, ClockPort clock,
+            IdGenerator ids, SessionKnowledge knowledge) {
+        return new AnswerQuestion(sessions, llm, consent, clock, ids, knowledge);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConcludeQuestionnaire concludeQuestionnaire(SessionRepository sessions, ClockPort clock) {
+        return new ConcludeQuestionnaire(sessions, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    GenerateSpecification generateSpecification(SessionRepository sessions, SpecificationRepository versions,
+            LlmClient llm, ConsentPolicy consent, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
+            OperationRegistry operations, PerimeterRepository perimeters) {
+        return new GenerateSpecification(sessions, versions, llm, consent, clock, ids, toolVersion, knowledge, operations,
+                perimeters);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageSessions manageSessions(SessionRepository sessions, SpecificationRepository versions,
+            ProjectRepository projects, ClockPort clock, ProposalStore proposals, OperationRegistry operations,
+            ConversationRepository conversations, SpecificationDiscussionRepository discussions) {
+        return new ManageSessions(sessions, versions, projects, clock, proposals, operations, conversations,
+                discussions);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DeleteVersion deleteVersion(SessionRepository sessions, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ProposalStore proposals, OperationRegistry operations, ClockPort clock) {
+        return new DeleteVersion(sessions, versions, tickets, proposals, operations, clock);
+    }
+
+    // ---------- Projets (feature 002, User Story 1) ----------
+
+    @Produces
+    @ApplicationScoped
+    OperationRegistry operationRegistry() {
+        return new OperationRegistry();
+    }
+
+    @Produces
+    @ApplicationScoped
+    CreateProject createProject(ProjectRepository projects, ClockPort clock, IdGenerator ids) {
+        return new CreateProject(projects, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    UpdateProject updateProject(ProjectRepository projects, ClockPort clock) {
+        return new UpdateProject(projects, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DeleteProject deleteProject(ProjectRepository projects, SessionRepository sessions, ManageSessions manageSessions,
+            OperationRegistry operations, ClockPort clock) {
+        return new DeleteProject(projects, sessions, manageSessions, operations, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SelectCurrentProject selectCurrentProject(ProjectRepository projects) {
+        return new SelectCurrentProject(projects);
+    }
+
+    @Produces
+    @ApplicationScoped
+    CheckJiraProjectKey checkJiraProjectKey(JiraAccess jira, IssueTracker tracker) {
+        return new CheckJiraProjectKey(jira, tracker);
+    }
+
+    @Produces
+    @ApplicationScoped
+    MoveSession moveSession(SessionRepository sessions, ProjectRepository projects, ClockPort clock) {
+        return new MoveSession(sessions, projects, clock);
+    }
+
+    // ---------- Recherche et Jira (User Story 6) ----------
+
+    @Produces
+    @ApplicationScoped
+    JiraAccess jiraAccess(SettingsRepository settings, SecretStore secrets, ConsentPolicy consent,
+            SessionRepository sessions, ProjectRepository projects) {
+        return new JiraAccess(settings, secrets, consent, sessions, projects);
+    }
+
+    @Produces
+    @ApplicationScoped
+    UnifiedSearch unifiedSearch(LocalSearch local, SpecificationRepository versions, LinkedTicketRepository tickets,
+            IssueTracker tracker, JiraAccess jira, ProjectRepository projects,
+            @ConfigProperty(name = "specwriter.jira.search-timeout", defaultValue = "5s") Duration timeout) {
+        return new UnifiedSearch(local, versions, tickets, tracker, jira, projects, timeout);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ProposalStore proposalStore(TextDiff diff, IdGenerator ids, ClockPort clock, PerimeterRepository perimeters) {
+        return new ProposalStore(diff, ids, clock, perimeters);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ProposeAiEdit proposeAiEdit(SessionRepository sessions, SpecificationRepository versions, LlmClient llm,
+            ConsentPolicy consent, ProposalStore proposals, SessionKnowledge knowledge, OperationRegistry operations) {
+        return new ProposeAiEdit(sessions, versions, llm, consent, proposals, knowledge, operations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AcceptAiEdit acceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids) {
+        return new AcceptAiEdit(sessions, versions, tickets, proposals, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    GetJiraIssue getJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup) {
+        return new GetJiraIssue(tracker, jira, markup);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AgentJournal agentJournal(AgentAccessRepository access, ClockPort clock, IdGenerator ids) {
+        return new AgentJournal(access, clock, ids);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageAgentAccess manageAgentAccess(AgentAccessRepository access, AgentEndpoint endpoint, ClockPort clock) {
+        return new ManageAgentAccess(access, endpoint, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ListProjectsForAgent listProjectsForAgent(ProjectRepository projects, AgentJournal journal) {
+        return new ListProjectsForAgent(projects, journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ListFeatures listFeatures(ProjectRepository projects, SessionRepository sessions, SpecificationRepository versions,
+            AgentJournal journal) {
+        return new ListFeatures(projects, sessions, versions, journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    GetFeature getFeature(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProjectRepository projects, KnowledgeIndex index, AgentJournal journal) {
+        return new GetFeature(sessions, versions, tickets, new FeatureKnowledge(projects, index), journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SearchKnowledgeForAgent searchKnowledgeForAgent(KnowledgeQueries queries) {
+        return new SearchKnowledgeForAgent(queries);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AgentChangeStatus agentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal) {
+        return new AgentChangeStatus(sessions, clock, journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ChangeStatus changeStatus(SessionRepository sessions, ClockPort clock) {
+        return new ChangeStatus(sessions, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    EvolveSpecification evolveSpecification(SessionRepository sessions, SpecificationRepository versions,
+            ProjectRepository projects, StartSession start) {
+        return new EvolveSpecification(sessions, versions, projects, start);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ListProjectIssues listProjectIssues(IssueTracker tracker, JiraAccess jira, LinkedTicketRepository tickets) {
+        return new ListProjectIssues(tracker, jira, tickets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ImportJiraIssue importJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm,
+            ConsentPolicy consent, SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+        return new ImportJiraIssue(tracker, jira, markup, llm, consent, sessions, projects, versions, tickets, clock,
+                ids, knowledge);
+    }
+
+    @Produces
+    @ApplicationScoped
+    PushToJira pushToJira(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
+            SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
+            OperationRegistry operations, PerimeterRepository perimeters) {
+        return new PushToJira(tracker, jira, markup, llm, consent, sessions, versions, tickets, proposals, clock, ids,
+                knowledge, operations, perimeters);
+    }
+
+    @Produces
+    @ApplicationScoped
+    PreviewJiraTicket previewJiraTicket(SpecificationRepository versions, LinkedTicketRepository tickets, WikiMarkup markup,
+            IssueTracker tracker, JiraAccess jira, SessionRelationRepository relations) {
+        return new PreviewJiraTicket(versions, tickets, markup, tracker, jira, relations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    CreateJiraTicket createJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup,
+            SpecificationRepository versions, LinkedTicketRepository tickets, ClockPort clock,
+            SessionRelationRepository relations) {
+        return new CreateJiraTicket(tracker, jira, markup, versions, tickets, clock, relations);
+    }
+
+    // ---------- Fiche générale et connaissance du projet (US2 de 002) ----------
+
+    @Produces
+    @ApplicationScoped
+    ManageDocSources manageDocSources(ProjectRepository projects, DocSourceRepository docSources, IdGenerator ids,
+            KnowledgeIndex index, DocumentFolder folder) {
+        return new ManageDocSources(projects, docSources, ids, index, folder);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageSourceRoots manageSourceRoots(ProjectRepository projects, SourceRootRepository roots, SourceTree tree,
+            IdGenerator ids, ClockPort clock) {
+        return new ManageSourceRoots(projects, roots, tree, ids, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SynchronizeKnowledge synchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
+            DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
+            DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
+            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
+        return new SynchronizeKnowledge(projects, sources, docSources, reader, folder, fileStates, architecture, jira,
+                tracker, links, index, embedding, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    Indexations indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, ClockPort clock,
+            @ConfigProperty(name = "specwriter.knowledge.auto-index", defaultValue = "true") boolean automatic) {
+        return new Indexations(synchronize, projects, task -> Thread.ofVirtual().name("indexation").start(task), clock,
+                automatic);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageEmbeddingSettings manageEmbeddingSettings(SettingsRepository settings, EmbeddingPort embedding) {
+        return new ManageEmbeddingSettings(settings, embedding);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageBrowser manageBrowser(SettingsRepository settings, BrowserPort browsers) {
+        return new ManageBrowser(settings, browsers);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ListAdrs listAdrs(ProjectRepository projects, KnowledgeIndex index, DocSourceRepository docSources,
+            DocumentFiles files, Indexations indexations) {
+        return new ListAdrs(projects, index, docSources, files, indexations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ReadDocFile readDocFile(ProjectRepository projects, DocSourceRepository docSources, DocumentFiles files) {
+        return new ReadDocFile(projects, docSources, files);
+    }
+
+    @Produces
+    @ApplicationScoped
+    KnowledgeQueries knowledgeQueries(ProjectRepository projects, KnowledgeIndex index, KnowledgeSourceRepository sources,
+            EmbeddingPort embedding, Indexations indexations, JiraAccess jira) {
+        return new KnowledgeQueries(projects, index, sources, embedding, indexations, jira);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageArchitectureSource manageArchitectureSource(ProjectRepository projects, KnowledgeSourceRepository sources,
+            KnowledgeIndex index, Indexations indexations) {
+        return new ManageArchitectureSource(projects, sources, index, indexations);
+    }
+
+    @Produces
+    @ApplicationScoped
+    EditContext editContext(ProjectRepository projects, ClockPort clock) {
+        return new EditContext(projects, clock);
+    }
+}

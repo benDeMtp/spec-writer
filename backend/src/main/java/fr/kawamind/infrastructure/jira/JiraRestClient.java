@@ -1,0 +1,518 @@
+package fr.kawamind.infrastructure.jira;
+
+import fr.kawamind.domain.jira.CreatedIssue;
+import fr.kawamind.domain.jira.IssueTrackerException;
+import fr.kawamind.domain.jira.IssueTrackerException.Kind;
+import fr.kawamind.domain.jira.JiraEndpoint;
+import fr.kawamind.domain.jira.JiraIssue;
+import fr.kawamind.domain.jira.JiraIssueSummary;
+import fr.kawamind.domain.jira.IssueType;
+import fr.kawamind.domain.jira.JiraSearchPage;
+import fr.kawamind.domain.jira.LinkedJiraTicket;
+import fr.kawamind.domain.jira.RequiredField;
+import fr.kawamind.domain.port.ClockPort;
+import fr.kawamind.domain.port.IssueTracker;
+import fr.kawamind.domain.port.WikiMarkup;
+import fr.kawamind.domain.jira.IssueLinkType;
+import fr.kawamind.domain.jira.IssueStatus;
+import fr.kawamind.domain.jira.TicketLink;
+import fr.kawamind.domain.jira.TrackedIssue;
+import fr.kawamind.domain.jira.TrackedIssuePage;
+import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.ProcessingException;
+import org.jboss.logging.Logger;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.client.ClientRequestFilter;
+import jakarta.ws.rs.core.HttpHeaders;
+import fr.kawamind.infrastructure.platform.ProxySettings;
+import java.net.URI;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+/**
+ * Client Jira Server / Data Center (research.md R10) : jeton d'accès personnel en
+ * {@code Authorization: Bearer}, autorité de certification interne facultative. Aucun corps de
+ * réponse n'est journalisé ni repris dans les erreurs.
+ */
+@ApplicationScoped
+public class JiraRestClient implements IssueTracker {
+
+    private static final Logger LOG = Logger.getLogger(JiraRestClient.class);
+    private static final DateTimeFormatter JIRA_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    static final String SEARCH_FIELDS = "summary,status,issuetype,updated";
+    static final String ISSUE_FIELDS = "summary,description,updated";
+    static final String TRACKED_FIELDS = "summary,description,status,issuetype,updated,parent,subtasks,issuelinks";
+    static final String STATUS_FIELDS = "status,updated";
+    private static final int KEYS_PAGE = 100;
+    private static final int MAX_KEYS = 50_000;
+
+    private final JiraThrottle throttle = new JiraThrottle();
+
+    @Inject
+    ClockPort clock;
+
+    @Inject
+    ProxySettings proxy;
+
+    @Inject
+    WikiMarkup markup;
+
+    @Override
+    public String serverVersion(JiraEndpoint endpoint) {
+        return call(endpoint, api -> String.valueOf(api.serverInfo().get("version")));
+    }
+
+    @Override
+    public String currentUser(JiraEndpoint endpoint) {
+        return call(endpoint, api -> String.valueOf(api.myself().get("name")));
+    }
+
+    @Override
+    public void project(JiraEndpoint endpoint, String projectKey) {
+        call(endpoint, api -> api.project(projectKey));
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Boolean> permissions(JiraEndpoint endpoint, String projectKey, Set<String> permissions) {
+        Map<String, Object> body = call(endpoint,
+                api -> api.myPermissions(projectKey, String.join(",", new TreeSet<>(permissions))));
+        Map<String, Boolean> out = new HashMap<>();
+        Object perms = body.get("permissions");
+        if (perms instanceof Map<?, ?> map) {
+            for (String p : permissions) {
+                Object entry = map.get(p);
+                out.put(p, entry instanceof Map<?, ?> e && Boolean.TRUE.equals(((Map<String, Object>) e).get("havePermission")));
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public JiraSearchPage searchText(JiraEndpoint endpoint, String projectKey, String terms, int startAt, int maxResults) {
+        String jql = JqlBuilder.textSearch(projectKey, terms);
+        return summaries(call(endpoint, api -> api.search(jql, startAt, maxResults, SEARCH_FIELDS)), startAt);
+    }
+
+    @Override
+    public JiraSearchPage projectIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults) {
+        String jql = JqlBuilder.recent(projectKey);
+        return summaries(call(endpoint, api -> api.search(jql, startAt, maxResults, SEARCH_FIELDS)), startAt);
+    }
+
+    private static JiraSearchPage summaries(Map<String, Object> body, int startAt) {
+        List<JiraIssueSummary> issues = new ArrayList<>();
+        if (body.get("issues") instanceof List<?> list) {
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> issue) {
+                    Map<?, ?> fields = map(issue.get("fields"));
+                    issues.add(new JiraIssueSummary(String.valueOf(issue.get("key")), text(fields.get("summary")),
+                            name(fields.get("status")), name(fields.get("issuetype")), date(fields.get("updated"))));
+                }
+            }
+        }
+        return new JiraSearchPage(issues, number(body.get("startAt"), startAt), number(body.get("total"), issues.size()));
+    }
+
+    @Override
+    public TrackedIssuePage searchUpdatedSince(JiraEndpoint endpoint, String projectKey, Instant since, int startAt,
+            int maxResults) {
+        String jql = JqlBuilder.updatedSince(projectKey, since);
+        return trackedPage(endpoint, call(endpoint, api -> api.search(jql, startAt, maxResults, TRACKED_FIELDS)),
+                startAt);
+    }
+
+    @Override
+    public TrackedIssuePage searchOpenOrUpdatedSince(JiraEndpoint endpoint, String projectKey, Instant since,
+            int startAt, int maxResults) {
+        String jql = JqlBuilder.openOrUpdatedSince(projectKey, since);
+        return trackedPage(endpoint, call(endpoint, api -> api.search(jql, startAt, maxResults, TRACKED_FIELDS)),
+                startAt);
+    }
+
+    /** Les avertissements de Jira (clé supprimée entre-temps) sont ignorés, jamais journalisés. */
+    @Override
+    public List<TrackedIssue> issuesByKeys(JiraEndpoint endpoint, String projectKey, List<String> keys) {
+        String jql = JqlBuilder.keys(projectKey, keys);
+        return trackedPage(endpoint, call(endpoint, api -> api.searchLenient(jql, 0, KEYS_PER_READ, TRACKED_FIELDS,
+                "warn")), 0).issues();
+    }
+
+    private TrackedIssuePage trackedPage(JiraEndpoint endpoint, Map<String, Object> body, int startAt) {
+        List<TrackedIssue> issues = new ArrayList<>();
+        if (body.get("issues") instanceof List<?> list) {
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> issue) {
+                    String key = String.valueOf(issue.get("key"));
+                    Map<?, ?> fields = map(issue.get("fields"));
+                    String wiki = text(fields.get("description"));
+                    Map<?, ?> status = map(fields.get("status"));
+                    issues.add(new TrackedIssue(key, text(fields.get("summary")),
+                            wiki == null ? "" : markup.toMarkdown(wiki, browse(endpoint, key)), text(status.get("name")),
+                            text(map(status.get("statusCategory")).get("key")), name(fields.get("issuetype")),
+                            date(fields.get("updated")), links(fields)));
+                }
+            }
+        }
+        return new TrackedIssuePage(issues, number(body.get("startAt"), startAt), number(body.get("total"), issues.size()));
+    }
+
+    /** Parent, sous-tâches et liens explicites d'un ticket (research.md R29) ; un lien incomplet est ignoré. */
+    private static List<TicketLink> links(Map<?, ?> fields) {
+        List<TicketLink> links = new ArrayList<>();
+        String parent = text(map(fields.get("parent")).get("key"));
+        if (parent != null) {
+            links.add(TicketLink.parent(parent));
+        }
+        if (fields.get("subtasks") instanceof List<?> subtasks) {
+            for (Object o : subtasks) {
+                String key = text(map(o).get("key"));
+                if (key != null) {
+                    links.add(TicketLink.subtask(key));
+                }
+            }
+        }
+        if (fields.get("issuelinks") instanceof List<?> issueLinks) {
+            for (Object o : issueLinks) {
+                Map<?, ?> link = map(o);
+                Map<?, ?> type = map(link.get("type"));
+                String outward = text(map(link.get("outwardIssue")).get("key"));
+                String inward = text(map(link.get("inwardIssue")).get("key"));
+                if (outward != null) {
+                    links.add(TicketLink.link(text(type.get("name")), TicketLink.Direction.OUTWARD,
+                            text(type.get("outward")), outward));
+                } else if (inward != null) {
+                    links.add(TicketLink.link(text(type.get("name")), TicketLink.Direction.INWARD,
+                            text(type.get("inward")), inward));
+                }
+            }
+        }
+        return links;
+    }
+
+    @Override
+    public List<String> listKeys(JiraEndpoint endpoint, String projectKey) {
+        String jql = JqlBuilder.allKeys(projectKey);
+        List<String> keys = new ArrayList<>();
+        int startAt = 0;
+        while (keys.size() < MAX_KEYS) {
+            int from = startAt;
+            Map<String, Object> body = call(endpoint, api -> api.search(jql, from, KEYS_PAGE, "key"));
+            int before = keys.size();
+            if (body.get("issues") instanceof List<?> list) {
+                list.stream().filter(Map.class::isInstance).map(o -> String.valueOf(((Map<?, ?>) o).get("key")))
+                        .forEach(keys::add);
+            }
+            int read = keys.size() - before;
+            startAt = number(body.get("startAt"), from) + read;
+            if (read == 0 || startAt >= number(body.get("total"), 0)) {
+                break;
+            }
+        }
+        return keys;
+    }
+
+    @Override
+    public IssueStatus issueStatus(JiraEndpoint endpoint, String issueKey) {
+        requireKey(issueKey);
+        Map<String, Object> body = call(endpoint, api -> api.issue(issueKey, STATUS_FIELDS));
+        Map<?, ?> fields = map(body.get("fields"));
+        Map<?, ?> status = map(fields.get("status"));
+        return new IssueStatus(String.valueOf(body.get("key")), text(status.get("name")),
+                text(map(status.get("statusCategory")).get("key")), date(fields.get("updated")));
+    }
+
+    @Override
+    public List<IssueLinkType> linkTypes(JiraEndpoint endpoint) {
+        Map<String, Object> body = call(endpoint, JiraApi::issueLinkTypes);
+        List<IssueLinkType> types = new ArrayList<>();
+        if (body.get("issueLinkTypes") instanceof List<?> list) {
+            for (Object o : list) {
+                Map<?, ?> t = map(o);
+                types.add(new IssueLinkType(text(t.get("id")), text(t.get("name")), text(t.get("inward")),
+                        text(t.get("outward"))));
+            }
+        }
+        return types;
+    }
+
+    @Override
+    public void createLink(JiraEndpoint endpoint, String typeName, String outwardKey, String inwardKey) {
+        requireKey(outwardKey);
+        requireKey(inwardKey);
+        Map<String, Object> link = new LinkedHashMap<>();
+        link.put("type", Map.of("name", typeName));
+        link.put("outwardIssue", Map.of("key", outwardKey));
+        link.put("inwardIssue", Map.of("key", inwardKey));
+        call(endpoint, api -> {
+            api.createIssueLink(link);
+            return null;
+        });
+    }
+
+    private static String browse(JiraEndpoint endpoint, String key) {
+        String server = endpoint.serverUrl();
+        return (server.endsWith("/") ? server : server + "/") + "browse/" + key;
+    }
+
+    @Override
+    public JiraIssue getIssue(JiraEndpoint endpoint, String issueKey) {
+        requireKey(issueKey);
+        Map<String, Object> body = call(endpoint, api -> api.issue(issueKey, ISSUE_FIELDS));
+        Map<?, ?> fields = map(body.get("fields"));
+        String description = text(fields.get("description"));
+        return new JiraIssue(String.valueOf(body.get("key")), text(fields.get("summary")),
+                description == null ? "" : description, date(fields.get("updated")));
+    }
+
+    @Override
+    public void updateDescription(JiraEndpoint endpoint, String issueKey, String wikiDescription) {
+        requireKey(issueKey);
+        call(endpoint, api -> {
+            api.updateIssue(issueKey, Map.of("fields", Map.of("description", wikiDescription)));
+            return null;
+        });
+    }
+
+    static final int META_PAGE = 100;
+    /** Garde-fou : un projet n'a pas des milliers de types ou de champs. */
+    static final int META_MAX_PAGES = 10;
+
+    @Override
+    public List<IssueType> issueTypes(JiraEndpoint endpoint, String projectKey) {
+        List<IssueType> types = new ArrayList<>();
+        for (Map<?, ?> v : pages(endpoint, (api, start) -> api.createMetaIssueTypes(projectKey, start, META_PAGE))) {
+            if (!Boolean.TRUE.equals(v.get("subtask"))) {
+                types.add(new IssueType(String.valueOf(v.get("id")), text(v.get("name"))));
+            }
+        }
+        return types;
+    }
+
+    @Override
+    public List<RequiredField> requiredFields(JiraEndpoint endpoint, String projectKey, String issueTypeId) {
+        List<RequiredField> fields = new ArrayList<>();
+        for (Map<?, ?> v : pages(endpoint, (api, start) -> api.createMetaFields(projectKey, issueTypeId, start, META_PAGE))) {
+            if (Boolean.TRUE.equals(v.get("required")) && !Boolean.TRUE.equals(v.get("hasDefaultValue"))) {
+                fields.add(field(v));
+            }
+        }
+        return fields;
+    }
+
+    @Override
+    public CreatedIssue createIssue(JiraEndpoint endpoint, String projectKey, String issueTypeId, String summary,
+            String wikiDescription, Map<String, Object> extraFields) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("project", Map.of("key", projectKey));
+        fields.put("issuetype", Map.of("id", issueTypeId));
+        fields.put("summary", summary);
+        fields.put("description", wikiDescription);
+        fields.putAll(extraFields);
+        Map<String, Object> created = call(endpoint, api -> {
+            try {
+                return api.createIssue(Map.of("fields", fields));
+            } catch (WebApplicationException e) {
+                if (e.getResponse() != null && e.getResponse().getStatus() == 400) {
+                    throw new IssueTrackerException(Kind.REJECTED, "Jira a refusé la création", e, rejection(e));
+                }
+                throw e;
+            }
+        });
+        return new CreatedIssue(String.valueOf(created.get("id")), String.valueOf(created.get("key")));
+    }
+
+    /** Causes d'un 400 de Jira : {@code errorMessages} et {@code errors} (champ : message). Jamais journalisées. */
+    private static List<String> rejection(WebApplicationException e) {
+        List<String> details = new ArrayList<>();
+        try {
+            Map<?, ?> body = e.getResponse().readEntity(Map.class);
+            if (body.get("errorMessages") instanceof List<?> messages) {
+                messages.forEach(m -> details.add(String.valueOf(m)));
+            }
+            if (body.get("errors") instanceof Map<?, ?> errors) {
+                errors.forEach((field, message) -> details.add(field + " : " + message));
+            }
+        } catch (RuntimeException unreadable) {
+            LOG.debug("Corps d'erreur Jira illisible", unreadable);
+        }
+        return details;
+    }
+
+    private static RequiredField field(Map<?, ?> v) {
+        Map<?, ?> schema = map(v.get("schema"));
+        String type = text(schema.get("type"));
+        List<RequiredField.Option> options = new ArrayList<>();
+        if (v.get("allowedValues") instanceof List<?> allowed) {
+            for (Object o : allowed) {
+                if (o instanceof Map<?, ?> m) {
+                    Object label = m.get("name") != null ? m.get("name") : m.get("value");
+                    options.add(new RequiredField.Option(String.valueOf(m.get("id")), String.valueOf(label)));
+                }
+            }
+        }
+        RequiredField.Kind kind;
+        if (!options.isEmpty()) {
+            kind = "array".equals(type) ? RequiredField.Kind.OPTIONS : RequiredField.Kind.OPTION;
+        } else if ("string".equals(type)) {
+            kind = RequiredField.Kind.TEXT;
+        } else if ("number".equals(type)) {
+            kind = RequiredField.Kind.NUMBER;
+        } else if ("date".equals(type)) {
+            kind = RequiredField.Kind.DATE;
+        } else {
+            kind = RequiredField.Kind.UNSUPPORTED;
+        }
+        return new RequiredField(String.valueOf(v.get("fieldId")), text(v.get("name")), kind, options);
+    }
+
+    /** Valeurs ({@code values}) de toutes les pages d'une ressource createmeta. */
+    private List<Map<?, ?>> pages(JiraEndpoint endpoint, BiFunction<JiraApi, Integer, Map<String, Object>> page) {
+        List<Map<?, ?>> values = new ArrayList<>();
+        for (int i = 0, start = 0; i < META_MAX_PAGES; i++) {
+            int from = start;
+            Map<String, Object> body = call(endpoint, api -> page.apply(api, from));
+            List<?> list = body.get("values") instanceof List<?> l ? l : List.of();
+            list.forEach(o -> {
+                if (o instanceof Map<?, ?> m) {
+                    values.add(m);
+                }
+            });
+            start += list.size();
+            if (list.isEmpty() || start >= number(body.get("total"), start)) {
+                break;
+            }
+        }
+        return values;
+    }
+
+    private static void requireKey(String issueKey) {
+        if (!LinkedJiraTicket.isKey(issueKey)) {
+            throw new IllegalArgumentException("Clé de ticket invalide");
+        }
+    }
+
+    private static Map<?, ?> map(Object o) {
+        return o instanceof Map<?, ?> m ? m : Map.of();
+    }
+
+    private static String text(Object o) {
+        return o == null ? null : o.toString();
+    }
+
+    private static String name(Object o) {
+        return o instanceof Map<?, ?> m ? text(m.get("name")) : null;
+    }
+
+    private static int number(Object o, int fallback) {
+        return o instanceof Number n ? n.intValue() : fallback;
+    }
+
+    static Instant date(Object o) {
+        if (o == null) {
+            return null;
+        }
+        try {
+            return OffsetDateTime.parse(o.toString(), JIRA_DATE).toInstant();
+        } catch (DateTimeParseException e) {
+            return OffsetDateTime.parse(o.toString()).toInstant();
+        }
+    }
+
+    <T> T call(JiraEndpoint endpoint, Function<JiraApi, T> action) {
+        for (int attempt = 1;; attempt++) {
+            try {
+                return once(endpoint, action);
+            } catch (WebApplicationException e) {
+                int status = e.getResponse() == null ? 0 : e.getResponse().getStatus();
+                if (status != 429 || attempt >= RateLimitHandler.MAX_ATTEMPTS) {
+                    throw fromStatus(status, e);
+                }
+                Duration delay = RateLimitHandler.delay(e.getResponse().getStringHeaders(), clock.now());
+                LOG.infof("Jira limite le débit : nouvelle tentative dans %d s (%d/%d)", delay.toSeconds(), attempt + 1,
+                        RateLimitHandler.MAX_ATTEMPTS);
+                try {
+                    Thread.sleep(delay.toMillis());
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw fromStatus(status, e);
+                }
+            }
+        }
+    }
+
+    private <T> T once(JiraEndpoint endpoint, Function<JiraApi, T> action) {
+        throttle.acquire();
+        try (JiraApi api = client(endpoint)) {
+            return action.apply(api);
+        } catch (ProcessingException e) {
+            LOG.warnf("Jira injoignable (%s)", causes(e));
+            LOG.debug("Détail de l'erreur Jira", e);
+            throw new IssueTrackerException(Kind.UNREACHABLE, "Jira injoignable", e);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            LOG.warnf("Configuration Jira invalide (%s)", causes(e));
+            throw new IssueTrackerException(Kind.UNREACHABLE, "Configuration Jira invalide", e);
+        }
+    }
+
+    /** Chaîne des types d'exception, sans leurs messages (ils peuvent citer l'adresse ou un en-tête). */
+    static String causes(Throwable e) {
+        StringBuilder out = new StringBuilder();
+        for (Throwable t = e; t != null && out.length() < 300; t = t.getCause()) {
+            if (!out.isEmpty()) {
+                out.append(" <- ");
+            }
+            out.append(t.getClass().getSimpleName());
+        }
+        return out.toString();
+    }
+
+    static IssueTrackerException fromStatus(int status, Throwable cause) {
+        Kind kind = switch (status) {
+            case 401 -> Kind.UNAUTHORIZED;
+            case 403 -> Kind.FORBIDDEN;
+            case 404 -> Kind.NOT_FOUND;
+            case 429 -> Kind.RATE_LIMITED;
+            default -> status >= 500 || status == 0 ? Kind.UNREACHABLE : Kind.REJECTED;
+        };
+        return new IssueTrackerException(kind, "Jira a répondu " + status, cause);
+    }
+
+    private JiraApi client(JiraEndpoint endpoint) {
+        String token = endpoint.token();
+        URI server = URI.create(endpoint.serverUrl());
+        QuarkusRestClientBuilder builder = QuarkusRestClientBuilder.newBuilder()
+                .baseUri(server)
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .register((ClientRequestFilter) ctx -> ctx.getHeaders().putSingle(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+        // le client de Quarkus ignore https.proxyHost : le proxy d'entreprise est appliqué ici (T139)
+        proxy.forUri(server).ifPresent(p -> {
+            builder.proxyAddress(p.host(), p.port());
+            if (p.user() != null) {
+                builder.proxyUser(p.user());
+                builder.proxyPassword(p.password() == null ? "" : p.password());
+            }
+        });
+        if (endpoint.caCertificatePath() != null) {
+            builder.trustStore(JiraTlsConfigurer.trustStoreFromPem(Path.of(endpoint.caCertificatePath())), "");
+        }
+        return builder.build(JiraApi.class);
+    }
+}
