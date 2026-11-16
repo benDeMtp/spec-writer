@@ -772,6 +772,17 @@ modules à vérifier sont repris en hypothèses.
   l'aperçu lu avec son chemin et ses motifs enregistrés, et le replie au second clic ; enregistrer
   de nouveaux motifs referme l'aperçu devenu périmé. Aucun changement du backend : l'aperçu acceptait
   déjà un dossier déclaré. Test unitaire du composant et E2E us16 Q2.
+- [X] T062 Retour du mainteneur : à « quels modules touche l'ajout d'un starter Spring Boot ? », la
+  réponse ajoutait une rubrique « Modules non impactés ». Les modules non impactés sont transmis à
+  la réponse comme sources (pour répondre à « pourquoi X n'est pas impacté ? ») et la consigne
+  disait seulement de présenter impactés puis à vérifier. `converse-answer` : ne pas lister ni citer
+  les non impactés, au plus une phrase avec leur nombre, sauf si la personne les demande ou en
+  nomme un. Évaluation : `PerimeterAnswerRuns` rejoue en conversation complète (plan, analyse,
+  qualification, réponse) les cas `statut-suspendu` et `paiement-paypal` de
+  `eval/perimeter/cases.json` ; métrique `perimeterAnswerFocus` : la réponse cite tous les modules
+  que l'analyse juge impactés et aucun de ceux qu'elle juge non impactés, minimum 0,8. Un premier
+  essai avec des modules posés dans le corpus de la conversation ne mesurait rien : sans racine de
+  sources, l'agent choisit l'analyse de périmètre, indisponible, et répond sans source.
 - [X] T053 **Avec l'accord de l'utilisateur** : lancer l'évaluation réelle
   `./mvnw -pl backend verify -Peval -Dtest=PerimeterEval`, puis `DiscussionEval` pour
   l'opération `list-changes` de T055. Ajuster le prompt `converse-plan` si

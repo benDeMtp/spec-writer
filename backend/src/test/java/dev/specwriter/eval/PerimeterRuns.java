@@ -129,7 +129,7 @@ final class PerimeterRuns {
         return sum / runs;
     }
 
-    private static Path write(Path dir, JsonNode files) {
+    static Path write(Path dir, JsonNode files) {
         files.properties().forEach(f -> {
             Path file = dir.resolve(f.getKey());
             try {
@@ -142,7 +142,7 @@ final class PerimeterRuns {
         return dir;
     }
 
-    private static Path temp() {
+    static Path temp() {
         try {
             return Files.createTempDirectory("sw-eval-perimetre-");
         } catch (IOException e) {
@@ -150,7 +150,7 @@ final class PerimeterRuns {
         }
     }
 
-    private static void delete(Path dir) {
+    static void delete(Path dir) {
         try (Stream<Path> walk = Files.walk(dir)) {
             walk.sorted(Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
         } catch (IOException e) {

@@ -37,6 +37,8 @@ public record EvalBaseline(double tolerance, Map<String, Double> minimum, Map<St
     public static final String PERIMETER_TERM_RECALL = "perimeterTermRecall";
     /** 013 : qualifications fermes de l'agent conformes à l'attendu. */
     public static final String PERIMETER_QUALIFICATION = "perimeterQualification";
+    /** 013 (T062) : réponse de périmètre qui cite impactés et à vérifier, sans citer les non impactés. */
+    public static final String PERIMETER_ANSWER_FOCUS = "perimeterAnswerFocus";
 
     private static final double EPSILON = 1e-9;
 
