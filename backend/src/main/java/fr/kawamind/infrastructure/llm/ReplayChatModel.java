@@ -1,20 +1,24 @@
 package fr.kawamind.infrastructure.llm;
 
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.Capability;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.output.FinishReason;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
+import fr.kawamind.infrastructure.llm.CopilotSdkChatModel.Prompt;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -22,10 +26,11 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Rejeu déterministe du LLM pour les tests E2E, actif seulement si {@code specwriter.llm.replay-dir}
- * est défini (profil e2e ; StartupGuard l'interdit ailleurs). Chaque fichier JSON du dossier décrit
- * une réponse : {@code {"operation": "...", "userContains": ["..."], "response": {...}}}. La première
- * entrée dont l'opération et tous les fragments correspondent est renvoyée.
+ * Rejeu déterministe du LLM pour les tests et l'E2E, actif seulement si {@code specwriter.llm.replay-dir}
+ * est défini (StartupGuard l'interdit ailleurs). Chaque fichier JSON du dossier décrit une réponse
+ * (contracts/replay-format.md) : {@code {"operation": "...", "userContains": ["..."], "afterTools": n,
+ * "response"|"text"|"toolCalls": ...}}. La première entrée, dans l'ordre des noms de fichiers, dont
+ * l'opération, l'étape et tous les fragments correspondent est renvoyée.
  */
 public final class ReplayChatModel implements ChatModel {
 
@@ -34,59 +39,128 @@ public final class ReplayChatModel implements ChatModel {
     private static final Pattern DISCUSSION = Pattern.compile("DISCUSSION_(\\d+)");
     private static final Pattern DISCUSSION_REF = Pattern.compile("ref=\"(discussion:[^\"]+)\"");
     private static final Pattern MODULE = Pattern.compile("\"__MODULE:([^\"]+?)__\"");
+    private static final Pattern RESULT = Pattern.compile("<resultat ");
+
+    /** Appel d'outil rejoué : nom et arguments JSON. */
+    record ToolCall(String name, String arguments) {
+    }
 
     /**
-     * {@code response} : JSON d'une opération structurée ; {@code text} : réponse en texte libre (010) ;
-     * {@code reasoning} : réflexion rejouée avant la réponse, quand l'écran la montre.
+     * Exactement un des champs {@code response} (JSON d'une opération structurée), {@code text} (texte
+     * libre) ou {@code toolCalls} (appels d'outils) ; {@code afterTools} : nombre de résultats d'outils
+     * déjà présents dans la requête, nul pour toute étape ; {@code reasoning} : réflexion rejouée avant
+     * la réponse.
      */
-    record Entry(String file, String operation, List<String> userContains, String response, String text,
-            String reasoning) {
+    record Entry(String file, String operation, List<String> userContains, Integer afterTools, String response,
+            String text, List<ToolCall> toolCalls, String reasoning) {
 
-        void replayReasoning() {
-            if (reasoning != null) {
-                ReasoningSink.current().ifPresent(sink -> sink.accept(reasoning));
-            }
+        boolean matches(String op, String user, int tools) {
+            return operation.equals(op) && (afterTools == null || afterTools == tools)
+                    && userContains.stream().allMatch(user::contains);
         }
     }
 
     private final List<Entry> entries;
+    private final List<ChatModelListener> listeners;
 
     public ReplayChatModel(Path dir) {
+        this(dir, List.of());
+    }
+
+    public ReplayChatModel(Path dir, List<ChatModelListener> listeners) {
         this.entries = load(dir);
+        this.listeners = List.copyOf(listeners);
+    }
+
+    @Override
+    public List<ChatModelListener> listeners() {
+        return listeners;
+    }
+
+    @Override
+    public Set<Capability> supportedCapabilities() {
+        return Set.of(Capability.RESPONSE_FORMAT_JSON_SCHEMA);
     }
 
     @Override
     public ChatResponse doChat(ChatRequest request) {
-        StringBuilder system = new StringBuilder();
-        StringBuilder user = new StringBuilder();
-        for (ChatMessage m : request.messages()) {
-            if (m instanceof SystemMessage s) {
-                system.append(s.text());
-            } else if (m instanceof UserMessage u) {
-                user.append(u.singleText());
-            }
+        Prompt prompt = Prompt.of(request);
+        Entry e = find(prompt.system(), prompt.user());
+        if (e.reasoning() != null) {
+            ReasoningSink.current().ifPresent(sink -> sink.accept(e.reasoning()));
         }
-        Entry e = find(system.toString(), user.toString());
-        e.replayReasoning();
-        return ChatResponse.builder().aiMessage(AiMessage.from(resolveQuestionIds(e.response(), user.toString())))
-                .build();
+        return response(e, prompt.user());
+    }
+
+    /** Réponse rejouée pour la requête : appels d'outils, texte ou JSON, substitutions faites. */
+    static ChatResponse response(Entry e, String user) {
+        if (e.toolCalls() != null) {
+            List<ToolExecutionRequest> calls = new ArrayList<>();
+            for (ToolCall c : e.toolCalls()) {
+                calls.add(ToolExecutionRequest.builder().id("replay-" + (calls.size() + 1) + "-" + countResults(user))
+                        .name(c.name()).arguments(resolveQuestionIds(c.arguments(), user)).build());
+            }
+            return ChatResponse.builder().aiMessage(AiMessage.from(calls)).finishReason(FinishReason.TOOL_EXECUTION)
+                    .build();
+        }
+        String text = e.text() != null ? e.text() : resolveQuestionIds(e.response(), user);
+        return ChatResponse.builder().aiMessage(AiMessage.from(text)).finishReason(FinishReason.STOP).build();
     }
 
     /** Réponse en texte libre rejouée pour une opération en flux (010). */
     String text(String system, String user) {
         Entry e = find(system, user);
-        e.replayReasoning();
-        return e.text() != null ? e.text() : e.response();
+        if (e.reasoning() != null) {
+            ReasoningSink.current().ifPresent(sink -> sink.accept(e.reasoning()));
+        }
+        return e.text() != null ? e.text() : resolveQuestionIds(e.response(), user);
     }
 
-    private Entry find(String system, String user) {
+    Entry find(String system, String user) {
         String operation = Operations.of(system).orElse("");
+        int tools = countResults(user);
         for (Entry e : entries) {
-            if (e.operation().equals(operation) && e.userContains().stream().allMatch(user::contains)) {
+            if (e.matches(operation, user, tools)) {
                 return e;
             }
         }
-        throw new DomainException(ErrorCode.LLM_UNAVAILABLE, "Aucune réponse rejouée pour l'opération " + operation);
+        throw new DomainException(ErrorCode.LLM_UNAVAILABLE, unmatched(operation, user, tools));
+    }
+
+    /**
+     * Message d'échec (US5) : l'opération, l'étape, et pour l'entrée de cette opération la plus proche,
+     * les fragments manquants. Aucun autre contenu du message n'est repris.
+     */
+    private String unmatched(String operation, String user, int tools) {
+        StringBuilder out = new StringBuilder("Aucune réponse rejouée pour l'opération ").append(operation)
+                .append(" à l'étape ").append(tools).append(" (résultats d'outils déjà reçus)");
+        entries.stream().filter(e -> e.operation().equals(operation))
+                .min(Comparator.comparingLong((Entry e) -> missing(e, user).size())
+                        .thenComparing(e -> e.afterTools() == null || e.afterTools() == tools ? 0 : 1))
+                .ifPresent(best -> {
+                    out.append(" ; entrée la plus proche : ").append(best.file());
+                    if (best.afterTools() != null && best.afterTools() != tools) {
+                        out.append(", attendue à l'étape ").append(best.afterTools());
+                    }
+                    List<String> missing = missing(best, user);
+                    if (!missing.isEmpty()) {
+                        out.append(", fragments manquants : ").append(missing);
+                    }
+                });
+        return out.toString();
+    }
+
+    private static List<String> missing(Entry e, String user) {
+        return e.userContains().stream().filter(f -> !user.contains(f)).toList();
+    }
+
+    static int countResults(String user) {
+        Matcher m = RESULT.matcher(user);
+        int n = 0;
+        while (m.find()) {
+            n++;
+        }
+        return n;
     }
 
     /**
@@ -140,17 +214,43 @@ public final class ReplayChatModel implements ChatModel {
         List<Entry> out = new ArrayList<>();
         try (Stream<Path> files = Files.list(dir)) {
             for (Path f : files.filter(p -> p.toString().endsWith(".json")).sorted().toList()) {
-                JsonNode node = JSON.readTree(Files.readString(f));
-                List<String> contains = new ArrayList<>();
-                node.path("userContains").forEach(n -> contains.add(n.asString()));
-                out.add(new Entry(String.valueOf(f.getFileName()), node.path("operation").asString(), contains,
-                        JSON.writeValueAsString(node.get("response")),
-                        node.hasNonNull("text") ? node.get("text").asString() : null,
-                        node.hasNonNull("reasoning") ? node.get("reasoning").asString() : null));
+                out.add(entry(String.valueOf(f.getFileName()), JSON.readTree(Files.readString(f))));
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Dossier de rejeu illisible", e);
         }
         return out;
+    }
+
+    /** Une entrée invalide fait échouer le chargement, avec le nom du fichier. */
+    static Entry entry(String file, JsonNode node) {
+        List<String> contains = new ArrayList<>();
+        node.path("userContains").forEach(n -> contains.add(n.asString()));
+        boolean response = node.hasNonNull("response");
+        boolean text = node.hasNonNull("text");
+        boolean tools = node.hasNonNull("toolCalls");
+        if ((response ? 1 : 0) + (text ? 1 : 0) + (tools ? 1 : 0) != 1) {
+            throw new IllegalStateException("Fixture de rejeu " + file
+                    + " : exactement un des champs response, text ou toolCalls est attendu");
+        }
+        if (!node.hasNonNull("operation")) {
+            throw new IllegalStateException("Fixture de rejeu " + file + " : champ operation absent");
+        }
+        List<ToolCall> calls = null;
+        if (tools) {
+            calls = new ArrayList<>();
+            for (JsonNode c : node.get("toolCalls")) {
+                if (!c.hasNonNull("name")) {
+                    throw new IllegalStateException("Fixture de rejeu " + file + " : appel d'outil sans nom");
+                }
+                calls.add(new ToolCall(c.get("name").asString(),
+                        JSON.writeValueAsString(c.hasNonNull("arguments") ? c.get("arguments") : JSON.createObjectNode())));
+            }
+        }
+        return new Entry(file, node.get("operation").asString(), contains,
+                node.hasNonNull("afterTools") ? node.get("afterTools").asInt() : null,
+                response ? JSON.writeValueAsString(node.get("response")) : null,
+                text ? node.get("text").asString() : null, calls,
+                node.hasNonNull("reasoning") ? node.get("reasoning").asString() : null);
     }
 }

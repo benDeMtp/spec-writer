@@ -1,31 +1,73 @@
 package fr.kawamind.infrastructure.llm;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
- * Enveloppe minimale du Copilot SDK Java utilisée par l'adaptateur LLM (research.md R3, R4).
- * Chaque appel ouvre une session sans outil, puis la supprime (contracts/llm-port.md, règle 6a).
+ * Enveloppe minimale du Copilot SDK Java utilisée par les adaptateurs LLM (014, contracts/llm-adapter.md).
+ * Chaque appel ouvre une session neuve et verrouillée (research R8), puis la supprime.
  */
 public interface CopilotSdkGateway {
 
     /**
-     * Envoie un message système et un message utilisateur séparés et renvoie le texte de la réponse.
-     *
-     * @param model identifiant du modèle, ou {@code null} pour le modèle par défaut du compte
-     * @param responseSchema schéma JSON strict de la réponse, ou {@code null} pour du texte libre
+     * Outil proposé au modèle : il est déclaré terminal et sans permission, et son appel est capturé
+     * pour être rendu au framework, qui l'exécute dans l'application (research R2).
      */
-    String complete(String model, String systemPrompt, String userPrompt, Map<String, Object> responseSchema);
+    record ToolSpec(String name, String description, Map<String, Object> parameters) {
+    }
+
+    /** Appel d'outil demandé par le modèle, tel que reçu : identifiant, nom et arguments JSON. */
+    record CapturedCall(String id, String name, String arguments) {
+    }
 
     /**
-     * Réponse en texte libre, rédigée en flux (010, research.md R2) : chaque morceau est passé à
-     * {@code deltas} ; la requête est abandonnée dès que {@code cancelled} est vrai. Renvoie le texte
-     * reçu.
+     * Un appel au modèle.
+     *
+     * @param model identifiant du modèle, ou {@code null} pour le modèle par défaut du compte
+     * @param schema schéma JSON strict de la réponse, ou {@code null} pour du texte libre
+     * @param tools outils proposés, vide pour une opération sans outil
+     * @param deltas morceaux de la réponse en flux, ou {@code null} pour une réponse d'un bloc
+     * @param reasoning réflexion du modèle, ou {@code null} pour ne pas la demander
+     * @param cancelled arrêt demandé : la requête en cours est abandonnée
      */
+    record Call(String model, String system, String user, Map<String, Object> schema, List<ToolSpec> tools,
+            Consumer<String> deltas, Consumer<String> reasoning, BooleanSupplier cancelled) {
+
+        public Call {
+            tools = tools == null ? List.of() : List.copyOf(tools);
+            cancelled = cancelled == null ? () -> false : cancelled;
+        }
+
+        /** Réponse d'un bloc, sans outil. */
+        public static Call of(String model, String system, String user, Map<String, Object> schema) {
+            return new Call(model, system, user, schema, List.of(), null, null, null);
+        }
+    }
+
+    /** Réponse du modèle : un texte, ou des appels d'outils (le texte éventuel du tour est ignoré). */
+    record Reply(String text, List<CapturedCall> toolCalls) {
+
+        public Reply {
+            text = text == null ? "" : text;
+            toolCalls = toolCalls == null ? List.of() : List.copyOf(toolCalls);
+        }
+    }
+
+    Reply call(Call call);
+
+    /** Réponse d'un bloc, sans outil : le texte rendu par le modèle. */
+    default String complete(String model, String systemPrompt, String userPrompt, Map<String, Object> responseSchema) {
+        return call(new Call(model, systemPrompt, userPrompt, responseSchema, List.of(), null,
+                ReasoningSink.current().orElse(null), null)).text();
+    }
+
+    /** Réponse en texte libre, en flux, sans outil ; abandonnée dès que {@code cancelled} est vrai. */
     default String stream(String model, String systemPrompt, String userPrompt, Consumer<String> deltas,
             BooleanSupplier cancelled) {
-        throw new UnsupportedOperationException("Flux non pris en charge");
+        return call(new Call(model, systemPrompt, userPrompt, null, List.of(), deltas,
+                ReasoningSink.current().orElse(null), cancelled)).text();
     }
 
     /** Erreur du SDK, classée pour être convertie en erreur métier. */

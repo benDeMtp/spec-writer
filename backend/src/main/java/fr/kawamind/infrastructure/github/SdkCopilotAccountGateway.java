@@ -49,7 +49,7 @@ public class SdkCopilotAccountGateway implements CopilotAccountGateway {
     @Override
     public LoginFlow beginLogin() {
         CopilotClient client = runtime.client();
-        CopilotSession session = await(client.createSession(CopilotRuntime.toolLessSession(null, null)), 60);
+        CopilotSession session = await(client.createSession(CopilotRuntime.lockedSession(null, null, java.util.List.of(), runtime.emptyDirectory())), 60);
         try {
             SessionAccountsLoginBeginResult begin = await(session.getRpc().accounts.login
                     .begin(new SessionAccountsLoginBeginParams(null, LoginProviderKind.GITHUBDOTCOM)), 60);

@@ -18,6 +18,7 @@ import com.github.copilot.rpc.ModelInfo;
 import com.github.copilot.rpc.PermissionRequestResult;
 import com.github.copilot.rpc.SessionConfig;
 import com.github.copilot.rpc.SystemMessageConfig;
+import com.github.copilot.rpc.ToolDefinition;
 import fr.kawamind.infrastructure.llm.CopilotSdkGateway.GatewayException.Kind;
 import fr.kawamind.infrastructure.platform.UserDirectories;
 import io.quarkus.runtime.ShutdownEvent;
@@ -31,13 +32,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import jakarta.inject.Inject;
@@ -51,6 +52,8 @@ import org.jboss.logging.Logger;
  */
 @ApplicationScoped
 public class CopilotRuntime implements CopilotSdkGateway {
+
+    private static final tools.jackson.databind.json.JsonMapper JSON = tools.jackson.databind.json.JsonMapper.builder().build();
 
     private static final Logger LOG = Logger.getLogger(CopilotRuntime.class);
     /** Marge laissée au SDK pour signaler lui-même son délai dépassé. */
@@ -165,12 +168,28 @@ public class CopilotRuntime implements CopilotSdkGateway {
         }
     }
 
-    /** Session sans outil : permissions toujours refusées (contracts/llm-port.md, règle 6a). */
-    public static SessionConfig toolLessSession(String model, String systemPrompt) {
+    /** Accusé renvoyé au CLI pour un outil terminal : le tour s'arrête, l'appel est rendu au framework. */
+    static final String CAPTURED = "appel transmis";
+
+    /**
+     * Session verrouillée (014, research R8) : seuls les outils de la requête sont disponibles, toute
+     * permission est refusée, ni skills ni consignes de dépôt, dossier de travail vide.
+     */
+    public static SessionConfig lockedSession(String model, String systemPrompt, List<ToolDefinition> tools,
+            Path workingDirectory) {
         SessionConfig config = new SessionConfig()
-                .setAvailableTools(List.of())
+                .setAvailableTools(tools.stream().map(ToolDefinition::name).toList())
                 .setOnPermissionRequest((request, invocation) ->
-                        CompletableFuture.completedFuture(PermissionRequestResult.reject("aucun outil autorisé")));
+                        CompletableFuture.completedFuture(PermissionRequestResult.reject("aucune permission accordée")))
+                .setEnableSkills(false)
+                .setSkipCustomInstructions(true)
+                .setEnableConfigDiscovery(false);
+        if (!tools.isEmpty()) {
+            config.setTools(List.copyOf(tools));
+        }
+        if (workingDirectory != null) {
+            config.setWorkingDirectory(workingDirectory.toString());
+        }
         if (systemPrompt != null) {
             config.setSystemMessage(new SystemMessageConfig().setMode(SystemMessageMode.REPLACE).setContent(systemPrompt));
         }
@@ -180,35 +199,69 @@ public class CopilotRuntime implements CopilotSdkGateway {
         return config;
     }
 
+    /**
+     * Outil terminal sans permission (research R2) : son appel est capturé avec ses arguments, et le
+     * tour s'arrête ; rien n'est exécuté par le CLI.
+     */
+    static ToolDefinition terminal(ToolSpec spec, List<CapturedCall> captured) {
+        return new ToolDefinition(spec.name(), spec.description(), spec.parameters(), invocation -> {
+            captured.add(new CapturedCall(invocation.getToolCallId(), invocation.getToolName() == null ? spec.name()
+                    : invocation.getToolName(), arguments(invocation.getArguments())));
+            return CompletableFuture.completedFuture(CAPTURED);
+        }, null, true, null, null, true, null);
+    }
+
+    private static String arguments(Map<String, Object> arguments) {
+        return JSON.writeValueAsString(arguments == null ? Map.of() : arguments);
+    }
+
+    /** Dossier de travail des sessions : privé et vide, rien à y lire (research R8). */
+    public Path emptyDirectory() {
+        return UserDirectories.createPrivateDirectories(Path.of(dataDir, "copilot", "empty"),
+                UserDirectories.fromSystem().posix());
+    }
+
+    /**
+     * Un appel au modèle dans une session neuve et verrouillée (014, research R2, R8). Les outils sont
+     * terminaux : un appel du modèle est capturé et termine le tour. En flux, chaque
+     * {@code assistant.message_delta} est transmis et la fin arrive avec {@code session.idle} ; un arrêt
+     * demandé abandonne la requête. La session est supprimée dans tous les cas.
+     */
     @Override
-    public String complete(String model, String systemPrompt, String userPrompt, Map<String, Object> responseSchema) {
+    public Reply call(Call call) {
         CopilotClient c = client();
         String sessionId = null;
         String phase = "la création de la session";
         long start = System.nanoTime();
         Duration timeout = CallTimeout.current();
         CopilotSession session = null;
+        String model = call.model();
+        List<CapturedCall> captured = new CopyOnWriteArrayList<>();
         try {
-            Optional<Consumer<String>> reasoning = reasoning(model);
-            SessionConfig config = toolLessSession(model, systemPrompt);
+            Optional<Consumer<String>> reasoning = reasoning(model, call.reasoning());
+            SessionConfig config = lockedSession(model, call.system(),
+                    call.tools().stream().map(t -> terminal(t, captured)).toList(), emptyDirectory());
             reasoning.ifPresent(r -> withReasoning(config));
+            if (call.deltas() != null) {
+                config.setStreaming(true);
+            }
             session = c.createSession(config).get(60, TimeUnit.SECONDS);
             sessionId = session.getSessionId();
-            MessageOptions message = new MessageOptions().setPrompt(userPrompt);
-            if (responseSchema != null) {
-                message.setResponseSchema(responseSchema);
+            MessageOptions message = new MessageOptions().setPrompt(call.user());
+            if (call.schema() != null) {
+                message.setResponseSchema(call.schema());
             }
             phase = "l'envoi du message";
+            String text;
             try (Closeable _ = listen(session, reasoning)) {
-                // sans délai explicite, sendAndWait abandonne au bout de 60 s, quel que soit le get()
-                AssistantMessageEvent reply = session.sendAndWait(message, timeout.toMillis())
-                        .get(timeout.toSeconds() + SDK_MARGIN_SECONDS, TimeUnit.SECONDS);
-                return reply.getData().content();
+                text = call.deltas() == null ? whole(session, message, timeout)
+                        : streamed(session, message, call, timeout);
             } catch (InterruptedException e) {
                 // génération interrompue : la requête en cours est abandonnée côté CLI
                 abortQuietly(session);
                 throw e;
             }
+            return captured.isEmpty() ? new Reply(text, List.of()) : new Reply("", List.copyOf(captured));
         } catch (GatewayException e) {
             throw e;
         } catch (Exception e) {
@@ -220,79 +273,57 @@ public class CopilotRuntime implements CopilotSdkGateway {
         }
     }
 
-    /**
-     * Réponse en flux (010, research.md R2) : session sans outil en mode streaming ; chaque
-     * {@code assistant.message_delta} est transmis, la fin arrive avec {@code session.idle}. Un arrêt
-     * demandé abandonne la requête ; la session est supprimée comme pour {@link #complete}.
-     */
-    @Override
-    public String stream(String model, String systemPrompt, String userPrompt, Consumer<String> deltas,
-            BooleanSupplier cancelled) {
-        CopilotClient c = client();
-        String sessionId = null;
-        String phase = "la création de la session";
-        long start = System.nanoTime();
-        Duration timeout = CallTimeout.current();
-        CopilotSession session = null;
-        StringBuilder text = new StringBuilder();
-        CompletableFuture<Void> idle = new CompletableFuture<>();
-        try {
-            Optional<Consumer<String>> reasoning = reasoning(model);
-            SessionConfig config = toolLessSession(model, systemPrompt).setStreaming(true);
-            reasoning.ifPresent(r -> withReasoning(config));
-            session = c.createSession(config).get(60, TimeUnit.SECONDS);
-            sessionId = session.getSessionId();
-            try (Closeable _ = listen(session, reasoning);
-                    var _ = session.on(AssistantMessageDeltaEvent.class, e -> {
-                        String delta = e.getData() == null ? null : e.getData().deltaContent();
-                        if (delta != null && !delta.isEmpty() && !idle.isDone()) {
-                            text.append(delta);
-                            deltas.accept(delta);
-                        }
-                    });
-                    var _ = session.on(SessionIdleEvent.class, e -> idle.complete(null));
-                    var _ = session.on(SessionErrorEvent.class, e -> idle.completeExceptionally(
-                            new IllegalStateException(e.getData() == null ? "session.error" : e.getData().errorType())))) {
-                phase = "l'envoi du message";
-                session.send(new MessageOptions().setPrompt(userPrompt)).get(60, TimeUnit.SECONDS);
-                phase = "la rédaction de la réponse";
-                long deadline = System.nanoTime() + timeout.toNanos();
-                while (!idle.isDone()) {
-                    if (cancelled.getAsBoolean() || Thread.currentThread().isInterrupted()) {
-                        abortQuietly(session);
-                        break;
-                    }
-                    if (System.nanoTime() > deadline) {
-                        abortQuietly(session);
-                        throw new TimeoutException("réponse en flux");
-                    }
-                    try {
-                        idle.get(200, TimeUnit.MILLISECONDS);
-                    } catch (TimeoutException e) {
-                        // on vérifie l'arrêt demandé, puis on attend encore
-                        continue;
-                    }
-                }
-            }
-            return text.toString();
-        } catch (GatewayException e) {
-            throw e;
-        } catch (Exception e) {
-            throw classify(e, phase + ", modèle " + (model == null ? "par défaut" : model) + ", après " + elapsedMs(start)
-                    + " ms (délai " + timeout.toSeconds() + " s)");
-        } finally {
-            closeQuietly(session);
-            deleteQuietly(c, sessionId);
-        }
+    /** Réponse d'un bloc ; sans délai explicite, sendAndWait abandonne au bout de 60 s, quel que soit le get(). */
+    private static String whole(CopilotSession session, MessageOptions message, Duration timeout) throws Exception {
+        AssistantMessageEvent reply = session.sendAndWait(message, timeout.toMillis())
+                .get(timeout.toSeconds() + SDK_MARGIN_SECONDS, TimeUnit.SECONDS);
+        return reply == null || reply.getData() == null || reply.getData().content() == null ? ""
+                : reply.getData().content();
     }
 
-    /** Destinataire de la réflexion, si l'écran la montre et si le modèle sait la donner. */
-    private Optional<Consumer<String>> reasoning(String model) {
-        Optional<Consumer<String>> sink = ReasoningSink.current();
-        if (sink.isEmpty() || model == null || !efforts().getOrDefault(model, List.of()).contains(reasoningEffort)) {
+    /** Réponse en flux (010, research R2) ; l'arrêt demandé abandonne la requête et garde le texte reçu. */
+    private static String streamed(CopilotSession session, MessageOptions message, Call call, Duration timeout)
+            throws Exception {
+        StringBuilder text = new StringBuilder();
+        CompletableFuture<Void> idle = new CompletableFuture<>();
+        try (var _ = session.on(AssistantMessageDeltaEvent.class, e -> {
+                    String delta = e.getData() == null ? null : e.getData().deltaContent();
+                    if (delta != null && !delta.isEmpty() && !idle.isDone()) {
+                        text.append(delta);
+                        call.deltas().accept(delta);
+                    }
+                });
+                var _ = session.on(SessionIdleEvent.class, e -> idle.complete(null));
+                var _ = session.on(SessionErrorEvent.class, e -> idle.completeExceptionally(
+                        new IllegalStateException(e.getData() == null ? "session.error" : e.getData().errorType())))) {
+            session.send(message).get(60, TimeUnit.SECONDS);
+            long deadline = System.nanoTime() + timeout.toNanos();
+            while (!idle.isDone()) {
+                if (call.cancelled().getAsBoolean() || Thread.currentThread().isInterrupted()) {
+                    abortQuietly(session);
+                    break;
+                }
+                if (System.nanoTime() > deadline) {
+                    abortQuietly(session);
+                    throw new TimeoutException("réponse en flux");
+                }
+                try {
+                    idle.get(200, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
+                    // on vérifie l'arrêt demandé, puis on attend encore
+                    continue;
+                }
+            }
+        }
+        return text.toString();
+    }
+
+    /** Destinataire de la réflexion, si l'appel la demande et si le modèle sait la donner. */
+    private Optional<Consumer<String>> reasoning(String model, Consumer<String> sink) {
+        if (sink == null || model == null || !efforts().getOrDefault(model, List.of()).contains(reasoningEffort)) {
             return Optional.empty();
         }
-        return sink;
+        return Optional.of(sink);
     }
 
     private void withReasoning(SessionConfig config) {

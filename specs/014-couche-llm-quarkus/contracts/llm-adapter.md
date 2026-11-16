@@ -12,7 +12,8 @@ de forme (voir [data-model.md](../data-model.md)).
 | Premier `UserMessage` | Début du message utilisateur, tel quel (déjà échappé et balisé par `UserMessages`). |
 | `AiMessage` avec texte | Ajouté au message utilisateur dans `<echange-outils>` sous `<reponse-precedente>…</reponse-precedente>`, échappé. |
 | `AiMessage` avec `toolExecutionRequests` | Chaque appel : `<appel id="…" outil="…">{arguments JSON échappés}</appel>`. |
-| `ToolExecutionResultMessage` | `<resultat id="…" outil="…">…texte échappé…</resultat>`. |
+| `ToolExecutionResultMessage` | `<resultat id="…" outil="…">…</resultat>`. Le texte est celui que l'outil a rendu : il est déjà balisé par l'outil, et les données qu'il contient y sont échappées (`UserMessages`). Il n'est pas échappé une seconde fois, pour que les balises `<source>` restent lisibles. |
+| `UserMessage` suivant (reprise demandée par un garde-fou) | `<correction>…texte échappé…</correction>`. |
 | `parameters().toolSpecifications()` | Un `ToolDefinition` SDK par outil : même nom, même description, même schéma de paramètres, `isTerminal=true`, `skipPermission=true`. |
 | `parameters().responseFormat()` (schéma JSON) | `MessageOptions.setResponseSchema(StrictJsonSchema.strict(…))`. |
 | `modelName()` | Modèle de la session, sinon `ModelSelection.currentModel()`. |

@@ -46,9 +46,9 @@ JDK 25 en tête du `PATH`, Maven sous `env -u JAVA_TOOL_OPTIONS`.
 
 ## Phase 1: Setup
 
-- [ ] T001 Vérifier le point de départ : branche `feature/018-couche-llm-quarkus` rebasée sur
+- [X] T001 Vérifier le point de départ : branche `feature/018-couche-llm-quarkus` rebasée sur
   `main` (PR #16 incluse), gates verts avant toute modification.
-- [ ] T002 Test d'essai « appels parallèles » (research R2), avec l'accord du mainteneur.
+- [X] T002 Test d'essai « appels parallèles » (research R2), avec l'accord du mainteneur.
   - Dans `backend/src/test/java/dev/specwriter/spike/CopilotToolsSpikeIT.java`, ajouter
     `s6_appelsParallelesTerminaux` : deux outils terminaux, une demande qui appelle les deux.
   - Consigner si **tous** les appels d'une même réponse sont capturés avant l'arrêt du tour.
@@ -65,7 +65,7 @@ rejeu) est prêt. Aucune opération n'est encore migrée.
 
 ### Renommage (research R10) : un commit à lui seul
 
-- [ ] T003 Déplacer les packages.
+- [X] T003 Déplacer les packages.
   - `git mv backend/src/main/java/dev/specwriter backend/src/main/java/fr/kawamind`, et de même
     pour `src/test/java`.
   - Remplacer `dev.specwriter.` par `fr.kawamind.` dans :
@@ -76,9 +76,9 @@ rejeu) est prêt. Aucune opération n'est encore migrée.
     - les chemins de `BT/eval/EvalFingerprint.java` et `EvalFingerprintTest.java`.
   - Ne **pas** toucher les clés `%dev.specwriter.` de `BR/application.properties`, ni les specs
     passées.
-- [ ] T004 groupId `fr.kawamind` dans `pom.xml`, `backend/pom.xml`, `frontend/pom.xml`, et le
+- [X] T004 groupId `fr.kawamind` dans `pom.xml`, `backend/pom.xml`, `frontend/pom.xml`, et le
   `groupId` Maven de `jreleaser.yml`. `packageIdentifier: dev.specwriter.app` reste inchangé.
-- [ ] T005 Supprimer `backend/target/classes` et `test-classes` (classes de l'IDE), puis passer
+- [X] T005 Supprimer `backend/target/classes` et `test-classes` (classes de l'IDE), puis passer
   les gates.
   - Contrôle : `git grep -n "dev\.specwriter" -- backend/src frontend/src` ne rend que les clés
     `%dev.specwriter.`.
@@ -87,7 +87,7 @@ rejeu) est prêt. Aucune opération n'est encore migrée.
 
 ### Adaptateur `ChatModel` à outils (contracts/llm-adapter.md)
 
-- [ ] T006 [P] Tests `BT/infrastructure/llm/CopilotSdkChatModelTest.java`, sur un double de
+- [X] T006 [P] Tests `BT/infrastructure/llm/CopilotSdkChatModelTest.java`, sur un double de
   `CopilotSdkGateway` étendu :
   - les `ToolSpecification` deviennent des outils SDK terminaux et `skipPermission` ;
   - un appel capturé rend `AiMessage` avec les `ToolExecutionRequest` (identifiant, nom,
@@ -96,38 +96,38 @@ rejeu) est prêt. Aucune opération n'est encore migrée.
     `<echange-outils>`, échappé ;
   - le message système reste seul système ;
   - `supportedCapabilities` contient `RESPONSE_FORMAT_JSON_SCHEMA`.
-- [ ] T007 Étendre `CopilotSdkGateway` et `LLM/CopilotRuntime.java`.
+- [X] T007 Étendre `CopilotSdkGateway` et `LLM/CopilotRuntime.java`.
   - Nouvelle méthode `call(model, system, user, schema, tools, Consumer<String> deltas, cancelled)`,
     qui rend un texte ou des appels capturés.
   - `complete` et `stream` deviennent des cas particuliers.
-- [ ] T008 Implémenter la traduction dans `LLM/CopilotSdkChatModel.java` jusqu'à faire passer
+- [X] T008 Implémenter la traduction dans `LLM/CopilotSdkChatModel.java` jusqu'à faire passer
   T006.
 
 ### Flux, journal, production des modèles
 
-- [ ] T009 [P] Tests `BT/infrastructure/llm/CopilotSdkStreamingChatModelTest.java` :
+- [X] T009 [P] Tests `BT/infrastructure/llm/CopilotSdkStreamingChatModelTest.java` :
   - morceaux transmis à `onPartialResponse` ;
   - réflexion transmise à `onPartialThinking` ;
   - appels d'outils rendus à `onCompleteResponse` ;
   - `StreamingHandle.cancel()` abandonne la session ;
   - erreurs traduites comme dans `toDomain`.
-- [ ] T010 Implémenter `LLM/CopilotSdkStreamingChatModel.java`.
-- [ ] T011 [P] Tests `BT/infrastructure/llm/LlmCallLogTest.java` : ligne
+- [X] T010 Implémenter `LLM/CopilotSdkStreamingChatModel.java`.
+- [X] T011 [P] Tests `BT/infrastructure/llm/LlmCallLogTest.java` : ligne
   `LLM <op> : <ms> ms, <n> tentative(s)[, outils : …]`, sans aucun fragment de consigne, de donnée
   ni de réponse (FR-008).
-- [ ] T012 Implémenter `LLM/LlmCallLog.java` (`ChatModelListener`, opération lue par
+- [X] T012 Implémenter `LLM/LlmCallLog.java` (`ChatModelListener`, opération lue par
   `Operations.of`). `LLM/ChatModelProducer.java` produit `ChatModel` et `StreamingChatModel`
   (Copilot ou rejeu).
 
 ### Rejeu (contracts/replay-format.md)
 
-- [ ] T013 [P] Tests `BT/infrastructure/llm/ReplayChatModelTest.java` et
+- [X] T013 [P] Tests `BT/infrastructure/llm/ReplayChatModelTest.java` et
   `ReplayStreamingChatModelTest.java` :
   - `toolCalls` et `afterTools` ;
   - substitutions appliquées aux `arguments` ;
   - un seul champ parmi `response`, `text` et `toolCalls` ;
   - message d'échec qui nomme l'opération, l'étape et les fragments manquants (US5).
-- [ ] T014 Étendre `LLM/ReplayChatModel.java` et créer `LLM/ReplayStreamingChatModel.java`.
+- [X] T014 Étendre `LLM/ReplayChatModel.java` et créer `LLM/ReplayStreamingChatModel.java`.
 
 **Checkpoint** : gates verts. Les opérations passent encore par l'ancien code, inchangé. Commit
 `feat(llm): adaptateurs ChatModel et StreamingChatModel à outils terminaux, rejeu étendu`.
@@ -141,22 +141,22 @@ rejeu) est prêt. Aucune opération n'est encore migrée.
 **Independent Test** : tests de réglages de session, d'outil inconnu, d'arguments invalides ; cas
 d'injection dans l'évaluation (quickstart 3 et 4).
 
-- [ ] T015 [P] [US2] Tests dans `CopilotSdkChatModelTest` et `CopilotSdkStreamingChatModelTest`
+- [X] T015 [P] [US2] Tests dans `CopilotSdkChatModelTest` et `CopilotSdkStreamingChatModelTest`
   (contracts/llm-adapter.md, réglages obligatoires). Pour une requête sans outil et avec outils :
   - `availableTools` exact ;
   - permissions refusées ;
   - `setEnableSkills(false)`, `setSkipCustomInstructions(true)`, `setEnableConfigDiscovery(false)` ;
   - dossier de travail privé vide.
-- [ ] T016 [US2] Implémenter ces réglages dans `LLM/CopilotRuntime.java`, en remplacement de
+- [X] T016 [US2] Implémenter ces réglages dans `LLM/CopilotRuntime.java`, en remplacement de
   `toolLessSession`. Le dossier `<data-dir>/copilot/empty` est créé en `rwx------`, via
   `UserDirectories`.
-- [ ] T017 [P] [US2] Test de règles des consignes, et règle de sécurité sur `<echange-outils>`
+- [X] T017 [P] [US2] Test de règles des consignes, et règle de sécurité sur `<echange-outils>`
   (contenu = donnée). La règle s'applique à toute consigne qui reçoit des résultats d'outils :
   aujourd'hui aucune, puis `converse-agent` (T034), dont ce test garde la règle.
   - Test `BT/infrastructure/llm/PromptRulesTest.java` :
     - chaque consigne a la règle des balises ;
     - aucune accolade dans les consignes (research R3).
-- [ ] T018 [P] [US2] Étendre `BT/infrastructure/llm/PromptInjectionIT.java` avec un résultat
+- [X] T018 [P] [US2] Étendre `BT/infrastructure/llm/PromptInjectionIT.java` avec un résultat
   d'outil piégé (ticket rejoué qui demande de lire un fichier) : aucun outil hors liste, aucun
   fichier lu, contenu jamais en système.
 - [ ] T019 [US2] Volet d'évaluation `BT/eval/InjectionRuns.java`.

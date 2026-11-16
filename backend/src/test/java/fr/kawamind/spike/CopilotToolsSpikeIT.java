@@ -215,6 +215,39 @@ class CopilotToolsSpikeIT {
         log("  S3 bilan : appels capturés=%d, événements=%s", captured.size(), events.stream().distinct().toList());
     }
 
+    /** 6. Appels parallèles (014, research R2) : tous les appels terminaux d'une réponse sont-ils capturés ? */
+    @Test
+    void s6_appelsParallelesTerminaux() throws Exception {
+        log("--- S6 : deux outils terminaux demandés dans la même réponse");
+        List<String> captured = new CopyOnWriteArrayList<>();
+        List<String> events = new CopyOnWriteArrayList<>();
+        ToolDefinition search = new ToolDefinition("search_knowledge", "Recherche dans la connaissance du projet.",
+                Map.of("type", "object", "properties", Map.of("query", Map.of("type", "string")), "required",
+                        List.of("query")),
+                invocation -> {
+                    captured.add("search_knowledge " + invocation.getArguments());
+                    log("  -> search_knowledge %s (id %s)", invocation.getArguments(), invocation.getToolCallId());
+                    return CompletableFuture.completedFuture("reçu");
+                }, null, true, null, null, true, null);
+        ToolDefinition perimeter = new ToolDefinition("analyze_perimeter",
+                "Analyse les modules du code touchés par des termes.",
+                Map.of("type", "object", "properties", Map.of("terms", Map.of("type", "array", "items",
+                        Map.of("type", "string"))), "required", List.of("terms")),
+                invocation -> {
+                    captured.add("analyze_perimeter " + invocation.getArguments());
+                    log("  -> analyze_perimeter %s (id %s)", invocation.getArguments(), invocation.getToolCallId());
+                    return CompletableFuture.completedFuture("reçu");
+                }, null, true, null, null, true, null);
+        SessionConfig config = base("Tu es l'agent de spec-writer. Quand plusieurs outils sont utiles, appelle-les "
+                + "tous en même temps, dans la même réponse.", events)
+                .setTools(List.of(search, perimeter))
+                .setAvailableTools(List.of("search_knowledge", "analyze_perimeter"));
+        ask(config, "En un seul tour et en parallèle : cherche « avoirs partiels » dans la connaissance ET analyse "
+                + "le périmètre des termes CreditNote et billing-credit.");
+        log("  S6 bilan : appels capturés=%d %s, événements=%s", captured.size(), captured,
+                events.stream().distinct().toList());
+    }
+
     /** 4. Skill fourni par l'application, avec et sans l'outil « skill » autorisé. */
     @Test
     void s4_skillFourni() throws Exception {

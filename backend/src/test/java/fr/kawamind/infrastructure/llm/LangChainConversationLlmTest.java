@@ -105,18 +105,10 @@ class LangChainConversationLlmTest {
 
     @Test
     void fluxCopilotEtErreursMetier() {
-        CopilotConversationStream stream = new CopilotConversationStream(new CopilotSdkGateway() {
-            @Override
-            public String complete(String model, String s, String u, java.util.Map<String, Object> schema) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public String stream(String model, String s, String u, java.util.function.Consumer<String> deltas,
-                    java.util.function.BooleanSupplier cancelled) {
-                assertThat(model).isEqualTo("claude-sonnet-5.5");
-                throw new CopilotSdkGateway.GatewayException(CopilotSdkGateway.GatewayException.Kind.QUOTA_EXHAUSTED, "quota", null);
-            }
+        CopilotConversationStream stream = new CopilotConversationStream(call -> {
+            assertThat(call.model()).isEqualTo("claude-sonnet-5.5");
+            assertThat(call.deltas()).isNotNull();
+            throw new CopilotSdkGateway.GatewayException(CopilotSdkGateway.GatewayException.Kind.QUOTA_EXHAUSTED, "quota", null);
         }, () -> Optional.of("claude-sonnet-5.5"));
         assertThatThrownBy(() -> stream.stream("s", "u", d -> { }, () -> false)).isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.code()).isEqualTo(ErrorCode.QUOTA_EXHAUSTED));

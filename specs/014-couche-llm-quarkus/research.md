@@ -71,8 +71,10 @@ Cette décision **remplace** :
 - **Appels parallèles** : l'essai S2 montre que le modèle peut demander plusieurs outils dans une
   même réponse.
   - Tous les appels d'une réponse sont capturés avant l'arrêt du tour.
-  - À vérifier par un test d'essai en début d'implémentation (T-spike). S'ils ne le sont pas,
-    l'adaptateur demande un seul appel par réponse dans la consigne de l'agent.
+  - **Vérifié le 16/11** (essai `s6_appelsParallelesTerminaux`, T002) : Copilot demande les deux
+    outils terminaux dans la même réponse ; les deux appels sont capturés (identifiants
+    `toolu_…` distincts, arguments structurés) et la réponse du tour est vide. Aucun repli
+    nécessaire : la consigne de l'agent n'impose pas un outil par réponse.
 
 **Rationale** : c'est la seule façon de laisser la boucle au framework avec un modèle servi par la
 CLI. L'essai S3 l'a montré possible sans rien exécuter côté CLI.
@@ -130,9 +132,15 @@ CLI. L'essai S3 l'a montré possible sans rien exécuter côté CLI.
   transmet en mode strict (`StrictJsonSchema`, gardé).
 - **Relances** : un garde-fou de sortie (`OutputGuardrail`) par famille valide la réponse
   (`LlmSchemas`, règles du domaine comme le thème de question connu). En cas d'échec, il demande
-  une **reprise** (`reprompt`) avec un message neutre, deux fois au plus
-  (`quarkus.langchain4j.guardrails.max-retries=2`). La boucle `MAX_ATTEMPTS` de
-  `LangChainLlmClient` est supprimée.
+  une **reprise** (`reprompt`) avec un message neutre, deux fois au plus. Dans langchain4j,
+  `max-retries` compte toutes les tentatives : `quarkus.langchain4j.guardrails.max-retries=3`
+  garde les 3 essais de l'ancienne boucle `MAX_ATTEMPTS`, qui est supprimée.
+- **Schémas** : le schéma généré depuis le type de retour perdrait les énumérations de
+  `LlmSchemas` (thèmes sans `CONTRADICTION`, sortes de source…). Chaque méthode reçoit donc un
+  paramètre `ChatRequestParameters` portant le schéma de `LlmSchemas` : l'extension le fait
+  primer sur le schéma généré (`defaultedBy`). `quarkus.langchain4j.response-schema=false` : aucun
+  schéma n'est ajouté au texte des messages. Le garde-fou rend l'objet du domaine
+  (`successWith(texte, objet)`), que la méthode renvoie tel quel.
 - **Journal** : un `ChatModelListener` consigne l'opération (lue dans le marqueur), la durée, le
   numéro de tentative et les noms d'outils appelés. Jamais le contenu (FR-008). Les lignes
   actuelles (`LLM <op> : <ms> ms, <n> tentative(s)`) sont conservées à l'identique, pour les
