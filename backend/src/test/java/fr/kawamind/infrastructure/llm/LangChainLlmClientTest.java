@@ -24,7 +24,17 @@ import java.util.logging.LogRecord;
 import org.junit.jupiter.api.Test;
 
 /** T162 (FR-012b) : le résumé et les détails de la spécification produite sont du Markdown. */
+@io.quarkus.test.junit.QuarkusTest
 class LangChainLlmClientTest {
+
+    /** Port de l'application, sur les AI Services (014). */
+    @jakarta.inject.Inject
+    fr.kawamind.domain.port.LlmClient llm;
+
+    private fr.kawamind.domain.port.LlmClient client(ChatModel model) {
+        io.quarkus.test.junit.QuarkusMock.installMockForType(model, ChatModel.class);
+        return llm;
+    }
 
     static final String SPEC = """
             {"title": "Paiement", "summary": "Le client paie.\\n\\n||Moyen||Frais||\\n|Carte|0 €|",
@@ -36,7 +46,7 @@ class LangChainLlmClientTest {
     void lesTableauxWikiDuLlmDeviennentDesTableauxMarkdown() {
         ScriptedChatModel model = new ScriptedChatModel().then("generate-specification", List.of(), SPEC);
 
-        DraftSpecification draft = new LangChainLlmClient(model)
+        DraftSpecification draft = client(model)
                 .generateSpecification(new GenerationRequest("Payer en ligne", Language.FR, List.of()));
 
         assertThat(draft.summary()).isEqualTo("Le client paie.\n\n| Moyen | Frais |\n| --- | --- |\n| Carte | 0 € |");
@@ -54,7 +64,7 @@ class LangChainLlmClientTest {
                         new ProjectKnowledge.Subtask("FACT-21", "En cours", false, "API de paiement"),
                         new ProjectKnowledge.Subtask("FACT-22", "Terminé", true, "Écran <carte>"))));
 
-        new LangChainLlmClient(model).generateSpecification(new GenerationRequest("Payer en ligne", Language.FR, List.of(),
+        client(model).generateSpecification(new GenerationRequest("Payer en ligne", Language.FR, List.of(),
                 "", knowledge));
 
         ScriptedChatModel.Received call = model.received().getFirst();
@@ -74,8 +84,9 @@ class LangChainLlmClientTest {
         assertThat(root.properties()).containsKeys("summary", "details");
     }
 
+    /** L'erreur du modèle reste celle du port, cause comprise ; le journal est celui de LlmCallLog (LlmCallLogTest). */
     @Test
-    void lEchecDUnAppelEstJournaliseAvecLOperationLaTentativeEtLaCause() {
+    void lEchecDUnAppelGardeSonErreurMetier() {
         DomainException failure = new DomainException(ErrorCode.LLM_UNAVAILABLE, "indisponible",
                 new IllegalStateException("UNAVAILABLE pendant l'envoi du message"));
         ChatModel failing = new ChatModel() {
@@ -84,41 +95,12 @@ class LangChainLlmClientTest {
                 throw failure;
             }
         };
-        List<LogRecord> logged = Collections.synchronizedList(new ArrayList<>());
-        java.util.logging.Logger logger = java.util.logging.Logger.getLogger(LangChainLlmClient.class.getName());
-        Handler capture = new Handler() {
-            @Override
-            public void publish(LogRecord record) {
-                logged.add(record);
-            }
-
-            @Override
-            public void flush() {
-            }
-
-            @Override
-            public void close() {
-            }
-        };
-        logger.addHandler(capture);
-        try {
-            assertThatThrownBy(() -> new LangChainLlmClient(failing)
-                    .generateSpecification(new GenerationRequest("Payer en ligne", Language.FR, List.of())))
-                    .isSameAs(failure);
-        } finally {
-            logger.removeHandler(capture);
-        }
-        assertThat(logged).anySatisfy(r -> {
-            assertThat(r.getLevel()).isEqualTo(java.util.logging.Level.WARNING);
-            assertThat(new java.util.logging.SimpleFormatter().formatMessage(r))
-                    .matches("LLM generate-specification : échec à la tentative 1 après \\d+ ms \\(LLM_UNAVAILABLE\\)");
-            assertThat(r.getThrown()).isSameAs(failure);
-        });
-        assertThat(logged).noneSatisfy(r -> assertThat(new java.util.logging.SimpleFormatter().formatMessage(r))
-                .contains("Payer en ligne"));
+        assertThatThrownBy(() -> client(failing)
+                .generateSpecification(new GenerationRequest("Payer en ligne", Language.FR, List.of())))
+                .isSameAs(failure);
     }
 
-    /** Chaque appel a le délai configuré ; hors d'un appel, le délai par défaut. */
+    /** Chaque appel a le délai configuré (180 s, specwriter.llm.timeout.interactive). */
     @Test
     void delaiDUnAppel() {
         List<java.time.Duration> seen = new ArrayList<>();
@@ -129,11 +111,8 @@ class LangChainLlmClientTest {
                 throw new DomainException(ErrorCode.LLM_UNAVAILABLE);
             }
         };
-        LangChainLlmClient client = new LangChainLlmClient(recording, java.time.Duration.ofSeconds(90));
-        assertThatThrownBy(() -> client.generateSpecification(new GenerationRequest("b", Language.FR, List.of())))
-                .isInstanceOf(DomainException.class);
-        assertThat(seen).containsExactly(java.time.Duration.ofSeconds(90));
-        assertThat(CallTimeout.current()).isEqualTo(CallTimeout.DEFAULT);
-        assertThat(CallTimeout.DEFAULT).isEqualTo(java.time.Duration.ofSeconds(180));
+        assertThatThrownBy(() -> client(recording).generateSpecification(new GenerationRequest("b", Language.FR,
+                List.of()))).isInstanceOf(DomainException.class);
+        assertThat(seen).containsExactly(java.time.Duration.ofSeconds(180));
     }
 }

@@ -213,14 +213,14 @@ de l'évaluation.
 
 ### Famille Specification
 
-- [ ] T027 [P] [US1] Tests `SpecificationAiTest.java` :
+- [X] T027 [P] [US1] Tests `SpecificationAiTest.java` :
   - `generate-specification`, `edit-specification`, `merge-conflict`, `structure-imported-text` ;
   - `revise-specification`, `list-changes` ;
   - garde-fous : structure, traçabilité, tableaux, périmètre de révision.
-- [ ] T028 [US1] Créer `LLM/ai/SpecificationAi.java` et ses garde-fous.
+- [X] T028 [US1] Créer `LLM/ai/SpecificationAi.java` et ses garde-fous.
   - `LangChainLlmClient` et `LangChainConversationLlm` (`revise`, `changes`) délèguent.
   - Supprimer la boucle `MAX_ATTEMPTS` de `LangChainLlmClient` quand plus rien ne l'utilise.
-- [ ] T029 [US1] Évaluation réelle :
+- [X] T029 [US1] Évaluation réelle :
   - `scenarioStructure`, `revisionCompleteness`, `revisionPreservation`, `revisionStructure` ;
   - `unchangedRecall`, `changesRecall`, `changesPrecision`.
 

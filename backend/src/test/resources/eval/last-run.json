@@ -1,13 +1,13 @@
 {
-  "date" : "2026-11-16T22:19:51Z",
-  "fingerprint" : "ea09606a37569e037479f00044d905f7478596a64e31929a1dbe0e8961d31156",
+  "date" : "2026-11-16T23:24:50Z",
+  "fingerprint" : "96a0812459ef1014571c089e195769604c11d79652608ca3c25222b8e2b06741",
   "model" : "défaut du compte",
   "copilotSdk" : "1.0.28-preview.0",
   "copilotCli" : "embarqué",
   "runs" : 3,
   "scores" : {
     "scenarioStructure" : 1.0,
-    "questionRelevance" : 0.9633,
+    "questionRelevance" : 0.9919,
     "conversationCitation" : 1.0,
     "conversationAbstention" : 1.0,
     "inconsistencyRecall" : 1.0,
@@ -33,13 +33,9 @@
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 1,
-    "questions" : 9,
-    "irrelevant" : [ {
-      "question" : "Qui supporte réellement les frais de traitement : le client (ajoutés au total du panier) ou la boutique (paiement sans surcoût pour le client) ? Comment sont-ils calculés et affichés ?",
-      "verdict" : "REDONDANTE",
-      "reason" : "Reformule la question 1 sur la charge des frais, déjà tranchée par la réponse précédente ; seul le calcul et l'affichage s'ajoutent, déjà couverts par la réponse."
-    } ],
-    "scenarios" : 5,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
@@ -51,16 +47,16 @@
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 1,
-    "questions" : 5,
+    "questions" : 7,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 4,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 1,
-    "questions" : 6,
+    "questions" : 0,
     "irrelevant" : [ ],
-    "scenarios" : 8,
+    "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
@@ -72,101 +68,97 @@
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 1,
-    "questions" : 6,
+    "questions" : 7,
     "irrelevant" : [ ],
-    "scenarios" : 7,
+    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
     "case" : "01-reservation-salle",
-    "run" : 2,
-    "questions" : 6,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "02-paiement-en-ligne",
-    "run" : 2,
-    "questions" : 11,
-    "irrelevant" : [ {
-      "question" : "Que doit-il se passer si le paiement échoue (carte refusée, fonds insuffisants, 3D Secure échoué, service indisponible) ?",
-      "verdict" : "REDONDANTE",
-      "reason" : "Le besoin ne traite pas les échecs de paiement, et la réponse précédente ne couvre qu'en partie ; question utile pour les scénarios d'échec."
-    } ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "03-export-comptable",
-    "run" : 2,
-    "questions" : 7,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "04-facturation-avec-contexte",
-    "run" : 2,
-    "questions" : 6,
-    "irrelevant" : [ ],
-    "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "05-conges-avec-contexte",
-    "run" : 2,
-    "questions" : 5,
-    "irrelevant" : [ ],
-    "scenarios" : 7,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "06-api-avec-contexte-technique",
-    "run" : 2,
-    "questions" : 7,
-    "irrelevant" : [ ],
-    "scenarios" : 10,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "07-avoir-adr-architecture",
     "run" : 2,
     "questions" : 6,
     "irrelevant" : [ ],
     "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
+    "case" : "02-paiement-en-ligne",
+    "run" : 2,
+    "questions" : 10,
+    "irrelevant" : [ ],
+    "scenarios" : 10,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "03-export-comptable",
+    "run" : 2,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "04-facturation-avec-contexte",
+    "run" : 2,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "05-conges-avec-contexte",
+    "run" : 2,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "06-api-avec-contexte-technique",
+    "run" : 2,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 9,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "07-avoir-adr-architecture",
+    "run" : 2,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
+    "structureViolations" : [ ]
+  }, {
     "case" : "01-reservation-salle",
     "run" : 3,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ {
-      "question" : "Quelles sont les contraintes de performance et de volumétrie attendues (nombre d'utilisateurs simultanés, temps de réponse de la vérification de disponibilité) ?",
-      "verdict" : "HORS_SUJET",
-      "reason" : "La performance et la volumétrie sont des contraintes non fonctionnelles qui ne changent pas les use cases ni les scénarios d'acceptation fonctionnels ; question hors sujet pour la spécification demandée."
+      "verdict" : "REDONDANTE",
+      "question" : "Quand la salle est déjà prise, comment l'employé doit-il être prévenu et que lui propose-t-on ensuite ?",
+      "reason" : "Le besoin mentionne seulement qu'on prévient l'employé ; la réponse à la question 2 donnait déjà le message et les salles alternatives du même étage, donc la question est redondante."
     } ],
-    "scenarios" : 8,
+    "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 3,
-    "questions" : 10,
+    "questions" : 9,
     "irrelevant" : [ ],
     "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
     "run" : 3,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
+    "structureViolations" : [ ]
+  }, {
+    "case" : "04-facturation-avec-contexte",
+    "run" : 3,
     "questions" : 7,
     "irrelevant" : [ ],
     "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
-    "case" : "04-facturation-avec-contexte",
+    "case" : "05-conges-avec-contexte",
     "run" : 3,
     "questions" : 8,
     "irrelevant" : [ ],
     "scenarios" : 6,
-    "structureViolations" : [ ]
-  }, {
-    "case" : "05-conges-avec-contexte",
-    "run" : 3,
-    "questions" : 6,
-    "irrelevant" : [ ],
-    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
@@ -178,17 +170,9 @@
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 3,
-    "questions" : 7,
-    "irrelevant" : [ {
-      "question" : "Quelles exigences de traçabilité, d'audit et de conservation s'appliquent à l'émission d'un avoir et à ses envois à la comptabilité et au client ?",
-      "verdict" : "REDONDANTE",
-      "reason" : "La traçabilité et l'audit ont déjà été abordés dans la question 5, qui les mentionnait explicitement."
-    }, {
-      "question" : "Quel délai maximal et quelle politique de relance sont attendus pour l'appel synchrone à la comptabilité et pour l'envoi éditique ?",
-      "verdict" : "REDONDANTE",
-      "reason" : "Les délais et relances sont déjà abordés par la question 4 sur les échecs et par la question 5 sur les exigences de délai."
-    } ],
-    "scenarios" : 7,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
     "structureViolations" : [ ]
   } ],
   "conversation" : [ {
@@ -389,7 +373,7 @@
       "discussionCitation" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#summary", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03" ]
   }, {
     "case" : "incoherence-relance-postale",
     "run" : 1,
@@ -398,7 +382,7 @@
       "discussionInconsistency" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03", "AUR-12", "https://docs.aurora.example/lettrage.html#delai", "AUR-31", "https://docs.aurora.example/factures.html#numerotation", "https://docs.aurora.example/echeances.html" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01" ]
   }, {
     "case" : "revision-delai",
     "run" : 1,
@@ -447,7 +431,7 @@
       "discussionCitation" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#summary", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#functional", "spec:00000000-0000-0000-0000-000000000001@v1#technical" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#summary", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#functional", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions" ]
   }, {
     "case" : "citation-premiere-relance",
     "run" : 2,
@@ -456,7 +440,7 @@
       "discussionCitation" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01" ]
   }, {
     "case" : "incoherence-relance-postale",
     "run" : 2,
@@ -465,7 +449,7 @@
       "discussionInconsistency" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "AUR-12", "https://docs.aurora.example/lettrage.html#delai", "AUR-31", "https://docs.aurora.example/factures.html#numerotation", "https://docs.aurora.example/echeances.html" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03" ]
   }, {
     "case" : "revision-delai",
     "run" : 2,
@@ -523,7 +507,7 @@
       "discussionCitation" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#UC-02" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#summary" ]
   }, {
     "case" : "incoherence-relance-postale",
     "run" : 3,
@@ -532,7 +516,7 @@
       "discussionInconsistency" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#technical" ]
   }, {
     "case" : "revision-delai",
     "run" : 3,
@@ -577,19 +561,19 @@
   "perimeter" : [ {
     "case" : "statut-suspendu",
     "run" : 1,
-    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "SUSPENDU", "SUSPENDED", "ContractState" ],
+    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "SUSPENDU", "SUSPENDED", "Contract", "contrat" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
       "facturation" : "IMPACTED",
-      "quarkus-contract" : "TO_CHECK",
+      "quarkus-contract" : "IMPACTED",
+      "common-contract" : "IMPACTED",
       "facturation-chart" : "TO_CHECK",
+      "aggregates" : "TO_CHECK",
       "demo-front" : "IMPACTED",
       "ancien" : "NOT_IMPACTED",
-      "common-contract" : "IMPACTED",
       "annuaire" : "NOT_IMPACTED",
       "batch-suspension" : "TO_CHECK",
-      "aggregates" : "TO_CHECK",
       "relance" : "TO_CHECK"
     }
   }, {
@@ -602,7 +586,7 @@
       "facturation" : "IMPACTED",
       "quarkus-contract" : "TO_CHECK",
       "facturation-chart" : "IMPACTED",
-      "demo-front" : "TO_CHECK",
+      "demo-front" : "NOT_IMPACTED",
       "ancien" : "NOT_IMPACTED",
       "common-contract" : "TO_CHECK",
       "annuaire" : "NOT_IMPACTED",
@@ -612,7 +596,7 @@
   }, {
     "case" : "topic-suspension",
     "run" : 1,
-    "terms" : [ "contract_suspended", "contract.suspended", "contract-suspended", "ContractSuspended" ],
+    "terms" : [ "contract_suspended", "contract.suspended", "contract-suspended", "contractSuspended", "ContractSuspendedEvent" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
@@ -634,7 +618,7 @@
       "common-contract" : "TO_CHECK",
       "annuaire" : "NOT_IMPACTED",
       "aggregates" : "TO_CHECK",
-      "relance" : "TO_CHECK"
+      "relance" : "NOT_IMPACTED"
     }
   }, {
     "case" : "api-statut",
@@ -656,7 +640,7 @@
   }, {
     "case" : "supprimer-closed",
     "run" : 1,
-    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "CLOSED" ],
+    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "CLOSED", "ContractStatus.CLOSED", "ContractStatus::CLOSED" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
@@ -683,7 +667,7 @@
   }, {
     "case" : "tva-livres",
     "run" : 1,
-    "terms" : [ "VatRate", "VAT_RATE", "BOOKS", "VatRate.BOOKS", "vat.rate", "tauxTva" ],
+    "terms" : [ "VatRate", "VatRate.BOOKS", "BOOKS", "vat_rate", "TVA", "vat", "taux_tva" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
@@ -693,7 +677,7 @@
   }, {
     "case" : "statut-suspendu",
     "run" : 2,
-    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "SUSPENDU", "SUSPENDED", "Contract", "Contrat" ],
+    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "SUSPENDU", "SUSPENDED", "Contract" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
@@ -728,7 +712,7 @@
   }, {
     "case" : "topic-suspension",
     "run" : 2,
-    "terms" : [ "contract_suspended", "contract.suspended", "contract-suspended", "ContractSuspended" ],
+    "terms" : [ "contract_suspended", "contract.suspended", "contract-suspended", "ContractSuspended", "ContractSuspendedEvent" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
@@ -742,7 +726,7 @@
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
-      "facturation" : "NOT_IMPACTED",
+      "facturation" : "TO_CHECK",
       "quarkus-contract" : "TO_CHECK",
       "facturation-chart" : "NOT_IMPACTED",
       "demo-front" : "IMPACTED",
@@ -750,11 +734,127 @@
       "common-contract" : "TO_CHECK",
       "annuaire" : "NOT_IMPACTED",
       "aggregates" : "TO_CHECK",
-      "relance" : "NOT_IMPACTED"
+      "relance" : "TO_CHECK"
     }
   }, {
     "case" : "api-statut",
     "run" : 2,
+    "terms" : [ "ContractResource", "ContractStatus", "CONTRACT_STATUS", "contract.status", "ContractDto", "ContractMapper" ],
+    "recall" : 1.0,
+    "agreement" : 1.0,
+    "found" : {
+      "facturation" : "IMPACTED",
+      "quarkus-contract" : "IMPACTED",
+      "facturation-chart" : "TO_CHECK",
+      "demo-front" : "TO_CHECK",
+      "ancien" : "NOT_IMPACTED",
+      "common-contract" : "TO_CHECK",
+      "annuaire" : "NOT_IMPACTED",
+      "aggregates" : "TO_CHECK",
+      "relance" : "TO_CHECK"
+    }
+  }, {
+    "case" : "supprimer-closed",
+    "run" : 2,
+    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "CLOSED" ],
+    "recall" : 1.0,
+    "agreement" : 1.0,
+    "found" : {
+      "facturation" : "TO_CHECK",
+      "demo-front" : "IMPACTED",
+      "common-contract" : "IMPACTED",
+      "quarkus-contract" : "TO_CHECK",
+      "facturation-chart" : "TO_CHECK",
+      "ancien" : "NOT_IMPACTED",
+      "annuaire" : "NOT_IMPACTED",
+      "aggregates" : "TO_CHECK",
+      "relance" : "TO_CHECK"
+    }
+  }, {
+    "case" : "paiement-paypal",
+    "run" : 2,
+    "terms" : [ "PaymentMethod", "PAYMENT_METHOD", "PAYPAL" ],
+    "recall" : 1.0,
+    "agreement" : 1.0,
+    "found" : {
+      "panier" : "TO_CHECK",
+      "paiement" : "IMPACTED"
+    }
+  }, {
+    "case" : "tva-livres",
+    "run" : 2,
+    "terms" : [ "VatRate", "VatRate.BOOKS", "BOOKS", "vat_rate", "TVA", "vat", "taux_tva" ],
+    "recall" : 1.0,
+    "agreement" : 1.0,
+    "found" : {
+      "catalogue" : "IMPACTED",
+      "vitrine" : "IMPACTED"
+    }
+  }, {
+    "case" : "statut-suspendu",
+    "run" : 3,
+    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "SUSPENDU", "SUSPENDED", "Contract" ],
+    "recall" : 1.0,
+    "agreement" : 1.0,
+    "found" : {
+      "facturation" : "IMPACTED",
+      "quarkus-contract" : "IMPACTED",
+      "common-contract" : "IMPACTED",
+      "facturation-chart" : "TO_CHECK",
+      "aggregates" : "TO_CHECK",
+      "demo-front" : "IMPACTED",
+      "ancien" : "NOT_IMPACTED",
+      "annuaire" : "NOT_IMPACTED",
+      "batch-suspension" : "TO_CHECK",
+      "relance" : "TO_CHECK"
+    }
+  }, {
+    "case" : "cle-configuration",
+    "run" : 3,
+    "terms" : [ "contract.status", "contract_status", "contractStatus", "contract-status" ],
+    "recall" : 1.0,
+    "agreement" : 1.0,
+    "found" : {
+      "facturation" : "IMPACTED",
+      "quarkus-contract" : "TO_CHECK",
+      "facturation-chart" : "IMPACTED",
+      "demo-front" : "TO_CHECK",
+      "ancien" : "NOT_IMPACTED",
+      "common-contract" : "TO_CHECK",
+      "annuaire" : "NOT_IMPACTED",
+      "aggregates" : "TO_CHECK",
+      "relance" : "TO_CHECK"
+    }
+  }, {
+    "case" : "topic-suspension",
+    "run" : 3,
+    "terms" : [ "contract_suspended", "contract.suspended", "contract-suspended", "contractSuspended", "ContractSuspendedEvent" ],
+    "recall" : 1.0,
+    "agreement" : 1.0,
+    "found" : {
+      "batch-suspension" : "IMPACTED",
+      "aggregates" : "TO_CHECK"
+    }
+  }, {
+    "case" : "front-statuts",
+    "run" : 3,
+    "terms" : [ "CONTRACT_STATUS", "ContractStatus", "contract.status" ],
+    "recall" : 1.0,
+    "agreement" : 1.0,
+    "found" : {
+      "facturation" : "TO_CHECK",
+      "quarkus-contract" : "IMPACTED",
+      "facturation-chart" : "NOT_IMPACTED",
+      "demo-front" : "IMPACTED",
+      "ancien" : "NOT_IMPACTED",
+      "common-contract" : "IMPACTED",
+      "annuaire" : "NOT_IMPACTED",
+      "aggregates" : "TO_CHECK",
+      "relance" : "TO_CHECK"
+    }
+  }, {
+    "case" : "api-statut",
+    "run" : 3,
     "terms" : [ "ContractResource", "ContractStatus", "CONTRACT_STATUS", "contract.status", "ContractDto", "ContractResponse" ],
     "recall" : 1.0,
     "agreement" : 1.0,
@@ -771,7 +871,7 @@
     }
   }, {
     "case" : "supprimer-closed",
-    "run" : 2,
+    "run" : 3,
     "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "CLOSED" ],
     "recall" : 1.0,
     "agreement" : 1.0,
@@ -788,7 +888,7 @@
     }
   }, {
     "case" : "paiement-paypal",
-    "run" : 2,
+    "run" : 3,
     "terms" : [ "PaymentMethod", "PAYMENT_METHOD", "PAYPAL" ],
     "recall" : 1.0,
     "agreement" : 1.0,
@@ -798,172 +898,56 @@
     }
   }, {
     "case" : "tva-livres",
-    "run" : 2,
-    "terms" : [ "VatRate", "VatRate.BOOKS", "BOOKS", "VAT_RATE", "TVA", "taux de TVA", "vat.rate" ],
+    "run" : 3,
+    "terms" : [ "VatRate", "VatRate.BOOKS", "BOOKS", "vat_rate", "vat.rate", "TVA" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
       "catalogue" : "IMPACTED",
       "vitrine" : "TO_CHECK"
     }
-  }, {
-    "case" : "statut-suspendu",
-    "run" : 3,
-    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "SUSPENDU", "SUSPENDED", "Contract" ],
-    "recall" : 1.0,
-    "agreement" : 1.0,
-    "found" : {
-      "facturation" : "IMPACTED",
-      "quarkus-contract" : "TO_CHECK",
-      "common-contract" : "IMPACTED",
-      "facturation-chart" : "TO_CHECK",
-      "aggregates" : "TO_CHECK",
-      "demo-front" : "IMPACTED",
-      "ancien" : "NOT_IMPACTED",
-      "annuaire" : "NOT_IMPACTED",
-      "batch-suspension" : "TO_CHECK",
-      "relance" : "TO_CHECK"
-    }
-  }, {
-    "case" : "cle-configuration",
-    "run" : 3,
-    "terms" : [ "contract.status", "contract_status", "contractStatus", "contract-status" ],
-    "recall" : 1.0,
-    "agreement" : 1.0,
-    "found" : {
-      "facturation" : "IMPACTED",
-      "quarkus-contract" : "TO_CHECK",
-      "facturation-chart" : "IMPACTED",
-      "demo-front" : "TO_CHECK",
-      "ancien" : "NOT_IMPACTED",
-      "common-contract" : "TO_CHECK",
-      "annuaire" : "NOT_IMPACTED",
-      "aggregates" : "TO_CHECK",
-      "relance" : "TO_CHECK"
-    }
-  }, {
-    "case" : "topic-suspension",
-    "run" : 3,
-    "terms" : [ "contract_suspended", "contract.suspended", "contract-suspended", "ContractSuspended", "ContractSuspendedEvent" ],
-    "recall" : 1.0,
-    "agreement" : 1.0,
-    "found" : {
-      "batch-suspension" : "IMPACTED",
-      "aggregates" : "TO_CHECK"
-    }
-  }, {
-    "case" : "front-statuts",
-    "run" : 3,
-    "terms" : [ "CONTRACT_STATUS", "ContractStatus", "contract.status", "contract-status" ],
-    "recall" : 1.0,
-    "agreement" : 1.0,
-    "found" : {
-      "facturation" : "TO_CHECK",
-      "quarkus-contract" : "IMPACTED",
-      "facturation-chart" : "NOT_IMPACTED",
-      "demo-front" : "IMPACTED",
-      "ancien" : "NOT_IMPACTED",
-      "common-contract" : "IMPACTED",
-      "annuaire" : "NOT_IMPACTED",
-      "aggregates" : "TO_CHECK",
-      "relance" : "TO_CHECK"
-    }
-  }, {
-    "case" : "api-statut",
-    "run" : 3,
-    "terms" : [ "ContractResource", "ContractStatus", "CONTRACT_STATUS", "contract.status" ],
-    "recall" : 1.0,
-    "agreement" : 1.0,
-    "found" : {
-      "facturation" : "IMPACTED",
-      "quarkus-contract" : "IMPACTED",
-      "facturation-chart" : "TO_CHECK",
-      "demo-front" : "TO_CHECK",
-      "ancien" : "NOT_IMPACTED",
-      "common-contract" : "TO_CHECK",
-      "annuaire" : "NOT_IMPACTED",
-      "aggregates" : "TO_CHECK",
-      "relance" : "TO_CHECK"
-    }
-  }, {
-    "case" : "supprimer-closed",
-    "run" : 3,
-    "terms" : [ "ContractStatus", "CONTRACT_STATUS", "contract.status", "CLOSED" ],
-    "recall" : 1.0,
-    "agreement" : 1.0,
-    "found" : {
-      "facturation" : "TO_CHECK",
-      "demo-front" : "IMPACTED",
-      "common-contract" : "IMPACTED",
-      "quarkus-contract" : "TO_CHECK",
-      "facturation-chart" : "TO_CHECK",
-      "ancien" : "NOT_IMPACTED",
-      "annuaire" : "NOT_IMPACTED",
-      "aggregates" : "TO_CHECK",
-      "relance" : "TO_CHECK"
-    }
-  }, {
-    "case" : "paiement-paypal",
-    "run" : 3,
-    "terms" : [ "PaymentMethod", "PAYMENT_METHOD", "PAYPAL" ],
-    "recall" : 1.0,
-    "agreement" : 1.0,
-    "found" : {
-      "panier" : "TO_CHECK",
-      "paiement" : "IMPACTED"
-    }
-  }, {
-    "case" : "tva-livres",
-    "run" : 3,
-    "terms" : [ "VatRate", "VatRate.BOOKS", "BOOKS", "VAT_RATE", "TVA", "taux de TVA", "vat.rate" ],
-    "recall" : 1.0,
-    "agreement" : 1.0,
-    "found" : {
-      "catalogue" : "IMPACTED",
-      "vitrine" : "IMPACTED"
-    }
   } ],
   "perimeterAnswer" : [ {
     "case" : "statut-suspendu",
     "run" : 1,
     "passed" : true,
-    "impacted" : [ "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/modules/facturation", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/libs/quarkus-contract", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/libs/common-contract", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/front" ],
-    "notImpacted" : [ "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/legacy/ancien", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/modules/annuaire" ],
-    "cited" : [ "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/libs/common-contract", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/libs/quarkus-contract", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/modules/facturation", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/front", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/modules/batch-suspension", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/charts/facturation", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/modules/relance", "module:34bb50d0-3d1b-47a6-b888-a021b29fdc70/" ]
+    "impacted" : [ "module:ecbbf767-bf33-4775-915e-7e0935f6316d/modules/facturation", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/libs/quarkus-contract", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/front", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/libs/common-contract" ],
+    "notImpacted" : [ "module:ecbbf767-bf33-4775-915e-7e0935f6316d/legacy/ancien", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/modules/annuaire" ],
+    "cited" : [ "module:ecbbf767-bf33-4775-915e-7e0935f6316d/libs/common-contract", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/libs/quarkus-contract", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/modules/facturation", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/front", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/charts/facturation", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/modules/batch-suspension", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/modules/relance", "module:ecbbf767-bf33-4775-915e-7e0935f6316d/" ]
   }, {
     "case" : "paiement-paypal",
     "run" : 1,
     "passed" : true,
-    "impacted" : [ "module:9d59cadc-7d47-45fa-a357-b2c4337d35c1/paiement" ],
+    "impacted" : [ "module:c8f8e6c2-02e3-4e63-ae87-0d3f53d8a0bd/paiement" ],
     "notImpacted" : [ ],
-    "cited" : [ "module:9d59cadc-7d47-45fa-a357-b2c4337d35c1/paiement", "module:9d59cadc-7d47-45fa-a357-b2c4337d35c1/panier" ]
+    "cited" : [ "module:c8f8e6c2-02e3-4e63-ae87-0d3f53d8a0bd/paiement", "module:c8f8e6c2-02e3-4e63-ae87-0d3f53d8a0bd/panier" ]
   }, {
     "case" : "statut-suspendu",
     "run" : 2,
     "passed" : true,
-    "impacted" : [ "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/modules/facturation", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/libs/quarkus-contract", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/front", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/libs/common-contract" ],
-    "notImpacted" : [ "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/legacy/ancien", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/modules/annuaire" ],
-    "cited" : [ "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/libs/common-contract", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/libs/quarkus-contract", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/modules/facturation", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/front", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/charts/facturation", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/modules/relance", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/modules/batch-suspension", "module:1c77d83c-389b-4593-8f9c-2f3d48b8c1c9/" ]
+    "impacted" : [ "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/modules/facturation", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/front", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/libs/common-contract" ],
+    "notImpacted" : [ "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/legacy/ancien", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/modules/annuaire" ],
+    "cited" : [ "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/libs/common-contract", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/modules/facturation", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/front", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/libs/quarkus-contract", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/modules/relance", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/modules/batch-suspension", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/", "module:9a4cf2d7-74b8-4130-9bee-583ddd4d30d1/charts/facturation" ]
   }, {
     "case" : "paiement-paypal",
     "run" : 2,
     "passed" : true,
-    "impacted" : [ "module:e20ad57b-4c6f-4c25-834d-7d48d44dcc5b/paiement" ],
+    "impacted" : [ "module:8036322e-54ce-4d28-ba1f-a701e56693de/paiement" ],
     "notImpacted" : [ ],
-    "cited" : [ "module:e20ad57b-4c6f-4c25-834d-7d48d44dcc5b/paiement", "module:e20ad57b-4c6f-4c25-834d-7d48d44dcc5b/panier" ]
+    "cited" : [ "module:8036322e-54ce-4d28-ba1f-a701e56693de/paiement", "module:8036322e-54ce-4d28-ba1f-a701e56693de/panier" ]
   }, {
     "case" : "statut-suspendu",
     "run" : 3,
     "passed" : true,
-    "impacted" : [ "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/modules/facturation", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/front", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/libs/common-contract" ],
-    "notImpacted" : [ "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/legacy/ancien", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/modules/annuaire" ],
-    "cited" : [ "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/libs/common-contract", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/modules/facturation", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/front", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/libs/quarkus-contract", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/charts/facturation", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/modules/batch-suspension", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/", "module:9659ad0f-c4e0-4441-beb5-503cc7651f6d/modules/relance" ]
+    "impacted" : [ "module:23009743-4510-4a40-b19c-b55a66ea76e1/modules/facturation", "module:23009743-4510-4a40-b19c-b55a66ea76e1/libs/quarkus-contract", "module:23009743-4510-4a40-b19c-b55a66ea76e1/libs/common-contract", "module:23009743-4510-4a40-b19c-b55a66ea76e1/front" ],
+    "notImpacted" : [ "module:23009743-4510-4a40-b19c-b55a66ea76e1/legacy/ancien", "module:23009743-4510-4a40-b19c-b55a66ea76e1/modules/annuaire" ],
+    "cited" : [ "module:23009743-4510-4a40-b19c-b55a66ea76e1/libs/common-contract", "module:23009743-4510-4a40-b19c-b55a66ea76e1/libs/quarkus-contract", "module:23009743-4510-4a40-b19c-b55a66ea76e1/modules/facturation", "module:23009743-4510-4a40-b19c-b55a66ea76e1/front", "module:23009743-4510-4a40-b19c-b55a66ea76e1/charts/facturation", "module:23009743-4510-4a40-b19c-b55a66ea76e1/modules/batch-suspension", "module:23009743-4510-4a40-b19c-b55a66ea76e1/modules/relance", "module:23009743-4510-4a40-b19c-b55a66ea76e1/" ]
   }, {
     "case" : "paiement-paypal",
     "run" : 3,
     "passed" : true,
-    "impacted" : [ "module:57796817-2875-4ea3-85f3-4100d373301e/paiement" ],
+    "impacted" : [ "module:b1dd876a-b38b-4a5d-a99b-f86778168482/paiement" ],
     "notImpacted" : [ ],
-    "cited" : [ "module:57796817-2875-4ea3-85f3-4100d373301e/paiement", "module:57796817-2875-4ea3-85f3-4100d373301e/panier" ]
+    "cited" : [ "module:b1dd876a-b38b-4a5d-a99b-f86778168482/paiement", "module:b1dd876a-b38b-4a5d-a99b-f86778168482/panier" ]
   } ]
 }

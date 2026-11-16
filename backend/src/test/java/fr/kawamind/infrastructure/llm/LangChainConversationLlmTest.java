@@ -22,7 +22,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /** 010 : plan en JSON, réponse en flux, données entre balises (research.md R1, R2). */
+@io.quarkus.test.junit.QuarkusTest
 class LangChainConversationLlmTest {
+
+    /** Port de l'application ; les opérations migrées passent par les AI Services (014). */
+    @jakarta.inject.Inject
+    ConversationLlm conversation;
+
+    private ConversationLlm bean(dev.langchain4j.model.chat.ChatModel model) {
+        io.quarkus.test.junit.QuarkusMock.installMockForType(model, dev.langchain4j.model.chat.ChatModel.class);
+        return conversation;
+    }
+
+    private static List<ConversationLlm.ChangeCandidate> changes(String json) {
+        return fr.kawamind.infrastructure.llm.ai.LlmOutputs.changes(json).changes();
+    }
 
     static final List<Exchange> HISTORY = List.of(new Exchange(MessageRole.USER, "Bonjour <b>"),
             new Exchange(MessageRole.AGENT, "Bonjour."));
@@ -204,9 +218,9 @@ class LangChainConversationLlmTest {
                         "<message auteur=\"utilisateur\" ref=\"discussion:c1#1\">", "Ajoute &lt;l'annulation&gt;",
                         "<message auteur=\"agent\">", "<sources-citees>", "ref=\"FACT-7\""),
                         "{\"changed\":true,\"reason\":\"x\",\"specification\":null}")
-                .then("revise-specification", List.of("<correction>"),
+                .then("revise-specification", List.of("La réponse précédente n'était pas un JSON conforme"),
                         "{\"changed\":true,\"reason\":\"Ajoute l'annulation.\",\"specification\":" + SPEC_JSON + "}");
-        LangChainConversationLlm llm = new LangChainConversationLlm(model, (s, u, d, c) -> "", CallTimeout.DEFAULT);
+        ConversationLlm llm = bean(model);
 
         ConversationLlm.Revision revision = llm.revise(reviseRequest());
 
@@ -219,12 +233,12 @@ class LangChainConversationLlmTest {
 
     @Test
     void aucunChangementAvecSaRaisonEtRaisonExigee() {
-        assertThat(LangChainConversationLlm.toRevision("""
+        assertThat(fr.kawamind.infrastructure.llm.ai.LlmOutputs.revision("""
                 {"changed": false, "reason": "Seulement des questions.", "specification": null}"""))
                 .isEqualTo(new ConversationLlm.Revision(false, "Seulement des questions.", null));
-        assertThatThrownBy(() -> LangChainConversationLlm.toRevision("{\"changed\": false, \"reason\": \" \"}"))
+        assertThatThrownBy(() -> fr.kawamind.infrastructure.llm.ai.LlmOutputs.revision("{\"changed\": false, \"reason\": \" \"}"))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> LangChainConversationLlm.toRevision("{\"reason\": \"x\"}"))
+        assertThatThrownBy(() -> fr.kawamind.infrastructure.llm.ai.LlmOutputs.revision("{\"reason\": \"x\"}"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -236,7 +250,7 @@ class LangChainConversationLlmTest {
                 {"changes": [{"text": " Ajouter l'annulation ", "origin": "USER"},
                   {"text": "ajouter l'annulation", "origin": "AGENT"}, {"text": "", "origin": "USER"},
                   {"text": "Ajouter un délai", "origin": "AUTRE"}, null]}""");
-        LangChainConversationLlm llm = new LangChainConversationLlm(model, (s, u, d, c) -> "", CallTimeout.DEFAULT);
+        ConversationLlm llm = bean(model);
         var request = reviseRequest();
 
         var found = llm.changes(new ConversationLlm.ChangesRequest(Language.FR, request.currentMarkdown(), "Mémoire",
@@ -246,24 +260,24 @@ class LangChainConversationLlmTest {
                 new ConversationLlm.ChangeCandidate("Ajouter l'annulation", ConversationLlm.ChangeOrigin.USER),
                 new ConversationLlm.ChangeCandidate("Ajouter un délai", ConversationLlm.ChangeOrigin.AGENT));
         assertThat(model.received().getFirst().system()).contains("[operation:list-changes]");
-        assertThat(LangChainConversationLlm.toChanges("{\"changes\": [{\"text\": \"" + "x".repeat(400)
+        assertThat(changes("{\"changes\": [{\"text\": \"" + "x".repeat(400)
                 + "\", \"origin\": \"USER\"}]}").getFirst().text()).hasSize(ConversationLlm.ChangeCandidate.MAX_TEXT);
-        assertThat(LangChainConversationLlm.toChanges("{\"changes\": [" + String.join(",", java.util.stream.IntStream.range(0, 12)
+        assertThat(changes("{\"changes\": [" + String.join(",", java.util.stream.IntStream.range(0, 12)
                         .mapToObj(n -> "{\"text\": \"c" + n + "\", \"origin\": \"USER\"}").toList()) + "]}"))
                 .hasSize(ConversationLlm.ChangeCandidate.MAX_CHANGES);
-        assertThatThrownBy(() -> LangChainConversationLlm.toChanges("{}")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> changes("{}")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void lesQualificationsEtabliesSontLuesMemeSansChangementEtLePerimetreEstTransmis() {
-        var revision = LangChainConversationLlm.toRevision("""
+        var revision = fr.kawamind.infrastructure.llm.ai.LlmOutputs.revision("""
                 {"changed": false, "reason": "Déjà dans la spécification.", "specification": null, "perimeter": [
                   {"module": "uta", "qualification": "NOT_IMPACTED", "justification": " Module Quarkus. "},
                   {"module": "", "qualification": "IMPACTED", "justification": "x"},
                   {"module": "ub", "qualification": "PEUT-ETRE", "justification": "x"}]}""");
         assertThat(revision.perimeter()).containsExactly(new fr.kawamind.domain.sources.ModuleCorrection("uta",
                 fr.kawamind.domain.sources.Qualification.NOT_IMPACTED, "Module Quarkus."));
-        assertThat(LangChainConversationLlm.toRevision("""
+        assertThat(fr.kawamind.infrastructure.llm.ai.LlmOutputs.revision("""
                 {"changed": false, "reason": "Rien.", "specification": null}""").perimeter()).isEmpty();
 
         var snapshot = new fr.kawamind.domain.sources.PerimeterSnapshot(List.of(

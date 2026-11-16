@@ -1,92 +1,61 @@
 package fr.kawamind.infrastructure.llm;
 
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.request.ResponseFormat;
-import fr.kawamind.domain.error.DomainException;
-import fr.kawamind.domain.error.ErrorCode;
-import fr.kawamind.domain.llm.Contradiction;
+import fr.kawamind.domain.llm.CompareIssueRequest;
 import fr.kawamind.domain.llm.DraftSpecification;
 import fr.kawamind.domain.llm.EditRequest;
 import fr.kawamind.domain.llm.GenerationRequest;
-import fr.kawamind.domain.llm.MergeRequest;
-import fr.kawamind.domain.llm.ProposeQuestionsRequest;
-import fr.kawamind.domain.llm.ProposeQuestionsResult;
-import fr.kawamind.domain.llm.ProposedQuestion;
-import fr.kawamind.domain.llm.ReassessRequest;
-import fr.kawamind.domain.llm.ReassessResult;
-import fr.kawamind.domain.llm.StructureImportRequest;
-import fr.kawamind.domain.llm.CompareIssueRequest;
 import fr.kawamind.domain.llm.ImpactRequest;
 import fr.kawamind.domain.llm.ImpactResult;
 import fr.kawamind.domain.llm.IssueComparison;
+import fr.kawamind.domain.llm.MergeRequest;
+import fr.kawamind.domain.llm.ProposeQuestionsRequest;
+import fr.kawamind.domain.llm.ProposeQuestionsResult;
+import fr.kawamind.domain.llm.ReassessRequest;
+import fr.kawamind.domain.llm.ReassessResult;
 import fr.kawamind.domain.llm.RelatedIssuesJudgement;
 import fr.kawamind.domain.llm.RelatedIssuesRequest;
+import fr.kawamind.domain.llm.StructureImportRequest;
 import fr.kawamind.domain.port.LlmClient;
-import fr.kawamind.domain.port.WikiMarkup;
 import fr.kawamind.infrastructure.llm.ai.KnowledgeAi;
 import fr.kawamind.infrastructure.llm.ai.QuestionsAi;
-import fr.kawamind.domain.question.QuestionTheme;
-import fr.kawamind.infrastructure.jira.JiraFormatConverter;
+import fr.kawamind.infrastructure.llm.ai.SpecificationAi;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Implémentation du port LLM au-dessus d'un {@link ChatModel} LangChain4j (contracts/llm-port.md).
- * Instructions en message système uniquement, données en message utilisateur entre balises,
- * réponse JSON validée ; une sortie illisible est redemandée 2 fois au maximum. Seuls l'opération,
- * la durée et le nombre de tentatives sont journalisés (FR-025).
+ * Port LLM sur les AI Services (contracts/llm-port.md, 014 research R3) : cet adaptateur construit
+ * les données balisées et échappées ({@link UserMessages}), appelle l'AI Service de l'opération avec
+ * le schéma strict de sa réponse, et convertit les erreurs. La consigne, la reprise d'une sortie non
+ * conforme et le journal sont ceux des AI Services et de {@link LlmCallLog}.
  */
 @ApplicationScoped
 public class LangChainLlmClient implements LlmClient {
 
-    private static final Logger LOG = Logger.getLogger(LangChainLlmClient.class);
+    /** Tentatives d'une opération structurée encore hors des AI Services (agent de la 010). */
     static final int MAX_ATTEMPTS = 3;
 
-    private static final JsonMapper JSON = JsonMapper.builder()
-            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
     private static final Map<String, String> PROMPTS = new ConcurrentHashMap<>();
-    /** Tableaux en wiki markup dans le texte riche de la spécification (FR-012b). */
-    private static final WikiMarkup TABLES = new JiraFormatConverter();
 
-    private final ChatModel model;
     private final KnowledgeAi knowledge;
     private final QuestionsAi questions;
+    private final SpecificationAi specification;
     /** Délai d'un appel : toutes les opérations sont interactives (180 s par défaut). */
     private final Duration timeout;
 
-    public LangChainLlmClient(ChatModel model) {
-        this(model, null, null, CallTimeout.DEFAULT);
-    }
-
-    public LangChainLlmClient(ChatModel model, Duration timeout) {
-        this(model, null, null, timeout);
-    }
-
     @Inject
-    public LangChainLlmClient(ChatModel model, KnowledgeAi knowledge, QuestionsAi questions,
+    public LangChainLlmClient(KnowledgeAi knowledge, QuestionsAi questions, SpecificationAi specification,
             @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s") Duration timeout) {
-        this.model = model;
         this.knowledge = knowledge;
         this.questions = questions;
+        this.specification = specification;
         this.timeout = timeout;
     }
 
@@ -101,7 +70,7 @@ public class LangChainLlmClient implements LlmClient {
     public DraftSpecification generateSpecification(GenerationRequest request) {
         String user = UserMessages.generation(request.need(), request.language(), request.answers(),
                 request.correction(), request.knowledge());
-        return call("generate-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
+        return AiCalls.call(timeout, () -> specification.generate(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
     }
 
     @Override
@@ -115,21 +84,21 @@ public class LangChainLlmClient implements LlmClient {
     public DraftSpecification editSpecification(EditRequest request) {
         String user = UserMessages.edit(request.need(), request.language(), request.answers(), request.currentMarkdown(),
                 request.instruction(), request.correction(), request.knowledge());
-        return call("edit-specification", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
+        return AiCalls.call(timeout, () -> specification.edit(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
     }
 
     @Override
     public DraftSpecification mergeConflict(MergeRequest request) {
         String user = UserMessages.merge(request.need(), request.language(), request.answers(), request.localMarkdown(),
                 request.jiraMarkdown(), request.correction(), request.knowledge());
-        return call("merge-conflict", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
+        return AiCalls.call(timeout, () -> specification.merge(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
     }
 
     @Override
     public DraftSpecification structureImportedText(StructureImportRequest request) {
         String user = UserMessages.structure(request.text(), request.language(), request.correction(),
                 request.knowledge());
-        return call("structure-imported-text", user, LlmSchemas.SPECIFICATION, LangChainLlmClient::toDraft);
+        return AiCalls.call(timeout, () -> specification.structure(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
     }
 
     @Override
@@ -148,56 +117,6 @@ public class LangChainLlmClient implements LlmClient {
     public ImpactResult identifyImpact(ImpactRequest request) {
         return AiCalls.call(timeout, () -> knowledge.impact(UserMessages.impact(request),
                 LlmSchemas.params(LlmSchemas.IMPACT)));
-    }
-
-    private <T> T call(String operation, String user, ResponseFormat format, Function<String, T> parse) {
-        String system = prompt(operation);
-        long start = System.nanoTime();
-        String feedback = "";
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            ChatRequest request = ChatRequest.builder()
-                    .messages(SystemMessage.from(system), UserMessage.from(user + feedback))
-                    .responseFormat(format)
-                    .build();
-            String text;
-            try {
-                text = ScopedValue.where(CallTimeout.CURRENT, timeout)
-                        .call(() -> model.chat(request).aiMessage().text());
-            } catch (DomainException e) {
-                if (Thread.currentThread().isInterrupted()) {
-                    LOG.infof("LLM %s : appel interrompu à la tentative %d", operation, attempt);
-                    throw e;
-                }
-                // ni le besoin ni la réponse : l'opération, la tentative, la durée et la cause sans contenu
-                LOG.warnf(e, "LLM %s : échec à la tentative %d après %d ms (%s)", operation, attempt,
-                        (System.nanoTime() - start) / 1_000_000, e.code());
-                throw e;
-            }
-            try {
-                T result = parse.apply(text);
-                LOG.infof("LLM %s : %d ms, %d tentative(s)", operation, (System.nanoTime() - start) / 1_000_000, attempt);
-                return result;
-            } catch (JacksonException | IllegalArgumentException | DomainException e) {
-                LOG.warnf("LLM %s : sortie invalide à la tentative %d (%s)", operation, attempt, e.getClass().getSimpleName());
-                feedback = "\n<correction>La réponse précédente n'était pas un JSON conforme au schéma demandé."
-                        + "</correction>";
-            }
-        }
-        throw new DomainException(ErrorCode.LLM_INVALID_OUTPUT);
-    }
-
-    private static DraftSpecification toDraft(String json) {
-        return normalized(JSON.readValue(json, DraftSpecification.class));
-    }
-
-    /** Tableaux en syntaxe wiki du résumé et des détails convertis en Markdown (FR-012b). */
-    static DraftSpecification normalized(DraftSpecification draft) {
-        if (draft == null) {
-            throw new IllegalArgumentException("spécification absente");
-        }
-        return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
-                TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
-                draft.requirements(), draft.adrDeviations());
     }
 
     static String prompt(String operation) {

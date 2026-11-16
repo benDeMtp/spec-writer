@@ -5,7 +5,6 @@ import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ResponseFormat;
-import fr.kawamind.domain.sources.ModuleCorrection;
 import fr.kawamind.domain.sources.ModuleQualification;
 import fr.kawamind.domain.sources.Qualification;
 import fr.kawamind.domain.conversation.EstablishedPoint;
@@ -15,6 +14,7 @@ import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
 import fr.kawamind.domain.llm.DraftSpecification;
 import fr.kawamind.domain.port.ConversationLlm;
+import fr.kawamind.infrastructure.llm.ai.SpecificationAi;
 import fr.kawamind.domain.question.QuestionTheme;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -60,20 +60,20 @@ public class LangChainConversationLlm implements ConversationLlm {
     record SummaryDto(String summary) {
     }
 
-    record RevisionDto(Boolean changed, String reason, DraftSpecification specification,
-            List<CorrectionDto> perimeter) {
-    }
-
-    record CorrectionDto(String module, String qualification, String justification) {
-    }
-
     private final ChatModel model;
     private final ConversationStream stream;
+    private final SpecificationAi specification;
     private final Duration timeout;
 
     LangChainConversationLlm(ChatModel model, ConversationStream stream, Duration timeout) {
+        this(model, stream, null, timeout);
+    }
+
+    LangChainConversationLlm(ChatModel model, ConversationStream stream, SpecificationAi specification,
+            Duration timeout) {
         this.model = model;
         this.stream = stream;
+        this.specification = specification;
         this.timeout = timeout;
     }
 
@@ -131,78 +131,14 @@ public class LangChainConversationLlm implements ConversationLlm {
 
     @Override
     public Revision revise(ReviseRequest request) {
-        return call("revise-specification", UserMessages.revise(request), LlmSchemas.REVISION,
-                LangChainConversationLlm::toRevision);
+        return AiCalls.call(timeout, () -> specification.revise(UserMessages.revise(request),
+                LlmSchemas.params(LlmSchemas.REVISION)));
     }
 
     @Override
     public List<ChangeCandidate> changes(ChangesRequest request) {
-        return call("list-changes", UserMessages.changes(request), LlmSchemas.CHANGE_CANDIDATES,
-                LangChainConversationLlm::toChanges);
-    }
-
-    /** Changements relevés : vides écartés, doublons retirés, textes et nombre bornés. */
-    static List<ChangeCandidate> toChanges(String json) {
-        ChangesDto dto = JSON.readValue(json, ChangesDto.class);
-        if (dto == null || dto.changes() == null) {
-            throw new IllegalArgumentException("Relevé sans liste de changements");
-        }
-        Set<String> seen = new HashSet<>();
-        List<ChangeCandidate> out = new ArrayList<>();
-        for (ChangeDto c : dto.changes()) {
-            String text = c == null || c.text() == null ? "" : c.text().strip();
-            if (text.isEmpty() || !seen.add(text.toLowerCase(Locale.ROOT))) {
-                continue;
-            }
-            if (text.length() > ChangeCandidate.MAX_TEXT) {
-                text = text.substring(0, ChangeCandidate.MAX_TEXT - 1).strip() + "…";
-            }
-            out.add(new ChangeCandidate(text, "USER".equals(c.origin()) ? ChangeOrigin.USER : ChangeOrigin.AGENT));
-            if (out.size() == ChangeCandidate.MAX_CHANGES) {
-                break;
-            }
-        }
-        return List.copyOf(out);
-    }
-
-    record ChangesDto(List<ChangeDto> changes) {
-    }
-
-    record ChangeDto(String text, String origin) {
-    }
-
-    /** Un changement sans spécification, ou une absence de changement sans raison, est redemandé. */
-    static Revision toRevision(String json) {
-        RevisionDto dto = JSON.readValue(json, RevisionDto.class);
-        if (dto == null || dto.changed() == null) {
-            throw new IllegalArgumentException("Proposition sans décision");
-        }
-        String reason = dto.reason() == null ? "" : dto.reason().strip();
-        if (!dto.changed()) {
-            if (reason.isEmpty()) {
-                throw new IllegalArgumentException("Aucun changement, sans raison");
-            }
-            return new Revision(false, reason, null, corrections(dto.perimeter()));
-        }
-        return new Revision(true, reason, LangChainLlmClient.normalized(dto.specification()),
-                corrections(dto.perimeter()));
-    }
-
-    /** Qualifications établies par la discussion ; les entrées incomplètes ou inconnues sont écartées. */
-    static List<ModuleCorrection> corrections(List<CorrectionDto> dtos) {
-        List<ModuleCorrection> out = new ArrayList<>();
-        for (CorrectionDto c : dtos == null ? List.<CorrectionDto>of() : dtos) {
-            if (c == null || c.module() == null || c.module().isBlank() || c.qualification() == null) {
-                continue;
-            }
-            try {
-                out.add(new ModuleCorrection(c.module().strip(), Qualification.valueOf(c.qualification()),
-                        c.justification() == null ? "" : c.justification().strip()));
-            } catch (IllegalArgumentException e) {
-                LOG.debugf("Correction de périmètre écartée : qualification %s inconnue", c.qualification());
-            }
-        }
-        return List.copyOf(out);
+        return AiCalls.call(timeout, () -> specification.changes(UserMessages.changes(request),
+                LlmSchemas.params(LlmSchemas.CHANGE_CANDIDATES))).changes();
     }
 
     /** Un résumé vide ne remplace pas la mémoire : la sortie est redemandée. */

@@ -3,6 +3,7 @@ package fr.kawamind.infrastructure.llm;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import fr.kawamind.domain.port.ConversationLlm;
+import fr.kawamind.infrastructure.llm.ai.SpecificationAi;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
@@ -65,10 +66,10 @@ public class ChatModelProducer {
     /** Agent conversationnel (010) : même modèle pour le plan, flux de Copilot ou rejeu pour la réponse. */
     @Produces
     @ApplicationScoped
-    ConversationLlm conversationLlm(ChatModel model) {
+    ConversationLlm conversationLlm(ChatModel model, SpecificationAi specification) {
         ConversationStream stream = replaying()
                 ? new ReplayConversationStream(replay())
                 : new CopilotConversationStream(runtime, modelSelection);
-        return new LangChainConversationLlm(model, stream, timeout);
+        return new LangChainConversationLlm(model, stream, specification, timeout);
     }
 }
