@@ -1090,12 +1090,13 @@ export class SpecificationPage {
       return;
     }
     await this.projectsApi.moveSession(session.id, target);
-    const name = this.projects.projects().find((p) => p.id === target)?.name ?? '';
-    this.status.set(`Spécification déplacée vers le projet « ${name} ».`);
     this.session.set(await this.api.get(this.id()));
     await this.projects.load();
-    // 012 : le menu et la page montrent le même projet ; la spécification a changé de projet
+    // 012 : le menu et la page montrent le même projet ; la spécification a changé de projet.
+    // Le message vient après la bascule : il annonce un déplacement terminé.
     await this.follower.follow(target).catch(() => undefined);
+    const name = this.projects.projects().find((p) => p.id === target)?.name ?? '';
+    this.status.set(`Spécification déplacée vers le projet « ${name} ».`);
   }
 
   /** Statut d'implémentation ; quitter « implémentée » se confirme, en rappelant sa date (FR-026b de 002). */
