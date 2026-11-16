@@ -1,7 +1,10 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/013-perimetre-modules/` (racines de sources du projet, analyse
+La feature en cours est `specs/014-couche-llm-quarkus/` (couche LLM sur les AI Services de
+quarkus-langchain4j : agent à outils `@Tool`, adaptateur `ChatModel` à outils terminaux sur le SDK
+Copilot, rejeu étendu aux appels d'outils ; renommage du package `dev.specwriter` en `fr.kawamind`),
+après `specs/013-perimetre-modules/` (racines de sources du projet, analyse
 de périmètre déterministe dans la conversation, propagation Maven et C4, rubrique « Modules
 touchés »), après `specs/012-navigation-projet/` (menu en deux blocs « Projet » et
 « Application », réglages et connaissance du projet courant, bascule du projet courant, clé Jira par

@@ -123,7 +123,7 @@ réutilisable est chargée sans code de boucle supplémentaire.
    sortie invalide, **Then** elle est redemandée, au plus deux fois, puis l'erreur est signalée
    clairement, comme aujourd'hui.
 3. **Given** une consigne réutilisable rangée avec les consignes, **When** une opération la
-   demande, **Then** son contenu est transmis au modèle comme une consigne, jamais comme une
+   déclare, **Then** son contenu est transmis au modèle comme une consigne, jamais comme une
    donnée de l'utilisateur.
 
 ---
@@ -230,7 +230,8 @@ réenregistrer l'échange concerné selon la procédure documentée et relancer.
 - **FR-010**: Une nouvelle capacité de l'agent MUST pouvoir s'ajouter en déclarant un outil et sa
   description, sans modifier la boucle de l'agent ni la validation.
 - **FR-011**: Une consigne réutilisable (« skill ») MUST pouvoir être rangée parmi les consignes
-  et transmise au modèle comme consigne, à la demande d'une opération ou du modèle.
+  et transmise au modèle comme consigne, quand une opération la déclare. Le modèle ne la demande
+  pas lui-même : elle lui reviendrait comme résultat d'outil, donc comme une donnée (FR-009).
 - **FR-012**: Les mécanismes de service d'IA, d'outils, de sorties typées, de plafonds et de
   garde-fous MUST être ceux du framework de l'application ; un mécanisme ne MUST être écrit à la
   main que si le framework ne l'offre pas, et ce cas MUST être justifié dans la recherche.
