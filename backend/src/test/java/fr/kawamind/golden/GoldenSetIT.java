@@ -24,7 +24,6 @@ import fr.kawamind.domain.specification.SpecificationContent;
 import fr.kawamind.domain.specification.SpecificationVersion;
 import fr.kawamind.domain.specification.TraceabilityValidator;
 import fr.kawamind.domain.specification.UseCase;
-import fr.kawamind.infrastructure.llm.LangChainLlmClient;
 import fr.kawamind.support.FakeEmbedding;
 import fr.kawamind.support.FixedClock;
 import fr.kawamind.support.InMemoryKnowledgeIndex;
@@ -55,7 +54,12 @@ import tools.jackson.databind.json.JsonMapper;
  * et le Markdown à {@code expected.md}. {@code -Dgolden.update=true} réécrit les fichiers attendus,
  * à relire avant de les committer.
  */
+@io.quarkus.test.junit.QuarkusTest
 class GoldenSetIT {
+
+    /** Port LLM de l'application, sur le modèle scripté du cas (014 : AI Services). */
+    @jakarta.inject.Inject
+    fr.kawamind.domain.port.LlmClient llmClient;
 
     static final Path ROOT = Path.of("src/test/resources/golden");
     static final JsonMapper JSON = JsonMapper.builder().build();
@@ -75,7 +79,8 @@ class GoldenSetIT {
         ConsentPolicy policy = new ConsentPolicy(consents);
         FixedClock clock = new FixedClock();
         SequentialIdGenerator ids = new SequentialIdGenerator();
-        LangChainLlmClient llm = new LangChainLlmClient(model);
+        io.quarkus.test.junit.QuarkusMock.installMockForType(model, dev.langchain4j.model.chat.ChatModel.class);
+        fr.kawamind.domain.port.LlmClient llm = llmClient;
         // general.md, s'il existe : la fiche générale du projet par défaut (feature 002, FR-008, FR-011) ;
         // knowledge.json, s'il existe : l'index de connaissance du projet (R24, T111)
         InMemoryProjects projects = new InMemoryProjects();

@@ -1,7 +1,7 @@
 package fr.kawamind.eval;
 
 import fr.kawamind.infrastructure.llm.CopilotSdkGateway;
-import fr.kawamind.infrastructure.llm.EvalCopilot;
+import fr.kawamind.infrastructure.llm.EvalTools;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,7 +19,7 @@ final class QuestionJudge {
     static final List<String> VERDICTS = List.of("PERTINENTE", "REDONDANTE", "HORS_SUJET");
 
     private static final String PROMPT = EvalRuns.read(Path.of("src/test/resources/eval/prompts/judge-questions.txt"));
-    private static final Map<String, Object> SCHEMA = EvalCopilot.strict(Map.of("type", "object", "properties",
+    private static final Map<String, Object> SCHEMA = EvalTools.strict(Map.of("type", "object", "properties",
             Map.of("verdicts", Map.of("type", "array", "items", Map.of("type", "object", "properties", Map.of(
                     "index", Map.of("type", "integer"),
                     "verdict", Map.of("type", "string", "enum", VERDICTS),

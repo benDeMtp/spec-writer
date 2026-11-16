@@ -13,6 +13,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * {@code ./mvnw -pl backend verify -Peval}.
  */
 @Tag("eval")
+@io.quarkus.test.junit.QuarkusTest
+@io.quarkus.test.junit.TestProfile(EvalProfile.class)
 class DiscussionEval {
 
     @ParameterizedTest

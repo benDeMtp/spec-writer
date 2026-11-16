@@ -48,7 +48,18 @@ import org.junit.jupiter.api.Test;
  * Corpus d'injection (contracts/llm-port.md, FR-026, OWASP LLM01) : le besoin n'atteint jamais le
  * message système, reste entre ses balises et ne peut pas les refermer ; la sortie reste conforme.
  */
+@io.quarkus.test.junit.QuarkusTest
 class PromptInjectionIT {
+
+    /** Port LLM de l'application : ses opérations migrées passent par les AI Services (014). */
+    @jakarta.inject.Inject
+    fr.kawamind.domain.port.LlmClient llm;
+
+    /** Le port de l'application, sur le modèle scripté du test. */
+    private fr.kawamind.domain.port.LlmClient client(dev.langchain4j.model.chat.ChatModel model) {
+        io.quarkus.test.junit.QuarkusMock.installMockForType(model, dev.langchain4j.model.chat.ChatModel.class);
+        return llm;
+    }
 
     static final String QUESTIONS = """
             {"questions":[{"theme":"GOAL","label":"Quel objectif ?","rationale":"Pour cadrer","suggestions":[],
@@ -73,7 +84,8 @@ class PromptInjectionIT {
         ScriptedChatModel model = new ScriptedChatModel()
                 .then("propose-questions", List.of("<besoin>"), QUESTIONS)
                 .then("generate-specification", List.of("<besoin>", "<reponses>"), SPEC);
-        LangChainLlmClient client = new LangChainLlmClient(model);
+        io.quarkus.test.junit.QuarkusMock.installMockForType(model, dev.langchain4j.model.chat.ChatModel.class);
+        fr.kawamind.domain.port.LlmClient client = llm;
 
         ProposeQuestionsResult questions = client.proposeQuestions(new ProposeQuestionsRequest(need, Language.FR, List.of(),
                 Set.of(QuestionTheme.GOAL)));
@@ -104,7 +116,8 @@ class PromptInjectionIT {
                 .then("generate-specification", List.of("<connaissance-projet>", "<architecture>", "<document ref=\"docs:",
                         "designe=\"oui\">", "<document ref=\"joint:"),
                         SPEC);
-        LangChainLlmClient client = new LangChainLlmClient(model);
+        io.quarkus.test.junit.QuarkusMock.installMockForType(model, dev.langchain4j.model.chat.ChatModel.class);
+        fr.kawamind.domain.port.LlmClient client = llm;
 
         String ref = "FACT-1\" onload=\"x";
         ProjectKnowledge sheets = new ProjectKnowledge(hostile, Instant.EPOCH, List.of(
@@ -166,7 +179,8 @@ class PromptInjectionIT {
                 .then("identify-impact", List.of("<elements>"),
                         "{\"modules\":[\"Facturation/API\"],\"exchanges\":[{\"from\":\"Facturation/API\","
                                 + "\"to\":\"Comptabilite\",\"reason\":\"Notifier\"}]}");
-        LangChainLlmClient client = new LangChainLlmClient(model);
+        io.quarkus.test.junit.QuarkusMock.installMockForType(model, dev.langchain4j.model.chat.ChatModel.class);
+        fr.kawamind.domain.port.LlmClient client = llm;
         String need = "Le gestionnaire annule une facture émise par un avoir.";
 
         RelatedIssuesJudgement judgement = client.judgeRelatedIssues(new RelatedIssuesRequest(Language.FR, need,
@@ -273,7 +287,7 @@ class PromptInjectionIT {
     @Test
     void sansContexteLeMessageEstCeluiDe001() {
         ScriptedChatModel model = new ScriptedChatModel().then("propose-questions", List.of(), QUESTIONS);
-        new LangChainLlmClient(model).proposeQuestions(new ProposeQuestionsRequest(
+        client(model).proposeQuestions(new ProposeQuestionsRequest(
                 "Les comptables doivent lettrer les paiements reçus chaque jour.", Language.FR, List.of(),
                 Set.of(QuestionTheme.GOAL), ProjectKnowledge.sheet("  ", null)));
         assertThat(model.received().getFirst().user()).doesNotContain("connaissance-projet");
@@ -283,9 +297,9 @@ class PromptInjectionIT {
     void sortieNonConformeRedemandeePuisRefusee() {
         ScriptedChatModel model = new ScriptedChatModel()
                 .then("propose-questions", List.of(), "PWNED")
-                .then("propose-questions", List.of("<correction>"), "{\"questions\":[{\"theme\":\"INCONNU\"}]}")
-                .then("propose-questions", List.of("<correction>"), QUESTIONS);
-        ProposeQuestionsResult result = new LangChainLlmClient(model).proposeQuestions(new ProposeQuestionsRequest(
+                .then("propose-questions", List.of("La réponse précédente n'était pas un JSON conforme"), "{\"questions\":[{\"theme\":\"INCONNU\"}]}")
+                .then("propose-questions", List.of("La réponse précédente n'était pas un JSON conforme"), QUESTIONS);
+        ProposeQuestionsResult result = client(model).proposeQuestions(new ProposeQuestionsRequest(
                 "Un besoin quelconque à traiter correctement par l'outil de spécification", Language.FR, List.of(),
                 Set.of(QuestionTheme.GOAL)));
         assertThat(result.questions()).hasSize(1);
@@ -295,7 +309,7 @@ class PromptInjectionIT {
                 .then("generate-specification", List.of(), "OK")
                 .then("generate-specification", List.of(), "{}")
                 .then("generate-specification", List.of(), "{\"title\":\"PIRATE\"}");
-        assertThatThrownBy(() -> new LangChainLlmClient(failing).generateSpecification(new GenerationRequest("b",
+        assertThatThrownBy(() -> client(failing).generateSpecification(new GenerationRequest("b",
                 Language.FR, List.of()))).isInstanceOfSatisfying(DomainException.class,
                         e -> assertThat(e.code()).isEqualTo(ErrorCode.LLM_INVALID_OUTPUT));
         assertThat(failing.exhausted()).isTrue();
@@ -305,10 +319,10 @@ class PromptInjectionIT {
     void questionSansJustificationRefusee() {
         ScriptedChatModel model = new ScriptedChatModel();
         String noRationale = QUESTIONS.replace("\"Pour cadrer\"", "\"\"");
-        for (int i = 0; i < LangChainLlmClient.MAX_ATTEMPTS; i++) {
+        for (int i = 0; i < 3; i++) {
             model.then("propose-questions", List.of(), noRationale);
         }
-        assertThatThrownBy(() -> new LangChainLlmClient(model).proposeQuestions(new ProposeQuestionsRequest("b",
+        assertThatThrownBy(() -> client(model).proposeQuestions(new ProposeQuestionsRequest("b",
                 Language.EN, List.of(), Set.of()))).isInstanceOf(DomainException.class);
     }
 

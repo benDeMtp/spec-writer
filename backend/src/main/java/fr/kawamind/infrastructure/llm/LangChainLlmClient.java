@@ -26,6 +26,8 @@ import fr.kawamind.domain.llm.RelatedIssuesJudgement;
 import fr.kawamind.domain.llm.RelatedIssuesRequest;
 import fr.kawamind.domain.port.LlmClient;
 import fr.kawamind.domain.port.WikiMarkup;
+import fr.kawamind.infrastructure.llm.ai.KnowledgeAi;
+import fr.kawamind.infrastructure.llm.ai.QuestionsAi;
 import fr.kawamind.domain.question.QuestionTheme;
 import fr.kawamind.infrastructure.jira.JiraFormatConverter;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -65,28 +67,26 @@ public class LangChainLlmClient implements LlmClient {
     /** Tableaux en wiki markup dans le texte riche de la spécification (FR-012b). */
     private static final WikiMarkup TABLES = new JiraFormatConverter();
 
-    record QuestionsDto(List<QuestionDto> questions, List<Contradiction> contradictions, List<String> coveredThemes) {
-    }
-
-    record ReassessDto(List<String> obsoleteQuestionIds, List<QuestionDto> newQuestions) {
-    }
-
-    record QuestionDto(String theme, String label, String rationale, List<String> suggestions, String defaultValue,
-            List<String> dependsOnQuestionIds) {
-    }
-
     private final ChatModel model;
+    private final KnowledgeAi knowledge;
+    private final QuestionsAi questions;
     /** Délai d'un appel : toutes les opérations sont interactives (180 s par défaut). */
     private final Duration timeout;
 
     public LangChainLlmClient(ChatModel model) {
-        this(model, CallTimeout.DEFAULT);
+        this(model, null, null, CallTimeout.DEFAULT);
+    }
+
+    public LangChainLlmClient(ChatModel model, Duration timeout) {
+        this(model, null, null, timeout);
     }
 
     @Inject
-    public LangChainLlmClient(ChatModel model,
+    public LangChainLlmClient(ChatModel model, KnowledgeAi knowledge, QuestionsAi questions,
             @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s") Duration timeout) {
         this.model = model;
+        this.knowledge = knowledge;
+        this.questions = questions;
         this.timeout = timeout;
     }
 
@@ -94,7 +94,7 @@ public class LangChainLlmClient implements LlmClient {
     public ProposeQuestionsResult proposeQuestions(ProposeQuestionsRequest request) {
         String user = UserMessages.questions(request.need(), request.language(), request.known(),
                 request.remainingThemes(), request.knowledge());
-        return call("propose-questions", user, LlmSchemas.QUESTIONS, LangChainLlmClient::toQuestions);
+        return AiCalls.call(timeout, () -> questions.propose(user, LlmSchemas.params(LlmSchemas.QUESTIONS)));
     }
 
     @Override
@@ -108,7 +108,7 @@ public class LangChainLlmClient implements LlmClient {
     public ReassessResult reassessAfterChange(ReassessRequest request) {
         String user = UserMessages.reassess(request.need(), request.language(), request.known(),
                 request.changedQuestionId(), request.knowledge());
-        return call("reassess-after-change", user, LlmSchemas.REASSESS, LangChainLlmClient::toReassess);
+        return AiCalls.call(timeout, () -> questions.reassess(user, LlmSchemas.params(LlmSchemas.REASSESS)));
     }
 
     @Override
@@ -134,19 +134,20 @@ public class LangChainLlmClient implements LlmClient {
 
     @Override
     public RelatedIssuesJudgement judgeRelatedIssues(RelatedIssuesRequest request) {
-        return call("judge-related-issues", UserMessages.relatedIssues(request), LlmSchemas.RELATED_ISSUES,
-                LangChainLlmClient::toRelated);
+        return AiCalls.call(timeout, () -> knowledge.judge(UserMessages.relatedIssues(request),
+                LlmSchemas.params(LlmSchemas.RELATED_ISSUES)));
     }
 
     @Override
     public IssueComparison compareWithIssue(CompareIssueRequest request) {
-        return call("compare-with-issue", UserMessages.compareIssue(request), LlmSchemas.ISSUE_COMPARISON,
-                LangChainLlmClient::toComparison);
+        return AiCalls.call(timeout, () -> knowledge.compare(UserMessages.compareIssue(request),
+                LlmSchemas.params(LlmSchemas.ISSUE_COMPARISON)));
     }
 
     @Override
     public ImpactResult identifyImpact(ImpactRequest request) {
-        return call("identify-impact", UserMessages.impact(request), LlmSchemas.IMPACT, LangChainLlmClient::toImpact);
+        return AiCalls.call(timeout, () -> knowledge.impact(UserMessages.impact(request),
+                LlmSchemas.params(LlmSchemas.IMPACT)));
     }
 
     private <T> T call(String operation, String user, ResponseFormat format, Function<String, T> parse) {
@@ -197,76 +198,6 @@ public class LangChainLlmClient implements LlmClient {
         return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
                 TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
                 draft.requirements(), draft.adrDeviations());
-    }
-
-    private static RelatedIssuesJudgement toRelated(String json) {
-        RelatedIssuesJudgement judgement = JSON.readValue(json, RelatedIssuesJudgement.class);
-        if (judgement == null || judgement.related().stream().anyMatch(r -> blank(r.key()))) {
-            throw new IllegalArgumentException("ticket proche sans clé");
-        }
-        return judgement;
-    }
-
-    private static IssueComparison toComparison(String json) {
-        IssueComparison comparison = JSON.readValue(json, IssueComparison.class);
-        if (comparison == null || comparison.suggestion() == null) {
-            throw new IllegalArgumentException("comparaison sans suggestion");
-        }
-        return comparison;
-    }
-
-    private static ImpactResult toImpact(String json) {
-        ImpactResult impact = JSON.readValue(json, ImpactResult.class);
-        if (impact == null || impact.exchanges().stream().anyMatch(e -> blank(e.from()) || blank(e.to()))) {
-            throw new IllegalArgumentException("échange sans émetteur ou sans destinataire");
-        }
-        return impact;
-    }
-
-    private static ProposeQuestionsResult toQuestions(String json) {
-        QuestionsDto dto = JSON.readValue(json, QuestionsDto.class);
-        if (dto == null || dto.questions() == null) {
-            throw new IllegalArgumentException("liste de questions absente");
-        }
-        List<ProposedQuestion> questions = proposed(dto.questions());
-        Set<QuestionTheme> covered = EnumSet.noneOf(QuestionTheme.class);
-        if (dto.coveredThemes() != null) {
-            dto.coveredThemes().forEach(t -> covered.add(theme(t)));
-        }
-        return new ProposeQuestionsResult(questions, dto.contradictions() == null ? List.of() : dto.contradictions(),
-                covered);
-    }
-
-    private static ReassessResult toReassess(String json) {
-        ReassessDto dto = JSON.readValue(json, ReassessDto.class);
-        if (dto == null || dto.obsoleteQuestionIds() == null || dto.newQuestions() == null) {
-            throw new IllegalArgumentException("réévaluation incomplète");
-        }
-        return new ReassessResult(dto.obsoleteQuestionIds(), proposed(dto.newQuestions()));
-    }
-
-    private static List<ProposedQuestion> proposed(List<QuestionDto> dtos) {
-        List<ProposedQuestion> questions = dtos.stream()
-                .map(q -> new ProposedQuestion(theme(q.theme()), q.label(), q.rationale(),
-                        q.suggestions() == null ? List.of() : q.suggestions().stream().limit(5).toList(),
-                        q.defaultValue(), q.dependsOnQuestionIds() == null ? List.of() : q.dependsOnQuestionIds()))
-                .toList();
-        if (questions.stream().anyMatch(q -> blank(q.label()) || blank(q.rationale()))) {
-            throw new IllegalArgumentException("question sans libellé ou sans justification");
-        }
-        return questions;
-    }
-
-    /** Thème inconnu ou absent : sortie non conforme, redemandée. */
-    private static QuestionTheme theme(String value) {
-        if (value == null) {
-            throw new IllegalArgumentException("thème absent");
-        }
-        return QuestionTheme.valueOf(value);
-    }
-
-    private static boolean blank(String value) {
-        return value == null || value.isBlank();
     }
 
     static String prompt(String operation) {

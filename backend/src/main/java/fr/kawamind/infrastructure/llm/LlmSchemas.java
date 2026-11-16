@@ -1,5 +1,6 @@
 package fr.kawamind.infrastructure.llm;
 
+import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.chat.request.ResponseFormatType;
 import dev.langchain4j.model.chat.request.json.JsonArraySchema;
@@ -189,6 +190,11 @@ final class LlmSchemas {
 
     private static JsonSchemaElement array(JsonSchemaElement items) {
         return JsonArraySchema.builder().items(items).build();
+    }
+
+    /** Paramètres d'appel d'un AI Service : le schéma strict de la réponse (014, research R4). */
+    static ChatRequestParameters params(ResponseFormat format) {
+        return ChatRequestParameters.builder().responseFormat(format).build();
     }
 
     private static ResponseFormat format(String name, JsonObjectSchema root) {

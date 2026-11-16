@@ -180,7 +180,7 @@ de l'évaluation.
 
 ### Évaluation sur le code livré (research R7)
 
-- [ ] T020 [US1] Passer l'évaluation en `@QuarkusTest` avec un profil
+- [X] T020 [US1] Passer l'évaluation en `@QuarkusTest` avec un profil
   `BT/eval/EvalProfile.java` : rejeu désactivé, `specwriter.copilot.home` pointé sur
   `~/.copilot` (ou `-Deval.copilot-home`).
   - Nouvelle clé de configuration `specwriter.copilot.home`, facultative, lue par
@@ -191,25 +191,25 @@ de l'évaluation.
 
 ### Famille Knowledge (3 opérations structurées)
 
-- [ ] T021 [P] [US1] Tests `@QuarkusTest` `BT/infrastructure/llm/ai/KnowledgeAiTest.java` sur le
+- [X] T021 [P] [US1] Tests `@QuarkusTest` `BT/infrastructure/llm/ai/KnowledgeAiTest.java` sur le
   rejeu : `judge-related-issues`, `compare-with-issue` et `identify-impact` rendent les DTO
   attendus.
   - Tests unitaires des garde-fous `RelatedGuardrail`, `ComparisonGuardrail` et `ImpactGuardrail` :
     sortie invalide → reprise, deux au plus.
-- [ ] T022 [US1] Créer `LLM/ai/KnowledgeAi.java`, `LLM/ai/dto/` (DTO déplacés) et
+- [X] T022 [US1] Créer `LLM/ai/KnowledgeAi.java`, `LLM/ai/dto/` (DTO déplacés) et
   `LLM/ai/guardrails/`.
   - `LangChainLlmClient` délègue ces trois méthodes à `KnowledgeAi`.
   - `quarkus.langchain4j.guardrails.max-retries=2` dans `BR/application.properties`.
-- [ ] T023 [US1] Évaluation réelle (accord du mainteneur), puis gates. Commit
+- [X] T023 [US1] Évaluation réelle (accord du mainteneur), puis gates. Commit
   `refactor(llm): opérations de connaissance sur les AI Services`.
 
 ### Famille Questions
 
-- [ ] T024 [P] [US1] Tests `@QuarkusTest` `BT/infrastructure/llm/ai/QuestionsAiTest.java` : `propose-questions`,
+- [X] T024 [P] [US1] Tests `@QuarkusTest` `BT/infrastructure/llm/ai/QuestionsAiTest.java` : `propose-questions`,
   `reassess-after-change` ; garde-fous (thème connu, identifiants de questions).
-- [ ] T025 [US1] Créer `LLM/ai/QuestionsAi.java` et ses garde-fous ; `LangChainLlmClient`
+- [X] T025 [US1] Créer `LLM/ai/QuestionsAi.java` et ses garde-fous ; `LangChainLlmClient`
   délègue.
-- [ ] T026 [US1] Évaluation réelle (`questionRelevance`), gates, commit.
+- [X] T026 [US1] Évaluation réelle (`questionRelevance`), gates, commit.
 
 ### Famille Specification
 

@@ -68,8 +68,22 @@ public class ScriptedChatModel implements ChatModel {
         return this;
     }
 
+    private final List<ChatRequest> requests = new java.util.ArrayList<>();
+
+    /** Comme le modèle de l'application (014) : le schéma de réponse est transmis, pas écrit dans le message. */
+    @Override
+    public java.util.Set<dev.langchain4j.model.chat.Capability> supportedCapabilities() {
+        return java.util.Set.of(dev.langchain4j.model.chat.Capability.RESPONSE_FORMAT_JSON_SCHEMA);
+    }
+
+    /** Requêtes reçues, paramètres compris. */
+    public List<ChatRequest> requests() {
+        return List.copyOf(requests);
+    }
+
     @Override
     public ChatResponse doChat(ChatRequest request) {
+        requests.add(request);
         StringBuilder system = new StringBuilder();
         StringBuilder user = new StringBuilder();
         for (ChatMessage m : request.messages()) {

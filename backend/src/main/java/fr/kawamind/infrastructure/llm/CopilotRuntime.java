@@ -125,8 +125,18 @@ public class CopilotRuntime implements CopilotSdkGateway {
         return client;
     }
 
-    /** {@code COPILOT_HOME} propre à l'outil, créé à la demande en {@code rwx------}. */
+    /**
+     * {@code COPILOT_HOME} imposé (évaluation réelle : celui du Copilot CLI de l'utilisateur, où il
+     * s'est connecté par {@code copilot login}) ; il n'est ni créé ni modifié.
+     */
+    @ConfigProperty(name = "specwriter.copilot.home")
+    Optional<String> home = Optional.empty();
+
+    /** {@code COPILOT_HOME} imposé, sinon propre à l'outil, créé à la demande en {@code rwx------}. */
     Path copilotHome() {
+        if (home.filter(h -> !h.isBlank()).isPresent()) {
+            return Path.of(home.get());
+        }
         return UserDirectories.createPrivateDirectories(Path.of(dataDir, "copilot"), UserDirectories.fromSystem().posix());
     }
 

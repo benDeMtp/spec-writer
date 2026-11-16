@@ -11,6 +11,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * rejoint celle attendue. Vrai Copilot : {@code ./mvnw -pl backend verify -Peval}.
  */
 @Tag("eval")
+@io.quarkus.test.junit.QuarkusTest
+@io.quarkus.test.junit.TestProfile(EvalProfile.class)
 class PerimeterEval {
 
     @ParameterizedTest

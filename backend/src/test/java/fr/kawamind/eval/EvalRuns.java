@@ -14,8 +14,11 @@ import fr.kawamind.domain.question.Question;
 import fr.kawamind.domain.scenario.ScenarioStructureValidator;
 import fr.kawamind.domain.specification.SpecificationContent;
 import fr.kawamind.infrastructure.llm.CopilotSdkGateway;
-import fr.kawamind.infrastructure.llm.EvalCopilot;
-import fr.kawamind.infrastructure.llm.LangChainLlmClient;
+import fr.kawamind.domain.port.ConversationLlm;
+import fr.kawamind.domain.port.LlmClient;
+import fr.kawamind.infrastructure.llm.CopilotRuntime;
+import fr.kawamind.infrastructure.llm.EvalTools;
+import io.quarkus.arc.Arc;
 import fr.kawamind.support.FixedClock;
 import fr.kawamind.support.InMemoryConsents;
 import fr.kawamind.support.InMemoryProjects;
@@ -48,7 +51,9 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>Propriétés : {@code eval.runs}, {@code eval.model} (sinon le modèle par défaut de
  * l'application, sinon celui du compte), {@code eval.copilot-home} ({@code ~/.copilot} par défaut :
- * se connecter avant par {@code copilot login}), {@code specwriter.copilot.cli-path}.
+ * se connecter avant par {@code copilot login}), {@code specwriter.copilot.cli-path}. Depuis la 014
+ * (research R7), les appels passent par les beans de l'application ({@link EvalProfile}) : AI
+ * Services, garde-fous et plafonds tels qu'ils sont livrés.
  */
 public final class EvalRuns {
 
@@ -139,24 +144,24 @@ public final class EvalRuns {
         int runs = Integer.getInteger("eval.runs", 3);
         String configured = System.getProperty("eval.model", EvalFingerprint.defaultModel(REPO));
         Optional<String> model = Optional.of(configured).filter(m -> !m.isBlank());
-        Path home = Path.of(System.getProperty("eval.copilot-home", System.getProperty("user.home") + "/.copilot"));
         List<CaseRun> all = new ArrayList<>();
         List<ConversationRuns.CaseRun> conversations = new ArrayList<>();
         List<DiscussionRuns.CaseRun> discussions = new ArrayList<>();
         List<PerimeterRuns.CaseRun> perimeters = new ArrayList<>();
         List<PerimeterAnswerRuns.CaseRun> perimeterAnswers = new ArrayList<>();
-        String cliVersion;
-        try (EvalCopilot copilot = new EvalCopilot(home, Optional.ofNullable(System.getProperty("specwriter.copilot.cli-path")))) {
-            cliVersion = copilot.cliVersion();
-            for (int run = 1; run <= runs; run++) {
-                for (Path dir : cases()) {
-                    all.add(runCase(copilot, model, dir, run));
-                }
-                conversations.addAll(ConversationRuns.run(copilot.conversationLlm(model), run));
-                discussions.addAll(DiscussionRuns.run(copilot.conversationLlm(model), run));
-                perimeters.addAll(PerimeterRuns.run(copilot.conversationLlm(model), run));
-                perimeterAnswers.addAll(PerimeterAnswerRuns.run(copilot.conversationLlm(model), run));
+        // 014 (research R7) : le code livré, beans de l'application sur le vrai Copilot (EvalProfile)
+        LlmClient llm = Arc.container().instance(LlmClient.class).get();
+        ConversationLlm agent = Arc.container().instance(ConversationLlm.class).get();
+        CopilotSdkGateway gateway = Arc.container().instance(CopilotRuntime.class).get();
+        String cliVersion = EvalTools.cliVersion(Optional.ofNullable(System.getProperty("specwriter.copilot.cli-path")));
+        for (int run = 1; run <= runs; run++) {
+            for (Path dir : cases()) {
+                all.add(runCase(llm, gateway, model, dir, run));
             }
+            conversations.addAll(ConversationRuns.run(agent, run));
+            discussions.addAll(DiscussionRuns.run(agent, run));
+            perimeters.addAll(PerimeterRuns.run(agent, run));
+            perimeterAnswers.addAll(PerimeterAnswerRuns.run(agent, run));
         }
         List<double[]> perRun = new ArrayList<>();
         for (int run = 1; run <= runs; run++) {
@@ -193,7 +198,8 @@ public final class EvalRuns {
         return out;
     }
 
-    private static CaseRun runCase(EvalCopilot copilot, Optional<String> model, Path dir, int run) {
+    private static CaseRun runCase(LlmClient llm, CopilotSdkGateway gateway, Optional<String> model, Path dir,
+            int run) {
         String name = dir.getFileName().toString();
         String need = read(dir.resolve("need.md"));
         String reference = read(dir.resolve("expected.md"));
@@ -203,8 +209,7 @@ public final class EvalRuns {
         ConsentPolicy policy = new ConsentPolicy(consents);
         FixedClock clock = new FixedClock();
         SequentialIdGenerator ids = new SequentialIdGenerator();
-        LangChainLlmClient llm = new LangChainLlmClient(copilot.chatModel(model));
-        SimulatedUser user = new SimulatedUser(copilot.gateway(), model.orElse(null));
+        SimulatedUser user = new SimulatedUser(gateway, model.orElse(null));
 
         List<Asked> asked = new ArrayList<>();
         int scenarios = 0;
@@ -236,7 +241,7 @@ public final class EvalRuns {
             }
             error = e.code().name();
         }
-        List<Asked> judged = asked.isEmpty() ? asked : new QuestionJudge(copilot.gateway(), model.orElse(null)).judge(need, asked);
+        List<Asked> judged = asked.isEmpty() ? asked : new QuestionJudge(gateway, model.orElse(null)).judge(need, asked);
         return new CaseRun(name, run, judged, scenarios, violations, error);
     }
 

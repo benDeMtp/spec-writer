@@ -2,7 +2,7 @@ package fr.kawamind.eval;
 
 import fr.kawamind.domain.question.Question;
 import fr.kawamind.infrastructure.llm.CopilotSdkGateway;
-import fr.kawamind.infrastructure.llm.EvalCopilot;
+import fr.kawamind.infrastructure.llm.EvalTools;
 import java.nio.file.Path;
 import java.util.Map;
 import tools.jackson.databind.JsonNode;
@@ -15,7 +15,7 @@ final class SimulatedUser {
     }
 
     private static final String PROMPT = EvalRuns.read(Path.of("src/test/resources/eval/prompts/simulated-user.txt"));
-    private static final Map<String, Object> SCHEMA = EvalCopilot.strict(Map.of("type", "object", "properties",
+    private static final Map<String, Object> SCHEMA = EvalTools.strict(Map.of("type", "object", "properties",
             Map.of("answer", Map.of("type", "string"), "skip", Map.of("type", "boolean"))));
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
