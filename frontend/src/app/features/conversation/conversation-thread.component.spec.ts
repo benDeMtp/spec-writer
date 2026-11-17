@@ -209,6 +209,47 @@ describe('ConversationThreadComponent', () => {
     expect(navigate).toHaveBeenCalledWith('/sessions/s2/versions/2');
   });
 
+  it('montre la source et la date de chaque source citée (016)', async () => {
+    fixture.componentRef.setInput('conversationId', 'c1');
+    fixture.componentInstance.messages.set([
+      user('u1', 1),
+      {
+        ...agent('a1', 2, 1, 'Voir [1], [2] et [3].'),
+        sources: [
+          {
+            n: 1,
+            kind: 'DOC_SECTION',
+            ref: 'https://wiki/pages/viewpage.action?pageId=42',
+            title: 'Notes de frais',
+            url: null,
+            origin: 'CONFLUENCE',
+            updatedAt: '2026-03-03T10:00:00Z',
+            level: 'INTERPRETATION',
+          },
+          {
+            n: 2,
+            kind: 'DOC_SECTION',
+            ref: 'docs:x/Demande.docx#2',
+            title: 'Demande',
+            url: null,
+            origin: 'DOCUMENTS',
+            updatedAt: null,
+            level: 'REFERENCE',
+          },
+          // message enregistré avant 016 : ni source ni date
+          { n: 3, kind: 'TICKET', ref: 'FACT-7', title: 'Avoir', url: null },
+        ],
+      },
+    ]);
+    await settle(fixture);
+
+    const provenances = Array.from(el.querySelectorAll('[data-testid="source-provenance"]')).map((p) =>
+      p.textContent?.trim(),
+    );
+    expect(provenances).toEqual(['Confluence · 3 mars 2026', 'SharePoint · date inconnue · Référence']);
+    expect(el.querySelectorAll('.sources li')).toHaveLength(3);
+  });
+
   it('crée la conversation au premier envoi, puis suit le tour', async () => {
     let prepared = 0;
     fixture.componentRef.setInput('prepare', async () => {

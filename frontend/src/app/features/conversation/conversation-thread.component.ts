@@ -1,3 +1,4 @@
+import { provenanceLabel, RELIABILITY_LABELS } from '../../core/knowledge/provenance';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -193,6 +194,9 @@ const KINDS: Record<SourceKind, string> = {
                       } @else {
                         {{ s.title }}
                       }
+                      @if (provenance(s); as p) {
+                        <span class="provenance" data-testid="source-provenance">{{ p }}</span>
+                      }
                     </li>
                   }
                 </ol>
@@ -343,6 +347,13 @@ const KINDS: Record<SourceKind, string> = {
     }
     .sources .kind {
       margin-right: 0.4rem;
+    }
+    .sources .provenance {
+      margin-left: 0.4rem;
+      color: var(--sw-ink-soft);
+    }
+    .sources .provenance::before {
+      content: '— ';
     }
     .thinking {
       margin: 0 0 0.75rem;
@@ -720,6 +731,15 @@ export class ConversationThreadComponent implements OnDestroy {
 
   protected kind(s: CitedSource): string {
     return KINDS[s.kind];
+  }
+
+  /** Source et date de mise à jour (016) : « Confluence · 3 mars 2026 », niveau s'il n'est pas l'interprétation. */
+  protected provenance(s: CitedSource): string {
+    const label = provenanceLabel(s);
+    if (!label) {
+      return '';
+    }
+    return s.level && s.level !== 'INTERPRETATION' ? `${label} · ${RELIABILITY_LABELS[s.level]}` : label;
   }
 
   /** Adresse dans l'outil (version d'une spécification) : ouverte par le routeur. */

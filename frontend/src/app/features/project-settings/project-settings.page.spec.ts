@@ -70,13 +70,29 @@ describe('ProjectSettingsPage', () => {
     ctrl.expectOne('/api/projects/current').flush(project);
   }
 
-  afterEach(() => ctrl.verify());
+  /** Niveaux de fiabilité (016), lus par leur section : testés à part. */
+  const LEVELS = {
+    levels: { DOCUMENTS: 'REFERENCE', SPECIFICATIONS: 'INTERPRETATION', JIRA: 'INTERPRETATION' },
+    defaults: { DOCUMENTS: 'REFERENCE', SPECIFICATIONS: 'INTERPRETATION', JIRA: 'INTERPRETATION' },
+  };
+
+  afterEach(() => {
+    ctrl.match((r) => r.url.endsWith('/reliability')).forEach((r) => r.flush(LEVELS));
+    ctrl.verify();
+  });
 
   it('présente une seule fiche générale et les sources, sans proposition de l’IA', async () => {
     await open(FACT);
     expect(el.querySelector('h1')?.textContent).toBe('Réglages du projet · Facturation');
     const sections = Array.from(el.querySelectorAll('section h2')).map((h) => h.textContent?.trim());
-    expect(sections).toEqual(['Identité', 'Fiche générale', 'Sources de documentation', 'Sources du code', "Modèle d'architecture"]);
+    expect(sections).toEqual([
+      'Identité',
+      'Fiche générale',
+      'Sources de documentation',
+      'Fiabilité des sources',
+      'Sources du code',
+      "Modèle d'architecture",
+    ]);
     expect(el.querySelector('a[href="/projet/connaissance"]')?.textContent).toContain('Voir la connaissance du projet');
     expect(el.querySelector('[role="tab"]')).toBeNull();
     expect(el.querySelector<HTMLTextAreaElement>('textarea[name="context"]')!.value).toBe('## Acteurs\n- Le comptable');
@@ -169,6 +185,77 @@ describe('ProjectSettingsPage', () => {
     await settle(fixture);
     expect(el.textContent).toContain('Motifs enregistrés');
     expect(el.querySelector('textarea[name="exclusions-s9"]')).toBeNull();
+  });
+
+  it('déclare une racine Confluence : aperçu, refus sans serveur, ajout (016)', async () => {
+    await open(FACT);
+    (el.querySelector('mat-select[name="kind"] .mat-mdc-select-trigger') as HTMLElement).click();
+    await settle(fixture);
+    Array.from(document.querySelectorAll<HTMLElement>('mat-option'))
+      .find((o) => o.textContent?.includes('Page Confluence'))!
+      .click();
+    await settle(fixture);
+    expect(el.textContent).toContain('Adresse de la page Confluence');
+    expect(el.textContent).toContain('toutes les pages enfants, à toute profondeur');
+
+    const url = 'https://wiki.example.com/confluence/pages/viewpage.action?pageId=100';
+    type(el.querySelector<HTMLInputElement>('input[name="location"]')!, url);
+    await settle(fixture);
+    button(el, 'Aperçu de la racine')!.click();
+    let preview = ctrl.expectOne('/api/projects/p1/doc-sources/preview');
+    expect(preview.request.body).toEqual({ kind: 'CONFLUENCE', location: url });
+    preview.flush({ pages: 0, title: null, pageId: null, problem: 'CONFLUENCE_NOT_CONFIGURED' });
+    await settle(fixture);
+    let result = el.querySelector('[data-testid="confluence-preview"]')!;
+    expect(result.textContent).toContain('Aucun serveur Confluence n’est déclaré.');
+    expect(result.querySelector('a[href="/configuration"]')).not.toBeNull();
+
+    button(el, 'Aperçu de la racine')!.click();
+    preview = ctrl.expectOne('/api/projects/p1/doc-sources/preview');
+    preview.flush({ pages: 12, title: 'Remboursements', pageId: '100', problem: null });
+    await settle(fixture);
+    result = el.querySelector('[data-testid="confluence-preview"]')!;
+    expect(result.textContent).toContain('« Remboursements » : 12 pages, la page et toute sa descendance.');
+
+    button(el, 'Ajouter')!.click();
+    const add = ctrl.expectOne('/api/projects/p1/doc-sources');
+    expect(add.request.body).toEqual({ kind: 'CONFLUENCE', location: url });
+    add.flush({ id: 's3', kind: 'CONFLUENCE', location: url, title: 'Remboursements', pageId: '100', reliability: null, lastReadAt: null, pagesRead: null, pagesInError: null, exclusions: [] });
+    await settle(fixture);
+    reload(FACT);
+    await settle(fixture);
+  });
+
+  it('affiche une racine Confluence par son titre et règle son niveau propre (016)', async () => {
+    const root = {
+      id: 's3',
+      kind: 'CONFLUENCE' as const,
+      location: 'https://wiki.example.com/confluence/pages/viewpage.action?pageId=100',
+      title: 'Remboursements',
+      pageId: '100',
+      reliability: null,
+      lastReadAt: null,
+      pagesRead: null,
+      pagesInError: null,
+      exclusions: [],
+    };
+    await open({ ...FACT, docSources: [root] });
+    expect(el.querySelector('.sources .location')?.textContent).toBe('Remboursements');
+    expect(el.querySelector('.sources')?.textContent).toContain('Confluence');
+    expect(el.querySelector('[data-testid="root-level-s3"]')?.textContent).toContain('Celui de Confluence');
+    (el.querySelector('[data-testid="root-level-s3"] .mat-mdc-select-trigger') as HTMLElement).click();
+    await settle(fixture);
+    Array.from(document.querySelectorAll<HTMLElement>('mat-option'))
+      .find((o) => o.textContent?.trim() === 'À confirmer')!
+      .click();
+    await settle(fixture);
+    const put = ctrl.expectOne('/api/projects/p1/doc-sources/s3/reliability');
+    expect(put.request.body).toEqual({ reliability: 'TO_CONFIRM' });
+    put.flush({ ...root, reliability: 'TO_CONFIRM' });
+    await settle(fixture);
+    reload({ ...FACT, docSources: [{ ...root, reliability: 'TO_CONFIRM' }] });
+    await settle(fixture);
+    expect(el.textContent).toContain('Niveau de Remboursements : À confirmer.');
   });
 
   it('ajoute puis retire une source', async () => {

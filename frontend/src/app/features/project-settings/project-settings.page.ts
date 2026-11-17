@@ -11,7 +11,15 @@ import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { ContextApi } from '../../core/projects/context.api';
 import { KnowledgeApi } from '../../core/projects/knowledge.api';
 import { ProjectsApi } from '../../core/projects/projects.api';
-import { DocSource, DocSourceKind, DocumentsPreview, Project, ProjectInput } from '../../core/projects/projects.model';
+import { RELIABILITY_LABELS, Reliability, SourceOrigin } from '../../core/knowledge/provenance';
+import {
+  ConfluencePreview,
+  DocSource,
+  DocSourceKind,
+  DocumentsPreview,
+  Project,
+  ProjectInput,
+} from '../../core/projects/projects.model';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { SettingsStore } from '../../core/settings/settings.store';
 import { count } from '../../shared/text';
@@ -19,6 +27,7 @@ import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog.component
 import { ProjectHeadingComponent } from '../../shared/ui/project-heading.component';
 import { ProjectIdentityFormComponent } from '../projects/project-identity-form.component';
 import { SheetEditorComponent } from './sheet-editor.component';
+import { ReliabilityComponent } from './reliability.component';
 import { SourceRootsComponent } from './source-roots.component';
 
 /**
@@ -38,6 +47,7 @@ import { SourceRootsComponent } from './source-roots.component';
     RouterLink,
     ProjectHeadingComponent,
     ProjectIdentityFormComponent,
+    ReliabilityComponent,
     SheetEditorComponent,
     SourceRootsComponent,
   ],
@@ -73,8 +83,23 @@ import { SourceRootsComponent } from './source-roots.component';
           <ul class="sources">
             @for (s of p.docSources; track s.id) {
               <li>
-                <span class="location">{{ s.location }}</span>
+                <span class="location">{{ s.kind === 'CONFLUENCE' && s.title ? s.title : s.location }}</span>
                 <span class="meta">{{ kindLabel(s) }} · {{ lastRead(s) }}</span>
+                @if (s.kind === 'CONFLUENCE') {
+                  <mat-form-field appearance="outline" class="level">
+                    <mat-label>Niveau de cette racine</mat-label>
+                    <mat-select
+                      [value]="s.reliability ?? 'INHERIT'"
+                      (selectionChange)="setRootLevel(s, $event.value === 'INHERIT' ? null : $event.value)"
+                      [attr.data-testid]="'root-level-' + s.id"
+                    >
+                      <mat-option value="INHERIT">Celui de Confluence</mat-option>
+                      @for (r of levels; track r) {
+                        <mat-option [value]="r">{{ levelLabel(r) }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                }
                 @if (s.kind === 'DOCUMENTS') {
                   <span class="meta">{{ s.exclusions.length ? 'Exclus : ' + s.exclusions.join(', ') : "Aucun motif d'exclusion" }}</span>
                   <button mat-button type="button" (click)="editExclusions(s)" [attr.aria-label]="'Modifier les motifs de ' + s.location">
@@ -115,6 +140,7 @@ import { SourceRootsComponent } from './source-roots.component';
                 <mat-option value="URL">Lien</mat-option>
                 <mat-option value="FOLDER">Dossier</mat-option>
                 <mat-option value="DOCUMENTS">Dossier de documents (SharePoint synchronisé)</mat-option>
+                <mat-option value="CONFLUENCE">Page Confluence et toute sa descendance</mat-option>
               </mat-select>
             </mat-form-field>
             <mat-form-field appearance="outline" class="grow">
@@ -139,8 +165,32 @@ import { SourceRootsComponent } from './source-roots.component';
               </p>
               <button mat-button type="button" (click)="previewSource()" [disabled]="!location().trim() || busy()">Aperçu du dossier</button>
             }
+            @if (kind() === 'CONFLUENCE') {
+              <button mat-button type="button" (click)="previewConfluence()" [disabled]="!location().trim() || busy()">
+                Aperçu de la racine
+              </button>
+            }
             <button mat-stroked-button type="submit" [disabled]="!location().trim()">Ajouter</button>
           </form>
+          @if (kind() === 'CONFLUENCE') {
+            @if (confluencePreview(); as cp) {
+              <div class="preview" role="status" data-testid="confluence-preview">
+                @if (cp.problem) {
+                  <p>{{ confluenceRefusal(cp) }}</p>
+                  @if (cp.problem === 'CONFLUENCE_NOT_CONFIGURED') {
+                    <p><a routerLink="/configuration">Déclarer le serveur Confluence dans Configuration</a></p>
+                  }
+                } @else {
+                  <p>« {{ cp.title }} » : {{ pagesLabel(cp.pages) }}, la page et toute sa descendance.</p>
+                }
+              </div>
+            } @else {
+              <p class="hint">
+                Copiez l’adresse de la page depuis votre navigateur : toutes les pages enfants, à toute profondeur, seront
+                indexées. Le serveur se déclare une fois dans Configuration.
+              </p>
+            }
+          }
           @if (kind() === 'DOCUMENTS') {
             @if (preview(); as pv) {
               <div class="preview" role="status">
@@ -179,6 +229,11 @@ import { SourceRootsComponent } from './source-roots.component';
         } @else {
           <p class="hint">Un projet a au plus 10 sources.</p>
         }
+      </section>
+
+      <section class="sheet" aria-labelledby="reliability-title">
+        <h2 id="reliability-title">Fiabilité des sources</h2>
+        <sw-reliability [projectId]="p.id" [origins]="origins()" />
       </section>
 
       <section class="sheet" aria-labelledby="sources-code">
@@ -323,6 +378,35 @@ export class ProjectSettingsPage {
   /** Dossier de documents (006) : motifs saisis, aperçu, et motifs d'une source en cours de modification. */
   protected readonly exclusions = signal('');
   protected readonly preview = signal<DocumentsPreview | null>(null);
+  /** Racine Confluence (016) : aperçu avant l'ajout. */
+  protected readonly confluencePreview = signal<ConfluencePreview | null>(null);
+  protected readonly levels: Reliability[] = ['REFERENCE', 'INTERPRETATION', 'TO_CONFIRM'];
+  /** Sortes de source déclarées du projet, pour leurs niveaux de fiabilité (016). */
+  protected readonly origins = computed<SourceOrigin[]>(() => {
+    const p = this.project();
+    if (!p) {
+      return [];
+    }
+    const kinds = new Set(p.docSources.map((d) => d.kind));
+    const out: SourceOrigin[] = [];
+    if (p.jiraProjectKey || this.defaultKey()) {
+      out.push('JIRA');
+    }
+    if (kinds.has('URL') || kinds.has('FOLDER')) {
+      out.push('ANTORA');
+    }
+    if (kinds.has('DOCUMENTS')) {
+      out.push('DOCUMENTS');
+    }
+    if (kinds.has('CONFLUENCE')) {
+      out.push('CONFLUENCE');
+    }
+    if (p.architectureWorkspace) {
+      out.push('ARCHITECTURE');
+    }
+    out.push('SPECIFICATIONS');
+    return out;
+  });
   protected readonly editing = signal<string | null>(null);
   protected readonly editedExclusions = signal('');
   protected readonly busy = signal(false);
@@ -440,17 +524,74 @@ export class ProjectSettingsPage {
   }
 
   protected kindLabel(s: DocSource): string {
-    return s.kind === 'URL' ? 'Lien' : s.kind === 'DOCUMENTS' ? 'Documents' : 'Dossier';
+    return s.kind === 'URL' ? 'Lien' : s.kind === 'DOCUMENTS' ? 'Documents' : s.kind === 'CONFLUENCE' ? 'Confluence' : 'Dossier';
   }
 
   protected locationLabel(): string {
     const k = this.kind();
-    return k === 'URL' ? 'Adresse du site' : k === 'DOCUMENTS' ? 'Chemin du dossier synchronisé' : 'Chemin du dossier';
+    return k === 'URL'
+      ? 'Adresse du site'
+      : k === 'DOCUMENTS'
+        ? 'Chemin du dossier synchronisé'
+        : k === 'CONFLUENCE'
+          ? 'Adresse de la page Confluence'
+          : 'Chemin du dossier';
   }
 
   protected chooseKind(kind: DocSourceKind): void {
     this.kind.set(kind);
     this.preview.set(null);
+    this.confluencePreview.set(null);
+  }
+
+  protected levelLabel(r: Reliability): string {
+    return RELIABILITY_LABELS[r];
+  }
+
+  protected pagesLabel(n: number): string {
+    return count(n, 'page', 'pages');
+  }
+
+  /** Refus d'une racine, avec ce qu'il faut faire (016, FR-004). */
+  protected confluenceRefusal(p: ConfluencePreview): string {
+    switch (p.problem) {
+      case 'CONFLUENCE_NOT_CONFIGURED':
+        return 'Aucun serveur Confluence n’est déclaré.';
+      case 'OTHER_HOST':
+        return 'Cette page n’est pas sur le serveur Confluence déclaré dans Configuration.';
+      case 'ACCESS_DENIED':
+        return 'Votre jeton ne donne pas accès à cette page.';
+      case 'TOO_LARGE':
+        return `Cette racine compte ${count(p.pages, 'page', 'pages')} : un projet en indexe 2 000 au plus. Choisissez une page plus basse dans l’arbre.`;
+      case 'UNREACHABLE':
+        return 'Confluence ne répond pas. Vérifiez votre connexion, puis réessayez.';
+      default:
+        return 'Cette adresse ne désigne pas une page Confluence lisible. Copiez l’adresse de la page depuis votre navigateur.';
+    }
+  }
+
+  protected async previewConfluence(): Promise<void> {
+    const p = this.project();
+    const location = this.location().trim();
+    if (!p || !location) {
+      return;
+    }
+    await this.run(async () => {
+      this.confluencePreview.set(await this.api.previewConfluence(p.id, location));
+    });
+  }
+
+  /** Niveau propre d'une racine (016, FR-016a) ; `null` : celui de Confluence. */
+  protected async setRootLevel(s: DocSource, level: Reliability | null): Promise<void> {
+    const p = this.project();
+    if (!p) {
+      return;
+    }
+    await this.run(async () => {
+      await this.api.setSourceReliability(p.id, s.id, level);
+      this.announce.set(`Niveau de ${s.title ?? s.location} : ${level ? RELIABILITY_LABELS[level] : 'celui de Confluence'}.`);
+      await this.load();
+    });
   }
 
   protected previewLabel(p: DocumentsPreview): string {
@@ -520,6 +661,7 @@ export class ProjectSettingsPage {
       this.location.set('');
       this.exclusions.set('');
       this.preview.set(null);
+      this.confluencePreview.set(null);
       this.announce.set('Source ajoutée. Elle est lue en arrière-plan.');
       await this.load();
     });

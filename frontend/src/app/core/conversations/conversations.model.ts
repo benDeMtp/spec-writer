@@ -1,3 +1,4 @@
+import type { Reliability, SourceOrigin } from '../knowledge/provenance';
 /** Agent conversationnel (010, contracts/api.md). */
 export type SourceKind =
   'TICKET' | 'DOC_SECTION' | 'ADR' | 'ARCH_ELEMENT' | 'SPECIFICATION' | 'ATTACHMENT' | 'DISCUSSION' | 'MODULE';
@@ -35,13 +36,19 @@ export interface SearchStep {
   hits: number;
 }
 
-/** Source citée sous son numéro ; `url` : où l'ouvrir (Jira, page, version d'une spécification). */
+/**
+ * Source citée sous son numéro ; `url` : où l'ouvrir (Jira, page, version d'une spécification).
+ * Provenance (016) : nulle ou absente pour une réponse antérieure.
+ */
 export interface CitedSource {
   n: number;
   kind: SourceKind;
   ref: string;
   title: string;
   url: string | null;
+  origin?: SourceOrigin | null;
+  updatedAt?: string | null;
+  level?: Reliability | null;
 }
 
 /** Ce que fait l'agent : résumer sa mémoire, choisir une recherche, rédiger la réponse. */
