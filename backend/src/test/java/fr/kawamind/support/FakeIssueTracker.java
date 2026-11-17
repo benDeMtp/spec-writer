@@ -7,6 +7,10 @@ import fr.kawamind.domain.jira.IssueStatus;
 import fr.kawamind.domain.jira.IssueType;
 import fr.kawamind.domain.jira.TrackedIssue;
 import fr.kawamind.domain.jira.TrackedIssuePage;
+import fr.kawamind.domain.jira.ParentIssue;
+import fr.kawamind.domain.jira.Subtask;
+import fr.kawamind.domain.jira.Transition;
+import java.util.Optional;
 import java.time.Instant;
 import fr.kawamind.domain.jira.IssueTrackerException.Kind;
 import fr.kawamind.domain.jira.JiraEndpoint;
@@ -264,5 +268,135 @@ public class FakeIssueTracker implements IssueTracker {
         }
         links.add(typeName + " " + outwardKey + " -> " + inwardKey);
         writes.add("link " + outwardKey);
+    }
+
+    // --- Tâches (015) : sous-tâches gardées dans tracked, workflow simple à trois catégories ---
+
+    /** Type sous-tâche du projet ; vide pour simuler un projet sans sous-tâches. */
+    public Optional<IssueType> subtaskType = Optional.of(new IssueType("10005", "Sous-tâche"));
+    /** Stories connues : clé → vrai si le ticket est lui-même une sous-tâche. */
+    public final Map<String, Boolean> parents = new LinkedHashMap<>();
+    /** Sous-tâches d'une story, dans l'ordre de Jira. */
+    public final Map<String, List<String>> children = new LinkedHashMap<>();
+    /** Transitions propres à une sous-tâche ; sinon le workflow simple. */
+    public final Map<String, List<Transition>> workflows = new LinkedHashMap<>();
+    /** Commentaires ajoutés : {@code clé : texte}. */
+    public final List<String> comments = new ArrayList<>();
+    /** Refus de Jira (droits, champ requis) à la transition ou au commentaire. */
+    public Kind transitionFailure;
+    public Kind subtaskCreateFailureAt;
+    /** Numéro (1, 2…) de la création de sous-tâche qui échoue, 0 pour aucune. */
+    public int failCreateSubtaskNumber;
+    private int subtaskCount;
+
+    /** Ajoute une sous-tâche existante sous une story. */
+    public void addSubtask(String parentKey, String key, String summary, String category) {
+        parents.putIfAbsent(parentKey, false);
+        children.computeIfAbsent(parentKey, k -> new ArrayList<>()).add(key);
+        tracked.put(key, new TrackedIssue(key, summary, "", statusName(category), category, "Sous-tâche",
+                Instant.parse("2026-11-17T09:00:00Z")));
+    }
+
+    /** Change le statut d'une sous-tâche comme le ferait l'équipe dans Jira. */
+    public void moveTo(String key, String category) {
+        TrackedIssue i = tracked.get(key);
+        tracked.put(key, new TrackedIssue(key, i.summary(), i.description(), statusName(category), category,
+                i.issueType(), i.updated().plusSeconds(1)));
+    }
+
+    public static String statusName(String category) {
+        return switch (category) {
+            case "new" -> "À faire";
+            case "indeterminate" -> "En cours";
+            default -> "Terminé";
+        };
+    }
+
+    @Override
+    public Optional<IssueType> subtaskType(JiraEndpoint endpoint, String projectKey) {
+        calls.add("subtaskType " + projectKey);
+        fail();
+        return subtaskType;
+    }
+
+    @Override
+    public ParentIssue parentIssue(JiraEndpoint endpoint, String issueKey) {
+        calls.add("parent " + issueKey);
+        fail();
+        Boolean subtask = parents.get(issueKey);
+        if (subtask == null) {
+            throw new IssueTrackerException(Kind.NOT_FOUND, "simulé");
+        }
+        List<Subtask> subs = children.getOrDefault(issueKey, List.of()).stream().map(tracked::get)
+                .filter(java.util.Objects::nonNull)
+                .map(t -> new Subtask(t.key(), t.summary(), t.status(), t.statusCategory())).toList();
+        return new ParentIssue(issueKey, "À faire", "new", subtask, subs);
+    }
+
+    @Override
+    public CreatedIssue createSubtask(JiraEndpoint endpoint, String projectKey, String parentKey, String issueTypeId,
+            String summary, String wikiDescription) {
+        calls.add("createSubtask " + parentKey + " " + summary);
+        fail();
+        subtaskCount++;
+        if (failCreateSubtaskNumber == subtaskCount) {
+            throw new IssueTrackerException(subtaskCreateFailureAt == null ? Kind.UNREACHABLE : subtaskCreateFailureAt,
+                    "simulé");
+        }
+        int number = 120 + tracked.size() + 1;
+        String key = projectKey + "-" + number;
+        while (tracked.containsKey(key)) {
+            key = projectKey + "-" + ++number;
+        }
+        addSubtask(parentKey, key, summary, "new");
+        writes.add(key);
+        return new CreatedIssue(String.valueOf(30000 + number), key);
+    }
+
+    @Override
+    public void updateSummary(JiraEndpoint endpoint, String issueKey, String summary) {
+        calls.add("summary " + issueKey + " " + summary);
+        fail();
+        TrackedIssue i = tracked.get(issueKey);
+        tracked.put(issueKey, new TrackedIssue(issueKey, summary, i.description(), i.status(), i.statusCategory(),
+                i.issueType(), i.updated()));
+        writes.add("summary " + issueKey);
+    }
+
+    @Override
+    public List<Transition> transitions(JiraEndpoint endpoint, String issueKey) {
+        calls.add("transitions " + issueKey);
+        fail();
+        if (workflows.containsKey(issueKey)) {
+            return workflows.get(issueKey);
+        }
+        String current = tracked.get(issueKey).statusCategory();
+        return java.util.stream.Stream.of(new Transition("11", "Remettre à faire", "new"),
+                new Transition("21", "Commencer", "indeterminate"), new Transition("31", "Terminer", "done"))
+                .filter(t -> !t.toCategory().equals(current)).toList();
+    }
+
+    @Override
+    public void transition(JiraEndpoint endpoint, String issueKey, String transitionId) {
+        calls.add("transition " + issueKey + " " + transitionId);
+        fail();
+        if (transitionFailure != null) {
+            throw new IssueTrackerException(transitionFailure, "simulé");
+        }
+        Transition t = transitions(endpoint, issueKey).stream().filter(x -> x.id().equals(transitionId)).findFirst()
+                .orElseThrow(() -> new IssueTrackerException(Kind.REJECTED, "simulé"));
+        calls.remove(calls.size() - 1);
+        moveTo(issueKey, t.toCategory());
+        writes.add("transition " + issueKey + " " + t.toCategory());
+    }
+
+    @Override
+    public void addComment(JiraEndpoint endpoint, String issueKey, String wikiBody) {
+        calls.add("comment " + issueKey);
+        fail();
+        if (transitionFailure != null) {
+            throw new IssueTrackerException(transitionFailure, "simulé");
+        }
+        comments.add(issueKey + " : " + wikiBody);
     }
 }

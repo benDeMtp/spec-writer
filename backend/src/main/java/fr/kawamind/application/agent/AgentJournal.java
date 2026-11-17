@@ -30,4 +30,10 @@ public class AgentJournal {
         repository.record(new AgentAccess(ids.next(), clock.now(), agentName, operation, projectId, sessionId, oldStatus,
                 newStatus));
     }
+
+    /** Opération sur une tâche (015, R11) : la clé Jira seulement, jamais le titre ni le compte rendu. */
+    public void recordTask(String agentName, AgentOperation operation, UUID projectId, UUID sessionId, String taskKey) {
+        repository.record(new AgentAccess(ids.next(), clock.now(), agentName, operation, projectId, sessionId, null,
+                null, taskKey));
+    }
 }

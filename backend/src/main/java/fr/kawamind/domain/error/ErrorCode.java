@@ -92,6 +92,27 @@ public enum ErrorCode {
     IMPORT_UNSTRUCTURABLE(502, "Le contenu du ticket n'a pas pu être structuré en spécification.", ErrorAction.RETRY),
     ALREADY_LINKED(409, "Cette session est déjà liée à un ticket Jira.", ErrorAction.NONE),
 
+    // Tâches d'une spécification (015)
+    NO_LINKED_TICKET(409, "Envoyez d'abord la spécification vers Jira : les tâches deviennent des sous-tâches de sa "
+            + "story.", ErrorAction.NONE),
+    PARENT_IS_SUBTASK(409, "Le ticket lié est une sous-tâche : il ne peut pas porter de sous-tâches.", ErrorAction.NONE),
+    TASKS_UNAVAILABLE(503, "La proposition de tâches n'a pas abouti. Réessayez, ou saisissez les tâches à la main.",
+            ErrorAction.RETRY),
+    NO_SUBTASK_TYPE(409, "Le projet Jira n'a pas de type sous-tâche : aucune tâche n'a été créée.", ErrorAction.NONE),
+    CANNOT_DELETE_CREATED(409, "Cette tâche existe déjà dans Jira : spec-writer ne supprime jamais une sous-tâche. "
+            + "Fermez-la dans Jira.", ErrorAction.NONE),
+    TASK_HELD(409, "Cette tâche est déjà prise par un autre agent.", ErrorAction.NONE),
+    TASK_NOT_READY(409, "Cette tâche ne peut pas être prise ou terminée maintenant.", ErrorAction.NONE),
+    TRACKING_SUSPENDED(409, "Le suivi des tâches de cette feature est suspendu par l'utilisateur.", ErrorAction.NONE),
+    NO_TRANSITION(409, "Le workflow Jira de la sous-tâche n'offre aucune transition directe vers ce statut.",
+            ErrorAction.NONE),
+    JIRA_REFUSED(409, "Jira a refusé la transition : rien n'a changé.", ErrorAction.NONE),
+    STATUS_FOLLOWS_TASKS(409, "Cette spécification a des tâches : « En cours » et « Implémentée » suivent leur "
+            + "avancement.", ErrorAction.NONE),
+    REPORT_TOO_LONG(422, "Le compte rendu fait 2 000 caractères au plus.", ErrorAction.EDIT_INPUT),
+    BRIDGE_OUTDATED(422, "La passerelle de l'agent est trop ancienne : relancez l'agent après la mise à jour de "
+            + "spec-writer.", ErrorAction.NONE),
+
     // Secrets
     KEYCHAIN_UNAVAILABLE(503,
             "Le trousseau du système n'est pas accessible. Le jeton sera gardé en mémoire jusqu'à la fermeture.",

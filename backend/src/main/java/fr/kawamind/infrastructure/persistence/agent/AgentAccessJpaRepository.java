@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** Réglage et journal des accès des agents, en SQL natif (V13). */
+/** Réglage et journal des accès des agents, en SQL natif (V13, V26). */
 @ApplicationScoped
 public class AgentAccessJpaRepository implements AgentAccessRepository {
 
@@ -36,7 +36,7 @@ public class AgentAccessJpaRepository implements AgentAccessRepository {
     @Transactional
     public void record(AgentAccess a) {
         em.createNativeQuery("insert into agent_access_log (id, at, agent_name, operation, project_id, session_id,"
-                + " old_status, new_status) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+                + " old_status, new_status, task_key) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)")
                 .setParameter(1, a.id().toString())
                 .setParameter(2, a.at().toString())
                 .setParameter(3, a.agentName())
@@ -45,6 +45,7 @@ public class AgentAccessJpaRepository implements AgentAccessRepository {
                 .setParameter(6, text(a.sessionId()))
                 .setParameter(7, a.oldStatus() == null ? null : a.oldStatus().name())
                 .setParameter(8, a.newStatus() == null ? null : a.newStatus().name())
+                .setParameter(9, a.taskKey())
                 .executeUpdate();
     }
 
@@ -53,11 +54,11 @@ public class AgentAccessJpaRepository implements AgentAccessRepository {
     public List<Line> page(int startAt, int max) {
         // la feature est nommée par la session ; projet et session supprimés laissent un nom vide
         List<Object[]> rows = em.createNativeQuery("select l.at, l.agent_name, l.operation, p.name, s.name, l.old_status,"
-                + " l.new_status from agent_access_log l left join project p on p.id = l.project_id"
+                + " l.new_status, l.task_key from agent_access_log l left join project p on p.id = l.project_id"
                 + " left join session s on s.id = l.session_id order by l.at desc, l.id limit ?1 offset ?2")
                 .setParameter(1, max).setParameter(2, startAt).getResultList();
         return rows.stream().map(r -> new Line(Instant.parse((String) r[0]), (String) r[1],
-                AgentOperation.valueOf((String) r[2]), (String) r[3], (String) r[4], status(r[5]), status(r[6]))).toList();
+                AgentOperation.valueOf((String) r[2]), (String) r[3], (String) r[4], status(r[5]), status(r[6]), (String) r[7])).toList();
     }
 
     @Override

@@ -17,7 +17,12 @@ public interface AgentAccessRepository {
 
     /** Ligne lue : noms du projet et de la feature au moment de la lecture, absents s'ils ont disparu. */
     record Line(Instant at, String agentName, AgentOperation operation, String projectName, String featureTitle,
-            ImplementationStatus oldStatus, ImplementationStatus newStatus) {
+            ImplementationStatus oldStatus, ImplementationStatus newStatus, String taskKey) {
+
+        public Line(Instant at, String agentName, AgentOperation operation, String projectName, String featureTitle,
+                ImplementationStatus oldStatus, ImplementationStatus newStatus) {
+            this(at, agentName, operation, projectName, featureTitle, oldStatus, newStatus, null);
+        }
     }
 
     /** Les plus récentes d'abord. */

@@ -63,6 +63,29 @@ class ImplementationStatusTest {
                 DomainException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.TRANSITION_NOT_ALLOWED));
     }
 
+    @ParameterizedTest(name = "tâches : {0} → {1} : {2}")
+    @CsvSource({
+            "READY, IN_PROGRESS, true",
+            "IN_PROGRESS, IMPLEMENTED, true",
+            "IMPLEMENTED, IN_PROGRESS, true",
+            "IN_PROGRESS, READY, true",
+            "READY, IMPLEMENTED, true",
+            "IMPLEMENTED, READY, true",
+            "DRAFT, IN_PROGRESS, false",
+            "READY, DRAFT, false"})
+    void lesTachesPassentEntrePreteEnCoursEtImplementee(ImplementationStatus from, ImplementationStatus to,
+            boolean allowed) {
+        assertThat(from.allows(to, Actor.TASKS)).isEqualTo(allowed);
+    }
+
+    @Test
+    void lesTachesQuittentImplementeeSansConfirmation() {
+        Implementation done = new Implementation(IMPLEMENTED, NOW, null);
+        Implementation reopened = done.change(IN_PROGRESS, Actor.TASKS, false, LATER);
+        assertThat(reopened.status()).isEqualTo(IN_PROGRESS);
+        assertThat(reopened.implementedAt()).isNull();
+    }
+
     @Test
     void memeStatutSansEffet() {
         Implementation done = new Implementation(IMPLEMENTED, NOW, null);
