@@ -1,3 +1,21 @@
-{"operation": "converse-plan", "userContains": ["E2E-DISCUSSION", "<specification-discutee", "<recherches-restantes>5</recherches-restantes>"],
- "reasoning": "The question is about the specification; I check the project ADRs for the booking delay.",
- "response": {"action": "SEARCH", "query": "délai de réservation", "kinds": ["ADR"]}}
+{
+  "operation": "converse-agent",
+  "userContains": [
+    "E2E-DISCUSSION",
+    "<specification-discutee",
+    "<recherches-restantes>5</recherches-restantes>"
+  ],
+  "afterTools": 0,
+  "toolCalls": [
+    {
+      "name": "search_knowledge",
+      "arguments": {
+        "query": "délai de réservation",
+        "kinds": [
+          "ADR"
+        ]
+      }
+    }
+  ],
+  "reasoning": "The question is about the specification; I check the project ADRs for the booking delay."
+}

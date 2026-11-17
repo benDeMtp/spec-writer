@@ -210,7 +210,7 @@ test.describe.serial('US11 statut et agents', () => {
     const card = page.locator('sw-agent-access-card');
     await card.getByRole('button', { name: "Activer l'accès des agents" }).click();
     await expect(card.getByRole('status').first()).toContainText('Activé');
-    await expect(card.locator('pre')).toContainText('dev.specwriter.mcp.McpBridge');
+    await expect(card.locator('pre')).toContainText('fr.kawamind.mcp.McpBridge');
     await expectNoA11yViolations(page);
     const dataDir = readFileSync(join(stateDir, 'data-dir'), 'utf8').trim();
     const secret = JSON.parse(readFileSync(join(dataDir, 'agent-endpoint.json'), 'utf8'))

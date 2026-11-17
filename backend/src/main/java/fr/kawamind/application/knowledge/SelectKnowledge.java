@@ -1,0 +1,711 @@
+package fr.kawamind.application.knowledge;
+
+import fr.kawamind.domain.attachment.Attachment;
+import fr.kawamind.domain.error.DomainException;
+import fr.kawamind.domain.knowledge.AdrNumber;
+import fr.kawamind.domain.knowledge.AdrStatus;
+import fr.kawamind.domain.knowledge.ArchitectureModel.DeploymentFact;
+import fr.kawamind.domain.knowledge.ArchitectureModel.Exchange;
+import fr.kawamind.domain.knowledge.KnowledgeBudget;
+import fr.kawamind.domain.knowledge.KnowledgeItem;
+import fr.kawamind.domain.knowledge.KnowledgeKind;
+import fr.kawamind.domain.knowledge.KnowledgeSelection.ImpactedModule;
+import fr.kawamind.domain.knowledge.MentionKind;
+import fr.kawamind.domain.knowledge.Mentionable;
+import fr.kawamind.domain.knowledge.Mentions;
+import fr.kawamind.domain.knowledge.ProjectKnowledge;
+import fr.kawamind.domain.llm.QuestionAndAnswer;
+import fr.kawamind.domain.port.AttachmentRepository;
+import fr.kawamind.domain.port.DocSourceRepository;
+import fr.kawamind.domain.port.DocumentFolder;
+import fr.kawamind.domain.port.DocumentationReader;
+import fr.kawamind.domain.port.EmbeddingPort;
+import fr.kawamind.domain.port.KnowledgeIndex;
+import fr.kawamind.domain.port.ModelCapacities;
+import fr.kawamind.domain.port.ProjectRepository;
+import fr.kawamind.domain.project.DocSource;
+import fr.kawamind.domain.session.Session;
+import fr.kawamind.domain.settings.ModelCapacity;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
+import java.util.UUID;
+import org.jboss.logging.Logger;
+
+/**
+ * Sélection de la connaissance d'une session (research.md R24) : la fiche générale toujours ; le
+ * vocabulaire et la vue d'ensemble (3 000 caractères) ; 4 ADR au plus (6 000), un ADR remplacé
+ * l'étant par son successeur et un ADR obsolète écarté ; 3 tickets (3 000) ; pour une
+ * spécification, les faits d'architecture (3 000) ; 2 documents d'un dossier synchronisé, relus
+ * entiers (8 000, 006). Le tout tient en 35 000 caractères. Avec un modèle de plus grande capacité,
+ * tous ces plafonds grandissent dans la même proportion (008, {@link KnowledgeBudget}). La recherche
+ * part du besoin et des réponses : la sélection suit leurs changements.
+ */
+public class SelectKnowledge implements SessionKnowledge {
+
+    // plafonds d'aujourd'hui, ceux de KnowledgeBudget.STANDARD : un grand modèle les agrandit tous (008)
+    static final int MAX_ROLES = 3_000;
+    static final int MAX_ADRS = 4;
+    static final int MAX_ADR_TEXT = 12_000;
+    /** Au plus par ADR : au-delà, l'ADR est coupé à la fin d'une section (004, research.md R4). */
+    static final int MAX_ADR_PART = 8_000;
+    static final String ADR_TRUNCATED = "\n\n[ADR tronqué]";
+    /** Documents d'un dossier synchronisé (006, research.md R6) : relus entiers, coupés à une section. */
+    static final int MAX_DOCUMENTS = 2;
+    static final int MAX_DOCUMENT_TEXT = 8_000;
+    static final int MAX_DOCUMENT_PART = 6_000;
+    static final String DOCUMENT_TRUNCATED = "\n\n[document tronqué]";
+    /** Documents désignés avec @ (007, research.md R6) : transmis d'office, avant la recherche. */
+    static final int MAX_MENTIONED = 4;
+    static final int MAX_MENTIONED_TEXT = 12_000;
+    static final int MAX_MENTIONED_PART = 8_000;
+    static final int MAX_TICKETS = 3;
+    static final int MAX_TICKET_TEXT = 3_000;
+    static final int MAX_ARCHITECTURE = 3_000;
+    static final int MAX_SUBTASKS = 15;
+    static final int MAX_SUBTASK_TEXT = 1_500;
+    static final int MAX_QUERY = KnowledgeQueries.MAX_QUERY;
+    /** Taille comptée pour un module, un échange ou un constat, en plus de ses noms. */
+    private static final int ARCHITECTURE_MARKUP = 40;
+    private static final int ADR_CANDIDATES = 12;
+    /** Tickets lus par recherche avant la fusion (hors famille de la story liée). */
+    private static final int TICKET_CANDIDATES = 10;
+    /** Passages lus par recherche : les sections Antora sont dans la même famille et écartées ensuite. */
+    private static final int DOCUMENT_CANDIDATES = 20;
+    private static final String DOCUMENTS_PREFIX = "docs:";
+    private static final int RRF_K = 60;
+    private static final int SUCCESSION = 5;
+
+    private static final Logger LOG = Logger.getLogger(SelectKnowledge.class);
+
+    private final ProjectRepository projects;
+    private final KnowledgeIndex index;
+    private final EmbeddingPort embedding;
+    private final AnalyzeArchitecture analyze;
+    private final StoryFamily families;
+    /** Sans eux (null), un document n'est pas relu : ses passages indexés servent. */
+    private final DocSourceRepository docSources;
+    private final DocumentFolder folder;
+    /** Capacité du modèle choisi, d'où le budget de chaque sélection (008, research.md R2). */
+    private final ModelCapacities capacities;
+    /** Documents joints aux sessions (009) ; sans eux (null), aucun document joint n'est transmis. */
+    private final AttachmentRepository attachments;
+
+    public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
+            ModelCapacities capacities, AttachmentRepository attachments) {
+        this.attachments = attachments;
+        this.projects = projects;
+        this.index = index;
+        this.embedding = embedding;
+        this.analyze = analyze;
+        this.families = families;
+        this.docSources = docSources;
+        this.folder = folder;
+        this.capacities = capacities;
+    }
+
+    public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
+            ModelCapacities capacities) {
+        this(projects, index, embedding, analyze, families, docSources, folder, capacities, null);
+    }
+
+    public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder) {
+        this(projects, index, embedding, analyze, families, docSources, folder, ModelCapacities.UNKNOWN);
+    }
+
+    public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze, StoryFamily families) {
+        this(projects, index, embedding, analyze, families, null, null);
+    }
+
+    public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze) {
+        this(projects, index, embedding, analyze, StoryFamily.none());
+    }
+
+    @Override
+    public ProjectKnowledge forQuestions(Session session, List<QuestionAndAnswer> answers) {
+        return select(session, answers, null, null, false);
+    }
+
+    @Override
+    public ProjectKnowledge forSpecification(Session session, List<QuestionAndAnswer> answers) {
+        return select(session, answers, null, null, true);
+    }
+
+    @Override
+    public ProjectKnowledge forEdit(Session session, List<QuestionAndAnswer> answers, String instruction,
+            String currentMarkdown) {
+        return select(session, answers, instruction, currentMarkdown, true);
+    }
+
+    private ProjectKnowledge select(Session session, List<QuestionAndAnswer> answers, String instruction,
+            String currentMarkdown, boolean architecture) {
+        KnowledgeBudget budget = budget();
+        ProjectKnowledge sheet = SessionKnowledge.sheet(projects, session);
+        String query = query(instruction, session.need().text(), answers);
+        Set<Integer> cited = cited(session.need().text(), answers, instruction, currentMarkdown);
+        Search combined = search(query);
+        float[] vector = combined.vector();
+        String model = combined.model();
+        // en modification, l'instruction est aussi cherchée seule : noyée dans le besoin, elle ne
+        // ferait pas remonter le ticket ou l'ADR qu'elle désigne (004, US4)
+        List<Search> searches = instruction == null || instruction.isBlank() ? List.of(combined)
+                : List.of(search(query(instruction, "", List.of())), combined);
+        StoryFamily.Family family = families.of(session);
+        List<ProjectKnowledge.Entry> entries = new ArrayList<>(roles(session.projectId(), budget));
+        // les documents désignés avec @ passent avant la recherche, après la fiche générale (007)
+        List<ProjectKnowledge.Entry> mentioned = mentioned(session.projectId(), session.need().text(),
+                answers.stream().map(QuestionAndAnswer::answer).toList(), instruction, attached(session.id()), budget,
+                Math.min(budget.mentionedText(), left(budget, sheet, entries)));
+        entries.addAll(mentioned);
+        Set<String> designated = new LinkedHashSet<>(mentioned.stream().map(ProjectKnowledge.Entry::ref).toList());
+        // la fiche générale l'emporte : les ADR prennent ce qui reste sous le plafond (004, FR-017)
+        int adrBudget = Math.min(budget.adrText(), left(budget, sheet, entries));
+        entries.addAll(adrs(session, searches, cited, budget.adrPart(), adrBudget, designated));
+        // les documents prennent ce que laissent la fiche et les ADR (006, research.md R6)
+        int documentBudget = Math.min(budget.documentText(), left(budget, sheet, entries));
+        entries.addAll(documents(session, searches, budget.documentPart(), documentBudget, designated));
+        entries.addAll(tickets(session, family, searches, budget.ticketText()));
+        ProjectKnowledge selected = new ProjectKnowledge(sheet.generalSheet(), sheet.sheetUpdatedAt(), entries,
+                List.of(), List.of(), List.of(), subtasks(session, family, budget.subtaskText()), budget.total());
+        if (!architecture) {
+            return selected;
+        }
+        try {
+            AnalyzeArchitecture.Analysis a = analyze.run(session.id(), session.projectId(), session.language(),
+                    session.need().text(), answers, query, vector, model);
+            return bounded(selected.withArchitecture(a.modules(), a.exchanges(), a.facts()), budget.architecture());
+        } catch (DomainException e) {
+            // la rédaction continue sans les faits d'architecture ; l'analyse sera retentée
+            LOG.warnf("Connaissance : analyse d'architecture indisponible (%s)", e.code());
+            return selected;
+        }
+    }
+
+    /**
+     * Place des documents désignés pour une fiche générale donnée, calculée comme à la génération :
+     * l'état annoncé des mentions correspond à leur transmission (007, research.md R8).
+     */
+    int mentionBudget(UUID projectId, String generalSheet, KnowledgeBudget budget) {
+        return Math.min(budget.mentionedText(),
+                left(budget, ProjectKnowledge.sheet(generalSheet, null), roles(projectId, budget)));
+    }
+
+    /** Budget de la connaissance avec le modèle choisi (008). */
+    KnowledgeBudget budget() {
+        return capacities.budget();
+    }
+
+    /** Capacités des modèles autorisés, pour suggérer un modèle qui transmettrait tout (008, US3). */
+    List<ModelCapacity> models() {
+        return capacities.all();
+    }
+
+    /** Taille au plus d'un document désigné : le premier coupé à la place restante, les suivants entiers ou rien. */
+    static int mentionPart(KnowledgeBudget budget, boolean first, int left) {
+        return first ? Math.min(budget.mentionedPart(), left) : budget.mentionedPart();
+    }
+
+    /** Place restante sous le plafond, réserves d'architecture, de tickets et de sous-tâches déduites. */
+    private static int left(KnowledgeBudget budget, ProjectKnowledge sheet, List<ProjectKnowledge.Entry> entries) {
+        return budget.total() - budget.architecture() - sheet.generalSheet().length() - size(entries)
+                - budget.ticketText() - budget.subtaskText();
+    }
+
+    /**
+     * Documents désignés avec @ dans le besoin, les réponses puis l'instruction (007, research.md
+     * R6) : {@link #MAX_MENTIONED} au plus, la part du budget chacun, le premier coupé s'il
+     * le faut, les suivants seulement s'ils tiennent. Un ADR suit la voie des ADR (successeur d'un
+     * remplacé, rien pour un obsolète) ; un document de dossier est relu (006) ; une page Antora est
+     * recomposée de ses sections.
+     */
+    public List<ProjectKnowledge.Entry> mentioned(UUID projectId, String need, List<String> answers, String instruction,
+            List<Attachment> joined, KnowledgeBudget sizes, int budget) {
+        boolean written = Mentions.mayContain(need, instruction) || Mentions.mayContain(answers.toArray(String[]::new));
+        if (budget <= 0 || !written && joined.isEmpty()) {
+            return List.of();
+        }
+        List<Mentionable> designated = designatedOrder(need, answers, instruction,
+                written ? index.mentionables(projectId) : List.of(),
+                joined.stream().map(a -> joined(a.ref(), a.title(), a.fileName(), a.chars())).toList());
+        Map<String, Attachment> byRef = new HashMap<>();
+        joined.forEach(a -> byRef.put(a.ref(), a));
+        List<KnowledgeItem> adrs = designated.stream().anyMatch(d -> d.kind() == MentionKind.ADR)
+                ? index.all(projectId, KnowledgeKind.ADR) : List.of();
+        List<ProjectKnowledge.Entry> chosen = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        int left = budget;
+        for (Mentionable d : designated) {
+            int part = mentionPart(sizes, chosen.isEmpty(), left);
+            Optional<ProjectKnowledge.Entry> entry = switch (d.kind()) {
+                case ADR -> designatedAdr(d, adrs, part);
+                case ATTACHMENT -> attachment(byRef.get(d.ref()), part);
+                default -> document(projectId, d.ref(), part);
+            };
+            if (entry.isEmpty() || !seen.add(entry.get().ref())) {
+                continue;
+            }
+            int size = entry.get().title().length() + entry.get().text().length();
+            if (size > left) {
+                break;
+            }
+            chosen.add(entry.get().withDesignated());
+            left -= size;
+            if (chosen.size() == MAX_MENTIONED) {
+                break;
+            }
+        }
+        return chosen;
+    }
+
+    /** Documents joints de la session, dans l'ordre d'ajout (009). */
+    private List<Attachment> attached(UUID sessionId) {
+        return attachments == null ? List.of() : attachments.list(sessionId);
+    }
+
+    /**
+     * Ordre des documents désignés (009, clarification 4) : mentions du besoin, documents joints dans
+     * l'ordre d'ajout, puis mentions des réponses et de l'instruction. Partagé avec l'état annoncé.
+     */
+    static List<Mentionable> designatedOrder(String need, List<String> answers, String instruction,
+            List<Mentionable> catalogue, List<Mentionable> joined) {
+        List<Mentionable> all = catalogue.isEmpty() ? List.of() : Mentions.designated(need, answers, instruction, catalogue);
+        List<Mentionable> fromNeed = catalogue.isEmpty() ? List.of() : Mentions.designated(need, List.of(), null, catalogue);
+        List<Mentionable> out = new ArrayList<>(fromNeed);
+        out.addAll(joined);
+        all.stream().filter(d -> !fromNeed.contains(d)).forEach(out::add);
+        return out;
+    }
+
+    /** Document joint vu comme un document désigné : référence {@code joint:<nom>}, chemin = nom du fichier. */
+    static Mentionable joined(String ref, String title, String fileName, int chars) {
+        return new Mentionable(MentionKind.ATTACHMENT, ref, title, fileName, chars);
+    }
+
+    /** Document joint, coupé à une section au-delà de {@code part} (titre compris), comme un document relu. */
+    private static Optional<ProjectKnowledge.Entry> attachment(Attachment a, int part) {
+        if (a == null) {
+            return Optional.empty();
+        }
+        int room = part - a.title().length();
+        String kept = a.text().length() <= room ? a.text() : cut(a.text(), room, DOCUMENT_TRUNCATED);
+        if (kept.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, null, a.ref(), 0, a.title(), null,
+                false, kept, KnowledgeItem.hash(a.title(), kept)));
+    }
+
+    /** ADR désigné, ou son successeur s'il est remplacé ; rien s'il est obsolète. */
+    private static Optional<ProjectKnowledge.Entry> designatedAdr(Mentionable d, List<KnowledgeItem> all, int part) {
+        return all.stream().filter(a -> a.ref().equals(d.ref()) && a.chunk() == 0).findFirst()
+                .flatMap(a -> inForce(a, all)).map(current -> whole(current, all, part))
+                .filter(e -> !e.text().isEmpty());
+    }
+
+    /** Une recherche : son texte et, si le modèle local est prêt, son vecteur. */
+    private record Search(String query, float[] vector, String model) {
+    }
+
+    private Search search(String query) {
+        if (embedding.state() == EmbeddingPort.State.READY) {
+            try {
+                return new Search(query, embedding.query(query), embedding.modelId());
+            } catch (RuntimeException e) {
+                // la recherche se rabat sur les termes (FR-043)
+                LOG.warnf("Connaissance : vecteur de la recherche indisponible (%s)", e.getClass().getSimpleName());
+            }
+        }
+        return new Search(query, null, null);
+    }
+
+    /** Résultats des recherches, fusionnés par rangs ({@link #fuse}). */
+    private List<KnowledgeItem> hits(Session session, List<Search> searches, KnowledgeKind kind, int max) {
+        return fuse(searches.stream().map(s -> index.search(session.projectId(), s.query(), s.vector(), s.model(),
+                List.of(kind), max).stream().map(KnowledgeIndex.Hit::item).toList()).toList());
+    }
+
+    /**
+     * Fusion par rangs réciproques, comme l'index entre termes et sens : chaque liste apporte
+     * 1 / (60 + rang) à ses éléments (même élément, même morceau). Un élément trouvé par les deux
+     * recherches passe devant le premier d'une seule ; à égalité, l'ordre des listes départage.
+     */
+    static List<KnowledgeItem> fuse(List<List<KnowledgeItem>> lists) {
+        Map<String, KnowledgeItem> items = new LinkedHashMap<>();
+        Map<String, Double> scores = new HashMap<>();
+        for (List<KnowledgeItem> list : lists) {
+            for (int rank = 0; rank < list.size(); rank++) {
+                String key = list.get(rank).ref() + "#" + list.get(rank).chunk();
+                items.putIfAbsent(key, list.get(rank));
+                scores.merge(key, 1.0 / (RRF_K + rank + 1), Double::sum);
+            }
+        }
+        return items.keySet().stream().sorted(Comparator.comparing(scores::get, Comparator.reverseOrder()))
+                .map(items::get).toList();
+    }
+
+    /** Vocabulaire et vue d'ensemble, toujours transmis (FR-042), dans la limite du budget (3 000 caractères aujourd'hui). */
+    private List<ProjectKnowledge.Entry> roles(UUID projectId, KnowledgeBudget budget) {
+        List<ProjectKnowledge.Entry> out = new ArrayList<>();
+        int left = budget.roles();
+        for (KnowledgeItem item : index.withRole(projectId)) {
+            int room = left - item.title().length();
+            if (room <= 0) {
+                break;
+            }
+            ProjectKnowledge.Entry e = entry(item, room);
+            out.add(e);
+            left -= item.title().length() + e.text().length();
+        }
+        return out;
+    }
+
+    /**
+     * ADR cités (004, US4), puis ADR en vigueur les plus proches ; un remplacé cède la place à son
+     * successeur, un obsolète est écarté (FR-036). Chaque ADR est transmis entier, morceaux dans
+     * l'ordre (004, research.md R4) : {@code part} au plus par ADR, {@code budget} au total ; le
+     * premier qui ne tient plus arrête la liste.
+     */
+    private List<ProjectKnowledge.Entry> adrs(Session session, List<Search> searches, Set<Integer> cited, int part,
+            int budget, Set<String> designated) {
+        List<KnowledgeItem> hits = hits(session, searches, KnowledgeKind.ADR, ADR_CANDIDATES);
+        if (hits.isEmpty() && cited.isEmpty()) {
+            return List.of();
+        }
+        List<KnowledgeItem> all = index.all(session.projectId(), KnowledgeKind.ADR);
+        List<KnowledgeItem> candidates = new ArrayList<>();
+        for (int number : cited) {
+            all.stream().filter(a -> a.chunk() == 0 && AdrNumber.of(a.ref(), a.title()).equals(OptionalInt.of(number)))
+                    .sorted(Comparator.comparing(KnowledgeItem::ref)).forEach(candidates::add);
+        }
+        candidates.addAll(hits);
+        Set<String> seen = new LinkedHashSet<>(designated);
+        List<ProjectKnowledge.Entry> chosen = new ArrayList<>();
+        int left = budget;
+        for (KnowledgeItem candidate : candidates) {
+            Optional<KnowledgeItem> current = inForce(candidate, all);
+            if (current.isEmpty() || !seen.add(current.get().ref())) {
+                continue;
+            }
+            // le premier ADR passe toujours, coupé s'il le faut ; les suivants seulement entiers
+            ProjectKnowledge.Entry entry = whole(current.get(), all,
+                    chosen.isEmpty() ? Math.min(part, left) : part);
+            int size = entry.title().length() + entry.text().length();
+            if (size > left || entry.text().isEmpty()) {
+                break;
+            }
+            chosen.add(entry);
+            left -= size;
+            if (chosen.size() == MAX_ADRS) {
+                break;
+            }
+        }
+        return chosen;
+    }
+
+    /** Numéros des ADR cités dans le besoin, les réponses, l'instruction et la version en cours. */
+    private static Set<Integer> cited(String need, List<QuestionAndAnswer> answers, String instruction,
+            String currentMarkdown) {
+        Set<Integer> out = new LinkedHashSet<>();
+        out.addAll(AdrNumber.cited(instruction));
+        out.addAll(AdrNumber.cited(need));
+        answers.forEach(a -> out.addAll(AdrNumber.cited(a.answer())));
+        out.addAll(AdrNumber.cited(currentMarkdown));
+        return out;
+    }
+
+    /**
+     * Documents des dossiers synchronisés dont un passage est retenu, regroupés par document : chacun
+     * relu entier dans son dossier, sinon recomposé de ses passages indexés ; {@code part} au plus
+     * par document, le premier coupé s'il le faut, le suivant seulement s'il tient. Un ADR de
+     * ces dossiers suit la voie des ADR.
+     */
+    private List<ProjectKnowledge.Entry> documents(Session session, List<Search> searches, int part, int budget,
+            Set<String> designated) {
+        if (budget <= 0) {
+            return List.of();
+        }
+        List<String> refs = hits(session, searches, KnowledgeKind.DOC_SECTION, DOCUMENT_CANDIDATES).stream()
+                .map(KnowledgeItem::ref).filter(r -> r.startsWith(DOCUMENTS_PREFIX) && r.lastIndexOf('#') > 0)
+                .map(r -> r.substring(0, r.lastIndexOf('#'))).filter(r -> !designated.contains(r)).distinct().toList();
+        List<ProjectKnowledge.Entry> chosen = new ArrayList<>();
+        int left = budget;
+        for (String ref : refs) {
+            Optional<ProjectKnowledge.Entry> doc = document(session.projectId(), ref,
+                    chosen.isEmpty() ? Math.min(part, left) : part);
+            if (doc.isEmpty()) {
+                continue;
+            }
+            int size = doc.get().title().length() + doc.get().text().length();
+            if (size > left) {
+                break;
+            }
+            chosen.add(doc.get());
+            left -= size;
+            if (chosen.size() == MAX_DOCUMENTS) {
+                break;
+            }
+        }
+        return chosen;
+    }
+
+    /** Un document, relu ou recomposé, coupé à une section au-delà de {@code part} (titre compris). */
+    private Optional<ProjectKnowledge.Entry> document(UUID projectId, String ref, int part) {
+        Optional<DocumentationReader.Page> page = reread(projectId, ref);
+        String title;
+        String text;
+        if (page.isPresent()) {
+            title = page.get().title();
+            text = page.get().text();
+        } else {
+            List<KnowledgeItem> passages = passages(projectId, ref);
+            if (passages.isEmpty()) {
+                return Optional.empty();
+            }
+            title = documentTitle(passages.getFirst().title());
+            text = String.join("\n\n", passages.stream().map(KnowledgeItem::body).toList());
+        }
+        if (title == null || title.isBlank()) {
+            title = ref.substring(ref.lastIndexOf('/') + 1);
+        }
+        int room = part - title.length();
+        String kept = text.length() <= room ? text : cut(text, room, DOCUMENT_TRUNCATED);
+        if (kept.isBlank()) {
+            return Optional.empty();
+        }
+        // l'empreinte suit le texte transmis : un document modifié change la connaissance ; le texte
+        // d'un grand modèle dépasse la taille d'un élément de l'index (008)
+        String hash = KnowledgeItem.hash(title, kept);
+        return Optional.of(new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, null, ref, 0, title, null, false,
+                kept, hash));
+    }
+
+    /** Relecture dans le dossier synchronisé, si la source existe encore et le fichier se lit. */
+    private Optional<DocumentationReader.Page> reread(UUID projectId, String ref) {
+        if (docSources == null || folder == null || !ref.startsWith(DOCUMENTS_PREFIX)) {
+            return Optional.empty();
+        }
+        int slash = ref.indexOf('/');
+        UUID sourceId;
+        try {
+            sourceId = UUID.fromString(ref.substring(DOCUMENTS_PREFIX.length(), slash));
+        } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            return Optional.empty();
+        }
+        Optional<DocSource> source = docSources.find(sourceId)
+                .filter(s -> s.projectId().equals(projectId) && s.kind() == DocSource.Kind.DOCUMENTS);
+        if (source.isEmpty()) {
+            return Optional.empty();
+        }
+        DocumentFolder.Reading reading = folder.read(source.get(), ref.substring(slash + 1));
+        if (reading.failure() != null) {
+            LOG.debugf("Connaissance : %s non relu (%s), passages indexés transmis", ref, reading.failure());
+            return Optional.empty();
+        }
+        return Optional.of(reading.page());
+    }
+
+    /** Passages indexés d'un document, dans l'ordre de ses sections. */
+    private List<KnowledgeItem> passages(UUID projectId, String ref) {
+        // la tête d'une page d'abord, puis l'ordre d'indexation, qui est celui du document
+        return index.documentParts(projectId, ref).stream()
+                .sorted(Comparator.comparingInt((KnowledgeItem i) -> i.ref().equals(ref) ? 0 : 1)).toList();
+    }
+
+    /** Titre du document d'après celui d'une section (« Titre — Partie »). */
+    private static String documentTitle(String sectionTitle) {
+        int dash = sectionTitle.indexOf(" — ");
+        return dash > 0 ? sectionTitle.substring(0, dash) : sectionTitle;
+    }
+
+    /** L'ADR entier : ses morceaux dans l'ordre, coupé à une section au-delà de {@code part} (titre compris). */
+    private static ProjectKnowledge.Entry whole(KnowledgeItem adr, List<KnowledgeItem> all, int part) {
+        List<KnowledgeItem> chunks = all.stream().filter(a -> a.ref().equals(adr.ref()))
+                .sorted(java.util.Comparator.comparingInt(KnowledgeItem::chunk)).toList();
+        KnowledgeItem first = chunks.isEmpty() ? adr : chunks.getFirst();
+        String text = chunks.isEmpty() ? adr.body()
+                : String.join("\n\n", chunks.stream().map(KnowledgeItem::body).toList());
+        int room = part - first.title().length();
+        // l'empreinte suit tous les morceaux : un changement dans l'un d'eux change la connaissance
+        String hash = chunks.isEmpty() ? adr.contentHash()
+                : String.join(",", chunks.stream().map(KnowledgeItem::contentHash).toList());
+        return new ProjectKnowledge.Entry(first.kind(), first.role(), first.ref(), 0, first.title(),
+                first.adrStatus() == null ? null : first.adrStatus().name(), false,
+                text.length() <= room ? text : cut(text, room), hash);
+    }
+
+    /** Coupe à la dernière ligne de titre avant la limite, sinon au dernier paragraphe, sinon net. */
+    static String cut(String text, int room) {
+        return cut(text, room, ADR_TRUNCATED);
+    }
+
+    static String cut(String text, int room, String marker) {
+        int limit = Math.max(0, room - marker.length());
+        String head = text.substring(0, Math.min(limit, text.length()));
+        int heading = head.lastIndexOf("\n#");
+        int paragraph = head.lastIndexOf("\n\n");
+        int end = heading > 0 ? heading : paragraph > 0 ? paragraph : head.length();
+        String kept = text.substring(0, end).stripTrailing();
+        return kept.isEmpty() ? "" : kept + marker;
+    }
+
+    static Optional<KnowledgeItem> inForce(KnowledgeItem adr, List<KnowledgeItem> all) {
+        KnowledgeItem current = adr;
+        for (int hop = 0; hop < SUCCESSION; hop++) {
+            AdrStatus status = current.adrStatus();
+            if (status != AdrStatus.SUPERSEDED) {
+                return status == AdrStatus.DEPRECATED ? Optional.empty() : Optional.of(current);
+            }
+            OptionalInt number = AdrNumber.ofCited(current.supersededBy());
+            if (number.isEmpty()) {
+                return Optional.empty();
+            }
+            current = all.stream().filter(a -> AdrNumber.of(a.ref(), a.title()).equals(number)).findFirst()
+                    .orElse(null);
+            if (current == null) {
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Tickets les plus proches, hors famille de la story liée : ses sous-tâches et son parent ne sont
+     * pas des travaux concurrents (FR-045). Un ticket lié explicitement à la story porte ce lien.
+     */
+    private List<ProjectKnowledge.Entry> tickets(Session session, StoryFamily.Family family, List<Search> searches,
+            int ticketText) {
+        int excluded = family.isEmpty() ? 0 : 2 + family.subtasks().size();
+        List<KnowledgeItem> items = hits(session, searches, KnowledgeKind.TICKET, TICKET_CANDIDATES + excluded).stream()
+                .filter(i -> !family.contains(i.ref())).limit(MAX_TICKETS).toList();
+        return bounded(items, ticketText / MAX_TICKETS).stream().map(e -> e.withLink(family.link(e.ref())))
+                .toList();
+    }
+
+    /** Sous-tâches de la story liée, titres seuls : 15 au plus, 1 500 caractères en tout (research.md R29). */
+    private ProjectKnowledge.Subtasks subtasks(Session session, StoryFamily.Family family, int subtaskText) {
+        if (family.isEmpty() || family.subtasks().isEmpty()) {
+            return ProjectKnowledge.Subtasks.NONE;
+        }
+        List<ProjectKnowledge.Subtask> out = new ArrayList<>();
+        int left = subtaskText;
+        for (String key : family.subtasks()) {
+            if (out.size() == MAX_SUBTASKS) {
+                break;
+            }
+            Optional<KnowledgeItem> item = index.find(session.projectId(), new KnowledgeIndex.Key(KnowledgeKind.TICKET,
+                    key, 0));
+            String title = item.map(KnowledgeItem::title).orElse(key);
+            if (title.length() > left) {
+                title = left > 1 ? title.substring(0, left - 1) + "…" : "";
+            }
+            if (title.isEmpty()) {
+                break;
+            }
+            left -= title.length();
+            out.add(new ProjectKnowledge.Subtask(key, item.map(KnowledgeItem::status).orElse(null),
+                    item.map(KnowledgeItem::closed).orElse(false), title));
+        }
+        return new ProjectKnowledge.Subtasks(family.storyKey(), out);
+    }
+
+    private static List<ProjectKnowledge.Entry> bounded(List<KnowledgeItem> items, int each) {
+        return items.stream().map(i -> entry(i, Math.max(0, each - i.title().length()))).toList();
+    }
+
+    private static ProjectKnowledge.Entry entry(KnowledgeItem item, int room) {
+        String body = item.body();
+        String text = body.length() <= room ? body : body.substring(0, Math.max(0, room - 1)) + "…";
+        String status = switch (item.kind()) {
+            case ADR -> item.adrStatus() == null ? null : item.adrStatus().name();
+            default -> item.status();
+        };
+        return new ProjectKnowledge.Entry(item.kind(), item.role(), item.ref(), item.chunk(), item.title(), status,
+                item.closed(), text, item.contentHash());
+    }
+
+    /** Faits d'architecture dans la limite du budget (3 000 caractères aujourd'hui) : modules, puis échanges, puis constats. */
+    private static ProjectKnowledge bounded(ProjectKnowledge k, int architecture) {
+        if (architectureSize(k) <= architecture) {
+            return k;
+        }
+        int left = architecture;
+        List<ImpactedModule> modules = new ArrayList<>();
+        for (ImpactedModule m : k.modules()) {
+            left -= m.name().length() + ARCHITECTURE_MARKUP;
+            if (left < 0) {
+                break;
+            }
+            modules.add(m);
+        }
+        List<Exchange> exchanges = new ArrayList<>();
+        for (Exchange x : k.exchanges()) {
+            left -= x.source().length() + x.destination().length() + length(x.via()) + ARCHITECTURE_MARKUP;
+            if (left < 0) {
+                break;
+            }
+            exchanges.add(x);
+        }
+        List<DeploymentFact> facts = new ArrayList<>();
+        for (DeploymentFact f : k.deploymentFacts()) {
+            left -= f.element().length() + length(f.other()) + ARCHITECTURE_MARKUP;
+            if (left < 0) {
+                break;
+            }
+            facts.add(f);
+        }
+        return k.withArchitecture(modules, exchanges, facts);
+    }
+
+    /** Taille comptée des faits d'architecture. */
+    static int architectureSize(ProjectKnowledge k) {
+        int size = 0;
+        for (ImpactedModule m : k.modules()) {
+            size += m.name().length() + ARCHITECTURE_MARKUP;
+        }
+        for (Exchange x : k.exchanges()) {
+            size += x.source().length() + x.destination().length() + length(x.via()) + ARCHITECTURE_MARKUP;
+        }
+        for (DeploymentFact f : k.deploymentFacts()) {
+            size += f.element().length() + length(f.other()) + ARCHITECTURE_MARKUP;
+        }
+        return size;
+    }
+
+    private static int length(String text) {
+        return text == null ? 0 : text.length();
+    }
+
+    /** Besoin puis réponses, dans la limite d'une recherche. */
+    static String query(String need, List<QuestionAndAnswer> answers) {
+        return query(null, need, answers);
+    }
+
+    /** L'instruction d'une modification d'abord, puis le besoin et les réponses (004, FR-016). */
+    static String query(String instruction, String need, List<QuestionAndAnswer> answers) {
+        StringBuilder out = new StringBuilder();
+        if (instruction != null && !instruction.isBlank()) {
+            out.append(instruction.strip()).append('\n');
+        }
+        out.append(need);
+        for (QuestionAndAnswer a : answers) {
+            out.append('\n').append(a.answer());
+        }
+        return out.length() <= MAX_QUERY ? out.toString() : out.substring(0, MAX_QUERY);
+    }
+
+    private static int size(List<ProjectKnowledge.Entry> entries) {
+        return entries.stream().mapToInt(e -> e.title().length() + e.text().length()).sum();
+    }
+}

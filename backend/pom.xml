@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>dev.specwriter</groupId>
+    <groupId>fr.kawamind</groupId>
     <artifactId>spec-writer-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
@@ -350,8 +350,8 @@
                 <rule>
                   <element>PACKAGE</element>
                   <includes>
-                    <include>dev.specwriter.domain*</include>
-                    <include>dev.specwriter.application*</include>
+                    <include>fr.kawamind.domain*</include>
+                    <include>fr.kawamind.application*</include>
                   </includes>
                   <limits>
                     <limit>

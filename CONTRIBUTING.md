@@ -67,11 +67,11 @@ Un changement de comportement sans test qui l'a fait échouer d'abord n'est pas 
 
 ### Passerelle MCP
 
-- `dev.specwriter.mcp` est un processus à part, sans Quarkus ni CDI : il ne dépend ni du domaine,
+- `fr.kawamind.mcp` est un processus à part, sans Quarkus ni CDI : il ne dépend ni du domaine,
   ni de l'application, ni de l'infrastructure (règle ArchUnit). Il ne parle à l'outil que par
   `/api/agent/**`, en HTTP/1.1, avec le secret de `agent-endpoint.json`.
 - Depuis les sources : `java -cp 'backend/target/quarkus-app/app/*:backend/target/quarkus-app/lib/main/*'
-  dev.specwriter.mcp.McpBridge`, ou la commande affichée dans **Configuration › Accès des agents**.
+  fr.kawamind.mcp.McpBridge`, ou la commande affichée dans **Configuration › Accès des agents**.
 - Tests : `McpBridgeTest` rejoue les échanges JSON-RPC contre un serveur HTTP du JDK ;
   `AgentResourceIT` couvre l'API des agents et ses refus ; `e2e/tests/us11-agents.spec.ts` lance
   la passerelle avec le client `e2e/mcp-client.ts`. stdout ne doit porter que du JSON-RPC.
@@ -110,6 +110,34 @@ autre modèle, `-Deval.copilot-home=<dossier>` si votre Copilot CLI n'utilise pa
 Les seuils sont dans `baseline.json` : un score doit atteindre le plus haut de son minimum (critère
 de succès de la spec) et de sa base moins la tolérance (0,02), qui absorbe la variabilité du LLM.
 Quand les scores progressent durablement, relevez la base dans la même merge request.
+
+### Ajouter une capacité LLM (014)
+
+La couche LLM repose sur les AI Services de quarkus-langchain4j (`infrastructure/llm/ai`) ; la
+boucle d'outils appartient au framework. Une capacité s'ajoute par déclaration :
+
+- **Une opération** : une méthode dans un AI Service (`@RegisterAiService` avec
+  `chatLanguageModelSupplier = AppModels.Chat.class`), `@SystemMessage(fromResource =
+  "prompts/<operation>.txt")` et `@UserMessage("{data}")`. Les données sont construites et
+  échappées par `UserMessages`, le schéma passe en paramètre (`LlmSchemas.params(...)`), la sortie
+  est validée par un garde-fou `@OutputGuardrails` (sous-classe de `JsonOutputGuardrail`), et
+  l'adaptateur de port l'appelle par `AiCalls.call(...)`. La consigne commence par
+  `[operation:<operation>]`, porte la règle de sécurité des balises et ne contient aucune accolade
+  (`PromptRulesTest`).
+- **Un outil** : une méthode `@Tool` d'un bean `@ApplicationScoped`, déclaré dans `tools` de l'AI
+  Service, avec `@ToolInputGuardrails(SearchCap.class)` pour le plafond du tour. Il passe par les
+  outils du tour (`TurnTools`, fournis par l'application) et rend au modèle des données balisées et
+  échappées ; une erreur devient un résultat `<erreur>` sans détail interne. Le nom de l'outil est
+  le seul à figurer sur la liste blanche de la session Copilot : aucun outil de la CLI (shell,
+  fichiers, web) n'est jamais exposé. Un AI Service à outils a besoin d'une mémoire : reprenez
+  `AgentAi.TurnMemory`, une mémoire par tour.
+- **Une consigne réutilisable** : un fichier `prompts/skills/<nom>.md`, inclus dans le message
+  système d'une opération par une ligne `[skill:<nom>]` (`SkillLibrary`). Une consigne absente
+  arrête le démarrage.
+
+Dans tous les cas : un test sur le rejeu (`ScriptedChatModel` ou `ReplayChatModel`, voir
+`AgentToolsExtensionTest`), une fixture de rejeu pour les E2E
+(`e2e/fixtures/llm/README.md`), puis l'évaluation réelle, puisque l'empreinte change.
 
 ### Sécurité
 

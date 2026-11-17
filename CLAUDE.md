@@ -1,7 +1,10 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/013-perimetre-modules/` (racines de sources du projet, analyse
+La feature en cours est `specs/014-couche-llm-quarkus/` (couche LLM sur les AI Services de
+quarkus-langchain4j : agent à outils `@Tool`, adaptateur `ChatModel` à outils terminaux sur le SDK
+Copilot, rejeu étendu aux appels d'outils ; renommage du package `dev.specwriter` en `fr.kawamind`),
+après `specs/013-perimetre-modules/` (racines de sources du projet, analyse
 de périmètre déterministe dans la conversation, propagation Maven et C4, rubrique « Modules
 touchés »), après `specs/012-navigation-projet/` (menu en deux blocs « Projet » et
 « Application », réglages et connaissance du projet courant, bascule du projet courant, clé Jira par
@@ -83,7 +86,14 @@ gate.
 
 ## Conventions
 
-- Architecture hexagonale (`domain`, `application`, `infrastructure`), vérifiée par ArchUnit.
-  Les cas d'usage sont câblés dans `infrastructure/config/UseCaseProducer`.
+- Architecture hexagonale (`domain`, `application`, `infrastructure`) sous `fr.kawamind`
+  (`backend/src/main/java/fr/kawamind/`), vérifiée par ArchUnit. Les cas d'usage sont câblés dans
+  `infrastructure/config/UseCaseProducer`.
+- Couche LLM (014) : AI Services de quarkus-langchain4j dans `infrastructure/llm/ai`, consignes
+  dans `backend/src/main/resources/prompts/`. L'agent (`AgentAi`, opération `converse-agent`) a deux
+  outils, `search_knowledge` et `analyze_perimeter` (`AgentTools`, plafond `SearchCap`) ; la boucle
+  appartient au framework, le tour (sources numérotées, étapes, arrêt) à `Converse` par
+  `TurnTools`. Un tour se rejoue en plusieurs entrées (`afterTools`, `toolCalls` puis `text`,
+  `e2e/fixtures/llm/README.md`). Ajouter une capacité : `CONTRIBUTING.md`.
 - Cocher chaque tâche `[X]` dans `tasks.md`, puis commiter par groupe logique. Commits en
   Conventional Commits, en français, fichiers stagés explicitement, sans ligne `Co-Authored-By`.

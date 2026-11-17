@@ -1,2 +1,17 @@
-{"operation": "converse-plan", "userContains": ["IT-AGENT", "<recherches-restantes>5</recherches-restantes>"],
- "response": {"action": "SEARCH", "query": "avoirs émission", "kinds": []}}
+{
+  "operation": "converse-agent",
+  "userContains": [
+    "IT-AGENT",
+    "<recherches-restantes>5</recherches-restantes>"
+  ],
+  "afterTools": 0,
+  "toolCalls": [
+    {
+      "name": "search_knowledge",
+      "arguments": {
+        "query": "avoirs émission",
+        "kinds": []
+      }
+    }
+  ]
+}

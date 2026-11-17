@@ -1,1 +1,7 @@
-{"operation": "converse-answer", "userContains": ["IT-COMPACT"], "text": "Réponse brève."}
+{
+  "operation": "converse-agent",
+  "userContains": [
+    "IT-COMPACT"
+  ],
+  "text": "Réponse brève."
+}

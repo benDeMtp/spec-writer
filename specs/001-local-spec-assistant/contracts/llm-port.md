@@ -1,5 +1,10 @@
 # Contrat : port LLM (moteur de questions et de génération)
 
+> **Règles d'adaptateur remplacées par la feature 014** (`specs/014-couche-llm-quarkus/research.md`
+> R1, R2, R8, et `contracts/llm-adapter.md`) : les reprises, les schémas et la séparation des
+> messages sont tenus par les AI Services de quarkus-langchain4j et l'adaptateur `ChatModel` sur le
+> Copilot SDK. Les opérations et leurs sorties ci-dessous restent valables.
+
 Contrat entre le domaine et l'adaptateur GitHub Copilot (voir [research.md](../research.md) R3 et
 R12). Le domaine ne connaît que ce port. Les tests utilisent une implémentation factice
 déterministe.

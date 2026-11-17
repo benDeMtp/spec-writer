@@ -27,6 +27,12 @@ début de l'implémentation (voir [Risques](#risques-et-spikes)).
 
 ## R3. Accès au modèle de langage (GitHub Copilot)
 
+> **Remplacée en partie par la feature 014** (`specs/014-couche-llm-quarkus/research.md` R1, R2,
+> R8) : la couche LLM repose désormais sur les AI Services de quarkus-langchain4j
+> (`@RegisterAiService`, consignes en ressource, garde-fous de sortie), au-dessus d'un adaptateur
+> `ChatModel` sur le Copilot SDK, dans une session verrouillée. Le reste de cette décision (Copilot
+> comme seul fournisseur, compte de l'utilisateur) reste valable.
+
 - **Decision** : **GitHub Copilot SDK Java** officiel (`com.github:copilot-sdk-java`, public
   preview), encapsulé dans un adaptateur `ChatModel` LangChain4j écrit dans le projet, consommé
   par les AI Services de **quarkus-langchain4j 2.x** (port Quarkus 4).

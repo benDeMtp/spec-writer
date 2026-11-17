@@ -1,0 +1,29 @@
+package fr.kawamind.domain.port;
+
+import fr.kawamind.domain.settings.CopilotSettings;
+import fr.kawamind.domain.settings.EmbeddingSettings;
+import fr.kawamind.domain.settings.JiraSettings;
+import java.util.Optional;
+
+/** Réglages des services ; aucun secret n'y est stocké (FR-033a). */
+public interface SettingsRepository {
+
+    CopilotSettings copilot();
+
+    void saveCopilot(CopilotSettings settings);
+
+    Optional<JiraSettings> jira();
+
+    void saveJira(JiraSettings settings);
+
+    void deleteJira();
+
+    EmbeddingSettings embedding();
+
+    void saveEmbedding(EmbeddingSettings settings);
+
+    /** Navigateur choisi pour ouvrir spec-writer, ou {@code null} pour celui du système (T057). */
+    String browser();
+
+    void saveBrowser(String browserId);
+}

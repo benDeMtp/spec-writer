@@ -15,7 +15,7 @@ project:
   inceptionYear: '2026'
   languages:
     java:
-      groupId: dev.specwriter
+      groupId: fr.kawamind
       artifactId: spec-writer-backend
       version: '25'
       # classe principale de l'uber-jar de Quarkus

@@ -3,7 +3,7 @@
 # - l'empreinte des prompts, du code LLM, du golden set, de la suite d'évaluation, de la version du
 #   Copilot SDK et du modèle par défaut doit être celle de last-run.json ;
 # - chaque score de last-run.json doit atteindre max(minimum, base - tolérance) de baseline.json.
-# Même calcul que backend/src/test/java/dev/specwriter/eval/EvalFingerprint.java et EvalBaseline.java.
+# Même calcul que backend/src/test/java/fr/kawamind/eval/EvalFingerprint.java et EvalBaseline.java.
 # --fingerprint : affiche l'empreinte courante et s'arrête.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -13,10 +13,10 @@ import hashlib, json, os, re, sys
 
 SOURCES = [
     "backend/src/main/resources/prompts",
-    "backend/src/main/java/dev/specwriter/infrastructure/llm",
+    "backend/src/main/java/fr/kawamind/infrastructure/llm",
     "backend/src/test/resources/golden",
     "backend/src/test/resources/eval/prompts",
-    "backend/src/test/java/dev/specwriter/eval",
+    "backend/src/test/java/fr/kawamind/eval",
 ]
 EVAL = "backend/src/test/resources/eval"
 RERUN = "relancer l'évaluation LLM (./mvnw -pl backend verify -Peval) et committer last-run.json"

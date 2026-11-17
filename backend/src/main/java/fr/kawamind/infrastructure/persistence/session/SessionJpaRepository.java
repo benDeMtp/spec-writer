@@ -1,0 +1,259 @@
+package fr.kawamind.infrastructure.persistence.session;
+
+import fr.kawamind.domain.error.DomainException;
+import fr.kawamind.domain.error.ErrorCode;
+import fr.kawamind.domain.port.SessionRepository;
+import fr.kawamind.domain.question.Answer;
+import fr.kawamind.domain.question.Question;
+import fr.kawamind.domain.question.QuestionState;
+import fr.kawamind.domain.question.QuestionTheme;
+import fr.kawamind.domain.question.Questionnaire;
+import fr.kawamind.domain.session.Implementation;
+import fr.kawamind.domain.session.ImplementationStatus;
+import fr.kawamind.domain.session.Language;
+import fr.kawamind.domain.session.Need;
+import fr.kawamind.domain.session.Session;
+import fr.kawamind.domain.session.SessionListing;
+import fr.kawamind.domain.session.SessionOrigin;
+import fr.kawamind.domain.session.SessionState;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.jboss.logging.Logger;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
+
+@ApplicationScoped
+public class SessionJpaRepository implements SessionRepository {
+
+    private static final Logger LOG = Logger.getLogger(SessionJpaRepository.class);
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final TypeReference<List<String>> STRINGS = new TypeReference<>() {
+    };
+
+    @Inject
+    EntityManager em;
+
+    @Override
+    @Transactional
+    public void save(Session s, Questionnaire q) {
+        SessionEntity e = Optional.ofNullable(em.find(SessionEntity.class, s.id().toString())).orElseGet(SessionEntity::new);
+        e.id = s.id().toString();
+        e.projectId = s.projectId().toString();
+        e.name = s.name();
+        e.need = s.need().text();
+        e.language = s.language().name();
+        e.origin = s.origin().name();
+        e.state = s.state().name();
+        e.coveredThemes = q.coveredByNeed().stream().map(Enum::name).sorted().toList();
+        e.createdAt = s.createdAt();
+        e.updatedAt = s.updatedAt();
+        em.merge(e);
+        for (Question question : q.questions()) {
+            em.merge(toEntity(s.id(), question));
+            AnswerEntity existing = em.find(AnswerEntity.class, question.id().toString());
+            if (question.answer() == null) {
+                if (existing != null) {
+                    em.remove(existing);
+                }
+            } else {
+                AnswerEntity a = existing == null ? new AnswerEntity() : existing;
+                a.questionId = question.id().toString();
+                a.value = question.answer().value();
+                a.assumption = question.answer().assumption();
+                a.answeredAt = question.answer().answeredAt();
+                em.merge(a);
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public Optional<Session> find(UUID id) {
+        try {
+            return Optional.ofNullable(em.find(SessionEntity.class, id.toString())).map(SessionJpaRepository::toDomain);
+        } catch (RuntimeException e) {
+            throw unreadable(id, e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public Optional<Questionnaire> questionnaire(UUID sessionId) {
+        try {
+            return loadQuestionnaire(sessionId);
+        } catch (DomainException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw unreadable(sessionId, e);
+        }
+    }
+
+    private Optional<Questionnaire> loadQuestionnaire(UUID sessionId) {
+        SessionEntity session = em.find(SessionEntity.class, sessionId.toString());
+        if (session == null) {
+            return Optional.empty();
+        }
+        List<QuestionEntity> questions = em.createQuery(
+                        "select q from QuestionEntity q where q.sessionId = :s order by q.ordinal", QuestionEntity.class)
+                .setParameter("s", sessionId.toString()).getResultList();
+        Map<String, AnswerEntity> answers = questions.isEmpty() ? Map.of() : em.createQuery(
+                        "select a from AnswerEntity a where a.questionId in :ids", AnswerEntity.class)
+                .setParameter("ids", questions.stream().map(q -> q.id).toList()).getResultList().stream()
+                .collect(Collectors.toMap(a -> a.questionId, Function.identity()));
+        List<Question> domain = questions.stream().map(q -> toDomain(q, answers.get(q.id))).toList();
+        return Optional.of(new Questionnaire(domain,
+                session.coveredThemes.stream().map(QuestionTheme::valueOf).collect(Collectors.toSet())));
+    }
+
+    /**
+     * Lecture brute, sans entités : une ligne endommagée ne fait pas échouer la requête et la session
+     * est listée comme illisible (edge case « fichier corrompu »).
+     */
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<SessionListing> list() {
+        List<Object[]> rows = em.createNativeQuery(
+                "select id, name, need, language, origin, state, covered_themes, updated_at, project_id, implementation_status"
+                        + " from session"
+                        + " order by updated_at desc").getResultList();
+        Set<String> damaged = new HashSet<>();
+        List<Object[]> questions = em.createNativeQuery(
+                "select session_id, suggestions, depends_on, theme, state from question").getResultList();
+        for (Object[] q : questions) {
+            if (!readableQuestion(q)) {
+                damaged.add((String) q[0]);
+            }
+        }
+        List<SessionListing> out = new ArrayList<>();
+        for (Object[] r : rows) {
+            String id = (String) r[0];
+            Instant updatedAt = parseInstant((String) r[7]);
+            SessionState state = parseEnum(SessionState.class, (String) r[5]);
+            boolean readable = !damaged.contains(id) && state != null && updatedAt != null && readableSession(r);
+            ImplementationStatus status = parseEnum(ImplementationStatus.class, (String) r[9]);
+            out.add(new SessionListing(UUID.fromString(id), UUID.fromString((String) r[8]), (String) r[1], state, updatedAt,
+                    readable, status == null ? ImplementationStatus.DRAFT : status));
+        }
+        return out;
+    }
+
+    private static boolean readableSession(Object[] r) {
+        try {
+            new Need((String) r[2]);
+            Language.valueOf((String) r[3]);
+            SessionOrigin.valueOf((String) r[4]);
+            JSON.readValue((String) r[6], STRINGS).forEach(QuestionTheme::valueOf);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private static boolean readableQuestion(Object[] q) {
+        try {
+            JSON.readValue((String) q[1], STRINGS);
+            JSON.readValue((String) q[2], STRINGS).forEach(UUID::fromString);
+            QuestionTheme.valueOf((String) q[3]);
+            QuestionState.valueOf((String) q[4]);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private static Instant parseInstant(String value) {
+        try {
+            return value == null ? null : Instant.parse(value);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static <E extends Enum<E>> E parseEnum(Class<E> type, String value) {
+        try {
+            return value == null ? null : Enum.valueOf(type, value);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static DomainException unreadable(UUID id, RuntimeException e) {
+        LOG.warnf("Session %s illisible (%s)", id, e.getClass().getSimpleName());
+        return new DomainException(ErrorCode.SESSION_UNREADABLE, ErrorCode.SESSION_UNREADABLE.defaultMessage(), e);
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID id) {
+        // Suppression en cascade par la base (V3, V4) : réponses, questions et versions
+        em.createNativeQuery("delete from session where id = ?1").setParameter(1, id.toString()).executeUpdate();
+        em.clear();
+    }
+
+    private static QuestionEntity toEntity(UUID sessionId, Question q) {
+        QuestionEntity e = new QuestionEntity();
+        e.id = q.id().toString();
+        e.sessionId = sessionId.toString();
+        e.ordinal = q.order();
+        e.theme = q.theme().name();
+        e.batch = q.batch();
+        e.label = q.label();
+        e.rationale = q.rationale();
+        e.suggestions = q.suggestions();
+        e.defaultValue = q.defaultValue();
+        e.dependsOn = q.dependsOn().stream().map(UUID::toString).toList();
+        e.state = q.state().name();
+        return e;
+    }
+
+    private static Question toDomain(QuestionEntity e, AnswerEntity a) {
+        UUID id = UUID.fromString(e.id);
+        Answer answer = a == null ? null : new Answer(id, a.value, a.assumption, a.answeredAt);
+        return new Question(id, e.ordinal, QuestionTheme.valueOf(e.theme), e.batch, e.label, e.rationale, e.suggestions,
+                e.defaultValue, e.dependsOn.stream().map(UUID::fromString).toList(), QuestionState.valueOf(e.state),
+                answer);
+    }
+
+    @Override
+    public Optional<Implementation> implementation(UUID sessionId) {
+        List<Object[]> rows = em.createNativeQuery(
+                "select implementation_status, implemented_at, evolved_from_session_id from session where id = ?1")
+                .setParameter(1, sessionId.toString()).getResultList();
+        return rows.stream().findFirst().map(r -> new Implementation(
+                Optional.ofNullable(parseEnum(ImplementationStatus.class, (String) r[0])).orElse(ImplementationStatus.DRAFT),
+                parseInstant((String) r[1]), r[2] == null ? null : UUID.fromString((String) r[2])));
+    }
+
+    @Override
+    @Transactional
+    public void saveImplementation(UUID sessionId, Implementation implementation) {
+        int updated = em.createNativeQuery("update session set implementation_status = ?1, implemented_at = ?2,"
+                + " evolved_from_session_id = ?3 where id = ?4")
+                .setParameter(1, implementation.status().name())
+                .setParameter(2, implementation.implementedAt() == null ? null : implementation.implementedAt().toString())
+                .setParameter(3, implementation.evolvedFrom() == null ? null : implementation.evolvedFrom().toString())
+                .setParameter(4, sessionId.toString()).executeUpdate();
+        if (updated == 0) {
+            throw new DomainException(ErrorCode.NOT_FOUND);
+        }
+    }
+
+    private static Session toDomain(SessionEntity e) {
+        return new Session(UUID.fromString(e.id), UUID.fromString(e.projectId), e.name, new Need(e.need),
+                Language.valueOf(e.language), SessionOrigin.valueOf(e.origin), SessionState.valueOf(e.state), e.createdAt,
+                e.updatedAt);
+    }
+}
