@@ -80,6 +80,9 @@ public enum ErrorCode {
 
     // Jira
     JIRA_NOT_CONFIGURED(409, "Jira n'est pas configuré.", ErrorAction.OPEN_SETTINGS),
+    /** 016 : aucun serveur Confluence déclaré dans Configuration. */
+    CONFLUENCE_NOT_CONFIGURED(409, "Aucun serveur Confluence n'est déclaré. Déclarez-le dans Configuration, puis"
+            + " ajoutez la racine.", ErrorAction.OPEN_SETTINGS),
     JIRA_PROJECT_MISSING(409,
             "Aucun projet Jira n'est associé à ce projet. Renseignez sa clé Jira dans les réglages du projet.",
             ErrorAction.OPEN_PROJECT_SETTINGS),

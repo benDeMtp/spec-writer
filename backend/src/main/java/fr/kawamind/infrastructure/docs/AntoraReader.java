@@ -59,10 +59,14 @@ public class AntoraReader implements DocumentationReader {
     }
 
     /** Réponse d'une page : son contenu, ou le motif pour lequel elle n'a pas été lue. */
-    private record Fetched(URI uri, String body, UnreadReason failure, Integer status) {
+    private record Fetched(URI uri, String body, UnreadReason failure, Integer status, Instant lastModified) {
+
+        Fetched(URI uri, String body, UnreadReason failure, Integer status) {
+            this(uri, body, failure, status, null);
+        }
 
         Fetched(URI uri, String body, UnreadReason failure) {
-            this(uri, body, failure, null);
+            this(uri, body, failure, null, null);
         }
     }
 
@@ -144,7 +148,9 @@ public class AntoraReader implements DocumentationReader {
                         if (f.failure() != null) {
                             unread.add(unread(uri.toString(), f));
                         } else {
-                            page(uri.toString(), f.body(), f.uri().toString()).ifPresentOrElse(pages::add,
+                            // date de la page envoyée par le serveur (016, FR-012), sinon inconnue
+                            page(uri.toString(), f.body(), f.uri().toString())
+                                    .map(p -> p.withUpdatedAt(f.lastModified())).ifPresentOrElse(pages::add,
                                     () -> unread.add(new Unread(uri.toString(), UnreadReason.NOT_ANTORA)));
                         }
                     } finally {
@@ -199,7 +205,7 @@ public class AntoraReader implements DocumentationReader {
             }
             Optional<Page> page = page(redirectedRoot ? f.uri().toString() : uri.toString(), f.body(), f.uri().toString());
             if (page.isPresent()) {
-                pages.add(page.get());
+                pages.add(page.get().withUpdatedAt(f.lastModified()));
             } else if (!uri.equals(root)) {
                 unread.add(new Unread(uri.toString(), UnreadReason.NOT_ANTORA));
             }
@@ -258,7 +264,8 @@ public class AntoraReader implements DocumentationReader {
                     response.body().close();
                     return new Fetched(uri, null, UnreadReason.HTTP_ERROR, status);
                 }
-                return new Fetched(uri, bounded(response.body()), null);
+                return new Fetched(uri, bounded(response.body()), null, null,
+                        lastModified(response.headers().firstValue("Last-Modified").orElse(null)));
             }
             return new Fetched(uri, null, UnreadReason.HTTP_ERROR);
         } catch (TooLarge e) {
@@ -269,6 +276,19 @@ public class AntoraReader implements DocumentationReader {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return new Fetched(uri, null, UnreadReason.UNREACHABLE);
+        }
+    }
+
+    /** En-tête {@code Last-Modified} (date HTTP) ; {@code null} absent ou illisible. */
+    static Instant lastModified(String header) {
+        if (header == null || header.isBlank()) {
+            return null;
+        }
+        try {
+            return java.time.ZonedDateTime.parse(header.strip(), java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)
+                    .toInstant();
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
         }
     }
 
@@ -310,7 +330,8 @@ public class AntoraReader implements DocumentationReader {
                     continue;
                 }
                 String body = Files.readString(file, StandardCharsets.UTF_8);
-                page(ref, body, file.toUri().toString()).ifPresentOrElse(pages::add,
+                Instant modified = Files.getLastModifiedTime(file).toInstant();
+                page(ref, body, file.toUri().toString()).map(p -> p.withUpdatedAt(modified)).ifPresentOrElse(pages::add,
                         () -> unread.add(new Unread(ref, UnreadReason.NOT_ANTORA)));
             } catch (AccessDeniedException e) {
                 unread.add(new Unread(ref, UnreadReason.ACCESS_DENIED));

@@ -9,6 +9,7 @@ import java.util.Optional;
 public interface SecretStore {
 
     String JIRA_PAT = "jira.pat";
+    String CONFLUENCE_PAT = "confluence.pat";
     String COPILOT_ACCESS = "copilot.access";
     String COPILOT_REFRESH = "copilot.refresh";
 

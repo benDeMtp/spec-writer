@@ -54,6 +54,12 @@ public interface KnowledgeIndex {
      */
     int replaceSource(UUID projectId, UUID sourceId, Set<Key> keep);
 
+    /**
+     * Rattache des éléments existants à une source, sans rien supprimer : une page Confluence
+     * atteinte par plusieurs racines reste à l'une d'elles tant qu'une la liste (016, R3).
+     */
+    void attach(UUID projectId, UUID sourceId, Set<Key> keys);
+
     /** Supprime un élément (ticket supprimé dans Jira, par exemple). */
     void delete(UUID projectId, Key key);
 

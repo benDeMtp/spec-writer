@@ -13,6 +13,7 @@ import fr.kawamind.application.attachment.ManageAttachments;
 import fr.kawamind.application.consent.UpdateConsent;
 import fr.kawamind.application.context.EditContext;
 import fr.kawamind.application.context.ManageDocSources;
+import fr.kawamind.application.context.ManageReliability;
 import fr.kawamind.application.sources.AnalyzePerimeter;
 import fr.kawamind.application.sources.ManageSourceRoots;
 import fr.kawamind.application.conversation.ConversationSearch;
@@ -47,6 +48,7 @@ import fr.kawamind.application.knowledge.MentionQueries;
 import fr.kawamind.application.knowledge.ReadDocFile;
 import fr.kawamind.application.knowledge.RelatedIssuesStore;
 import fr.kawamind.application.knowledge.ReportSubtasks;
+import fr.kawamind.application.knowledge.ProvenanceResolver;
 import fr.kawamind.application.knowledge.SelectKnowledge;
 import fr.kawamind.application.knowledge.SessionKnowledge;
 import fr.kawamind.application.knowledge.StoryFamily;
@@ -65,7 +67,12 @@ import fr.kawamind.application.session.EvolveSpecification;
 import fr.kawamind.application.session.ManageSessions;
 import fr.kawamind.application.session.ResolveRelatedIssue;
 import fr.kawamind.application.session.StartSession;
+import fr.kawamind.application.knowledge.ConfluenceIndexation;
+import fr.kawamind.application.settings.ConfluenceAccess;
+import fr.kawamind.application.settings.DeleteConfluenceSettings;
 import fr.kawamind.application.settings.DeleteJiraSettings;
+import fr.kawamind.application.settings.SaveConfluenceSettings;
+import fr.kawamind.application.settings.TestConfluenceConnection;
 import fr.kawamind.application.settings.DisconnectCopilot;
 import fr.kawamind.application.settings.PollCopilotConnection;
 import fr.kawamind.application.settings.RefreshModelCapacities;
@@ -91,7 +98,11 @@ import fr.kawamind.domain.port.ConversationAttachmentRepository;
 import fr.kawamind.domain.port.ConversationLlm;
 import fr.kawamind.domain.port.ConversationRepository;
 import fr.kawamind.domain.port.DocSourceRepository;
+import fr.kawamind.domain.port.ConfluenceClient;
+import fr.kawamind.domain.port.ConfluencePageStates;
+import fr.kawamind.domain.port.ConfluenceSettingsRepository;
 import fr.kawamind.domain.port.DocumentFileStates;
+import fr.kawamind.domain.port.ReliabilityRepository;
 import fr.kawamind.domain.port.DocumentFiles;
 import fr.kawamind.domain.port.DocumentFolder;
 import fr.kawamind.domain.port.DocumentationReader;
@@ -236,10 +247,11 @@ public class UseCaseProducer {
             ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
             AnalyzeArchitecture analyze, DocSourceRepository docSources, DocumentFolder folder,
             ConversationAttachmentRepository attachments, DiscussSpecification discussions, AnalyzePerimeter perimeter,
-            PerimeterRepository perimeters) {
+            PerimeterRepository perimeters, ProvenanceResolver provenance) {
         SelectKnowledge select = new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), docSources,
-                folder, capacities);
-        return new Converse(projects, conversations, llm, new ConversationSearch(index, embedding, specifications),
+                folder, capacities, null, provenance);
+        return new Converse(projects, conversations, llm,
+                new ConversationSearch(index, embedding, specifications, provenance),
                 new DesignatedDocuments(select, attachments), capacities, consent, operations, events, clock, ids,
                 task -> Thread.ofVirtual().name("conversation").start(task), discussions, perimeter, perimeters);
     }
@@ -404,9 +416,17 @@ public class UseCaseProducer {
     @ApplicationScoped
     SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
             AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
-            ModelCapacities capacities, AttachmentRepository attachments) {
+            ModelCapacities capacities, AttachmentRepository attachments, ProvenanceResolver provenance) {
         return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder, capacities,
-                attachments);
+                attachments, provenance);
+    }
+
+    /** Source, date et niveau de fiabilité des extraits transmis à l'IA (016, research.md R5). */
+    @Produces
+    @ApplicationScoped
+    ProvenanceResolver provenanceResolver(DocSourceRepository docSources, ReliabilityRepository reliability,
+            ConfluencePageStates pages) {
+        return new ProvenanceResolver(docSources, reliability, pages);
     }
 
     /** Mentions @ d'un document (007) : suggestions et état, avec la place calculée comme à la génération. */
@@ -703,8 +723,49 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     ManageDocSources manageDocSources(ProjectRepository projects, DocSourceRepository docSources, IdGenerator ids,
-            KnowledgeIndex index, DocumentFolder folder) {
-        return new ManageDocSources(projects, docSources, ids, index, folder);
+            KnowledgeIndex index, DocumentFolder folder, ConfluenceAccess confluence, ConfluenceClient client,
+            ConfluencePageStates pages) {
+        return new ManageDocSources(projects, docSources, ids, index, folder, confluence, client, pages);
+    }
+
+    // ---------- Confluence (016) ----------
+
+    @Produces
+    @ApplicationScoped
+    ManageReliability manageReliability(ProjectRepository projects, ReliabilityRepository reliability) {
+        return new ManageReliability(projects, reliability);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConfluenceAccess confluenceAccess(ConfluenceSettingsRepository settings, SecretStore secrets) {
+        return new ConfluenceAccess(settings, secrets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SaveConfluenceSettings saveConfluenceSettings(ConfluenceSettingsRepository settings, SecretStore secrets) {
+        return new SaveConfluenceSettings(settings, secrets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DeleteConfluenceSettings deleteConfluenceSettings(ConfluenceSettingsRepository settings, SecretStore secrets) {
+        return new DeleteConfluenceSettings(settings, secrets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    TestConfluenceConnection testConfluenceConnection(ConfluenceClient client, ConfluenceSettingsRepository settings,
+            SecretStore secrets, ClockPort clock) {
+        return new TestConfluenceConnection(client, settings, secrets, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConfluenceIndexation confluenceIndexation(ConfluenceAccess access, ConfluenceClient client,
+            ConfluencePageStates pages, DocSourceRepository docSources, KnowledgeIndex index, ClockPort clock) {
+        return new ConfluenceIndexation(access, client, pages, docSources, index, clock);
     }
 
     @Produces
@@ -719,9 +780,10 @@ public class UseCaseProducer {
     SynchronizeKnowledge synchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
             DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
             DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
-            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
+            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock,
+            ConfluenceIndexation confluence) {
         return new SynchronizeKnowledge(projects, sources, docSources, reader, folder, fileStates, architecture, jira,
-                tracker, links, index, embedding, clock);
+                tracker, links, index, embedding, clock, confluence);
     }
 
     @Produces
@@ -760,8 +822,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     KnowledgeQueries knowledgeQueries(ProjectRepository projects, KnowledgeIndex index, KnowledgeSourceRepository sources,
-            EmbeddingPort embedding, Indexations indexations, JiraAccess jira) {
-        return new KnowledgeQueries(projects, index, sources, embedding, indexations, jira);
+            EmbeddingPort embedding, Indexations indexations, JiraAccess jira, ProvenanceResolver provenance) {
+        return new KnowledgeQueries(projects, index, sources, embedding, indexations, jira, provenance);
     }
 
     @Produces

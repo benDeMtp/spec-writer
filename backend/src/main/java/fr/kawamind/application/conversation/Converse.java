@@ -518,7 +518,8 @@ public class Converse {
                     continue;
                 }
                 left -= size;
-                TurnSource source = new TurnSource(byRef.size() + 1, f.kind(), f.ref(), f.title(), f.text());
+                TurnSource source = new TurnSource(byRef.size() + 1, f.kind(), f.ref(), f.title(), f.text(),
+                        f.provenance());
                 byRef.put(key, source);
                 added.add(source);
             }

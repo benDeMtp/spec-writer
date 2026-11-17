@@ -70,6 +70,15 @@ class ReplayChatModelTest {
                 .isEqualTo("{\"modules\":[{\"id\":\"r1/libs/common-contract\"},{\"id\":\"inconnu\"}]}");
     }
 
+    @Test
+    void lesDocumentsSontDesignesParLeurTitre() {
+        String user = "<document ref=\"docs:5f1e/Demande.html\" titre=\"Demande de remboursement\">\n"
+                + "<provenance source=\"sharepoint\" maj=\"2026-10-01\" fiabilite=\"reference\"/>";
+        assertThat(ReplayChatModel.resolveQuestionIds("{\"ref\":\"__DOC:Demande de remboursement__\","
+                + "\"autre\":\"__DOC:Absent__\"}", user))
+                .isEqualTo("{\"ref\":\"docs:5f1e/Demande.html\",\"autre\":\"Absent\"}");
+    }
+
     private static final String AGENT = "[operation:converse-agent] Consignes";
 
     private static ToolExecutionRequest call(String id) {

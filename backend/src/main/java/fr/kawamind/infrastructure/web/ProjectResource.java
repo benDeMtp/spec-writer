@@ -55,13 +55,15 @@ public class ProjectResource {
             List<SourceRootResource.SourceRootView> sourceRoots) {
     }
 
+    /** Source de documentation ; pour une racine Confluence (016), sa page, son titre et son niveau propre. */
     public record DocSourceView(UUID id, String kind, String location, Instant lastReadAt, Integer pagesRead,
-            Integer pagesInError, List<String> exclusions) {
+            Integer pagesInError, List<String> exclusions, String title, String pageId, String reliability) {
 
         static DocSourceView of(DocSource s) {
             DocSource.ReadSummary r = s.lastResult();
             return new DocSourceView(s.id(), s.kind().name(), s.location(), s.lastReadAt(), r == null ? null : r.pagesRead(),
-                    r == null ? null : r.pagesInError(), s.exclusions().patterns());
+                    r == null ? null : r.pagesInError(), s.exclusions().patterns(), s.title(), s.pageId(),
+                    s.reliability() == null ? null : s.reliability().name());
         }
     }
 

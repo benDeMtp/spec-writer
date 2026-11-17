@@ -5,6 +5,7 @@ import fr.kawamind.domain.conversation.NeedDraft;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.llm.Contradiction;
 import fr.kawamind.domain.llm.DraftSpecification;
+import fr.kawamind.domain.specification.SourceDeviation;
 import fr.kawamind.domain.llm.ImpactResult;
 import fr.kawamind.domain.llm.IssueComparison;
 import fr.kawamind.domain.llm.ProposeQuestionsResult;
@@ -110,9 +111,20 @@ public final class LlmOutputs {
         if (draft == null) {
             throw new IllegalArgumentException("spécification absente");
         }
+        // écart entre sources hors bornes (016) : la réponse est redemandée
+        if (draft.sourceDeviations().size() > SourceDeviation.MAX_PER_VERSION) {
+            throw new IllegalArgumentException("plus de 10 écarts entre sources");
+        }
+        for (DraftSpecification.DraftSourceDeviation d : draft.sourceDeviations()) {
+            if (d == null || blank(d.referenceRef()) || blank(d.interpretationRef()) || blank(d.difference())
+                    || d.difference().strip().length() > SourceDeviation.MAX_DIFFERENCE) {
+                throw new IllegalArgumentException("écart entre sources incomplet ou trop long");
+            }
+        }
         return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
                 TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
-                draft.requirements(), draft.adrDeviations(), draft.story(), draft.splitProposal());
+                draft.requirements(), draft.adrDeviations(), draft.story(), draft.splitProposal(),
+                draft.sourceDeviations());
     }
 
     public static RelatedIssuesJudgement related(String json) {

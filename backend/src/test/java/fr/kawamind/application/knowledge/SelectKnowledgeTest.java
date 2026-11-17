@@ -960,4 +960,36 @@ class SelectKnowledgeTest {
         join(session, 1, "CR.pdf", "Version 2 du compte rendu.");
         assertThat(withAttachments().forSpecification(session, List.of()).fingerprint()).isNotEqualTo(before);
     }
+
+    /**
+     * T039 (016) : chaque élément transmis porte sa provenance ; une page Confluence pertinente est
+     * transmise comme un document recomposé, avec sa source et sa date.
+     */
+    @Test
+    void provenanceEtPageConfluenceCommeDocument() {
+        UUID root = UUID.fromString("00000000-0000-0000-0000-0000000000c1");
+        w.docSources.save(DocSource.confluence(root, P, "https://wiki/pages/viewpage.action?pageId=103", "103",
+                "Notes de frais", null));
+        String page = "https://wiki/pages/viewpage.action?pageId=103";
+        java.time.Instant october = java.time.Instant.parse("2026-10-03T09:00:00Z");
+        index.save(KnowledgeItem.docSection(P, page + "#0", 0, "Notes de frais",
+                text("Le plafond de l'avoir sur facture est de 1 000 euros.", 600), null, october, T), null, null);
+        index.replaceSource(P, root, java.util.Set.of(new fr.kawamind.domain.port.KnowledgeIndex.Key(
+                KnowledgeKind.DOC_SECTION, page + "#0", 0)));
+        SelectKnowledge withConfluence = new SelectKnowledge(w.projects, index, embedding, analyze, StoryFamily.none(),
+                w.docSources, w.folder, fr.kawamind.domain.port.ModelCapacities.UNKNOWN, null,
+                new ProvenanceResolver(w.docSources, new fr.kawamind.support.InMemoryReliability(), null));
+
+        ProjectKnowledge k = withConfluence.forSpecification(session, List.of());
+
+        assertThat(k.entries()).filteredOn(e -> e.ref().equals(page)).singleElement().satisfies(e -> {
+            assertThat(e.provenance().origin()).isEqualTo(fr.kawamind.domain.knowledge.SourceOrigin.CONFLUENCE);
+            assertThat(e.provenance().updatedAt()).isEqualTo(october);
+            assertThat(e.text()).contains("1 000 euros");
+        });
+        assertThat(k.entries()).filteredOn(e -> e.kind() == KnowledgeKind.TICKET).isNotEmpty()
+                .allSatisfy(e -> assertThat(e.provenance().origin()).isEqualTo(fr.kawamind.domain.knowledge.SourceOrigin.JIRA));
+        assertThat(k.entries()).filteredOn(e -> e.kind() == KnowledgeKind.ADR).isNotEmpty()
+                .allSatisfy(e -> assertThat(e.provenance()).isNotNull());
+    }
 }

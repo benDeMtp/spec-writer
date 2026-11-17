@@ -4,6 +4,7 @@ import fr.kawamind.domain.knowledge.AdrStatus;
 import fr.kawamind.domain.knowledge.KnowledgeKind;
 import fr.kawamind.domain.knowledge.KnowledgeRole;
 import fr.kawamind.domain.project.DocSource;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -13,17 +14,26 @@ import java.util.List;
 public interface DocumentationReader {
 
     /**
-     * Page lue : son adresse ({@code ref}), son titre, son texte structuré et ses sections à
-     * indexer (research.md R20).
+     * Page lue : son adresse ({@code ref}), son titre, son texte structuré, ses sections à indexer
+     * (research.md R20) et sa date de dernière mise à jour à la source, {@code null} si elle est
+     * inconnue (016, FR-012).
      */
-    record Page(String ref, String title, String text, List<Section> sections) {
+    record Page(String ref, String title, String text, List<Section> sections, Instant updatedAt) {
 
         public Page {
             sections = sections == null ? List.of() : List.copyOf(sections);
         }
 
+        public Page(String ref, String title, String text, List<Section> sections) {
+            this(ref, title, text, sections, null);
+        }
+
         public Page(String ref, String title, String text) {
             this(ref, title, text, List.of());
+        }
+
+        public Page withUpdatedAt(Instant at) {
+            return new Page(ref, title, text, sections, at);
         }
     }
 

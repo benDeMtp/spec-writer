@@ -32,6 +32,18 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
         return items.computeIfAbsent(projectId, id -> new LinkedHashMap<>());
     }
 
+    /** L'élément avec sa source de rattachement, comme la colonne {@code source_id} relue (016). */
+    private KnowledgeItem owned(KnowledgeItem item) {
+        UUID owner = owners.getOrDefault(item.projectId(), Map.of()).get(Key.of(item));
+        return owner == null ? item : item.withSourceId(owner);
+    }
+
+    @Override
+    public void attach(UUID projectId, UUID sourceId, Set<Key> keys) {
+        Map<Key, UUID> owned = owners.computeIfAbsent(projectId, p -> new HashMap<>());
+        keys.stream().filter(of(projectId)::containsKey).forEach(k -> owned.put(k, sourceId));
+    }
+
     @Override
     public Map<Key, String> hashes(UUID projectId, KnowledgeKind kind) {
         Map<Key, String> out = new HashMap<>();
@@ -92,7 +104,7 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
 
     @Override
     public Optional<KnowledgeItem> find(UUID projectId, Key key) {
-        return Optional.ofNullable(of(projectId).get(key)).map(Entry::item);
+        return Optional.ofNullable(of(projectId).get(key)).map(Entry::item).map(this::owned);
     }
 
     @Override
@@ -112,7 +124,7 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
     public List<Hit> search(UUID projectId, String terms, float[] queryVector, String embeddingModel,
             Collection<KnowledgeKind> kinds, int limit) {
         String[] words = terms == null ? new String[0] : terms.toLowerCase(Locale.ROOT).split("\\W+");
-        return of(projectId).values().stream().map(Entry::item)
+        return of(projectId).values().stream().map(Entry::item).map(this::owned)
                 .filter(i -> kinds == null || kinds.isEmpty() || kinds.contains(i.kind()))
                 .map(i -> new Hit(i, score(i, words))).filter(h -> h.score() > 0)
                 .sorted((a, b) -> Double.compare(b.score(), a.score())).limit(limit).toList();
@@ -131,12 +143,12 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
 
     @Override
     public List<KnowledgeItem> all(UUID projectId, KnowledgeKind kind) {
-        return of(projectId).values().stream().map(Entry::item).filter(i -> i.kind() == kind).toList();
+        return of(projectId).values().stream().map(Entry::item).map(this::owned).filter(i -> i.kind() == kind).toList();
     }
 
     @Override
     public List<KnowledgeItem> documentParts(UUID projectId, String documentRef) {
-        return of(projectId).values().stream().map(Entry::item).filter(i -> i.kind() == KnowledgeKind.DOC_SECTION
+        return of(projectId).values().stream().map(Entry::item).map(this::owned).filter(i -> i.kind() == KnowledgeKind.DOC_SECTION
                 && (i.ref().equals(documentRef) || i.ref().startsWith(documentRef + "#"))).toList();
     }
 

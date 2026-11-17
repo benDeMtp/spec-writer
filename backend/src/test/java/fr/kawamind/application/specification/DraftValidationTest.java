@@ -121,4 +121,41 @@ class DraftValidationTest {
 
         assertThat(corrections).containsExactly((String) null);
     }
+
+    /** T041 (016) : un écart entre sources n'est gardé que si ses deux références sont citables. */
+    @Test
+    void ecartEntreSourcesCitableCompleteDeSaSourceEtDeSaDate() {
+        java.time.Instant sept = java.time.Instant.parse("2026-09-12T08:00:00Z");
+        ProjectKnowledge knowledge = new ProjectKnowledge("", null, List.of(
+                new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, null, "docs:x/Demande.docx", 0, "Demande", null,
+                        false, "Plafond : 500 euros.", "h").withProvenance(new fr.kawamind.domain.knowledge.Provenance(
+                                fr.kawamind.domain.knowledge.SourceOrigin.DOCUMENTS, sept,
+                                fr.kawamind.domain.knowledge.Reliability.REFERENCE)),
+                new ProjectKnowledge.Entry(KnowledgeKind.DOC_SECTION, null,
+                        "https://wiki/pages/viewpage.action?pageId=103", 0, "Notes de frais", null, false,
+                        "Plafond : 1 000 euros.", "h2").withProvenance(new fr.kawamind.domain.knowledge.Provenance(
+                                fr.kawamind.domain.knowledge.SourceOrigin.CONFLUENCE, null, null))),
+                List.of(), List.of(), List.of());
+        java.util.function.Function<String, fr.kawamind.domain.specification.SourceDeviation> deviation = other ->
+                new fr.kawamind.domain.specification.SourceDeviation(
+                        new fr.kawamind.domain.specification.SourceDeviation.Cited("DOCS:x/demande.docx", null, null,
+                                null),
+                        new fr.kawamind.domain.specification.SourceDeviation.Cited(other, null, null, null),
+                        "500 contre 1 000 euros.");
+        SpecificationContent content = Specs.with(List.of(), List.of(), List.of()).withSourceDeviations(List.of(
+                deviation.apply("https://wiki/pages/viewpage.action?pageId=103"),
+                deviation.apply("https://wiki/pages/viewpage.action?pageId=999"),
+                deviation.apply("docs:x/Demande.docx")));
+
+        List<fr.kawamind.domain.specification.SourceDeviation> kept = DraftValidation.repaired(content, knowledge)
+                .sourceDeviations();
+
+        assertThat(kept).singleElement().satisfies(d -> {
+            assertThat(d.reference().ref()).isEqualTo("docs:x/Demande.docx");
+            assertThat(d.reference().origin()).isEqualTo(fr.kawamind.domain.knowledge.SourceOrigin.DOCUMENTS);
+            assertThat(d.reference().updatedAt()).isEqualTo(sept);
+            assertThat(d.interpretation().title()).isEqualTo("Notes de frais");
+            assertThat(d.interpretation().origin()).isEqualTo(fr.kawamind.domain.knowledge.SourceOrigin.CONFLUENCE);
+        });
+    }
 }

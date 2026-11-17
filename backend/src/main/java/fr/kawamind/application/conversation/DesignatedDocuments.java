@@ -53,6 +53,6 @@ public class DesignatedDocuments {
     private static Found found(ProjectKnowledge.Entry e) {
         SourceKind kind = e.ref().startsWith(Attachment.REF_PREFIX) ? SourceKind.ATTACHMENT
                 : e.kind() == KnowledgeKind.ADR ? SourceKind.ADR : SourceKind.DOC_SECTION;
-        return new Found(kind, e.ref(), e.title(), e.text());
+        return new Found(kind, e.ref(), e.title(), e.text(), e.provenance());
     }
 }

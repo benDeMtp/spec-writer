@@ -6,13 +6,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Autorité de test et certificat serveur 127.0.0.1 signé par elle, générés avec keytool. */
-final class TestCertificates {
+public final class TestCertificates {
 
-    static final String PASSWORD = "changeit";
+    public static final String PASSWORD = "changeit";
 
-    final Path caPem;
-    final Path serverKeystore;
-    final Path otherCaPem;
+    public final Path caPem;
+    public final Path serverKeystore;
+    public final Path otherCaPem;
 
     private TestCertificates(Path caPem, Path serverKeystore, Path otherCaPem) {
         this.caPem = caPem;
@@ -20,7 +20,7 @@ final class TestCertificates {
         this.otherCaPem = otherCaPem;
     }
 
-    static TestCertificates generate(Path dir) throws Exception {
+    public static TestCertificates generate(Path dir) throws Exception {
         Files.createDirectories(dir);
         Path ca = dir.resolve("ca.p12");
         Path caPem = dir.resolve("ca.pem");

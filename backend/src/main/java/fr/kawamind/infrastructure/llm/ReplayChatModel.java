@@ -39,6 +39,7 @@ public final class ReplayChatModel implements ChatModel {
     private static final Pattern DISCUSSION = Pattern.compile("DISCUSSION_(\\d+)");
     private static final Pattern DISCUSSION_REF = Pattern.compile("ref=\"(discussion:[^\"]+)\"");
     private static final Pattern MODULE = Pattern.compile("\"__MODULE:([^\"]+?)__\"");
+    private static final Pattern DOC = Pattern.compile("\"__DOC:([^\"]+?)__\"");
     private static final Pattern RESULT = Pattern.compile("<resultat ");
 
     /** Appel d'outil rejoué : nom et arguments JSON. */
@@ -160,7 +161,7 @@ public final class ReplayChatModel implements ChatModel {
      * {@code "__DISCUSSION_n__"} par la référence du n-ième message de la discussion (011).
      */
     static String resolveQuestionIds(String response, String user) {
-        Matcher m = PLACEHOLDER.matcher(resolveModules(response, user));
+        Matcher m = PLACEHOLDER.matcher(resolveDocuments(resolveModules(response, user), user));
         StringBuilder out = new StringBuilder();
         while (m.find()) {
             Matcher discussion = DISCUSSION.matcher(m.group(1));
@@ -186,6 +187,22 @@ public final class ReplayChatModel implements ChatModel {
         while (m.find()) {
             Matcher id = Pattern.compile("<module id=\"([^\"]+)\" nom=\"" + Pattern.quote(m.group(1)) + "\"").matcher(user);
             m.appendReplacement(out, Matcher.quoteReplacement("\"" + (id.find() ? id.group(1) : m.group(1)) + "\""));
+        }
+        m.appendTail(out);
+        return out.toString();
+    }
+
+    /**
+     * La référence d'un document d'un dossier contient l'identifiant, aléatoire, de sa source (016) :
+     * {@code "__DOC:titre__"} est remplacé par la référence du document de ce titre cité dans le message.
+     */
+    static String resolveDocuments(String response, String user) {
+        Matcher m = DOC.matcher(response);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            Matcher ref = Pattern.compile("<document ref=\"([^\"]+)\" titre=\"" + Pattern.quote(m.group(1)) + "\"")
+                    .matcher(user);
+            m.appendReplacement(out, Matcher.quoteReplacement("\"" + (ref.find() ? ref.group(1) : m.group(1)) + "\""));
         }
         m.appendTail(out);
         return out.toString();

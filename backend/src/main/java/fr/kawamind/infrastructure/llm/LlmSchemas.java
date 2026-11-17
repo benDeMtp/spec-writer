@@ -118,6 +118,12 @@ final class LlmSchemas {
                             .enumValues("ROLE", "CAPABILITY", "BENEFIT").build()))
                     .build())
             .addProperty("splitProposal", array(string()))
+            // 016 (R8) : écarts entre une source de référence et une interprétation, cités par leurs références
+            .addProperty("sourceDeviations", array(JsonObjectSchema.builder()
+                    .addStringProperty("referenceRef")
+                    .addStringProperty("interpretationRef")
+                    .addStringProperty("difference")
+                    .build()))
             .build();
     }
 

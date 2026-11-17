@@ -6,6 +6,8 @@ import fr.kawamind.domain.conversation.SourceKind;
 import fr.kawamind.domain.knowledge.AdrStatus;
 import fr.kawamind.domain.knowledge.KnowledgeBudget;
 import fr.kawamind.domain.knowledge.KnowledgeItem;
+import fr.kawamind.domain.knowledge.Reliability;
+import fr.kawamind.domain.knowledge.SourceOrigin;
 import fr.kawamind.domain.port.LocalSearch;
 import fr.kawamind.domain.project.Project;
 import fr.kawamind.support.FakeEmbedding;
@@ -41,7 +43,7 @@ class ConversationSearchTest {
         index.save(KnowledgeItem.ticket(UUID.randomUUID(), "AUTRE-1", "Avoir d'un autre projet", "avoirs", "Terminé",
                 "done", "Story", T, T), null, null);
         UUID spec = UUID.fromString("00000000-0000-0000-0000-00000000000a");
-        local.specs.add(new LocalSearch.SpecHit(spec, 3, "Saisir un avoir", "# Saisir un avoir\n\nLes avoirs…", true));
+        local.specs.add(new LocalSearch.SpecHit(spec, 3, "Saisir un avoir", "# Saisir un avoir\n\nLes avoirs…", true, T));
     }
 
     @Test
@@ -72,5 +74,45 @@ class ConversationSearchTest {
                     null, null);
         }
         assertThat(search.run(P, "avoirs", Set.of())).hasSize(ConversationSearch.MAX_RESULTS);
+    }
+
+    @Test
+    void chaqueResultatPorteSaSourceEtSaDate() {
+        List<ConversationSearch.Found> found = search.run(P, "émission des avoirs", Set.of());
+
+        assertThat(found).filteredOn(f -> f.kind() == SourceKind.TICKET).singleElement().satisfies(f -> {
+            assertThat(f.provenance().origin()).isEqualTo(SourceOrigin.JIRA);
+            assertThat(f.provenance().updatedAt()).isEqualTo(T);
+        });
+        assertThat(found).filteredOn(f -> f.kind() == SourceKind.SPECIFICATION).singleElement().satisfies(f -> {
+            assertThat(f.provenance().origin()).isEqualTo(SourceOrigin.SPECIFICATIONS);
+            assertThat(f.provenance().updatedAt()).isEqualTo(T);
+            assertThat(f.provenance().level()).isEqualTo(Reliability.INTERPRETATION);
+        });
+    }
+
+    @Test
+    void deuxPlacesReserveesAuxReferencesSansToucherAuxScores() {
+        // 12 tickets mieux classés, puis deux sections de documents SharePoint (référence) moins bien classées
+        for (int i = 0; i < 12; i++) {
+            index.save(KnowledgeItem.ticket(P, "FACT-" + (200 + i), "Avoir avoir avoir " + i, "avoirs remboursement",
+                    "À faire", "new", "Story", T, T), null, null);
+        }
+        index.save(KnowledgeItem.docSection(P, "docs:x/Demande.docx#1", 0, "Demande", "remboursement", null, T, T),
+                null, null);
+        index.save(KnowledgeItem.docSection(P, "docs:x/Note.docx#1", 0, "Note", "remboursement", null, T, T),
+                null, null);
+        index.save(KnowledgeItem.docSection(P, "docs:x/Autre.docx#1", 0, "Autre", "remboursement", null, T, T),
+                null, null);
+
+        List<ConversationSearch.Found> found = search.run(P, "avoir remboursement", Set.of(SourceKind.TICKET,
+                SourceKind.DOC_SECTION));
+
+        assertThat(found).hasSize(ConversationSearch.MAX_RESULTS);
+        assertThat(found).filteredOn(ConversationSearch.Found::reference).hasSize(2);
+        // les tickets gardent leur ordre, les deux derniers cèdent leur place
+        assertThat(found.subList(0, 6)).extracting(ConversationSearch.Found::kind).containsOnly(SourceKind.TICKET);
+        assertThat(found.subList(6, 8)).extracting(ConversationSearch.Found::ref)
+                .containsExactly("docs:x/Demande.docx#1", "docs:x/Note.docx#1");
     }
 }

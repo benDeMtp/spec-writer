@@ -69,4 +69,24 @@ public class LlmOutputsTest {
                 + tooLong + "\",\"rationale\":\"r\",\"suggestions\":[],\"defaultValue\":\"\",\"dependsOnQuestionIds\":[]}]}";
         assertThatThrownBy(() -> LlmOutputs.reassess(reassess)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    static String withDeviations(String deviations) {
+        return WITHOUT.substring(0, WITHOUT.lastIndexOf('}')) + ",\"sourceDeviations\":" + deviations + "}";
+    }
+
+    /** T042 (016) : écarts entre sources facultatifs à la lecture, redemandés hors bornes. */
+    @Test
+    void ecartsEntreSourcesFacultatifsEtBornes() {
+        assertThat(LlmOutputs.draft(WITHOUT).sourceDeviations()).isEmpty();
+        assertThat(LlmOutputs.draft(withDeviations("""
+                [{"referenceRef":"docs:x/Demande.docx","interpretationRef":"https://wiki/p?pageId=1","difference":"500 contre 1 000."}]"""))
+                .sourceDeviations()).singleElement().satisfies(d -> assertThat(d.difference()).isEqualTo("500 contre 1 000."));
+        for (String bad : new String[] {
+                "[{\"referenceRef\":\"\",\"interpretationRef\":\"b\",\"difference\":\"d\"}]",
+                "[{\"referenceRef\":\"a\",\"interpretationRef\":\"b\",\"difference\":\"" + "x".repeat(1_001) + "\"}]",
+                "[" + String.join(",", java.util.Collections.nCopies(11,
+                        "{\"referenceRef\":\"a\",\"interpretationRef\":\"b\",\"difference\":\"d\"}")) + "]"}) {
+            assertThatThrownBy(() -> LlmOutputs.draft(withDeviations(bad))).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
 }

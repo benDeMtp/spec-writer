@@ -27,8 +27,14 @@ public class SourceLinks {
     JiraAccess jira;
 
     public SpecificationView complete(SpecificationView view) {
-        return view.withLinks(links(view.useCases(), view.adrDeviations().stream()
-                .map(SpecificationContent.AdrDeviation::adrRef).toList()));
+        // écarts aux ADR et entre sources (016) : les extraits sur le web s'ouvrent depuis la spécification
+        List<String> refs = new java.util.ArrayList<>(view.adrDeviations().stream()
+                .map(SpecificationContent.AdrDeviation::adrRef).toList());
+        view.sourceDeviations().forEach(d -> {
+            refs.add(d.reference().ref());
+            refs.add(d.interpretation().ref());
+        });
+        return view.withLinks(links(view.useCases(), refs));
     }
 
     public ProposalView complete(ProposalView view) {

@@ -5,6 +5,9 @@ import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
 import fr.kawamind.domain.knowledge.ArchScope;
 import fr.kawamind.domain.knowledge.KnowledgeItem;
+import fr.kawamind.domain.knowledge.Provenance;
+import fr.kawamind.domain.knowledge.Reliability;
+import fr.kawamind.domain.knowledge.SourceOrigin;
 import fr.kawamind.domain.knowledge.KnowledgeKind;
 import fr.kawamind.domain.knowledge.KnowledgeSource;
 import fr.kawamind.domain.port.EmbeddingPort;
@@ -29,8 +32,9 @@ public class KnowledgeQueries {
             boolean partial, EmbeddingPort.State model, List<IndexableSource> sources) {
     }
 
+    /** Résultat de la recherche d'essai, avec sa source, sa date et son niveau (016). */
     public record Hit(KnowledgeKind kind, String ref, String title, String status, ArchScope scope, String excerpt,
-            String url) {
+            String url, SourceOrigin origin, Instant updatedAt, Reliability level) {
     }
 
     private final ProjectRepository projects;
@@ -39,9 +43,16 @@ public class KnowledgeQueries {
     private final EmbeddingPort embedding;
     private final Indexations indexations;
     private final JiraAccess jira;
+    private final ProvenanceResolver provenance;
 
     public KnowledgeQueries(ProjectRepository projects, KnowledgeIndex index, KnowledgeSourceRepository sources,
             EmbeddingPort embedding, Indexations indexations, JiraAccess jira) {
+        this(projects, index, sources, embedding, indexations, jira, ProvenanceResolver.defaults());
+    }
+
+    public KnowledgeQueries(ProjectRepository projects, KnowledgeIndex index, KnowledgeSourceRepository sources,
+            EmbeddingPort embedding, Indexations indexations, JiraAccess jira, ProvenanceResolver provenance) {
+        this.provenance = provenance;
         this.projects = projects;
         this.index = index;
         this.sources = sources;
@@ -73,14 +84,16 @@ public class KnowledgeQueries {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "La recherche dépasse 2 000 caractères.");
         }
         float[] vector = embedding.state() == EmbeddingPort.State.READY ? embedding.query(query) : null;
+        ProvenanceResolver.Resolution resolution = provenance.forProject(projectId);
         return index.search(projectId, query, vector, vector == null ? null : embedding.modelId(), kinds, MAX_HITS)
-                .stream().map(h -> hit(h.item())).toList();
+                .stream().map(h -> hit(h.item(), resolution.of(h.item()))).toList();
     }
 
-    private Hit hit(KnowledgeItem item) {
+    private Hit hit(KnowledgeItem item, Provenance p) {
         String body = item.body();
         String excerpt = body.length() <= EXCERPT ? body : body.substring(0, EXCERPT - 1) + "…";
-        return new Hit(item.kind(), item.ref(), item.title(), item.status(), item.scope(), excerpt, url(item));
+        return new Hit(item.kind(), item.ref(), item.title(), item.status(), item.scope(), excerpt, url(item),
+                p.origin(), p.updatedAt(), p.level());
     }
 
     private String url(KnowledgeItem item) {
