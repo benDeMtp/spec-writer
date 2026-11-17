@@ -33,6 +33,7 @@ class McpBridgeTest {
     Path dir;
     HttpServer server;
     final List<String> requests = new ArrayList<>();
+    final List<String> connections = new ArrayList<>();
     volatile String accepted = "secret-courant-0123456789-0123456789-0123456";
     /** Secret écrit dans le fichier quand le serveur refuse le premier (régénération simulée). */
     volatile String rotateTo;
@@ -43,6 +44,7 @@ class McpBridgeTest {
         server.createContext("/api/agent/", exchange -> {
             String auth = exchange.getRequestHeaders().getFirst("Authorization");
             String agent = exchange.getRequestHeaders().getFirst("X-Agent-Name");
+            connections.add(exchange.getRequestHeaders().getFirst("X-Agent-Connection"));
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             requests.add(exchange.getRequestMethod() + " " + exchange.getRequestURI() + " " + agent + " " + body);
             String path = exchange.getRequestURI().getPath();
@@ -65,6 +67,16 @@ class McpBridgeTest {
             } else if (path.endsWith("/knowledge")) {
                 status = 200;
                 response = "[{\"kind\":\"ADR\",\"ref\":\"adr-005\",\"excerpt\":\"Kafka\"}]";
+            } else if (path.endsWith("/tasks/next")) {
+                status = 200;
+                response = "{\"outcome\":\"TASK\",\"task\":{\"key\":\"FACT-124\"},\"resume\":false}";
+            } else if (path.endsWith("/FACT-124/start")) {
+                status = 409;
+                response = "{\"code\":\"TASK_HELD\",\"userMessage\":\"La tâche FACT-124 est déjà prise par codex.\"}";
+            } else if (path.endsWith("/complete")) {
+                status = body.length() > 2010 ? 422 : 200;
+                response = status == 422 ? "{\"code\":\"REPORT_TOO_LONG\",\"userMessage\":\"trop long\"}"
+                        : "{\"task\":{\"key\":\"FACT-125\",\"status\":\"DONE\"},\"jiraSync\":\"PENDING\"}";
             } else if (path.endsWith("/status")) {
                 status = body.contains("IMPLEMENTED") ? 409 : 200;
                 response = status == 409 ? "{\"code\":\"TRANSITION_NOT_ALLOWED\",\"userMessage\":\"Ce changement de statut n'est pas permis.\"}"
@@ -129,6 +141,31 @@ class McpBridgeTest {
             + "\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"Claude Code\",\"version\":\"2.0\"}}}";
 
     @Test
+    void outilsDeTachesAvecLaConnexionEtLesCodesMetier() {
+        writeEndpoint(accepted);
+        String feature = "\"featureId\":\"" + FEATURE + "\"";
+        Run r = run(INITIALIZE,
+                call(2, "next_task", "{" + feature + "}"),
+                call(3, "start_task", "{" + feature + ",\"taskKey\":\"FACT-124\"}"),
+                call(4, "complete_task", "{" + feature + ",\"taskKey\":\"FACT-125\",\"report\":\"Tests verts\"}"),
+                call(5, "complete_task", "{" + feature + ",\"taskKey\":\"FACT-125\",\"report\":\"" + "x".repeat(2001) + "\"}"),
+                call(6, "start_task", "{" + feature + ",\"taskKey\":\"pas une clé\"}"));
+        assertThat(r.text(2)).contains("FACT-124");
+        assertThat(r.byId(3).path("result").path("isError").asBoolean()).isTrue();
+        assertThat(r.text(3)).isEqualTo("TASK_HELD : La tâche FACT-124 est déjà prise par codex.");
+        assertThat(r.text(4)).contains("PENDING");
+        assertThat(r.text(5)).startsWith("REPORT_TOO_LONG");
+        assertThat(r.text(6)).startsWith("NOT_FOUND");
+        assertThat(requests).hasSize(4);
+        assertThat(requests.get(2)).isEqualTo("POST /api/agent/features/" + FEATURE
+                + "/tasks/FACT-125/complete Claude Code {\"report\":\"Tests verts\"}");
+        String me = McpBridge.connection(ProcessHandle.current());
+        assertThat(me).matches("\\d+-\\d+").doesNotEndWith("-0");
+        assertThat(connections).containsOnly(me);
+        assertThat(r.err()).doesNotContain("Tests verts");
+    }
+
+    @Test
     void protocoleEtOutils() {
         writeEndpoint(accepted);
         Run r = run(INITIALIZE,
@@ -154,9 +191,9 @@ class McpBridgeTest {
         assertThat(r.out()).hasSize(13).allSatisfy(n -> assertThat(n.path("jsonrpc").asString()).isEqualTo("2.0"));
         assertThat(r.byId(2).path("result").isObject()).isTrue();
         JsonNode tools = r.byId(3).path("result").path("tools");
-        assertThat(tools).hasSize(5);
+        assertThat(tools).hasSize(8);
         assertThat(tools.findValuesAsString("name")).containsExactly("list_projects", "list_features", "get_feature",
-                "search_knowledge", "set_feature_status");
+                "search_knowledge", "set_feature_status", "next_task", "start_task", "complete_task");
         tools.forEach(t -> {
             assertThat(t.path("inputSchema").path("type").asString()).isEqualTo("object");
             assertThat(t.path("description").asString()).isNotBlank();

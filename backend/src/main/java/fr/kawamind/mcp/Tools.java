@@ -19,7 +19,7 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * Les 5 outils de contracts/mcp-tools.md, traduits en requêtes vers l'API des agents de l'outil
+ * Les 8 outils de contracts/mcp-tools.md (002, 015), traduits en requêtes vers l'API des agents de l'outil
  * lancé. Le secret est relu dans {@code agent-endpoint.json} après un 401, une seule fois.
  */
 final class Tools {
@@ -43,11 +43,13 @@ final class Tools {
     private final Path endpointFile;
     private final HttpClient http;
     private final Supplier<String> agentName;
+    private final String connection;
     private Endpoint endpoint;
 
-    Tools(Path endpointFile, Supplier<String> agentName) {
+    Tools(Path endpointFile, Supplier<String> agentName, String connection) {
         this.endpointFile = endpointFile;
         this.agentName = agentName;
+        this.connection = connection;
         // jamais de proxy : l'outil écoute sur la boucle locale. HTTP/1.1 : une montée en h2c
         // remplacerait l'en-tête Host, que l'outil vérifie (DNS rebinding), par :authority
         this.http = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).proxy(HttpClient.Builder.NO_PROXY)
@@ -82,8 +84,25 @@ final class Tools {
                 .putArray("enum").add("IN_PROGRESS").add("IMPLEMENTED");
         ((ArrayNode) status.get("required")).add("status");
         tools.add(tool("set_feature_status",
-                "Passe une feature de « prête » à « en cours », ou de « en cours » à « implémentée ». Aucun autre changement n'est permis.",
+                "Passe une feature de « prête » à « en cours », ou de « en cours » à « implémentée ». Aucun autre changement n'est permis. "
+                        + "Refusé (STATUS_FOLLOWS_TASKS) pour une feature qui a des tâches : son statut suit leur avancement.",
                 status));
+        tools.add(tool("next_task",
+                "Prochaine tâche d'une feature : votre tâche en cours, ou celle d'une conversation fermée à reprendre, sinon la "
+                        + "première à faire dont les préalables sont terminés. Appelez-le en reprenant le travail sur une feature. "
+                        + "Réponse : outcome TASK (avec resume vrai si la tâche était déjà en cours), NONE_LEFT ou ALL_HELD."
+                        + DATA_NOTICE,
+                schema("featureId", "Identifiant de la feature.")));
+        tools.add(tool("start_task",
+                "Prend une tâche : elle passe « En cours » dans spec-writer et dans Jira, réservée à cette conversation. "
+                        + "jiraSync PENDING : Jira est injoignable, la transition sera envoyée plus tard ; à vous de continuer ou non."
+                        + DATA_NOTICE,
+                taskSchema(false)));
+        tools.add(tool("complete_task",
+                "Termine une tâche prise par cette conversation : elle passe « Terminée » dans spec-writer et dans Jira. Le compte "
+                        + "rendu facultatif (2 000 caractères au plus) est ajouté en commentaire sur la sous-tâche, visible par l'équipe."
+                        + DATA_NOTICE,
+                taskSchema(true)));
         return tools;
     }
 
@@ -98,6 +117,17 @@ final class Tools {
                 String status = args.path("status").asString("");
                 ObjectNode body = JsonRpc.JSON.createObjectNode().put("status", status);
                 yield send("PUT", "/api/agent/features/" + id(args, "featureId") + "/status", JsonRpc.JSON.writeValueAsString(body));
+            }
+            case "next_task" -> send("GET", "/api/agent/features/" + id(args, "featureId") + "/tasks/next", null);
+            case "start_task" -> send("POST", "/api/agent/features/" + id(args, "featureId") + "/tasks/" + key(args)
+                    + "/start", "{}");
+            case "complete_task" -> {
+                ObjectNode body = JsonRpc.JSON.createObjectNode();
+                if (args.path("report").isString()) {
+                    body.put("report", args.path("report").asString());
+                }
+                yield send("POST", "/api/agent/features/" + id(args, "featureId") + "/tasks/" + key(args) + "/complete",
+                        JsonRpc.JSON.writeValueAsString(body));
             }
             default -> throw new ToolError("NOT_FOUND : outil inconnu « " + name + " ».");
         };
@@ -122,7 +152,7 @@ final class Tools {
         }
         String code = switch (status) {
             case 404 -> "NOT_FOUND";
-            case 409 -> "TRANSITION_NOT_ALLOWED";
+            case 409, 422 -> code(response.body()).orElse(status == 409 ? "TRANSITION_NOT_ALLOWED" : "INVALID");
             default -> "SPEC_WRITER_UNAVAILABLE";
         };
         throw new ToolError(code + " : " + userMessage(response.body(), status));
@@ -133,6 +163,7 @@ final class Tools {
                 .timeout(Duration.ofSeconds(30))
                 .header("Authorization", "Bearer " + endpoint.secret())
                 .header("X-Agent-Name", agentName.get())
+                .header("X-Agent-Connection", connection)
                 .header("Accept", "application/json");
         if (body == null) {
             request.method(method, HttpRequest.BodyPublishers.noBody());
@@ -170,6 +201,36 @@ final class Tools {
         } catch (RuntimeException e) {
             return "réponse " + status + ".";
         }
+    }
+
+    /** Code métier d'une réponse d'erreur ({@code code} du corps), s'il est lisible. */
+    private static Optional<String> code(String body) {
+        try {
+            String code = JsonRpc.JSON.readTree(body).path("code").asString("");
+            return code.matches("[A-Z_]{2,40}") ? Optional.of(code) : Optional.empty();
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static String key(JsonNode args) throws ToolError {
+        String value = args.path("taskKey").asString("");
+        if (!value.matches("[A-Z][A-Z0-9_]+-\\d+")) {
+            throw new ToolError("NOT_FOUND : « taskKey » doit être une clé de tâche rendue par next_task ou get_feature.");
+        }
+        return value;
+    }
+
+    private static ObjectNode taskSchema(boolean report) {
+        ObjectNode schema = schema("featureId", "Identifiant de la feature.");
+        ((ObjectNode) schema.get("properties")).putObject("taskKey").put("type", "string")
+                .put("description", "Clé Jira de la tâche (next_task, get_feature).");
+        ((ArrayNode) schema.get("required")).add("taskKey");
+        if (report) {
+            ((ObjectNode) schema.get("properties")).putObject("report").put("type", "string").put("maxLength", 2000)
+                    .put("description", "Compte rendu facultatif : ce qui a été fait, ajouté en commentaire dans Jira.");
+        }
+        return schema;
     }
 
     private static String id(JsonNode args, String field) throws ToolError {
