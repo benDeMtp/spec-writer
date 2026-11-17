@@ -366,7 +366,7 @@ version.
 - [ ] T052 Dérouler `quickstart.md` en entier (1 à 6), puis gates complets.
 - [X] T053 Évaluation réelle finale (accord du mainteneur), `ci/check-eval.sh`, puis
   `last-run.json` commité.
-- [ ] T054 Pousser, ouvrir la PR vers `main`. Le corps donne :
+- [X] T054 Pousser, ouvrir la PR vers `main`. Le corps donne :
   - les décisions remplacées ;
   - la note MCP ;
   - les résultats de l'évaluation.
