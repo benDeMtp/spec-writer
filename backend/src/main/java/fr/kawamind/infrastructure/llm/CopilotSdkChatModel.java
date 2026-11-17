@@ -18,6 +18,7 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.output.FinishReason;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
+import fr.kawamind.infrastructure.llm.ai.SkillLibrary;
 import fr.kawamind.infrastructure.llm.CopilotSdkGateway.CapturedCall;
 import fr.kawamind.infrastructure.llm.CopilotSdkGateway.Reply;
 import fr.kawamind.infrastructure.llm.CopilotSdkGateway.ToolSpec;
@@ -128,7 +129,8 @@ public class CopilotSdkChatModel implements ChatModel {
 
     /**
      * Message système et message utilisateur d'une requête. Le premier message utilisateur est repris
-     * tel quel (déjà balisé et échappé par {@link UserMessages}) ; la suite de l'échange (réponses du
+     * tel quel (déjà balisé et échappé par {@link UserMessages}) ; les consignes réutilisables déclarées
+     * prennent place dans le message système ({@link SkillLibrary}) ; la suite de l'échange (réponses du
      * modèle, appels et résultats d'outils, reprises demandées) va dans {@code <echange-outils>}.
      */
     record Prompt(String system, String user) {
@@ -140,7 +142,7 @@ public class CopilotSdkChatModel implements ChatModel {
             boolean[] first = {true};
             for (ChatMessage m : request.messages()) {
                 switch (m) {
-                    case SystemMessage s -> system.add(s.text());
+                    case SystemMessage s -> system.add(SkillLibrary.expand(s.text()));
                     case UserMessage u when first[0] -> {
                         user.append(u.singleText());
                         first[0] = false;
