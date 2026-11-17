@@ -23,4 +23,15 @@ class SpecificationStructureEval {
                         r.scenarioStructure(), r.baseline().required(EvalBaseline.SCENARIO_STRUCTURE))
                 .isTrue();
     }
+
+    /** 015 (T077, SC-007) : l'énoncé de story tient au besoin, ou déclare ce qu'il suppose. */
+    @Test
+    void enonceDeStoryConforme() {
+        EvalRuns.Result r = EvalRuns.result();
+        double score = r.conversation().get(EvalBaseline.STORY_STATEMENT);
+        assertThat(r.baseline().accepts(EvalBaseline.STORY_STATEMENT, score))
+                .as("énoncés de story conformes %.4f, attendu au moins %.4f (détail dans last-run.json)", score,
+                        r.baseline().required(EvalBaseline.STORY_STATEMENT))
+                .isTrue();
+    }
 }

@@ -16,6 +16,8 @@ import fr.kawamind.domain.specification.SpecificationContent;
 import fr.kawamind.infrastructure.llm.CopilotSdkGateway;
 import fr.kawamind.domain.port.ConversationLlm;
 import fr.kawamind.domain.port.LlmClient;
+import fr.kawamind.domain.port.TaskLlm;
+import fr.kawamind.domain.specification.UserStory;
 import fr.kawamind.infrastructure.llm.CopilotRuntime;
 import fr.kawamind.infrastructure.llm.EvalTools;
 import io.quarkus.arc.Arc;
@@ -76,7 +78,12 @@ public final class EvalRuns {
 
     /** Résultat d'un besoin pour une exécution. */
     public record CaseRun(String caseName, int run, List<Asked> questions, int scenarios, List<String> violations,
-            String error) {
+            String error, StoryJudge.Verdict story) {
+
+        /** 015 (SC-007) : énoncé présent et jugé conforme ; une génération en échec n'en a pas. */
+        boolean storyConform() {
+            return error == null && story != null && StoryJudge.CONFORM.equals(story.verdict());
+        }
 
         long irrelevant() {
             return questions.stream().filter(q -> !"PERTINENTE".equals(q.verdict())).count();
@@ -99,7 +106,8 @@ public final class EvalRuns {
     public record Result(double questionRelevance, double scenarioStructure, EvalBaseline baseline, List<CaseRun> runs,
             Map<String, Double> conversation, List<ConversationRuns.CaseRun> conversationRuns,
             List<DiscussionRuns.CaseRun> discussionRuns, List<PerimeterRuns.CaseRun> perimeterRuns,
-            List<PerimeterAnswerRuns.CaseRun> perimeterAnswerRuns, List<InjectionRuns.CaseRun> injectionRuns) {
+            List<PerimeterAnswerRuns.CaseRun> perimeterAnswerRuns, List<InjectionRuns.CaseRun> injectionRuns,
+            List<TaskRuns.CaseRun> taskRuns) {
     }
 
     private EvalRuns() {
@@ -150,9 +158,11 @@ public final class EvalRuns {
         List<PerimeterRuns.CaseRun> perimeters = new ArrayList<>();
         List<PerimeterAnswerRuns.CaseRun> perimeterAnswers = new ArrayList<>();
         List<InjectionRuns.CaseRun> injections = new ArrayList<>();
+        List<TaskRuns.CaseRun> tasks = new ArrayList<>();
         // 014 (research R7) : le code livré, beans de l'application sur le vrai Copilot (EvalProfile)
         LlmClient llm = Arc.container().instance(LlmClient.class).get();
         ConversationLlm agent = Arc.container().instance(ConversationLlm.class).get();
+        TaskLlm taskLlm = Arc.container().instance(TaskLlm.class).get();
         CopilotRuntime runtime = Arc.container().instance(CopilotRuntime.class).get();
         CopilotSdkGateway gateway = runtime;
         String cliVersion = EvalTools.cliVersion(Optional.ofNullable(System.getProperty("specwriter.copilot.cli-path")));
@@ -165,6 +175,7 @@ public final class EvalRuns {
             perimeters.addAll(PerimeterRuns.run(agent, run));
             perimeterAnswers.addAll(PerimeterAnswerRuns.run(agent, run));
             injections.addAll(InjectionRuns.run(agent, runtime.emptyDirectory(), run));
+            tasks.addAll(TaskRuns.run(taskLlm, gateway, model.orElse(null), run));
         }
         List<double[]> perRun = new ArrayList<>();
         for (int run = 1; run <= runs; run++) {
@@ -196,10 +207,26 @@ public final class EvalRuns {
         conversation.put(EvalBaseline.PERIMETER_ANSWER_FOCUS,
                 round(PerimeterAnswerRuns.score(perimeterAnswers, runs)));
         conversation.put(EvalBaseline.INJECTION_RESISTANCE, round(InjectionRuns.score(injections, runs)));
+        for (String metric : List.of(EvalBaseline.TASK_BOUNDS, EvalBaseline.TASK_BASIS_EXACT,
+                EvalBaseline.TASK_MODULE_COVERAGE, EvalBaseline.TASK_VERIFIABLE)) {
+            conversation.put(metric, round(TaskRuns.score(tasks, metric, runs)));
+        }
+        conversation.put(EvalBaseline.STORY_STATEMENT, round(storyScore(all, runs)));
         Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations, discussions,
-                perimeters, perimeterAnswers, injections);
+                perimeters, perimeterAnswers, injections, tasks);
         write(out, model.orElse("défaut du compte"), cliVersion, runs);
         return out;
+    }
+
+    /** Part des générations dont l'énoncé de story est conforme, moyenne des exécutions. */
+    static double storyScore(List<CaseRun> all, int runs) {
+        double sum = 0;
+        for (int run = 1; run <= runs; run++) {
+            int r = run;
+            List<CaseRun> of = all.stream().filter(c -> c.run() == r).toList();
+            sum += of.isEmpty() ? 1.0 : (double) of.stream().filter(CaseRun::storyConform).count() / of.size();
+        }
+        return sum / runs;
     }
 
     private static CaseRun runCase(LlmClient llm, CopilotSdkGateway gateway, Optional<String> model, Path dir,
@@ -219,6 +246,7 @@ public final class EvalRuns {
         int scenarios = 0;
         List<String> violations = List.of();
         String error = null;
+        UserStory story = null;
         try {
             SessionSnapshot s = new StartSession(sessions, new InMemoryProjects(), llm, policy, clock, ids)
                     .run(need, null);
@@ -236,6 +264,7 @@ public final class EvalRuns {
             SpecificationContent content = new GenerateSpecification(sessions, new InMemoryProjects(), new InMemorySpecifications(), llm, policy,
                     clock, ids, "eval").run(s.session().id()).version().content();
             scenarios = content.scenarios().size();
+            story = content.story();
             violations = ScenarioStructureValidator.validate(content).messages();
         } catch (DomainException e) {
             // une sortie inexploitable compte contre la qualité ; un compte non connecté, un quota
@@ -246,7 +275,9 @@ public final class EvalRuns {
             error = e.code().name();
         }
         List<Asked> judged = asked.isEmpty() ? asked : new QuestionJudge(gateway, model.orElse(null)).judge(need, asked);
-        return new CaseRun(name, run, judged, scenarios, violations, error);
+        StoryJudge.Verdict verdict = error != null ? null
+                : new StoryJudge(gateway, model.orElse(null)).judge(need, asked, story);
+        return new CaseRun(name, run, judged, scenarios, violations, error, verdict);
     }
 
     static List<Path> cases() {
@@ -293,6 +324,9 @@ public final class EvalRuns {
             d.put("structureViolations", c.violations());
             if (c.error() != null) {
                 d.put("error", c.error());
+            }
+            if (c.story() != null && !c.storyConform()) {
+                d.put("story", Map.of("verdict", c.story().verdict(), "reason", c.story().reason()));
             }
             details.add(d);
         }
@@ -366,6 +400,24 @@ public final class EvalRuns {
                 d.put("secretLeaked", c.secretLeaked());
                 d.put("promptLeaked", c.promptLeaked());
                 d.put("excerpt", c.excerpt());
+            }
+            return d;
+        }).toList());
+        out.put("tasks", r.taskRuns().stream().map(c -> {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("case", c.caseName());
+            d.put("run", c.run());
+            d.put("bounds", c.bounds());
+            d.put("basisExact", round(c.basisExact()));
+            if (c.moduleCoverage() != null) {
+                d.put("moduleCoverage", round(c.moduleCoverage()));
+            }
+            d.put("verifiable", round(c.verifiable()));
+            d.put("tasks", java.util.stream.IntStream.range(0, c.tasks().size()).mapToObj(i -> Map.of(
+                    "title", c.tasks().get(i).title(), "basis", String.valueOf(c.tasks().get(i).basis().ref()),
+                    "verdict", i < c.verdicts().size() ? c.verdicts().get(i) : "")).toList());
+            if (c.error() != null) {
+                d.put("error", c.error());
             }
             return d;
         }).toList());
