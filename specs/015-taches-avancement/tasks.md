@@ -229,25 +229,25 @@ reprennent.
 
 ## Phase 7: Évaluation réelle (FR-027, SC-001, SC-002, SC-007, SC-008)
 
-- [ ] T074 [P] Cas `BTR/eval/tasks/cases.json` : spécifications avec et sans périmètre (modules IMPACTED et TO_CHECK), une avec un titre de cas d'usage adressé à une IA.
-- [ ] T075 [P] Juge `BTR/eval/prompts/judge-task.txt` (résultat vérifiable par un relecteur : oui/non et motif).
-- [ ] T076 `BT/eval/TaskRuns.java` et `BT/eval/TaskEval.java` (métriques `taskBounds`, `taskBasisExact`, `taskModuleCoverage`, `taskVerifiable`), branchés dans `BT/eval/EvalRuns.java` comme `InjectionRuns` ; constantes dans `BT/eval/EvalBaseline.java` ; test unitaire du calcul des métriques sur des réponses figées.
-- [ ] T077 Métrique `storyStatement` dans `BT/eval/SpecificationStructureEval.java` (juge : rôle, capacité, bénéfice présents dans le besoin ou les documents, ou marqués supposés).
-- [ ] T078 `BTR/eval/baseline.json` : minimums `taskBounds` 1.0, `taskBasisExact` 0.9, `taskModuleCoverage` 0.9, `taskVerifiable` 0.9, `storyStatement` 0.9 ; `ci/check-eval.sh` contrôle les nouvelles métriques.
+- [X] T074 [P] Cas `BTR/eval/tasks/cases.json` : spécifications avec et sans périmètre (modules IMPACTED et TO_CHECK), une avec un titre de cas d'usage adressé à une IA.
+- [X] T075 [P] Juge `BTR/eval/prompts/judge-task.txt` (résultat vérifiable par un relecteur : oui/non et motif).
+- [X] T076 `BT/eval/TaskRuns.java` et `BT/eval/TaskEval.java` (métriques `taskBounds`, `taskBasisExact`, `taskModuleCoverage`, `taskVerifiable`), branchés dans `BT/eval/EvalRuns.java` comme `InjectionRuns` ; constantes dans `BT/eval/EvalBaseline.java` ; test unitaire du calcul des métriques sur des réponses figées.
+- [X] T077 Métrique `storyStatement` dans `BT/eval/SpecificationStructureEval.java` (juge `StoryJudge`, consigne `BTR/eval/prompts/judge-story.txt` : rôle, capacité, bénéfice présents dans le besoin ou les documents, ou marqués supposés).
+- [X] T078 `BTR/eval/baseline.json` : minimums `taskBounds` 1.0, `taskBasisExact` 0.9, `taskModuleCoverage` 0.9, `taskVerifiable` 0.9, `storyStatement` 0.9 ; `ci/check-eval.sh` contrôle les nouvelles métriques.
 
 ---
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T079 [P] Test d'injection : un titre de tâche ou un compte rendu adressé à une IA reste une donnée dans le message de `propose-tasks` et dans la sortie de `get_feature` (`BT/infrastructure/llm/LangChainTaskLlmTest.java`, `BT/application/agent/GetFeatureTest.java`) ; aucun titre, résultat ni compte rendu dans les journaux (`LlmCallLog`, journal des agents).
-- [ ] T080 [P] Annoter FR-029 dans `specs/002-projets-contexte-mcp/spec.md` et `specs/002-projets-contexte-mcp/contracts/mcp-tools.md` (« remplacé en partie par la 015 », R12).
-- [ ] T081 [P] Documentation utilisateur : `README.md` (panneau Tâches, outils `next_task`, `start_task`, `complete_task`, « à synchroniser », suivi suspendu) ; `CONTRIBUTING.md` (nouvelle opération `propose-tasks`, consignes `decoupage-taches` et `redaction-story`).
-- [ ] T082 [P] `CLAUDE.md` : feature en cours `specs/015-taches-avancement/`.
-- [ ] T083 [P] `e2e/fixtures/llm/README.md` : fixtures `propose-tasks` et `generate-story`.
-- [ ] T084 Vérifier la performance : relecture de 50 clés et ouverture du panneau < 2 s avec WireMock, `next_task` < 3 s (plan, Performance Goals), mesuré dans l'E2E.
-- [ ] T085 Revue de `HexagonalArchitectureTest` : `Instant.now` et `ProcessHandle` seulement dans `infrastructure.platform` (et la passerelle pour son propre processus), écritures gardées par le verrou.
-- [ ] T086 Dérouler quickstart.md §1 à §5 en dev mode (Jira simulé, LLM rejoué).
-- [ ] T087 Gates complètes (verify, package, E2E) sur la branche.
+- [X] T079 [P] Test d'injection : un titre de tâche ou un compte rendu adressé à une IA reste une donnée dans le message de `propose-tasks` et dans la sortie de `get_feature` (`BT/infrastructure/llm/ai/TasksAiTest.java`, `BT/application/task/AgentTasksTest.java`) ; aucun titre, résultat ni compte rendu dans les journaux (`LlmCallLog`, journal des agents).
+- [X] T080 [P] Annoter FR-029 dans `specs/002-projets-contexte-mcp/spec.md` et `specs/002-projets-contexte-mcp/contracts/mcp-tools.md` (« remplacé en partie par la 015 », R12).
+- [X] T081 [P] Documentation utilisateur : `README.md` (panneau Tâches, outils `next_task`, `start_task`, `complete_task`, « à synchroniser », suivi suspendu) ; `CONTRIBUTING.md` (nouvelle opération `propose-tasks`, consignes `decoupage-taches` et `redaction-story`).
+- [X] T082 [P] `CLAUDE.md` : feature en cours `specs/015-taches-avancement/`.
+- [X] T083 [P] `e2e/fixtures/llm/README.md` : fixtures `propose-tasks` et `generate-story`.
+- [X] T084 Vérifier la performance : relecture de 50 clés et ouverture du panneau < 2 s avec WireMock, `next_task` < 3 s (plan, Performance Goals), mesuré dans l'E2E (les 50 clés tiennent en une recherche Jira, `TaskSync`).
+- [X] T085 Revue de `HexagonalArchitectureTest` : `Instant.now` et `ProcessHandle` seulement dans `infrastructure.platform` (et la passerelle pour son propre processus), écritures gardées par le verrou ; règle `processusLusParLaPlateforme` ajoutée.
+- [X] T086 Dérouler quickstart.md §1 à §5 en dev mode (Jira simulé, LLM rejoué) — joués par l'E2E `us15-taches.spec.ts` sur le jar (mêmes Jira simulé et rejeu), le dev mode piloté par MCP n'étant pas joignable.
+- [X] T087 Gates complètes (verify, package, E2E) sur la branche.
 - [ ] T088 Évaluation réelle `./mvnw -pl backend verify -Peval -DskipDependencyCheck` puis `ci/check-eval.sh` : nouvelles métriques au-dessus de leur minimum, aucun indicateur existant sous sa base ; commit de `BTR/eval/last-run.json`.
 - [ ] T089 Vérification manuelle du mainteneur (quickstart §7, profil `live`, vrai Jira de test) : proposer, valider, faire travailler Claude Code sur deux tâches, vérifier sous-tâches et commentaires.
 

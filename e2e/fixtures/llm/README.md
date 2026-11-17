@@ -50,6 +50,14 @@ Quand aucune entrée ne correspond, l'erreur `LLM_UNAVAILABLE` donne l'opératio
 l'entrée la plus proche, les fragments manquants. Le journal du jar E2E
 (`e2e/.state/…/spec-writer.log`) la montre.
 
+## Fixtures de la 015
+
+- `63-propose-tasks-parking.json` : `propose-tasks` sur la spécification « parking », trois tâches
+  fondées sur `UC-01` (`us15-taches.spec.ts`, US1).
+- `64-story-questions.json` et `65-generate-story.json` : besoin marqué `E2E-STORY` et document
+  joint `Accueil velos.html` ; la génération rend `story` et `splitProposal` (US4). Les fixtures
+  de génération antérieures n'ont pas ces champs : ils sont facultatifs à la lecture.
+
 ## Réenregistrer un échange
 
 1. Lancer le dev mode sur le vrai Copilot (profil `live`, réservé au poste du mainteneur) :

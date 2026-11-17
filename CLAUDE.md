@@ -1,7 +1,10 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/014-couche-llm-quarkus/` (couche LLM sur les AI Services de
+La feature en cours est `specs/015-taches-avancement/` (tâches d'une spécification proposées par
+le modèle, créées en sous-tâches Jira, suivies par les agents par `next_task`, `start_task`,
+`complete_task` ; statut qui suit les tâches ; énoncé de story en tête de la spécification), après
+`specs/014-couche-llm-quarkus/` (couche LLM sur les AI Services de
 quarkus-langchain4j : agent à outils `@Tool`, adaptateur `ChatModel` à outils terminaux sur le SDK
 Copilot, rejeu étendu aux appels d'outils ; renommage du package `dev.specwriter` en `fr.kawamind`),
 après `specs/013-perimetre-modules/` (racines de sources du projet, analyse

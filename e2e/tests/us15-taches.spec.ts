@@ -319,7 +319,10 @@ test.describe.serial('US15 tâches et avancement', () => {
       expect(feature.json.tasks.map((t: { key: string }) => t.key)).toEqual(SUBTASKS);
       expect(feature.json.progress).toEqual({ done: 0, total: 3 });
 
+      // T084 : next_task répond en moins de 3 s, relecture Jira comprise
+      const asked = Date.now();
       const next = await call(first, 'next_task');
+      expect(Date.now() - asked).toBeLessThan(3_000);
       expect(next.json.outcome).toBe('TASK');
       expect(next.json.task.key).toBe('PROJ-301');
       expect((await call(first, 'next_task')).json).toEqual(next.json);
@@ -364,9 +367,12 @@ test.describe.serial('US15 tâches et avancement', () => {
     });
 
     test('US3-1 à 4 : avancement relu dans Jira et statut qui suit les tâches', async () => {
+      const opened = Date.now();
       await page.goto(versionPath);
       const panel = page.getByRole('region', { name: 'Tâches' });
       await expect(panel.getByText('1 tâche sur 3 terminée')).toBeVisible();
+      // T084 : panneau ouvert, sous-tâches relues dans Jira, en moins de 2 s
+      expect(Date.now() - opened).toBeLessThan(2_000);
       await expect(page.getByRole('combobox', { name: "Statut d'implémentation" })).toContainText('En cours');
       await panel.getByText("Compte rendu de l'agent").click();
       await expect(panel.getByText('Réservation enregistrée, tests verts.')).toBeVisible();

@@ -75,6 +75,9 @@ Un changement de comportement sans test qui l'a fait échouer d'abord n'est pas 
 - Tests : `McpBridgeTest` rejoue les échanges JSON-RPC contre un serveur HTTP du JDK ;
   `AgentResourceIT` couvre l'API des agents et ses refus ; `e2e/tests/us11-agents.spec.ts` lance
   la passerelle avec le client `e2e/mcp-client.ts`. stdout ne doit porter que du JSON-RPC.
+- Outils de tâches (015) : `next_task`, `start_task`, `complete_task` envoient l'en-tête
+  `X-Agent-Connection` (pid et démarrage du processus de l'agent) ; la tâche tenue l'est par
+  cette connexion. `AgentTaskResourceIT` et `e2e/tests/us15-taches.spec.ts` les couvrent.
 - Le lanceur `spec-writer-mcp` des installeurs est déclaré dans `jreleaser.yml`
   (`dist/launchers/spec-writer-mcp.properties`).
 
@@ -133,7 +136,8 @@ boucle d'outils appartient au framework. Une capacité s'ajoute par déclaration
   `AgentAi.TurnMemory`, une mémoire par tour.
 - **Une consigne réutilisable** : un fichier `prompts/skills/<nom>.md`, inclus dans le message
   système d'une opération par une ligne `[skill:<nom>]` (`SkillLibrary`). Une consigne absente
-  arrête le démarrage.
+  arrête le démarrage. Exemples : `decoupage-taches` (opération `propose-tasks`, 015) et
+  `redaction-story` (les cinq rédactions de spécification).
 
 Dans tous les cas : un test sur le rejeu (`ScriptedChatModel` ou `ReplayChatModel`, voir
 `AgentToolsExtensionTest`), une fixture de rejeu pour les E2E

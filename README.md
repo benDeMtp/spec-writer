@@ -391,12 +391,34 @@ suppression de version. Pour la faire évoluer, rétablissez un statut antérieu
 confirmation, ou **Créez une évolution** : une nouvelle spécification qui part de sa dernière
 version et cite son origine.
 
+Une spécification générée s'ouvre sur son énoncé de story (« En tant que… je veux… afin de… ») ;
+une partie supposée est marquée « (hypothèse) ». Une story trop large est signalée, avec une
+proposition de découpage en stories, sans être découpée d'office.
+
+## Tâches et avancement
+
+Sur une spécification envoyée vers Jira, le panneau **Tâches** propose un découpage :
+**Proposer des tâches** demande au modèle 3 à 8 tâches, chacune avec un résultat vérifiable,
+fondées sur les modules touchés quand la spécification en reprend, sinon sur les cas d'usage.
+Renommez, fusionnez, retirez, réordonnez ou ajoutez, puis **Valider** crée une sous-tâche Jira par
+tâche, sous la story liée. Les sous-tâches déjà présentes sous la story sont reprises.
+
+L'avancement (« 3 tâches sur 5 terminées ») est relu dans Jira à l'ouverture de la
+spécification, et le statut suit les tâches : « en cours » dès qu'une tâche est commencée,
+« implémentée » quand toutes sont terminées. Repasser la spécification à « brouillon » ou « prête »
+**suspend le suivi** ; **Reprendre le suivi** le rétablit. Jira injoignable : la transition est
+enregistrée « à synchroniser » et envoyée par **Synchroniser** ou à la relecture suivante. Une
+tâche tenue par un agent peut être **libérée**.
+
 ## Agents de code (MCP)
 
-Les agents de code lisent les features « prêtes » ou « en cours », leur contenu et la
-connaissance du projet, et passent une feature à « en cours » puis à « implémentée ». Ils ne
-peuvent rien faire d'autre : aucun accès aux jetons ni à la configuration, aucun appel à Jira ou
-à Copilot.
+Les agents de code lisent les features « prêtes » ou « en cours », leur contenu, leurs tâches et
+la connaissance du projet. Sur une feature découpée, ils suivent les tâches : `next_task` donne
+la tâche à faire (choisie par spec-writer, jamais déduite de la branche), `start_task` la prend
+pour la conversation en cours, `complete_task` la termine avec un compte rendu facultatif, ajouté
+en commentaire de la sous-tâche. Sans tâches, ils passent la feature à « en cours » puis à
+« implémentée ». Ils n'ont accès ni aux jetons ni à la configuration : c'est spec-writer qui
+appelle Jira, avec votre compte, jamais la passerelle.
 
 1. Dans **Configuration › Accès des agents**, cliquez **Activer l'accès des agents**.
 2. Copiez l'extrait affiché et ajoutez-le à la configuration MCP de l'agent. Il désigne le

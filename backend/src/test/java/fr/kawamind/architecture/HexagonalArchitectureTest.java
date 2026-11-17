@@ -44,6 +44,16 @@ class HexagonalArchitectureTest {
             .orShould().callMethod(java.util.UUID.class, "randomUUID");
 
     /**
+     * 015 (T085) : l'identité d'une connexion d'agent (pid, démarrage du processus) ne se lit que dans
+     * la plateforme, et dans la passerelle pour son propre processus.
+     */
+    @ArchTest
+    static final ArchRule processusLusParLaPlateforme = noClasses()
+            .that().resideOutsideOfPackage("fr.kawamind.infrastructure.platform..")
+            .and().resideOutsideOfPackage("fr.kawamind.mcp..")
+            .should().dependOnClassesThat().areAssignableTo(ProcessHandle.class);
+
+    /**
      * 014 (FR-018) : seul l'adaptateur LLM déclare des AI Services et parle au modèle par le Copilot
      * SDK ; l'adaptateur du compte GitHub ({@code infrastructure.github}) n'en lit que l'état de
      * connexion.
