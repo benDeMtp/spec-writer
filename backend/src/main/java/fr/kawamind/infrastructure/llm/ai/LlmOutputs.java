@@ -19,6 +19,10 @@ import fr.kawamind.domain.question.QuestionTheme;
 import fr.kawamind.domain.sources.ModuleCorrection;
 import fr.kawamind.domain.sources.ModuleQualification;
 import fr.kawamind.domain.sources.Qualification;
+import fr.kawamind.domain.task.Basis;
+import fr.kawamind.domain.task.BasisKind;
+import fr.kawamind.domain.task.ProposedTask;
+import fr.kawamind.domain.task.ProposedTasks;
 import fr.kawamind.infrastructure.jira.JiraFormatConverter;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -124,6 +128,39 @@ public final class LlmOutputs {
             throw new IllegalArgumentException("comparaison sans suggestion");
         }
         return comparison;
+    }
+
+    record TaskDto(String title, String outcome, String basisKind, String basisRef, List<Integer> dependsOn) {
+    }
+
+    record TasksDto(List<TaskDto> tasks) {
+    }
+
+    /**
+     * Tâches proposées (015, contracts/llm-propose-tasks.md) : la forme seulement ; les bornes et la
+     * base, qui dépendent des données, sont vérifiées par le garde-fou de l'opération.
+     */
+    public static ProposedTasks tasks(String json) {
+        TasksDto dto = JSON.readValue(json, TasksDto.class);
+        if (dto == null || dto.tasks() == null) {
+            throw new IllegalArgumentException("tâches absentes");
+        }
+        List<ProposedTask> tasks = new ArrayList<>();
+        for (TaskDto t : dto.tasks()) {
+            if (t == null || blank(t.title()) || blank(t.outcome()) || blank(t.basisRef())) {
+                throw new IllegalArgumentException("tâche incomplète");
+            }
+            BasisKind kind = BasisKind.valueOf(t.basisKind());
+            if (kind == BasisKind.NONE) {
+                throw new IllegalArgumentException("base absente");
+            }
+            List<Integer> deps = t.dependsOn() == null ? List.of() : t.dependsOn();
+            if (deps.stream().anyMatch(java.util.Objects::isNull)) {
+                throw new IllegalArgumentException("préalable vide");
+            }
+            tasks.add(new ProposedTask(t.title(), t.outcome(), new Basis(kind, t.basisRef()), deps, false));
+        }
+        return new ProposedTasks(tasks);
     }
 
     public static ImpactResult impact(String json) {

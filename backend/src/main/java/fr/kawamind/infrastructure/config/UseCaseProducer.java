@@ -119,6 +119,16 @@ import fr.kawamind.domain.port.SpecificationRepository;
 import fr.kawamind.domain.port.TextDiff;
 import fr.kawamind.domain.port.TicketLinkRepository;
 import fr.kawamind.domain.port.WikiMarkup;
+import fr.kawamind.application.task.EditProposal;
+import fr.kawamind.application.task.EditTasks;
+import fr.kawamind.application.task.ProposeTasks;
+import fr.kawamind.application.task.ReadTasks;
+import fr.kawamind.application.task.TaskDesk;
+import fr.kawamind.application.task.TaskLocks;
+import fr.kawamind.application.task.ValidateTasks;
+import fr.kawamind.domain.port.AgentConnections;
+import fr.kawamind.domain.port.TaskLlm;
+import fr.kawamind.domain.port.TaskRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import java.time.Duration;
@@ -133,6 +143,53 @@ public class UseCaseProducer {
     @ApplicationScoped
     AttachmentDrafts attachmentDrafts(AttachmentReader reader, ClockPort clock, IdGenerator ids) {
         return new AttachmentDrafts(reader, clock, ids);
+    }
+
+    // Tâches d'une spécification (015)
+
+    @Produces
+    @ApplicationScoped
+    TaskLocks taskLocks() {
+        return new TaskLocks();
+    }
+
+    /** Singleton, sans proxy : les cas d'usage des tâches lisent ses champs. */
+    @Produces
+    @jakarta.inject.Singleton
+    TaskDesk taskDesk(SessionRepository sessions, TaskRepository tasks, LinkedTicketRepository tickets, JiraAccess jira,
+            IssueTracker tracker, WikiMarkup markup, ClockPort clock, IdGenerator ids, TaskLocks locks) {
+        return new TaskDesk(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ReadTasks readTasks(TaskDesk desk, AgentConnections connections) {
+        return new ReadTasks(desk, connections);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ProposeTasks proposeTasks(TaskDesk desk, SpecificationRepository versions, PerimeterRepository perimeters, TaskLlm llm,
+            ConsentPolicy consent) {
+        return new ProposeTasks(desk, versions, perimeters, llm, consent);
+    }
+
+    @Produces
+    @ApplicationScoped
+    EditProposal editProposal(TaskDesk desk) {
+        return new EditProposal(desk);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ValidateTasks validateTasks(TaskDesk desk, ReadTasks read) {
+        return new ValidateTasks(desk, read);
+    }
+
+    @Produces
+    @ApplicationScoped
+    EditTasks editTasks(TaskDesk desk, ReadTasks read) {
+        return new EditTasks(desk, read);
     }
 
     /** Événements des tours de l'agent, en mémoire (010, research.md R2). */

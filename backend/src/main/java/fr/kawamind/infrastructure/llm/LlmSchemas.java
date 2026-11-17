@@ -137,6 +137,17 @@ final class LlmSchemas {
                     .build()))
             .build());
 
+    /** 015 : tâches proposées pour une spécification (contracts/llm-propose-tasks.md). */
+    static final ResponseFormat TASKS = format("tasks", JsonObjectSchema.builder()
+            .addProperty("tasks", array(JsonObjectSchema.builder()
+                    .addStringProperty("title")
+                    .addStringProperty("outcome")
+                    .addEnumProperty("basisKind", List.of("MODULE", "USE_CASE"))
+                    .addStringProperty("basisRef")
+                    .addProperty("dependsOn", array(JsonIntegerSchema.builder().build()))
+                    .build()))
+            .build());
+
     private LlmSchemas() {
     }
 
