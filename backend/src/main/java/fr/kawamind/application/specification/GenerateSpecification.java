@@ -126,7 +126,8 @@ public class GenerateSpecification {
         // la feature a pu passer à « implémentée » pendant l'appel au LLM (research.md R7)
         SpecificationLock.requireEditable(sessions, sessionId);
         versions.save(version);
-        sessions.save(session.generated(clock.now()), questionnaire);
+        Session named = version.number() == 1 ? session.withProposedName(content.title(), clock.now()) : session;
+        sessions.save(named.generated(clock.now()), questionnaire);
         return new Generated(version, false);
     }
 }

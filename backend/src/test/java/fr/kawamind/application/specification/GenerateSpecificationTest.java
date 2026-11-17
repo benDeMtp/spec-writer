@@ -94,6 +94,21 @@ class GenerateSpecificationTest {
                 .satisfies(a -> assertThat(a.assumption()).isTrue());
     }
 
+    /** Le nom tiré du besoin laisse place au titre de la première version ; un nom choisi est gardé. */
+    @Test
+    void lePremierTitreDevientLeNomSaufSiLaSpecificationAEteRenommee() {
+        llm.drafts.add(valid("Réservation de salles"));
+        generate.run(sessionId);
+        assertThat(sessions.find(sessionId).orElseThrow().name()).isEqualTo("Réservation de salles");
+
+        var session = sessions.find(sessionId).orElseThrow();
+        sessions.save(session.rename("Mon nom", clock.now()), sessions.questionnaire(sessionId).orElseThrow());
+        llm.drafts.add(valid("Autre titre"));
+        versions.deleteAll(sessionId);
+        generate.run(sessionId);
+        assertThat(sessions.find(sessionId).orElseThrow().name()).isEqualTo("Mon nom");
+    }
+
     @Test
     void entreesIdentiquesVersionReutiliseeSansAppel() {
         llm.drafts.add(valid("Réservation"));

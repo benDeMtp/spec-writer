@@ -212,6 +212,25 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     ]);
   });
 
+  it('renomme la spécification depuis son écran', async () => {
+    await open(SESSION, []);
+    button('Renommer').click();
+    fixture.detectChanges();
+    const input = el.querySelector('form.rename input') as HTMLInputElement;
+    expect(input.value).toBe(SESSION.name);
+    input.value = 'Avoirs clients';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    (el.querySelector('form.rename button[type="submit"]') as HTMLButtonElement).click();
+    const req = ctrl.expectOne('/api/sessions/s1');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ name: 'Avoirs clients' });
+    req.flush({ ...SESSION, name: 'Avoirs clients' });
+    await settle();
+    expect(el.querySelector('form.rename')).toBeNull();
+    expect(text(el.querySelector('.meta')!)).toContain('Avoirs clients');
+  });
+
   it('sans énoncé de story (versions antérieures), ni énoncé ni découpage', async () => {
     await open(SESSION, []);
     expect(el.querySelector('[data-testid="story"]')).toBeNull();

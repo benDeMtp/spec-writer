@@ -14,6 +14,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
@@ -136,6 +137,7 @@ export function storyParts(
     DatePipe,
     MarkdownComponent,
     MatButtonModule,
+    MatInputModule,
     MatFormFieldModule,
     MatSelectModule,
     RouterLink,
@@ -155,12 +157,41 @@ export function storyParts(
         <div class="main">
           <header class="head">
             <h1 id="introduction" tabindex="-1">{{ v.title }}</h1>
-            <p class="meta">
-              Version {{ v.number }} · {{ session()?.name }}
-              @if (v.contextUpdatedAt) {
-                · contexte du {{ v.contextUpdatedAt | date: 'd MMM y, HH:mm' }}
-              }
-            </p>
+            @if (renaming()) {
+              <form class="rename" (submit)="$event.preventDefault(); saveName()">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Nom de la spécification</mat-label>
+                  <input
+                    matInput
+                    name="name"
+                    maxlength="120"
+                    required
+                    [value]="draftName()"
+                    (input)="draftName.set($any($event.target).value)"
+                  />
+                </mat-form-field>
+                <button mat-flat-button type="submit" [disabled]="!draftName().trim()">Enregistrer</button>
+                <button mat-button type="button" (click)="renaming.set(false)">Annuler</button>
+              </form>
+            } @else {
+              <p class="meta">
+                Version {{ v.number }} · {{ session()?.name }}
+                @if (v.contextUpdatedAt) {
+                  · contexte du {{ v.contextUpdatedAt | date: 'd MMM y, HH:mm' }}
+                }
+                @if (session(); as s) {
+                  <button
+                    mat-button
+                    type="button"
+                    class="rename-action"
+                    (click)="startRename(s.name)"
+                    [attr.aria-label]="'Renommer la spécification ' + s.name"
+                  >
+                    Renommer
+                  </button>
+                }
+              </p>
+            }
             @if (session()?.linkedTicket; as t) {
               <p class="ticket">
                 Liée au ticket
@@ -618,6 +649,16 @@ export function storyParts(
       margin: 0.25rem 0 0.75rem;
       color: var(--sw-ink-soft);
     }
+    .rename {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.25rem 0 0.75rem;
+    }
+    .rename mat-form-field {
+      flex: 1 1 20rem;
+    }
     .ticket {
       margin: 0 0 0.5rem;
     }
@@ -884,6 +925,9 @@ export class SpecificationPage {
   protected readonly evolving = signal(false);
   protected readonly exporting = signal(false);
   protected readonly status = signal('');
+  /** Renommage depuis l'écran de la spécification (le nom de la liste). */
+  protected readonly renaming = signal(false);
+  protected readonly draftName = signal('');
   /** Avertissements transmis par la page précédente (description Jira tronquée à l'import). */
   protected readonly warnings = signal<string[]>(
     (this.router.currentNavigation()?.extras.state?.['warnings'] as string[] | undefined) ?? [],
@@ -1177,6 +1221,27 @@ export class SpecificationPage {
   }
 
   /** Statut d'implémentation ; quitter « implémentée » se confirme, en rappelant sa date (FR-026b de 002). */
+  protected startRename(name: string): void {
+    this.draftName.set(name);
+    this.renaming.set(true);
+  }
+
+  protected async saveName(): Promise<void> {
+    const session = this.session();
+    const name = this.draftName().trim();
+    if (!session || !name) {
+      return;
+    }
+    try {
+      await this.api.rename(session.id, name);
+      this.session.set({ ...session, name });
+      this.renaming.set(false);
+      this.status.set(`Spécification renommée en « ${name} ».`);
+    } catch {
+      // Le bandeau affiche la cause.
+    }
+  }
+
   protected async changeStatus(target: ImplementationStatus): Promise<void> {
     const session = this.session();
     if (!session || target === session.implementation.status) {
