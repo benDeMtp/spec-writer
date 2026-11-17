@@ -1,4 +1,5 @@
 import { expect, request, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
+import { McpClient } from '../mcp-client';
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, jiraURL, storageStatePath } from './support/env';
@@ -9,6 +10,9 @@ const NEED =
 const META = '/rest/api/2/issue/createmeta/PROJ/issuetypes';
 const STORY = 'PROJ-300';
 const json = { 'Content-Type': 'application/json' };
+const SUBTASKS = ['PROJ-301', 'PROJ-302', 'PROJ-303'];
+type Category = 'new' | 'indeterminate' | 'done';
+const NAMES: Record<Category, string> = { new: 'À faire', indeterminate: 'En cours', done: 'Terminé' };
 
 /** 015 : tâches d'une spécification, créées en sous-tâches Jira et suivies par les agents. */
 test.describe.serial('US15 tâches et avancement', () => {
@@ -21,6 +25,57 @@ test.describe.serial('US15 tâches et avancement', () => {
 
   async function stub(mapping: object): Promise<void> {
     expect((await jira.post('/__admin/mappings', { data: { priority: 5, ...mapping } })).status()).toBe(201);
+  }
+
+  /** Jira simulé dans l'état donné : recherche par clés, statut et transitions de chaque sous-tâche. */
+  async function jiraState(state: Record<string, Category>, down = false): Promise<void> {
+    const mappings = (await (await jira.get('/__admin/mappings')).json()).mappings as { id: string; metadata?: { etat?: boolean } }[];
+    for (const m of mappings.filter((m) => m.metadata?.etat)) {
+      await jira.delete(`/__admin/mappings/${m.id}`);
+    }
+    const status = (c: Category) => ({ name: NAMES[c], statusCategory: { key: c } });
+    const add = (mapping: object) => stub({ priority: 0, metadata: { etat: true }, ...mapping });
+    if (down) {
+      await add({ request: { urlPattern: '/rest/api/2/(search.*|issue/PROJ-30[1-3].*)' }, response: { status: 503 } });
+      return;
+    }
+    await add({
+      request: { method: 'GET', urlPath: '/rest/api/2/search' },
+      response: {
+        status: 200,
+        headers: json,
+        jsonBody: {
+          startAt: 0,
+          total: Object.keys(state).length,
+          issues: Object.entries(state).map(([key, c]) => ({
+            key,
+            fields: { summary: key, status: status(c), issuetype: { name: 'Sous-tâche' }, updated: '2026-11-17T10:00:00.000+0000' },
+          })),
+        },
+      },
+    });
+    for (const [key, c] of Object.entries(state)) {
+      await add({
+        request: { method: 'GET', urlPath: `/rest/api/2/issue/${key}` },
+        response: { status: 200, headers: json, jsonBody: { key, fields: { status: status(c), updated: '2026-11-17T10:00:00.000+0000' } } },
+      });
+      await add({
+        request: { method: 'GET', urlPath: `/rest/api/2/issue/${key}/transitions` },
+        response: {
+          status: 200,
+          headers: json,
+          jsonBody: {
+            transitions: [
+              { id: '11', name: 'Rouvrir', to: { statusCategory: { key: 'new' } } },
+              { id: '21', name: 'Démarrer', to: { statusCategory: { key: 'indeterminate' } } },
+              { id: '31', name: 'Terminer', to: { statusCategory: { key: 'done' } } },
+            ].filter((t) => t.to.statusCategory.key !== c),
+          },
+        },
+      });
+      await add({ request: { method: 'POST', urlPath: `/rest/api/2/issue/${key}/transitions` }, response: { status: 204 } });
+      await add({ request: { method: 'POST', urlPath: `/rest/api/2/issue/${key}/comment` }, response: { status: 201, headers: json, jsonBody: { id: '1' } } });
+    }
   }
 
   async function sent(method: string, urlPath: string): Promise<{ body: string; url: string }[]> {
@@ -175,5 +230,153 @@ test.describe.serial('US15 tâches et avancement', () => {
     ]);
     await expect(panel.getByRole('heading', { name: 'Tâches proposées' })).toHaveCount(0);
     await expectNoA11yViolations(page);
+  });
+
+  test.describe.serial('US2 et US3 : suivi par les agents et avancement', () => {
+    let first: McpClient;
+    let second: McpClient;
+    const state: Record<string, Category> = { 'PROJ-301': 'new', 'PROJ-302': 'new', 'PROJ-303': 'new' };
+
+    async function bridge(): Promise<McpClient> {
+      const access = await (await page.request.get('/api/settings/agent-access')).json();
+      const server = JSON.parse(access.mcpJson).mcpServers['spec-writer'];
+      const client = new McpClient(server.command, server.args ?? []);
+      await client.request('initialize', {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'Claude Code', version: 'e2e' },
+      });
+      client.notify('notifications/initialized');
+      return client;
+    }
+
+    async function call(client: McpClient, tool: string, args: object = {}) {
+      const r = await client.call(tool, { featureId: sessionId, ...args });
+      return { ...r, json: r.isError ? null : JSON.parse(r.text) };
+    }
+
+    test.beforeAll(async () => {
+      await page.request.put('/api/settings/agent-access', { headers, data: { enabled: true } });
+      expect((await page.request.put(`/api/sessions/${sessionId}/status`, { headers, data: { status: 'READY' } })).status()).toBe(200);
+      await jiraState(state);
+      first = await bridge();
+      second = await bridge();
+    });
+
+    test.afterAll(async () => {
+      first?.close();
+      second?.close();
+      await page.request.put('/api/settings/agent-access', { headers, data: { enabled: false } });
+    });
+
+    test('US2-1, 3, 5 et 6 : prochaine tâche, prise, refus à une autre conversation', async () => {
+      const feature = await call(first, 'get_feature');
+      expect(feature.json.tasks.map((t: { key: string }) => t.key)).toEqual(SUBTASKS);
+      expect(feature.json.progress).toEqual({ done: 0, total: 3 });
+
+      const next = await call(first, 'next_task');
+      expect(next.json.outcome).toBe('TASK');
+      expect(next.json.task.key).toBe('PROJ-301');
+      expect((await call(first, 'next_task')).json).toEqual(next.json);
+
+      await jira.delete('/__admin/requests');
+      const started = await call(first, 'start_task', { taskKey: 'PROJ-301' });
+      expect(started.isError).toBe(false);
+      expect(started.json.jiraSync).toBe('OK');
+      const moves = await sent('POST', '/rest/api/2/issue/PROJ-301/transitions');
+      expect(moves.map((r) => JSON.parse(r.body).transition.id)).toEqual(['21']);
+      state['PROJ-301'] = 'indeterminate';
+      await jiraState(state);
+
+      const held = await call(second, 'start_task', { taskKey: 'PROJ-301' });
+      expect(held.isError).toBe(true);
+      expect(held.text).toMatch(/^TASK_HELD : .*Claude Code/);
+      expect((await call(second, 'next_task')).json.task.key).toBe('PROJ-302');
+    });
+
+    test('US2-2 : la conversation suivante reprend la tâche d’une conversation fermée, puis la termine', async () => {
+      first.close();
+      await expect
+        .poll(async () => (await call(second, 'next_task')).json.task.key, { timeout: 10_000 })
+        .toBe('PROJ-301');
+      expect((await call(second, 'next_task')).json.resume).toBe(true);
+      expect((await call(second, 'start_task', { taskKey: 'PROJ-301' })).isError).toBe(false);
+      await jira.delete('/__admin/requests');
+      const done = await call(second, 'complete_task', { taskKey: 'PROJ-301', report: 'Réservation enregistrée, tests verts.' });
+      expect(done.json.task.status).toBe('DONE');
+      expect((await sent('POST', '/rest/api/2/issue/PROJ-301/transitions')).map((r) => JSON.parse(r.body).transition.id))
+        .toEqual(['31']);
+      const comments = await sent('POST', '/rest/api/2/issue/PROJ-301/comment');
+      expect(JSON.parse(comments[0].body).body).toContain('Réservation enregistrée, tests verts.');
+      state['PROJ-301'] = 'done';
+      await jiraState(state);
+
+      const log = await (await page.request.get('/api/settings/agent-access/log')).json();
+      const ops = log.entries.map((e: { operation: string }) => e.operation);
+      expect(ops).toContain('START_TASK');
+      expect(ops).toContain('COMPLETE_TASK');
+      expect(JSON.stringify(log)).not.toContain('tests verts');
+    });
+
+    test('US3-1 à 4 : avancement relu dans Jira et statut qui suit les tâches', async () => {
+      await page.goto(versionPath);
+      const panel = page.getByRole('region', { name: 'Tâches' });
+      await expect(panel.getByText('1 tâche sur 3 terminée')).toBeVisible();
+      await expect(page.getByRole('combobox', { name: "Statut d'implémentation" })).toContainText('En cours');
+      await panel.getByText("Compte rendu de l'agent").click();
+      await expect(panel.getByText('Réservation enregistrée, tests verts.')).toBeVisible();
+      await expectNoA11yViolations(page);
+
+      state['PROJ-302'] = 'done';
+      state['PROJ-303'] = 'done';
+      await jiraState(state);
+      await page.reload();
+      await expect(panel.getByText('3 tâches sur 3 terminées')).toBeVisible();
+      await expect(page.getByRole('combobox', { name: "Statut d'implémentation" })).toContainText('Implémentée');
+
+      state['PROJ-302'] = 'new';
+      await jiraState(state);
+      await page.reload();
+      await expect(panel.getByText('2 tâches sur 3 terminées')).toBeVisible();
+      await expect(page.getByRole('combobox', { name: "Statut d'implémentation" })).toContainText('En cours');
+    });
+
+    test('FR-020a : repasser en Prête suspend le suivi, « Reprendre le suivi » le rétablit', async () => {
+      const status = page.getByRole('combobox', { name: "Statut d'implémentation" });
+      await status.click();
+      await expect(page.getByRole('option', { name: 'Implémentée' })).toBeDisabled();
+      await page.getByRole('option', { name: 'Prête à implémenter' }).click();
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+      const panel = page.getByRole('region', { name: 'Tâches' });
+      await page.reload();
+      await expect(panel.getByText('Suivi suspendu')).toBeVisible();
+      const suspended = await call(second, 'next_task');
+      expect(suspended.isError).toBe(true);
+      expect(suspended.text).toMatch(/^TRACKING_SUSPENDED/);
+      await panel.getByRole('button', { name: 'Reprendre le suivi' }).click();
+      await expect(panel.getByText('Suivi suspendu')).toHaveCount(0);
+      await expect(status).toContainText('En cours');
+    });
+
+    test('US2-7, FR-013a : Jira coupé, la fin est « à synchroniser » puis envoyée par « Synchroniser »', async () => {
+      expect((await call(second, 'start_task', { taskKey: 'PROJ-302' })).isError).toBe(false);
+      state['PROJ-302'] = 'indeterminate';
+      await jiraState(state, true);
+      const done = await call(second, 'complete_task', { taskKey: 'PROJ-302' });
+      expect(done.json.jiraSync).toBe('PENDING');
+      expect(done.json.message).toContain('Jira est injoignable');
+
+      await page.reload();
+      const panel = page.getByRole('region', { name: 'Tâches' });
+      await expect(panel.getByText('1 tâche à synchroniser')).toBeVisible();
+      await expect(panel.getByText("Jira n'a pas pu être relu")).toBeVisible();
+
+      await jiraState(state);
+      await jira.delete('/__admin/requests');
+      await panel.getByRole('button', { name: 'Synchroniser' }).click();
+      await expect(panel.getByText('à synchroniser')).toHaveCount(0);
+      expect((await sent('POST', '/rest/api/2/issue/PROJ-302/transitions')).map((r) => JSON.parse(r.body).transition.id))
+        .toEqual(['31']);
+    });
   });
 });

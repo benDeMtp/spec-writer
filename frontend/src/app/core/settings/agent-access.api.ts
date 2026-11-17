@@ -12,7 +12,16 @@ export interface AgentAccessState {
   mcpJson: string;
 }
 
-export type AgentOperation = 'LIST_PROJECTS' | 'LIST_FEATURES' | 'GET_FEATURE' | 'SET_STATUS' | 'SEARCH_KNOWLEDGE';
+export type AgentOperation =
+  | 'LIST_PROJECTS'
+  | 'LIST_FEATURES'
+  | 'GET_FEATURE'
+  | 'SET_STATUS'
+  | 'SEARCH_KNOWLEDGE'
+  | 'NEXT_TASK'
+  | 'START_TASK'
+  | 'COMPLETE_TASK'
+  | 'RELEASE_TASK';
 
 export interface AgentAccessEntry {
   at: string;
@@ -22,6 +31,8 @@ export interface AgentAccessEntry {
   featureTitle: string | null;
   oldStatus: ImplementationStatus | null;
   newStatus: ImplementationStatus | null;
+  /** Clé Jira de la tâche, pour les opérations de tâches (015). */
+  taskKey?: string | null;
 }
 
 /** Page de 25 entrées, les plus récentes d'abord (FR-028 de 002). */
