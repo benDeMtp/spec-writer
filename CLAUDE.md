@@ -86,7 +86,14 @@ gate.
 
 ## Conventions
 
-- Architecture hexagonale (`domain`, `application`, `infrastructure`), vérifiée par ArchUnit.
-  Les cas d'usage sont câblés dans `infrastructure/config/UseCaseProducer`.
+- Architecture hexagonale (`domain`, `application`, `infrastructure`) sous `fr.kawamind`
+  (`backend/src/main/java/fr/kawamind/`), vérifiée par ArchUnit. Les cas d'usage sont câblés dans
+  `infrastructure/config/UseCaseProducer`.
+- Couche LLM (014) : AI Services de quarkus-langchain4j dans `infrastructure/llm/ai`, consignes
+  dans `backend/src/main/resources/prompts/`. L'agent (`AgentAi`, opération `converse-agent`) a deux
+  outils, `search_knowledge` et `analyze_perimeter` (`AgentTools`, plafond `SearchCap`) ; la boucle
+  appartient au framework, le tour (sources numérotées, étapes, arrêt) à `Converse` par
+  `TurnTools`. Un tour se rejoue en plusieurs entrées (`afterTools`, `toolCalls` puis `text`,
+  `e2e/fixtures/llm/README.md`). Ajouter une capacité : `CONTRIBUTING.md`.
 - Cocher chaque tâche `[X]` dans `tasks.md`, puis commiter par groupe logique. Commits en
   Conventional Commits, en français, fichiers stagés explicitement, sans ligne `Co-Authored-By`.

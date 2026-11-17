@@ -27,6 +27,11 @@
 
 ## R1 — Boucle de l'agent : étapes JSON, puis réponse rédigée
 
+> **Remplacée par la feature 014** (`specs/014-couche-llm-quarkus/research.md` R1, R2, R5, R8) :
+> la boucle plan/réponse (`converse-plan`, `converse-answer`) est remplacée par un agent à outils
+> (`search_knowledge`, `analyze_perimeter`) dont LangChain4j tient la boucle, avec la même
+> limite de 5 recherches, les mêmes étapes visibles et la même réponse en flux.
+
 **Decision** : l'agent est une boucle de l'application (`application/conversation/Converse`), pas
 un agent à outils du SDK. À chaque tour :
 
