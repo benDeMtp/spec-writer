@@ -45,6 +45,8 @@ Ta tâche : proposer le prochain lot de questions, 5 au maximum, qui lèvent les
   (attribut id des balises <reponse>), et seulement ceux-là.
 - Si le besoin et les réponses se contredisent, décris la contradiction dans "contradictions",
   avec la question qui permet de la trancher ("questionLabel").
+- Une question ("label" ou "questionLabel") tient en une phrase de 500 caractères au plus : ne
+  recopie pas un passage d'un document, cite-le par son titre.
 - Si les thèmes restants sont déjà couverts et qu'il n'y a pas de contradiction, renvoie une liste
   de questions vide.
 

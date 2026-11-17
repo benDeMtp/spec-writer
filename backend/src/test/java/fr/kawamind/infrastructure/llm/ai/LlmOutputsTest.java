@@ -46,4 +46,27 @@ public class LlmOutputsTest {
                     IllegalArgumentException.class, fr.kawamind.domain.error.DomainException.class);
         }
     }
+
+    static String questions(String label, String contradiction) {
+        return "{\"questions\":[{\"theme\":\"ERRORS\",\"label\":\"" + label + "\",\"rationale\":\"r\","
+                + "\"suggestions\":[],\"defaultValue\":\"\",\"dependsOnQuestionIds\":[]}],\"contradictions\":["
+                + contradiction + "],\"coveredThemes\":[]}";
+    }
+
+    /** Une question ou une contradiction hors bornes est redemandée, au lieu d'échouer après le garde-fou. */
+    @Test
+    void uneQuestionOuUneContradictionHorsBornesRendLaReponseNonConforme() {
+        assertThat(LlmOutputs.questions(questions("Quel délai ?", "{\"description\":\"d\",\"questionLabel\":\"q\"}"))
+                .contradictions()).hasSize(1);
+        String tooLong = "x".repeat(fr.kawamind.domain.question.Question.MAX_LABEL + 1);
+        for (String json : new String[] {questions(tooLong, ""),
+                questions("Quel délai ?", "{\"description\":\"d\",\"questionLabel\":\"\"}"),
+                questions("Quel délai ?", "{\"description\":\"\",\"questionLabel\":\"q\"}"),
+                questions("Quel délai ?", "{\"description\":\"d\",\"questionLabel\":\"" + tooLong + "\"}")}) {
+            assertThatThrownBy(() -> LlmOutputs.questions(json)).isInstanceOf(IllegalArgumentException.class);
+        }
+        String reassess = "{\"obsoleteQuestionIds\":[],\"newQuestions\":[{\"theme\":\"ERRORS\",\"label\":\""
+                + tooLong + "\",\"rationale\":\"r\",\"suggestions\":[],\"defaultValue\":\"\",\"dependsOnQuestionIds\":[]}]}";
+        assertThatThrownBy(() -> LlmOutputs.reassess(reassess)).isInstanceOf(IllegalArgumentException.class);
+    }
 }

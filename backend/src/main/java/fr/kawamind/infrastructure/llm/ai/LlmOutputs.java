@@ -15,6 +15,7 @@ import fr.kawamind.domain.port.ConversationLlm.ChangeCandidate;
 import fr.kawamind.domain.port.ConversationLlm.ChangeOrigin;
 import fr.kawamind.domain.port.ConversationLlm.Revision;
 import fr.kawamind.domain.port.WikiMarkup;
+import fr.kawamind.domain.question.Question;
 import fr.kawamind.domain.question.QuestionTheme;
 import fr.kawamind.domain.sources.ModuleCorrection;
 import fr.kawamind.domain.sources.ModuleQualification;
@@ -181,8 +182,11 @@ public final class LlmOutputs {
         if (dto.coveredThemes() != null) {
             dto.coveredThemes().forEach(t -> covered.add(theme(t)));
         }
-        return new ProposeQuestionsResult(questions, dto.contradictions() == null ? List.of() : dto.contradictions(),
-                covered);
+        List<Contradiction> contradictions = dto.contradictions() == null ? List.of() : dto.contradictions();
+        if (contradictions.stream().anyMatch(c -> c == null || blank(c.description()) || !label(c.questionLabel()))) {
+            throw new IllegalArgumentException("contradiction sans description ou libellé hors bornes");
+        }
+        return new ProposeQuestionsResult(questions, contradictions, covered);
     }
 
     public static ReassessResult reassess(String json) {
@@ -199,10 +203,15 @@ public final class LlmOutputs {
                         q.suggestions() == null ? List.of() : q.suggestions().stream().limit(5).toList(),
                         q.defaultValue(), q.dependsOnQuestionIds() == null ? List.of() : q.dependsOnQuestionIds()))
                 .toList();
-        if (questions.stream().anyMatch(q -> blank(q.label()) || blank(q.rationale()))) {
-            throw new IllegalArgumentException("question sans libellé ou sans justification");
+        if (questions.stream().anyMatch(q -> !label(q.label()) || blank(q.rationale()))) {
+            throw new IllegalArgumentException("question sans justification ou libellé hors bornes");
         }
         return questions;
+    }
+
+    /** Libellé qu'une question du questionnaire accepte : 1 à {@link Question#MAX_LABEL} caractères. */
+    private static boolean label(String text) {
+        return !blank(text) && text.strip().length() <= Question.MAX_LABEL;
     }
 
     /** Thème inconnu ou absent : sortie non conforme, redemandée. */
