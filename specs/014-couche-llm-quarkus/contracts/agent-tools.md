@@ -1,8 +1,9 @@
 # Contrat : outils de l'agent conversationnel
 
-AI Service `ConversationAi.converse`, opération `converse-agent`. Les outils sont des méthodes
-`@Tool` du bean `AgentTools` ; leur contexte de tour arrive par `InvocationParameters`
-(`TurnTools`, voir [data-model.md](../data-model.md)).
+AI Service `AgentAi.converse`, opération `converse-agent`. Les outils sont des méthodes
+`@Tool` du bean `AgentTools` ; leur contexte de tour (`TurnTools`, voir
+[data-model.md](../data-model.md)) arrive par `InvocationParameters` ou, en flux, par le
+`ScopedValue` `AgentTools.CURRENT` (research R5, constats de l'implémentation).
 
 ## `search_knowledge`
 

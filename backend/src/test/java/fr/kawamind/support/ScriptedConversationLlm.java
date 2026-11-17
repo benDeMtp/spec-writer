@@ -1,23 +1,64 @@
 package fr.kawamind.support;
 
 import fr.kawamind.domain.conversation.NeedDraft;
+import fr.kawamind.domain.conversation.SourceKind;
+import fr.kawamind.domain.conversation.TurnSource;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.port.ConversationLlm;
+import fr.kawamind.domain.port.TurnTools;
+import fr.kawamind.domain.session.Language;
 import fr.kawamind.domain.sources.ModuleQualification;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import java.util.function.BooleanSupplier;
+import java.util.Set;
 import java.util.function.Consumer;
 
-/** Agent scripté : plans et réponses (en morceaux) dans l'ordre ; garde les requêtes reçues. */
+/**
+ * Agent scripté (014) : il rejoue des étapes (recherche, analyse de périmètre) par les outils du
+ * tour, puis une réponse en morceaux. Il garde, comme l'ancienne boucle plan/réponse, ce que l'agent
+ * savait avant chaque choix ({@link PlanView}) et au moment de répondre ({@link AnswerView}).
+ */
 public class ScriptedConversationLlm implements ConversationLlm {
+
+    /** Étape scriptée : chercher, analyser le périmètre, ou répondre. */
+    public enum Action {
+        SEARCH, PERIMETER, ANSWER
+    }
+
+    public record Plan(Action action, String query, Set<SourceKind> kinds, List<String> terms) {
+
+        public Plan(Action action, String query, Set<SourceKind> kinds) {
+            this(action, query, kinds, List.of());
+        }
+
+        public static Plan answer() {
+            return new Plan(Action.ANSWER, null, Set.of());
+        }
+
+        public static Plan perimeter(List<String> terms) {
+            return new Plan(Action.PERIMETER, null, Set.of(), terms);
+        }
+    }
+
+    /** Ce que l'agent savait avant de choisir une étape. */
+    public record PlanView(Language language, String generalSheet, String memory, List<Exchange> history,
+            String question, List<TurnSource> found, int searchesLeft, Discussed discussed, boolean perimeterAvailable,
+            List<String> lastPerimeterTerms) {
+    }
+
+    /** Ce que l'agent savait au moment de répondre. */
+    public record AnswerView(Language language, String generalSheet, String memory, List<Exchange> history,
+            String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped,
+            Discussed discussed, boolean perimeterUnavailable) {
+    }
 
     public final Deque<Plan> plans = new ArrayDeque<>();
     public final Deque<List<String>> answers = new ArrayDeque<>();
-    public final List<PlanRequest> planRequests = new ArrayList<>();
-    public final List<AnswerRequest> answerRequests = new ArrayList<>();
+    public final List<PlanView> planRequests = new ArrayList<>();
+    public final List<AnswerView> answerRequests = new ArrayList<>();
+    public final List<AgentRequest> agentRequests = new ArrayList<>();
     public final Deque<NeedDraft> drafts = new ArrayDeque<>();
     public final List<DraftRequest> draftRequests = new ArrayList<>();
     /** Panne à la prochaine réponse, après l'émission de {@code failAfter} morceaux. */
@@ -37,7 +78,7 @@ public class ScriptedConversationLlm implements ConversationLlm {
 
     /** Appelé après chaque morceau émis. */
     public Runnable afterChunk = () -> { };
-    /** Réflexion émise au début de chaque appel de ce type, quand l'écran la montre. */
+    /** Réflexion émise avant chaque choix d'étape, avant la réponse, ou au compactage. */
     public String planReasoning;
     public String answerReasoning;
     public String compactReasoning;
@@ -59,23 +100,54 @@ public class ScriptedConversationLlm implements ConversationLlm {
         }
     }
 
+    /**
+     * Un tour : les étapes scriptées passent par les outils du tour, jusqu'à une réponse, l'arrêt, ou
+     * le plafond (une étape refusée vaut la fin de la recherche, comme le garde-fou de l'adaptateur).
+     */
     @Override
-    public Plan plan(PlanRequest request) {
-        planRequests.add(request);
-        reason(planReasoning);
-        return plans.isEmpty() ? Plan.answer() : plans.removeFirst();
-    }
-
-    @Override
-    public String answer(AnswerRequest request, Consumer<String> deltas, BooleanSupplier cancelled) {
-        answerRequests.add(request);
+    public String converse(AgentRequest request, TurnTools tools, Consumer<String> deltas) {
+        agentRequests.add(request);
+        List<TurnSource> found = new ArrayList<>(request.sources());
+        List<String> notCompared = new ArrayList<>(request.notCompared());
+        boolean perimeterUnavailable = false;
+        while (!tools.cancelled() && tools.stepsLeft() > 0) {
+            planRequests.add(new PlanView(request.language(), request.generalSheet(), request.memory(),
+                    request.history(), request.question(), List.copyOf(found), tools.stepsLeft(), request.discussed(),
+                    request.perimeterAvailable() && !tools.perimeterDone(), request.lastPerimeterTerms()));
+            Plan plan = plans.isEmpty() ? Plan.answer() : plans.removeFirst();
+            if (plan.action() != Action.ANSWER) {
+                // réflexion d'un appel qui finit par un outil ; celle de la réponse vient après
+                reason(planReasoning);
+            }
+            if (plan.action() == Action.ANSWER || plan.action() == Action.PERIMETER && tools.perimeterDone()) {
+                break;
+            }
+            if (plan.action() == Action.PERIMETER) {
+                TurnTools.PerimeterOutcome outcome = tools.perimeter(plan.terms());
+                perimeterUnavailable |= outcome.unavailable();
+                add(found, outcome.modules());
+                continue;
+            }
+            if (plan.query() == null || plan.query().isBlank()) {
+                break;
+            }
+            TurnTools.Found result = tools.search(plan.query(), plan.kinds());
+            add(found, result.sources());
+            notCompared.addAll(result.notCompared());
+        }
+        if (tools.cancelled()) {
+            return "";
+        }
+        answerRequests.add(new AnswerView(request.language(), request.generalSheet(), request.memory(),
+                request.history(), request.question(), List.copyOf(found), List.copyOf(notCompared),
+                tools.stepsLeft() <= 0, request.discussed(), perimeterUnavailable));
         reason(answerReasoning);
         List<String> chunks = answers.isEmpty() ? List.of("Je ne trouve pas cette information dans le projet.")
                 : answers.removeFirst();
         StringBuilder text = new StringBuilder();
         int emitted = 0;
         for (String chunk : chunks) {
-            if (cancelled.getAsBoolean()) {
+            if (tools.cancelled()) {
                 break;
             }
             if (failure != null && emitted == failAfter) {
@@ -89,6 +161,16 @@ public class ScriptedConversationLlm implements ConversationLlm {
             afterChunk.run();
         }
         return text.toString();
+    }
+
+    /** Sources dans l'ordre de leur numéro, chacune une fois. */
+    private static void add(List<TurnSource> found, List<TurnSource> more) {
+        for (TurnSource s : more) {
+            if (found.stream().noneMatch(f -> f.n() == s.n())) {
+                found.add(s);
+            }
+        }
+        found.sort(java.util.Comparator.comparingInt(TurnSource::n));
     }
 
     /** Qualifications scriptées (013) ; vide : aucun module qualifié. */

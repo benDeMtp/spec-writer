@@ -1,2 +1,19 @@
-{"operation": "converse-plan", "userContains": ["<question>\nE2E-SANS-RACINE", "<recherches-restantes>5</recherches-restantes>", "<perimetre-disponible>non</perimetre-disponible>"],
- "response": {"action": "PERIMETER", "query": "", "kinds": [], "terms": ["ContractStatus"]}}
+{
+  "operation": "converse-agent",
+  "userContains": [
+    "<question>\nE2E-SANS-RACINE",
+    "<recherches-restantes>5</recherches-restantes>",
+    "<perimetre-disponible>non</perimetre-disponible>"
+  ],
+  "afterTools": 0,
+  "toolCalls": [
+    {
+      "name": "analyze_perimeter",
+      "arguments": {
+        "terms": [
+          "ContractStatus"
+        ]
+      }
+    }
+  ]
+}

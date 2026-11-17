@@ -12,6 +12,7 @@ import fr.kawamind.domain.conversation.ConversationMessage;
 import fr.kawamind.domain.conversation.MessageRole;
 import fr.kawamind.domain.conversation.MessageState;
 import fr.kawamind.domain.conversation.SearchStep;
+import fr.kawamind.domain.conversation.SourceKind;
 import fr.kawamind.domain.conversation.Thinking;
 import fr.kawamind.domain.conversation.TurnSource;
 import fr.kawamind.domain.error.DomainException;
@@ -25,6 +26,7 @@ import fr.kawamind.domain.port.IdGenerator;
 import fr.kawamind.domain.port.ModelCapacities;
 import fr.kawamind.domain.port.PerimeterRepository;
 import fr.kawamind.domain.port.ProjectRepository;
+import fr.kawamind.domain.port.TurnTools;
 import fr.kawamind.domain.project.Project;
 import fr.kawamind.domain.session.Language;
 import fr.kawamind.domain.session.LanguageDetector;
@@ -32,18 +34,19 @@ import fr.kawamind.domain.sources.PerimeterAnalysis;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.jboss.logging.Logger;
 
 /**
- * Un tour de parole avec l'agent (010, research.md R1, R2, R4) : jusqu'à 5 recherches choisies par
- * l'IA dans la connaissance du projet, puis une réponse rédigée en flux qui cite ses sources. Le tour
+ * Un tour de parole avec l'agent (010 research.md R2, R4 ; 014 research R5) : l'agent appelle ses
+ * outils (jusqu'à 5 recherches dans la connaissance du projet, une analyse de périmètre), puis
+ * rédige en flux une réponse qui cite ses sources. Le tour
  * tourne en tâche de fond ; ses étapes, son texte et son état sont enregistrés au fil de l'eau et
  * publiés pour l'écran. Aucun texte n'est journalisé.
  */
@@ -271,65 +274,118 @@ public class Converse {
                 .filter(m -> m.role() == MessageRole.USER && m.ordinal() < question.ordinal())
                 .map(ConversationMessage::text).toList(), budget,
                 discussed.map(DiscussSpecification.Context::attachments).orElse(List.of())));
-        boolean stopped = false;
         boolean perimeterAvailable = perimeter != null && perimeter.available(projectId);
         List<String> lastTerms = perimeters == null ? List.of()
                 : perimeters.last(question.conversationId()).map(PerimeterAnalysis::terms).orElse(List.of());
-        boolean perimeterDone = false;
-        boolean perimeterUnavailable = false;
-        while (!events.cancelled(turn)) {
-            if (progress.steps == SearchStep.MAX_STEPS) {
-                stopped = true;
-                break;
+        Tools tools = new Tools(projectId, question, progress, sources, discussed, language, history.exchanges(),
+                thinking);
+        thinking.stage(Thinking.Stage.PLAN);
+        ConversationMessage saving = progress.answer;
+        int[] chunks = {0};
+        llm.converse(new ConversationLlm.AgentRequest(language, sheet, history.memory(), history.exchanges(),
+                question.text(), sources.all(), sources.notCompared(), SearchStep.MAX_STEPS, about, perimeterAvailable,
+                lastTerms), tools, delta -> {
+                    if (events.cancelled(turn)) {
+                        return;
+                    }
+                    if (chunks[0] == 0) {
+                        thinking.stage(Thinking.Stage.ANSWER);
+                        thinking.flush();
+                    }
+                    progress.text.append(delta);
+                    events.publish(turn, new Event.Delta(delta));
+                    if (++chunks[0] % SAVE_EVERY == 0) {
+                        conversations.saveMessage(saving.withText(progress.text.toString()));
+                    }
+                });
+    }
+
+    /**
+     * Outils du tour (014, research R5) : la recherche et l'analyse de périmètre demandées par l'agent.
+     * Les sources sont numérotées en continu, chaque étape est enregistrée et publiée ; le plafond de
+     * {@link SearchStep#MAX_STEPS} étapes, l'analyse unique et l'arrêt demandé sont tenus ici.
+     */
+    private final class Tools implements TurnTools {
+        private final UUID projectId;
+        private final ConversationMessage question;
+        private final Progress progress;
+        private final Sources sources;
+        private final Optional<DiscussSpecification.Context> discussed;
+        private final Language language;
+        private final List<Exchange> exchanges;
+        private final ThinkingLog thinking;
+        private boolean perimeterDone;
+
+        Tools(UUID projectId, ConversationMessage question, Progress progress, Sources sources,
+                Optional<DiscussSpecification.Context> discussed, Language language, List<Exchange> exchanges,
+                ThinkingLog thinking) {
+            this.projectId = projectId;
+            this.question = question;
+            this.progress = progress;
+            this.sources = sources;
+            this.discussed = discussed;
+            this.language = language;
+            this.exchanges = exchanges;
+            this.thinking = thinking;
+        }
+
+        @Override
+        public synchronized Found search(String query, Set<SourceKind> kinds) {
+            if (cancelled() || stepsLeft() <= 0) {
+                return new Found(List.of(), List.of());
             }
-            thinking.stage(Thinking.Stage.PLAN);
-            ConversationLlm.Plan plan = llm.plan(new ConversationLlm.PlanRequest(language, sheet, history.memory(),
-                    history.exchanges(), question.text(), sources.all(), SearchStep.MAX_STEPS - progress.steps, about,
-                    perimeterAvailable && !perimeterDone, lastTerms));
-            if (plan.action() == ConversationLlm.Action.PERIMETER) {
-                // une analyse par réponse au plus : une seconde demande vaut une réponse (research.md R6)
-                if (perimeter == null || perimeterDone) {
-                    break;
-                }
-                perimeterDone = true;
-                perimeterUnavailable = !analyzePerimeter(projectId, question, plan.terms(), progress, sources, language,
-                        history.exchanges());
-                continue;
-            }
-            if (plan.action() == ConversationLlm.Action.ANSWER || plan.query() == null || plan.query().isBlank()) {
-                break;
-            }
+            UUID turn = progress.answer.id();
+            thinking.flush();
             // la spécification discutée est déjà là, entière : ses extraits de recherche sont écartés
-            List<ConversationSearch.Found> found = search.run(projectId, plan.query(), plan.kinds()).stream()
+            List<ConversationSearch.Found> found = search.run(projectId, query, kinds).stream()
                     .filter(f -> discussed.map(c -> !DiscussionSources.isDiscussed(f.ref(), c)).orElse(true))
                     .toList();
-            sources.add(found);
-            SearchStep step = new SearchStep(++progress.steps, plan.query(), plan.kinds(), found.size());
+            int before = sources.notCompared().size();
+            List<TurnSource> numbered = sources.add(found);
+            SearchStep step = new SearchStep(++progress.steps, query, kinds, found.size());
             conversations.saveStep(turn, step);
             events.publish(turn, new Event.Step(step));
+            thinking.stage(Thinking.Stage.PLAN);
+            List<String> notCompared = sources.notCompared();
+            return new Found(numbered, notCompared.subList(before, notCompared.size()));
         }
-        if (!events.cancelled(turn)) {
-            thinking.stage(Thinking.Stage.ANSWER);
-            ConversationMessage saving = progress.answer;
-            int[] chunks = {0};
-            llm.answer(new ConversationLlm.AnswerRequest(language, sheet, history.memory(), history.exchanges(),
-                    question.text(), sources.all(), sources.notCompared(), stopped, about, perimeterUnavailable),
-                    delta -> {
-                        progress.text.append(delta);
-                        events.publish(turn, new Event.Delta(delta));
-                        if (++chunks[0] % SAVE_EVERY == 0) {
-                            conversations.saveMessage(saving.withText(progress.text.toString()));
-                        }
-                    }, () -> events.cancelled(turn));
+
+        @Override
+        public synchronized PerimeterOutcome perimeter(List<String> terms) {
+            if (cancelled() || perimeterDone || stepsLeft() <= 0 || perimeter == null) {
+                return new PerimeterOutcome(false, List.of());
+            }
+            perimeterDone = true;
+            thinking.flush();
+            Optional<List<TurnSource>> modules = analyzePerimeter(projectId, question, terms, progress, sources,
+                    language, exchanges);
+            thinking.stage(Thinking.Stage.PLAN);
+            return modules.map(m -> new PerimeterOutcome(false, m)).orElseGet(() -> new PerimeterOutcome(true,
+                    List.of()));
+        }
+
+        @Override
+        public synchronized int stepsLeft() {
+            return SearchStep.MAX_STEPS - progress.steps;
+        }
+
+        @Override
+        public synchronized boolean perimeterDone() {
+            return perimeterDone;
+        }
+
+        @Override
+        public boolean cancelled() {
+            return events.cancelled(progress.answer.id());
         }
     }
 
     /**
      * Analyse de périmètre d'un tour (013) : recensement publié aussitôt, puis qualification par
-     * l'agent ; les modules deviennent des sources citables. Renvoie faux si le projet n'a pas de
-     * racine de sources.
+     * l'agent ; les modules deviennent des sources citables, rendues numérotées. Vide si le projet
+     * n'a pas de racine de sources.
      */
-    private boolean analyzePerimeter(UUID projectId, ConversationMessage question, List<String> terms, Progress progress,
+    private Optional<List<TurnSource>> analyzePerimeter(UUID projectId, ConversationMessage question, List<String> terms, Progress progress,
             Sources sources, Language language, List<Exchange> exchanges) {
         UUID turn = progress.answer.id();
         PerimeterAnalysis previous = perimeters.last(question.conversationId()).orElse(null);
@@ -338,21 +394,20 @@ public class Converse {
             analysis = perimeter.analyze(projectId, terms, previous, progress.steps + 1, () -> events.cancelled(turn));
         } catch (DomainException e) {
             // aucun terme valide : l'agent répond sans analyse
-            return true;
+            return Optional.of(List.of());
         }
         progress.steps++;
         perimeters.save(turn, analysis);
         events.publish(turn, new Event.Perimeter(PerimeterView.of(analysis)));
         if (analysis.unavailable() != null) {
-            return false;
+            return Optional.empty();
         }
         if (!events.cancelled(turn)) {
             analysis = perimeter.qualify(analysis, language, exchanges, question.text()).analysis();
             perimeters.save(turn, analysis);
             events.publish(turn, new Event.Perimeter(PerimeterView.of(analysis)));
         }
-        sources.add(PerimeterSources.of(analysis));
-        return true;
+        return Optional.of(sources.add(PerimeterSources.of(analysis)));
     }
 
     private void fail(Progress progress, ThinkingLog thinking, Instant begin, ErrorCode code, String userMessage) {
@@ -372,13 +427,17 @@ public class Converse {
 
     /**
      * Réflexion du tour, étape par étape : chaque morceau est publié pour l'écran et gardé, jusqu'à
-     * {@link Thinking#MAX_TEXT} caractères ; la suite n'est ni publiée ni gardée.
+     * {@link Thinking#MAX_TEXT} caractères ; la suite n'est ni publiée ni gardée. Un tour est un seul
+     * flux (014, research R5) : la réflexion d'un appel au modèle est retenue jusqu'à ce que l'on
+     * sache à quoi elle sert, puis publiée sous l'étape recherche (un outil s'exécute) ou réponse
+     * (le premier morceau du texte arrive).
      */
     private final class ThinkingLog {
         private final UUID turn;
         private final List<Thinking.Part> done = new ArrayList<>();
         private Thinking.Stage stage;
         private final StringBuilder current = new StringBuilder();
+        private final StringBuilder pending = new StringBuilder();
         private int length;
 
         ThinkingLog(UUID turn) {
@@ -392,17 +451,27 @@ public class Converse {
         }
 
         synchronized void reasoning(String delta) {
-            if (delta == null || delta.isEmpty() || stage == null || length >= Thinking.MAX_TEXT) {
+            if (delta != null && !delta.isEmpty()) {
+                pending.append(delta);
+            }
+        }
+
+        /** Publie la réflexion retenue sous l'étape en cours. */
+        synchronized void flush() {
+            if (pending.isEmpty() || stage == null || length >= Thinking.MAX_TEXT) {
+                pending.setLength(0);
                 return;
             }
-            String kept = delta.length() > Thinking.MAX_TEXT - length ? delta.substring(0, Thinking.MAX_TEXT - length)
-                    : delta;
+            String kept = pending.length() > Thinking.MAX_TEXT - length
+                    ? pending.substring(0, Thinking.MAX_TEXT - length) : pending.toString();
+            pending.setLength(0);
             current.append(kept);
             length += kept.length();
             events.publish(turn, new Event.Reasoning(kept));
         }
 
         synchronized List<Thinking.Part> parts() {
+            flush();
             close();
             return List.copyOf(done);
         }
@@ -435,7 +504,9 @@ public class Converse {
             notCompared.add(title);
         }
 
-        void add(List<ConversationSearch.Found> found) {
+        /** Ajoute les sources trouvées ; rend celles qui ont pris un numéro, dans l'ordre. */
+        List<TurnSource> add(List<ConversationSearch.Found> found) {
+            List<TurnSource> added = new ArrayList<>();
             for (ConversationSearch.Found f : found) {
                 String key = f.kind() + "|" + f.ref();
                 if (byRef.containsKey(key) || notCompared.contains(f.title())) {
@@ -447,8 +518,11 @@ public class Converse {
                     continue;
                 }
                 left -= size;
-                byRef.put(key, new TurnSource(byRef.size() + 1, f.kind(), f.ref(), f.title(), f.text()));
+                TurnSource source = new TurnSource(byRef.size() + 1, f.kind(), f.ref(), f.title(), f.text());
+                byRef.put(key, source);
+                added.add(source);
             }
+            return added;
         }
 
         List<TurnSource> all() {

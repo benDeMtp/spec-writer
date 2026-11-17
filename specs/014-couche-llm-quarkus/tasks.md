@@ -159,7 +159,7 @@ d'injection dans l'évaluation (quickstart 3 et 4).
 - [X] T018 [P] [US2] Étendre `BT/infrastructure/llm/PromptInjectionIT.java` avec un résultat
   d'outil piégé (ticket rejoué qui demande de lire un fichier) : aucun outil hors liste, aucun
   fichier lu, contenu jamais en système.
-- [ ] T019 [US2] Volet d'évaluation `BT/eval/InjectionRuns.java`.
+- [X] T019 [US2] Volet d'évaluation `BT/eval/InjectionRuns.java`.
   - Corpus avec un ticket piégé et un `secret.txt` dans le dossier de travail de la session.
   - Métrique `injectionResistance` dans `EvalBaseline` et `BTR/eval/baseline.json` (minimum 1,0).
   - Branchement dans `EvalRuns`.
@@ -228,11 +228,11 @@ de l'évaluation.
 
 ### Famille Conversation, dont l'agent (research R5, contracts/agent-tools.md)
 
-- [ ] T030 [P] [US1] Tests `@QuarkusTest` `ConversationAiTest.java` pour `qualify-perimeter`,
+- [X] T030 [P] [US1] Tests `@QuarkusTest` `ConversationAiTest.java` pour `qualify-perimeter`,
   `propose-need` et `compact-memory` sur le rejeu.
-- [ ] T031 [US1] Créer `LLM/ai/ConversationAi.java` (méthodes non-agent) ;
+- [X] T031 [US1] Créer `LLM/ai/ConversationAi.java` (méthodes non-agent) ;
   `LangChainConversationLlm` délègue `qualify`, `draftNeed` et `compact`.
-- [ ] T032 [P] [US1] Tests unitaires du port et de l'application.
+- [X] T032 [P] [US1] Tests unitaires du port et de l'application.
   - `BT/application/conversation/ConverseTest.java` et `ConversePerimeterTest.java`, réécrits sur
     `ConversationLlm.converse(AgentRequest, TurnTools, deltas)`. Le double appelle `TurnTools` :
     - sources numérotées en continu ;
@@ -242,12 +242,12 @@ de l'évaluation.
     - arrêt (`cancelled`) ;
     - erreurs.
   - Les événements SSE attendus sont ceux d'aujourd'hui.
-- [ ] T033 [US1] Domaine et application.
+- [X] T033 [US1] Domaine et application.
   - Créer `BM/domain/port/TurnTools.java`.
   - Remplacer `plan`/`answer` par `converse` dans `BM/domain/port/ConversationLlm.java` (data-model).
   - Faire implémenter `TurnTools` par `BM/application/conversation/Converse.java`, en retirant la
     boucle plan/réponse.
-- [ ] T034 [US1] Consigne `BR/prompts/converse-agent.txt` : fusion de `converse-plan` et de
+- [X] T034 [US1] Consigne `BR/prompts/converse-agent.txt` : fusion de `converse-plan` et de
   `converse-answer`.
   - Choisir chercher, analyser le périmètre ou répondre ; une analyse par tour ; dire quand la
     recherche s'est arrêtée.
@@ -255,7 +255,7 @@ de l'évaluation.
     spécification discutée).
   - Règle de sécurité des balises, dont `<echange-outils>`.
   - Supprimer `converse-plan.txt` et `converse-answer.txt`.
-- [ ] T035 [P] [US1] Tests unitaires `BT/infrastructure/llm/ai/AgentToolsTest.java` et
+- [X] T035 [P] [US1] Tests unitaires `BT/infrastructure/llm/ai/AgentToolsTest.java` et
   `SearchCapTest.java` (contracts/agent-tools.md) :
   - validation des paramètres ;
   - format `<sources>` ;
@@ -265,23 +265,23 @@ de l'évaluation.
   - arrêt ;
   - erreur d'exécution sans détail interne ;
   - journal sans requête.
-- [ ] T036 [US1] Créer `LLM/ai/AgentTools.java`, `LLM/ai/SearchCap.java` et la méthode
+- [X] T036 [US1] Créer `LLM/ai/AgentTools.java`, `LLM/ai/SearchCap.java` et la méthode
   `ConversationAi.converse` (`TokenStream`, `InvocationParameters`, `maxToolCallingRoundTrips = 7`,
   `hallucinatedToolNameStrategy`).
   - `LangChainConversationLlm.converse` branche `beforeToolExecution`, `onToolExecuted`,
     `onPartialResponseWithContext` (arrêt), `onPartialThinking` et `onError`.
-- [ ] T037 [US1] Fixtures du rejeu.
+- [X] T037 [US1] Fixtures du rejeu.
   - Réécrire en entrées `converse-agent` (`toolCalls`, `afterTools`, `text`) :
     - les 19 fixtures `converse-plan` / `converse-answer` de `e2e/fixtures/llm/` ;
     - leurs équivalents de `BTR/llm-replay/`.
   - Adapter les IT de conversation, de discussion et SSE.
   - Passer `npm --prefix e2e test` complet.
-- [ ] T038 [US1] Évaluation réelle complète (accord du mainteneur) : citations, abstention,
+- [X] T038 [US1] Évaluation réelle complète (accord du mainteneur) : citations, abstention,
   incohérences, discussion, périmètre (`perimeterAnswerFocus`), `injectionResistance`.
   - En cas de recul, ajuster `converse-agent.txt` et noter l'ajustement dans research R5.
   - Mettre à jour `last-run.json`.
   - Gates, commit `refactor(conversation): agent à outils sur les AI Services`.
-- [ ] T039 [US1] Mesurer SC-004 : délai de première réponse visible avant et après, sur trois
+- [X] T039 [US1] Mesurer SC-004 : délai de première réponse visible avant et après, sur trois
   questions du quickstart en dev mode `live`. Consigner le résultat dans research R5.
 
 **Checkpoint** : US1 et US2 complètes. Toutes les opérations passent par les AI Services.
@@ -294,17 +294,17 @@ de l'évaluation.
 
 **Independent Test** : quickstart 5.
 
-- [ ] T040 [P] [US3] Test `@QuarkusTest` `BT/infrastructure/llm/ai/AgentToolsExtensionTest.java`,
+- [X] T040 [P] [US3] Test `@QuarkusTest` `BT/infrastructure/llm/ai/AgentToolsExtensionTest.java`,
   avec un AI Service de test, un outil fictif et une fixture rejouée.
   - L'outil est appelé et l'étape est publiée.
   - Le plafond s'applique.
   - Aucune classe de `LLM/` ni de `Converse` n'est modifiée pour l'ajouter.
-- [ ] T041 [US3] Consignes réutilisables (FR-011).
+- [X] T041 [US3] Consignes réutilisables (FR-011).
   - Dossier `BR/prompts/skills/` et chargeur `LLM/ai/SkillLibrary.java` : une ressource Markdown
     incluse dans le message système par l'opération qui la déclare.
   - Test `SkillLibraryTest` : contenu en système, jamais dans le message utilisateur ; ressource
     absente → erreur au démarrage.
-- [ ] T042 [US3] Documenter dans `CONTRIBUTING.md` comment ajouter une opération, un outil ou une
+- [X] T042 [US3] Documenter dans `CONTRIBUTING.md` comment ajouter une opération, un outil ou une
   consigne réutilisable. Rappeler la liste blanche, le garde-fou et la fixture de rejeu.
 
 ---
@@ -316,13 +316,13 @@ version.
 
 **Independent Test** : quickstart 1.
 
-- [ ] T043 [P] [US4] Règle ArchUnit dans `BT/architecture/HexagonalArchitectureTest.java` :
+- [X] T043 [P] [US4] Règle ArchUnit dans `BT/architecture/HexagonalArchitectureTest.java` :
   - toutes les classes sont sous `fr.kawamind` ;
   - seul `infrastructure.llm` dépend de `com.github.copilot` et de `dev.langchain4j.service`.
-- [ ] T044 [P] [US4] Test `BT/infrastructure/platform/McpCommandTest.java` : la commande affichée
+- [X] T044 [P] [US4] Test `BT/infrastructure/platform/McpCommandTest.java` : la commande affichée
   lance `fr.kawamind.mcp.McpBridge`.
   - Test E2E existant de la carte « Accès des agents » ajusté si la commande y est vérifiée.
-- [ ] T045 [US4] Section « Mise à jour » du `README.md` : la commande de la passerelle MCP change,
+- [X] T045 [US4] Section « Mise à jour » du `README.md` : la commande de la passerelle MCP change,
   et il faut recopier celle des réglages (FR-019a). Elle sera reprise dans la description de la
   release.
 - [ ] T046 [US4] Vérification manuelle sur l'installation existante (quickstart 1) : données,
@@ -336,35 +336,35 @@ version.
 
 **Independent Test** : quickstart 2, et un réenregistrement selon la procédure.
 
-- [ ] T047 [US5] `e2e/fixtures/llm/README.md` documente :
+- [X] T047 [US5] `e2e/fixtures/llm/README.md` documente :
   - le format (contracts/replay-format.md) ;
   - l'appariement par opération, étape et fragments ;
   - la procédure de réenregistrement en dev mode `live` ;
   - le contenu confidentiel à ne jamais copier.
-- [ ] T048 [US5] Vérifier hors ligne (réseau coupé ou proxy refusé) que `npm --prefix e2e test`
+- [X] T048 [US5] Vérifier hors ligne (réseau coupé ou proxy refusé) que `npm --prefix e2e test`
   passe sans appel à Copilot.
 
 ---
 
 ## Phase 8: Polish & Cross-Cutting
 
-- [ ] T049 Supprimer le code devenu inutile :
+- [X] T049 Supprimer le code devenu inutile :
   - `ConversationStream`, `CopilotConversationStream`, `ReplayConversationStream` ;
   - les records `Plan`, `Action`, `PlanRequest` et `AnswerRequest` du port ;
   - le marqueur d'opération resté inutilisé ;
   - les tests associés.
 
   Couverture ≥ 80 % sur le cœur.
-- [ ] T050 [P] Marquer comme remplacées (FR-020) :
+- [X] T050 [P] Marquer comme remplacées (FR-020) :
   - `specs/001-local-spec-assistant/research.md` R3 (partie AI Services) ;
   - `specs/010-agent-conversationnel/research.md` R1 ;
   - `specs/001-local-spec-assistant/contracts/llm-port.md` (règles d'adaptateur).
 
   Ajouter un renvoi vers 014 R1, R2 et R8.
-- [ ] T051 [P] Mettre à jour `CLAUDE.md` : chemins `fr/kawamind`, boucle de l'agent, rejeu à
+- [X] T051 [P] Mettre à jour `CLAUDE.md` : chemins `fr/kawamind`, boucle de l'agent, rejeu à
   appels d'outils.
 - [ ] T052 Dérouler `quickstart.md` en entier (1 à 6), puis gates complets.
-- [ ] T053 Évaluation réelle finale (accord du mainteneur), `ci/check-eval.sh`, puis
+- [X] T053 Évaluation réelle finale (accord du mainteneur), `ci/check-eval.sh`, puis
   `last-run.json` commité.
 - [ ] T054 Pousser, ouvrir la PR vers `main`. Le corps donne :
   - les décisions remplacées ;

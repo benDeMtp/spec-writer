@@ -140,15 +140,6 @@ final class LlmSchemas {
     private LlmSchemas() {
     }
 
-    /** 010 : action suivante de l'agent (research.md R1). */
-    static final ResponseFormat CONVERSE_PLAN = format("converse_plan", JsonObjectSchema.builder()
-            .addProperty("action", JsonEnumSchema.builder().enumValues("SEARCH", "PERIMETER", "ANSWER").build())
-            .addStringProperty("query")
-            .addProperty("kinds", array(JsonEnumSchema.builder()
-                    .enumValues("TICKET", "DOC_SECTION", "ADR", "ARCH_ELEMENT", "SPECIFICATION").build()))
-            .addProperty("terms", array(string()))
-            .build());
-
     /** 013 : qualification des modules d'une analyse de périmètre. */
     static final ResponseFormat PERIMETER_QUALIFICATION = format("perimeter_qualification", JsonObjectSchema.builder()
             .addProperty("modules", array(JsonObjectSchema.builder()

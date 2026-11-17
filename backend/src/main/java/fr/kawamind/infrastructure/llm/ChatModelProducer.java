@@ -3,7 +3,10 @@ package fr.kawamind.infrastructure.llm;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import fr.kawamind.domain.port.ConversationLlm;
+import fr.kawamind.infrastructure.llm.ai.AgentAi;
+import fr.kawamind.infrastructure.llm.ai.ConversationAi;
 import fr.kawamind.infrastructure.llm.ai.SpecificationAi;
+import io.quarkus.arc.Unremovable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
@@ -33,8 +36,10 @@ public class ChatModelProducer {
     private final LlmCallLog log = new LlmCallLog();
     private ReplayChatModel replay;
 
+    /** Lus par les AI Services ({@code AppModels}), sans point d'injection : gardés par {@link Unremovable}. */
     @Produces
     @ApplicationScoped
+    @Unremovable
     ChatModel chatModel() {
         if (replaying()) {
             return replay();
@@ -45,6 +50,7 @@ public class ChatModelProducer {
     /** Modèle en flux de l'agent (014, research R5) : Copilot, ou le rejeu. */
     @Produces
     @ApplicationScoped
+    @Unremovable
     StreamingChatModel streamingChatModel() {
         if (replaying()) {
             return new ReplayStreamingChatModel(replay(), List.of(log));
@@ -63,13 +69,10 @@ public class ChatModelProducer {
         return replay;
     }
 
-    /** Agent conversationnel (010) : même modèle pour le plan, flux de Copilot ou rejeu pour la réponse. */
+    /** Agent conversationnel (010, 014 research R5) sur ses AI Services. */
     @Produces
     @ApplicationScoped
-    ConversationLlm conversationLlm(ChatModel model, SpecificationAi specification) {
-        ConversationStream stream = replaying()
-                ? new ReplayConversationStream(replay())
-                : new CopilotConversationStream(runtime, modelSelection);
-        return new LangChainConversationLlm(model, stream, specification, timeout);
+    ConversationLlm conversationLlm(AgentAi agent, ConversationAi conversation, SpecificationAi specification) {
+        return new LangChainConversationLlm(agent, conversation, specification, timeout);
     }
 }

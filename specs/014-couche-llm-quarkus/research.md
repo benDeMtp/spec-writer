@@ -154,7 +154,8 @@ CLI. L'essai S3 l'a montré possible sans rien exécuter côté CLI.
 
 **Decision** :
 - **Méthode** :
-  `ConversationAi.converse(@UserMessage String data, InvocationParameters turn) : TokenStream`.
+  `AgentAi.converse(@MemoryId String turn, String data, InvocationParameters parameters) : TokenStream`
+  (voir les constats de l'implémentation plus bas).
   - `InvocationParameters` (LangChain4j 1.21) transporte le contexte du tour, sans mémoire, jusqu'aux
     outils.
   - Ce contexte est un `TurnTools` du domaine : rechercher, analyser le périmètre, publier une étape,
@@ -187,6 +188,46 @@ CLI. L'essai S3 l'a montré possible sans rien exécuter côté CLI.
 
 **Rationale** : le comportement visible est inchangé, la boucle appartient au framework, et
 `Converse` garde la responsabilité métier du tour.
+
+**Constats de l'implémentation (T030 à T036, quarkus-langchain4j 2.0.0.Beta1)** :
+- **Mémoire obligatoire** : l'extension refuse un AI Service à outils sans mémoire (« Tool usage
+  requires chat memory »). L'agent a donc son propre AI Service, `AgentAi`, avec une mémoire par
+  tour (`@MemoryId` aléatoire, fenêtre de 64 messages) que l'adaptateur retire à la fin du tour
+  (`ChatMemoryRemover`). Elle ne garde que les messages du tour ; l'historique de la conversation
+  reste une donnée du message utilisateur. Les opérations structurées restent dans `ConversationAi`,
+  sans mémoire.
+- **`InvocationParameters` perdus en flux** : pour un `TokenStream`, l'extension reconstruit
+  l'`InvocationContext` sans les paramètres d'invocation (`AiServiceMethodImplementationSupport`).
+  Les outils et le garde-fou s'exécutant sur le fil de l'appel (nos modèles appellent le
+  gestionnaire de flux sur ce fil), le `TurnTools` du tour passe aussi par un `ScopedValue`
+  (`AgentTools.CURRENT`). Les paramètres d'invocation restent transmis et ont la priorité, pour le
+  jour où l'extension les fera suivre.
+- **Producteurs des modèles gardés** : plus aucun point d'injection ne demande `ChatModel` ni
+  `StreamingChatModel` (les AI Services les lisent par `AppModels`) ; leurs producteurs sont
+  `@Unremovable`.
+- **Arrêt** : `onPartialResponseWithContext` n'est pas pris en charge par le `TokenStream` de
+  l'extension ; l'arrêt passe par `CallCancellation`, lu par les adaptateurs en flux, et le texte
+  reçu après l'arrêt n'est plus transmis.
+- **Réflexion** : un tour est un seul flux ; la réflexion d'un appel arrive avant de savoir s'il
+  finira par un outil ou par la réponse. `Converse` la retient et la publie sous l'étape
+  « recherche » quand un outil s'exécute, ou « réponse » au premier morceau du texte : l'écran
+  garde les étapes de la 010 (« Choix d'une recherche », « Rédaction de la réponse »), la réflexion
+  s'affiche à la fin de chaque appel plutôt qu'au fil de l'eau.
+- **Erreurs d'outil** : l'extension rend au modèle le message d'une exception levée par un outil.
+  `AgentTools` intercepte donc toute exception et rend une erreur générique, sans détail interne.
+
+**Mesure SC-004 (T039)**, sur l'évaluation réelle (3 exécutions, modèle par défaut du compte),
+plutôt qu'en dev mode `live`, réservé au mainteneur. Délai jusqu'au premier morceau visible de la
+réponse :
+- avant (boucle `converse-plan` / `converse-answer`, évaluation du 17/11 à 00 h 24) : médiane de
+  33,4 s rien que pour les appels de plan, avant même l'appel de réponse (45 tours ; tour complet
+  38,1 s) ;
+- après (agent à outils, évaluation du 17/11 à 03 h 20) : médiane de 5,4 s, 90ᵉ centile 18,4 s
+  (78 tours ; tour complet 11,2 s).
+
+Le modèle appelle ses outils au lieu de rendre un plan JSON par recherche, et s'arrête de
+chercher plus tôt (82 recherches et 30 analyses de périmètre pour 78 tours, contre 5 recherches
+par tour auparavant sur le même corpus). Aucune métrique de qualité ne recule.
 
 **Alternatives** :
 - **Outils fournis par un `ToolProvider` construit à chaque tour** : plus dynamique, mais

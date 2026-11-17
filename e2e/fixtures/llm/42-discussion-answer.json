@@ -1,3 +1,10 @@
-{"operation": "converse-answer", "userContains": ["E2E-DISCUSSION", "<specification-discutee"],
- "reasoning": "The use case section describes the booking; I cite it.",
- "text": "La réservation est décrite par le premier use case de la spécification [4]. Je n'ai trouvé aucun ADR qui la contredise."}
+{
+  "operation": "converse-agent",
+  "userContains": [
+    "E2E-DISCUSSION",
+    "<specification-discutee"
+  ],
+  "afterTools": 1,
+  "text": "La réservation est décrite par le premier use case de la spécification [4]. Je n'ai trouvé aucun ADR qui la contredise.",
+  "reasoning": "The use case section describes the booking; I cite it."
+}

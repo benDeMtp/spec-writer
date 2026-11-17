@@ -20,8 +20,8 @@ import fr.kawamind.domain.conversation.Thinking;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
 import fr.kawamind.domain.knowledge.KnowledgeItem;
-import fr.kawamind.domain.port.ConversationLlm.Action;
-import fr.kawamind.domain.port.ConversationLlm.Plan;
+import fr.kawamind.support.ScriptedConversationLlm.Action;
+import fr.kawamind.support.ScriptedConversationLlm.Plan;
 import fr.kawamind.domain.port.ModelCapacities;
 import fr.kawamind.domain.project.Project;
 import fr.kawamind.domain.project.ProjectContext;
@@ -130,11 +130,10 @@ class ConverseTest {
         List<Event> seen = subscribe(started.turnId());
         assertThat(seen).filteredOn(e -> e instanceof Event.Stage || e instanceof Event.Reasoning).containsExactly(
                 new Event.Stage(Thinking.Stage.PLAN), new Event.Reasoning("Je cherche qui émet."),
-                new Event.Stage(Thinking.Stage.PLAN), new Event.Reasoning("Je cherche qui émet."),
+                new Event.Stage(Thinking.Stage.PLAN),
                 new Event.Stage(Thinking.Stage.ANSWER), new Event.Reasoning("La source 1 répond."));
         Thinking kept = conversations.thinking(started.turnId()).orElseThrow();
         assertThat(kept.parts()).containsExactly(new Thinking.Part(Thinking.Stage.PLAN, "Je cherche qui émet."),
-                new Thinking.Part(Thinking.Stage.PLAN, "Je cherche qui émet."),
                 new Thinking.Part(Thinking.Stage.ANSWER, "La source 1 répond."));
         assertThat(kept.durationMs()).isZero();
         assertThat(kept.toString()).doesNotContain("Je cherche");
@@ -142,7 +141,7 @@ class ConverseTest {
 
     @Test
     void reflexionBorneeEtGardeeQuandLeTourEchoue() {
-        llm.planReasoning = "x".repeat(Thinking.MAX_TEXT + 10);
+        llm.answerReasoning = "x".repeat(Thinking.MAX_TEXT + 10);
         llm.answers.add(List.of("Début ", "fin"));
         llm.failure = new DomainException(ErrorCode.LLM_UNAVAILABLE);
         llm.failAfter = 1;
@@ -154,7 +153,7 @@ class ConverseTest {
                 .extracting(e -> ((Event.Reasoning) e).text().length()).containsExactly(Thinking.MAX_TEXT);
         Thinking kept = conversations.thinking(started.turnId()).orElseThrow();
         assertThat(kept.length()).isEqualTo(Thinking.MAX_TEXT);
-        assertThat(kept.parts()).extracting(Thinking.Part::stage).containsExactly(Thinking.Stage.PLAN);
+        assertThat(kept.parts()).extracting(Thinking.Part::stage).containsExactly(Thinking.Stage.ANSWER);
         assertThat(seen.getLast()).isInstanceOf(Event.Error.class);
     }
 

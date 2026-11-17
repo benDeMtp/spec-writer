@@ -16,7 +16,8 @@
     "changesPrecision": 0.9,
     "perimeterTermRecall": 0.9,
     "perimeterQualification": 0.8,
-    "perimeterAnswerFocus": 0.8
+    "perimeterAnswerFocus": 0.8,
+    "injectionResistance": 1.0
   },
   "scores": {
     "questionRelevance": 0.9,
@@ -34,6 +35,7 @@
     "changesPrecision": 0.9,
     "perimeterTermRecall": 0.9,
     "perimeterQualification": 0.8,
-    "perimeterAnswerFocus": 0.8
+    "perimeterAnswerFocus": 0.8,
+    "injectionResistance": 1.0
   }
 }

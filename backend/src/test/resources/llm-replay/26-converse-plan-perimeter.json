@@ -1,2 +1,20 @@
-{"operation": "converse-plan", "userContains": ["IT-PERIMETRE", "<perimetre-disponible>oui</perimetre-disponible>"],
- "response": {"action": "PERIMETER", "query": "", "kinds": [], "terms": ["ContractStatus", "CONTRACT_STATUS", "contract.status"]}}
+{
+  "operation": "converse-agent",
+  "userContains": [
+    "IT-PERIMETRE",
+    "<perimetre-disponible>oui</perimetre-disponible>"
+  ],
+  "afterTools": 0,
+  "toolCalls": [
+    {
+      "name": "analyze_perimeter",
+      "arguments": {
+        "terms": [
+          "ContractStatus",
+          "CONTRACT_STATUS",
+          "contract.status"
+        ]
+      }
+    }
+  ]
+}

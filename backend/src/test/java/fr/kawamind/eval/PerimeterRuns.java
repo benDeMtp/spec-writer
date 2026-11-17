@@ -1,7 +1,10 @@
 package fr.kawamind.eval;
 
 import fr.kawamind.application.sources.AnalyzePerimeter;
+import fr.kawamind.domain.conversation.SourceKind;
+import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.port.ConversationLlm;
+import fr.kawamind.domain.port.TurnTools;
 import fr.kawamind.domain.project.ExclusionPatterns;
 import fr.kawamind.domain.session.Language;
 import fr.kawamind.domain.sources.PerimeterAnalysis;
@@ -21,6 +24,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import tools.jackson.databind.JsonNode;
@@ -28,7 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Volet périmètre de l'évaluation (013, T034) : sur l'arbre de démonstration et un second arbre
- * généré, l'agent propose les termes de recherche puis qualifie les modules recensés. Mesure le
+ * généré, l'agent appelle son outil d'analyse avec ses termes (014), puis qualifie les modules recensés. Mesure le
  * rappel des modules attendus par les termes du vrai plan, et l'accord des qualifications fermes.
  * Attendus : {@code IMPACTED} ou {@code NOT_IMPACTED} (qualification exigée), {@code ANY} (le
  * module doit être trouvé), {@code NOT_IMPACTED_IF_FOUND} (hors rappel ; non impacté s'il est trouvé).
@@ -92,29 +96,90 @@ final class PerimeterRuns {
         }
     }
 
+    /**
+     * Outils d'un tour d'évaluation (014) : la recherche ne trouve rien ; l'analyse de périmètre
+     * demandée par l'agent est faite et qualifiée comme dans l'application, et gardée.
+     */
+    private static final class PerimeterTools implements TurnTools {
+        private final AnalyzePerimeter analyze;
+        private final String question;
+        List<String> terms;
+        boolean invalid;
+        AnalyzePerimeter.Qualified qualified;
+        int steps;
+
+        PerimeterTools(AnalyzePerimeter analyze, String question) {
+            this.analyze = analyze;
+            this.question = question;
+        }
+
+        void reset() {
+            terms = null;
+            invalid = false;
+            qualified = null;
+            steps = 0;
+        }
+
+        @Override
+        public Found search(String query, Set<SourceKind> kinds) {
+            steps++;
+            return new Found(List.of(), List.of());
+        }
+
+        @Override
+        public PerimeterOutcome perimeter(List<String> wanted) {
+            steps++;
+            terms = List.copyOf(wanted);
+            PerimeterAnalysis analysis;
+            try {
+                analysis = analyze.analyze(PROJECT, wanted, null, 1, () -> false);
+            } catch (IllegalArgumentException | DomainException e) {
+                invalid = true;
+                return new PerimeterOutcome(false, List.of());
+            }
+            qualified = EvalRuns.retrying(() -> analyze.qualify(analysis, Language.FR, List.of(), question));
+            return new PerimeterOutcome(false, List.of());
+        }
+
+        @Override
+        public int stepsLeft() {
+            return 5 - steps;
+        }
+
+        @Override
+        public boolean perimeterDone() {
+            return terms != null;
+        }
+
+        @Override
+        public boolean cancelled() {
+            return false;
+        }
+    }
+
     private static CaseRun analyze(ConversationLlm llm, String sheet, Path tree, String name, String question,
             Map<String, String> expected, int run) {
-        ConversationLlm.Plan plan = EvalRuns.retrying(() -> llm.plan(new ConversationLlm.PlanRequest(Language.FR, sheet,
-                "", List.of(), question, List.of(), 5, null, true, List.of())));
-        if (plan.action() != ConversationLlm.Action.PERIMETER) {
-            return new CaseRun(name, run, List.of(), expected, Map.of(), "PAS_D_ANALYSE (" + plan.action() + ")");
-        }
         InMemorySourceRoots roots = new InMemorySourceRoots();
         roots.save(new SourceRoot(UUID.randomUUID(), PROJECT, tree.toString(), ExclusionPatterns.NONE, Instant.EPOCH));
         AnalyzePerimeter analyze = new AnalyzePerimeter(roots, new LocalSourceTree(), llm, new FixedClock());
-        PerimeterAnalysis analysis;
-        try {
-            analysis = analyze.analyze(PROJECT, plan.terms(), null, 1, () -> false);
-        } catch (IllegalArgumentException e) {
-            return new CaseRun(name, run, plan.terms(), expected, Map.of(), "TERMES_INVALIDES");
+        PerimeterTools tools = new PerimeterTools(analyze, question);
+        EvalRuns.retrying(() -> {
+            tools.reset();
+            return llm.converse(new ConversationLlm.AgentRequest(Language.FR, sheet, "", List.of(), question, List.of(),
+                    List.of(), 5, null, true, List.of()), tools, d -> { });
+        });
+        if (tools.terms == null) {
+            return new CaseRun(name, run, List.of(), expected, Map.of(), "PAS_D_ANALYSE");
         }
-        AnalyzePerimeter.Qualified qualified = EvalRuns.retrying(() -> analyze.qualify(analysis, Language.FR, List.of(),
-                question));
+        if (tools.invalid) {
+            return new CaseRun(name, run, tools.terms, expected, Map.of(), "TERMES_INVALIDES");
+        }
         Map<String, String> found = new LinkedHashMap<>();
-        for (PerimeterModule m : qualified.analysis().modules()) {
+        for (PerimeterModule m : tools.qualified.analysis().modules()) {
             found.put(m.module().name(), m.qualification().name());
         }
-        return new CaseRun(name, run, analysis.terms(), expected, found, qualified.failed() ? "QUALIFICATION" : null);
+        return new CaseRun(name, run, tools.qualified.analysis().terms(), expected, found,
+                tools.qualified.failed() ? "QUALIFICATION" : null);
     }
 
     /** Moyenne des exécutions de la moyenne des cas, pour le rappel ou l'accord. */

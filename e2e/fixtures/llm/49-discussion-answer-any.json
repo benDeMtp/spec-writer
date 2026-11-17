@@ -1,5 +1,5 @@
 {
-  "operation": "converse-answer",
+  "operation": "converse-agent",
   "userContains": [
     "<specification-discutee"
   ],

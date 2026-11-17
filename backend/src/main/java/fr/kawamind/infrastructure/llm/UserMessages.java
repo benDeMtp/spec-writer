@@ -16,6 +16,7 @@ import fr.kawamind.domain.llm.ImpactRequest;
 import fr.kawamind.domain.llm.RelatedIssuesRequest;
 import fr.kawamind.domain.llm.QuestionAndAnswer;
 import fr.kawamind.domain.port.ConversationLlm;
+import fr.kawamind.domain.port.TurnTools;
 import fr.kawamind.domain.question.QuestionTheme;
 import fr.kawamind.domain.session.Language;
 import java.util.Collection;
@@ -27,7 +28,7 @@ import java.util.stream.Collectors;
  * du contenu sont neutralisés pour qu'un texte saisi ne puisse pas fermer une balise. La connaissance
  * du projet suit la langue, dans {@code <connaissance-projet>} (research.md R24 de 002).
  */
-final class UserMessages {
+public final class UserMessages {
 
     private UserMessages() {
     }
@@ -186,14 +187,39 @@ final class UserMessages {
         };
     }
 
-    /** 010 : ce que l'agent sait au moment de choisir sa prochaine recherche (titres seulement). */
-    static String conversePlan(ConversationLlm.PlanRequest r) {
+    /**
+     * 014 : données d'un tour de l'agent. Les sources déjà là (spécification discutée, documents
+     * désignés) portent leur numéro ; les autres arrivent par les outils.
+     */
+    static String converseAgent(ConversationLlm.AgentRequest r) {
         return language(r.language()) + "\n" + discussed(r.discussed()) + block("fiche-generale", r.generalSheet()) + "\n"
                 + block("memoire", r.memory()) + "\n" + exchange(r.history())
-                + "\n" + block("question", r.question()) + "\n" + sources(r.found(), false)
+                + "\n" + block("question", r.question()) + "\n" + sources(r.sources(), true) + "\n"
+                + block("non-comparees", String.join("\n", r.notCompared()))
                 + "\n<recherches-restantes>" + r.searchesLeft() + "</recherches-restantes>"
                 + "\n<perimetre-disponible>" + (r.perimeterAvailable() ? "oui" : "non") + "</perimetre-disponible>"
                 + "\n" + block("dernier-perimetre", String.join("\n", r.lastPerimeterTerms()));
+    }
+
+    /** 014 : résultat de {@code search_knowledge}, sources numérotées dans la continuité du tour. */
+    public static String found(TurnTools.Found found, int searchesLeft) {
+        StringBuilder out = new StringBuilder(sources(found.sources(), true));
+        if (!found.notCompared().isEmpty()) {
+            out.append('\n').append(block("non-comparees", String.join("\n", found.notCompared())));
+        }
+        out.append("\n<recherches-restantes>").append(searchesLeft).append("</recherches-restantes>");
+        if (searchesLeft <= 0) {
+            out.append("\n<recherche-arretee>oui</recherche-arretee>");
+        }
+        return out.toString();
+    }
+
+    /** 014 : résultat de {@code analyze_perimeter} : modules devenus sources, ou périmètre indisponible. */
+    public static String perimeter(TurnTools.PerimeterOutcome outcome) {
+        if (outcome.unavailable()) {
+            return "<perimetre-indisponible>oui</perimetre-indisponible>";
+        }
+        return sources(outcome.modules(), true);
     }
 
     /** Volume transmis au plus pour qualifier une analyse de périmètre (013, research.md R7). */
@@ -257,16 +283,6 @@ final class UserMessages {
             case Reason.Architecture x -> "relié à " + x.related() + " (" + (x.technology() == null ? "" : x.technology())
                     + (x.description() == null ? "" : ", " + x.description()) + ")";
         };
-    }
-
-    /** 010 : données de la réponse ; chaque source porte le numéro qu'elle peut être citée. */
-    static String converseAnswer(ConversationLlm.AnswerRequest r) {
-        return language(r.language()) + "\n" + discussed(r.discussed()) + block("fiche-generale", r.generalSheet()) + "\n"
-                + block("memoire", r.memory()) + "\n" + exchange(r.history())
-                + "\n" + block("question", r.question()) + "\n" + sources(r.sources(), true) + "\n"
-                + block("non-comparees", String.join("\n", r.notCompared())) + "\n<recherche-arretee>"
-                + (r.searchStopped() ? "oui" : "non") + "</recherche-arretee>"
-                + (r.perimeterUnavailable() ? "\n<perimetre-indisponible>oui</perimetre-indisponible>" : "");
     }
 
     /** 010 : échange et sources citées, pour rédiger un besoin. */
@@ -389,7 +405,7 @@ final class UserMessages {
         return out.append("</reponses>").toString();
     }
 
-    static String data(String text) {
+    public static String data(String text) {
         return text == null ? "" : text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 }

@@ -1,78 +1,49 @@
 package fr.kawamind.infrastructure.llm;
 
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.request.ResponseFormat;
-import fr.kawamind.domain.sources.ModuleQualification;
-import fr.kawamind.domain.sources.Qualification;
-import fr.kawamind.domain.conversation.EstablishedPoint;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.service.TokenStream;
 import fr.kawamind.domain.conversation.NeedDraft;
-import fr.kawamind.domain.conversation.SourceKind;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
-import fr.kawamind.domain.llm.DraftSpecification;
 import fr.kawamind.domain.port.ConversationLlm;
+import fr.kawamind.domain.port.TurnTools;
+import fr.kawamind.domain.sources.ModuleQualification;
+import fr.kawamind.infrastructure.llm.ai.AgentAi;
+import fr.kawamind.infrastructure.llm.ai.AgentTools;
+import fr.kawamind.infrastructure.llm.ai.ConversationAi;
 import fr.kawamind.infrastructure.llm.ai.SpecificationAi;
-import fr.kawamind.domain.question.QuestionTheme;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.function.BooleanSupplier;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import io.quarkiverse.langchain4j.ChatMemoryRemover;
 import org.jboss.logging.Logger;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Agent conversationnel sur Copilot (010, research.md R1, R2) : le plan est un JSON à schéma strict
- * (3 tentatives, comme les autres opérations), la réponse un texte rédigé en flux. Messages système
- * et utilisateur séparés ; le journal ne garde que l'opération, la durée et les tentatives.
+ * Port {@link ConversationLlm} sur les AI Services (014, research R3, R5) : l'agent est un AI Service
+ * en flux dont le framework tient la boucle d'outils ; les opérations structurées passent par leurs
+ * garde-fous de sortie. Cet adaptateur ne fait que construire les données balisées et convertir les
+ * erreurs.
  */
 public class LangChainConversationLlm implements ConversationLlm {
 
     private static final Logger LOG = Logger.getLogger(LangChainConversationLlm.class);
-    private static final JsonMapper JSON = JsonMapper.builder()
-            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
 
-    record PlanDto(String action, String query, List<String> kinds, List<String> terms) {
-    }
+    /** Identifiant de la mémoire de chaque tour, retirée à la fin du tour. */
+    private static final AtomicLong TURNS = new AtomicLong();
 
-    record QualificationDto(String id, String qualification, String justification) {
-    }
-
-    record QualificationsDto(List<QualificationDto> modules) {
-    }
-
-    record PointDto(String theme, String question, String answer, String basis, String sourceRef) {
-    }
-
-    record DraftDto(String need, List<PointDto> points) {
-    }
-
-    record SummaryDto(String summary) {
-    }
-
-    private final ChatModel model;
-    private final ConversationStream stream;
+    private final AgentAi agent;
+    private final ConversationAi conversation;
     private final SpecificationAi specification;
     private final Duration timeout;
 
-    LangChainConversationLlm(ChatModel model, ConversationStream stream, Duration timeout) {
-        this(model, stream, null, timeout);
-    }
-
-    LangChainConversationLlm(ChatModel model, ConversationStream stream, SpecificationAi specification,
+    public LangChainConversationLlm(AgentAi agent, ConversationAi conversation, SpecificationAi specification,
             Duration timeout) {
-        this.model = model;
-        this.stream = stream;
+        this.agent = agent;
+        this.conversation = conversation;
         this.specification = specification;
         this.timeout = timeout;
     }
@@ -82,51 +53,75 @@ public class LangChainConversationLlm implements ConversationLlm {
         ScopedValue.where(ReasoningSink.CURRENT, reasoning).run(work);
     }
 
+    /**
+     * Un tour de l'agent : réponse en flux, outils exécutés par le framework sur ce fil. L'arrêt
+     * demandé coupe le flux en cours ({@link CallCancellation}) ; le texte reçu est rendu.
+     */
     @Override
-    public Plan plan(PlanRequest request) {
-        return call("converse-plan", UserMessages.conversePlan(request), LlmSchemas.CONVERSE_PLAN,
-                LangChainConversationLlm::toPlan);
+    public String converse(AgentRequest request, TurnTools tools, Consumer<String> deltas) {
+        long start = System.nanoTime();
+        StringBuilder text = new StringBuilder();
+        CompletableFuture<Void> done = new CompletableFuture<>();
+        Consumer<String> reasoning = ReasoningSink.current().orElse(null);
+        String memory = "tour-" + TURNS.incrementAndGet();
+        long[] firstDelta = {0};
+        try {
+            ScopedValue.where(CallTimeout.CURRENT, timeout).where(CallCancellation.CURRENT, tools::cancelled)
+                    .where(AgentTools.CURRENT, tools).run(() -> {
+                TokenStream stream = agent.converse(memory, UserMessages.converseAgent(request),
+                        InvocationParameters.from(Map.of(AgentTools.TURN, tools)));
+                stream.onPartialResponse(delta -> {
+                    if (!tools.cancelled()) {
+                        if (text.isEmpty()) {
+                            firstDelta[0] = System.nanoTime();
+                        }
+                        text.append(delta);
+                        deltas.accept(delta);
+                    }
+                })
+                        .onPartialThinking(t -> {
+                            if (reasoning != null && t.text() != null) {
+                                reasoning.accept(t.text());
+                            }
+                        })
+                        .onCompleteResponse(r -> done.complete(null))
+                        .onError(done::completeExceptionally)
+                        .start();
+            });
+            done.get();
+            // SC-004 : délai avant le premier morceau visible de la réponse
+            LOG.infof("LLM converse-agent : tour en %d ms, réponse visible à %d ms, %d caractères",
+                    (System.nanoTime() - start) / 1_000_000,
+                    firstDelta[0] == 0 ? -1 : (firstDelta[0] - start) / 1_000_000, text.length());
+            return text.toString();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new DomainException(ErrorCode.LLM_UNAVAILABLE);
+        } catch (ExecutionException e) {
+            throw AiCalls.domain(e.getCause());
+        } catch (RuntimeException e) {
+            throw AiCalls.domain(e);
+        } finally {
+            ChatMemoryRemover.remove(agent, memory);
+        }
     }
 
     @Override
     public List<ModuleQualification> qualify(QualifyRequest request) {
-        return call("qualify-perimeter", UserMessages.qualifyPerimeter(request), LlmSchemas.PERIMETER_QUALIFICATION,
-                LangChainConversationLlm::toQualifications);
-    }
-
-    /** Une entrée mal formée est écartée : le module reste non qualifié, jamais retiré. */
-    static List<ModuleQualification> toQualifications(String json) {
-        QualificationsDto dto = JSON.readValue(json, QualificationsDto.class);
-        if (dto == null || dto.modules() == null) {
-            throw new IllegalArgumentException("Qualification absente");
-        }
-        List<ModuleQualification> out = new ArrayList<>();
-        for (QualificationDto q : dto.modules()) {
-            if (q == null || q.id() == null || q.qualification() == null) {
-                continue;
-            }
-            try {
-                Qualification value = Qualification.valueOf(q.qualification());
-                if (value != Qualification.UNQUALIFIED) {
-                    out.add(new ModuleQualification(q.id(), value, q.justification() == null ? "" : q.justification().strip()));
-                }
-            } catch (IllegalArgumentException e) {
-                LOG.debugf("Qualification écartée (%s)", e.getClass().getSimpleName());
-            }
-        }
-        return out;
+        return AiCalls.call(timeout, () -> conversation.qualify(UserMessages.qualifyPerimeter(request),
+                LlmSchemas.params(LlmSchemas.PERIMETER_QUALIFICATION))).modules();
     }
 
     @Override
     public NeedDraft draftNeed(DraftRequest request) {
-        return call("propose-need", UserMessages.needDraft(request), LlmSchemas.NEED_DRAFT,
-                LangChainConversationLlm::toDraft);
+        return AiCalls.call(timeout, () -> conversation.draftNeed(UserMessages.needDraft(request),
+                LlmSchemas.params(LlmSchemas.NEED_DRAFT)));
     }
 
     @Override
     public String compact(CompactRequest request) {
-        return call("compact-memory", UserMessages.compact(request), LlmSchemas.COMPACT_MEMORY,
-                LangChainConversationLlm::toSummary);
+        return AiCalls.call(timeout, () -> conversation.compact(UserMessages.compact(request),
+                LlmSchemas.params(LlmSchemas.COMPACT_MEMORY))).text();
     }
 
     @Override
@@ -139,105 +134,5 @@ public class LangChainConversationLlm implements ConversationLlm {
     public List<ChangeCandidate> changes(ChangesRequest request) {
         return AiCalls.call(timeout, () -> specification.changes(UserMessages.changes(request),
                 LlmSchemas.params(LlmSchemas.CHANGE_CANDIDATES))).changes();
-    }
-
-    /** Un résumé vide ne remplace pas la mémoire : la sortie est redemandée. */
-    static String toSummary(String json) {
-        SummaryDto dto = JSON.readValue(json, SummaryDto.class);
-        if (dto == null || dto.summary() == null || dto.summary().isBlank()) {
-            throw new IllegalArgumentException("Résumé vide");
-        }
-        return dto.summary().strip();
-    }
-
-    private <T> T call(String operation, String user, ResponseFormat format, Function<String, T> parse) {
-        String system = LangChainLlmClient.prompt(operation);
-        long start = System.nanoTime();
-        String feedback = "";
-        for (int attempt = 1; attempt <= LangChainLlmClient.MAX_ATTEMPTS; attempt++) {
-            ChatRequest chat = ChatRequest.builder()
-                    .messages(SystemMessage.from(system), UserMessage.from(user + feedback))
-                    .responseFormat(format).build();
-            String text = ScopedValue.where(CallTimeout.CURRENT, timeout).call(() -> model.chat(chat).aiMessage().text());
-            try {
-                T result = parse.apply(text);
-                LOG.infof("LLM %s : %d ms, %d tentative(s)", operation, (System.nanoTime() - start) / 1_000_000, attempt);
-                return result;
-            } catch (JacksonException | IllegalArgumentException e) {
-                LOG.warnf("LLM %s : sortie invalide à la tentative %d (%s)", operation, attempt,
-                        e.getClass().getSimpleName());
-                feedback = "\n<correction>La réponse précédente n'était pas un JSON conforme au schéma demandé."
-                        + "</correction>";
-            }
-        }
-        throw new DomainException(ErrorCode.LLM_INVALID_OUTPUT);
-    }
-
-    /** Un point mal formé est écarté : l'utilisateur relit de toute façon le brouillon. */
-    static NeedDraft toDraft(String json) {
-        DraftDto dto = JSON.readValue(json, DraftDto.class);
-        if (dto == null || dto.need() == null) {
-            throw new IllegalArgumentException("Besoin absent");
-        }
-        List<EstablishedPoint> points = new ArrayList<>();
-        for (PointDto p : dto.points() == null ? List.<PointDto>of() : dto.points()) {
-            if (p == null || p.theme() == null || p.basis() == null) {
-                continue;
-            }
-            try {
-                points.add(new EstablishedPoint(QuestionTheme.valueOf(p.theme()), p.question(), p.answer(),
-                        EstablishedPoint.Basis.valueOf(p.basis()), p.sourceRef()));
-            } catch (DomainException | IllegalArgumentException e) {
-                LOG.debugf("Point établi écarté (%s)", e.getClass().getSimpleName());
-            }
-        }
-        return new NeedDraft(dto.need(), points.stream().limit(NeedDraft.MAX_POINTS).toList());
-    }
-
-    @Override
-    public String answer(AnswerRequest request, Consumer<String> deltas, BooleanSupplier cancelled) {
-        String system = LangChainLlmClient.prompt("converse-answer");
-        long start = System.nanoTime();
-        try {
-            String text = ScopedValue.where(CallTimeout.CURRENT, timeout)
-                    .call(() -> stream.stream(system, UserMessages.converseAnswer(request), deltas, cancelled));
-            LOG.infof("LLM converse-answer : %d ms, %d caractères", (System.nanoTime() - start) / 1_000_000, text.length());
-            return text;
-        } catch (DomainException e) {
-            LOG.warnf(e, "LLM converse-answer : échec après %d ms (%s)", (System.nanoTime() - start) / 1_000_000, e.code());
-            throw e;
-        }
-    }
-
-    static Plan toPlan(String json) {
-        PlanDto dto = JSON.readValue(json, PlanDto.class);
-        if (dto == null || dto.action() == null) {
-            throw new IllegalArgumentException("Action absente");
-        }
-        Action action = Action.valueOf(dto.action());
-        if (action == Action.ANSWER) {
-            return Plan.answer();
-        }
-        if (action == Action.PERIMETER) {
-            List<String> terms = dto.terms() == null ? List.of() : dto.terms().stream()
-                    .filter(t -> t != null && !t.isBlank()).map(String::strip).toList();
-            if (terms.isEmpty()) {
-                throw new IllegalArgumentException("Analyse de périmètre sans terme");
-            }
-            return Plan.perimeter(terms);
-        }
-        if (dto.query() == null || dto.query().isBlank()) {
-            throw new IllegalArgumentException("Recherche sans mots");
-        }
-        Set<SourceKind> kinds = EnumSet.noneOf(SourceKind.class);
-        if (dto.kinds() != null) {
-            for (String k : dto.kinds()) {
-                SourceKind kind = SourceKind.valueOf(k);
-                if (kind != SourceKind.ATTACHMENT && kind != SourceKind.DISCUSSION) {
-                    kinds.add(kind);
-                }
-            }
-        }
-        return new Plan(Action.SEARCH, dto.query().strip(), kinds);
     }
 }

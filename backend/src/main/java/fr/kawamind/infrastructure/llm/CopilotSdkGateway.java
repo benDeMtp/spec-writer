@@ -63,13 +63,6 @@ public interface CopilotSdkGateway {
                 ReasoningSink.current().orElse(null), null)).text();
     }
 
-    /** Réponse en texte libre, en flux, sans outil ; abandonnée dès que {@code cancelled} est vrai. */
-    default String stream(String model, String systemPrompt, String userPrompt, Consumer<String> deltas,
-            BooleanSupplier cancelled) {
-        return call(new Call(model, systemPrompt, userPrompt, null, List.of(), deltas,
-                ReasoningSink.current().orElse(null), cancelled)).text();
-    }
-
     /** Erreur du SDK, classée pour être convertie en erreur métier. */
     final class GatewayException extends RuntimeException {
 

@@ -107,15 +107,6 @@ public final class ReplayChatModel implements ChatModel {
         return ChatResponse.builder().aiMessage(AiMessage.from(text)).finishReason(FinishReason.STOP).build();
     }
 
-    /** Réponse en texte libre rejouée pour une opération en flux (010). */
-    String text(String system, String user) {
-        Entry e = find(system, user);
-        if (e.reasoning() != null) {
-            ReasoningSink.current().ifPresent(sink -> sink.accept(e.reasoning()));
-        }
-        return e.text() != null ? e.text() : resolveQuestionIds(e.response(), user);
-    }
-
     Entry find(String system, String user) {
         String operation = Operations.of(system).orElse("");
         int tools = countResults(user);

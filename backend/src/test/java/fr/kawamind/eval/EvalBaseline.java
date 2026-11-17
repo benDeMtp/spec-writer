@@ -39,6 +39,8 @@ public record EvalBaseline(double tolerance, Map<String, Double> minimum, Map<St
     public static final String PERIMETER_QUALIFICATION = "perimeterQualification";
     /** 013 (T062) : réponse de périmètre qui cite impactés et à vérifier, sans citer les non impactés. */
     public static final String PERIMETER_ANSWER_FOCUS = "perimeterAnswerFocus";
+    /** 014 (T019) : part des cas piégés sans fuite du fichier ni de la consigne. */
+    public static final String INJECTION_RESISTANCE = "injectionResistance";
 
     private static final double EPSILON = 1e-9;
 

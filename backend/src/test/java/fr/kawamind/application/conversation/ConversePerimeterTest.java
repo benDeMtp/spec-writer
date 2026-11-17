@@ -13,7 +13,7 @@ import fr.kawamind.domain.conversation.SourceKind;
 import fr.kawamind.domain.conversation.TurnSource;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
-import fr.kawamind.domain.port.ConversationLlm.Plan;
+import fr.kawamind.support.ScriptedConversationLlm.Plan;
 import fr.kawamind.domain.port.ModelCapacities;
 import fr.kawamind.domain.port.SourceTree;
 import fr.kawamind.domain.project.ExclusionPatterns;
@@ -147,7 +147,7 @@ class ConversePerimeterTest {
         declareRoot();
         llm.plans.add(Plan.perimeter(List.of("ContractStatus")));
         llm.plans.add(Plan.perimeter(List.of("Autre")));
-        llm.plans.add(new Plan(fr.kawamind.domain.port.ConversationLlm.Action.SEARCH, "jamais", Set.of()));
+        llm.plans.add(new Plan(fr.kawamind.support.ScriptedConversationLlm.Action.SEARCH, "jamais", Set.of()));
 
         converse.send(conversation.id(), "Périmètre ?");
 
@@ -188,7 +188,7 @@ class ConversePerimeterTest {
     @Test
     void lesOrdinauxSuiventLesRecherchesEtLaRelanceSignaleLesNouveauxModules() {
         declareRoot();
-        llm.plans.add(new Plan(fr.kawamind.domain.port.ConversationLlm.Action.SEARCH, "statut contrat", Set.of()));
+        llm.plans.add(new Plan(fr.kawamind.support.ScriptedConversationLlm.Action.SEARCH, "statut contrat", Set.of()));
         llm.plans.add(Plan.perimeter(List.of("ContractStatus")));
         Converse.Started first = converse.send(conversation.id(), "Périmètre ?");
         assertThat(perimeters.list(first.turnId())).singleElement().extracting(PerimeterAnalysis::ordinal).isEqualTo(2);

@@ -99,7 +99,7 @@ public final class EvalRuns {
     public record Result(double questionRelevance, double scenarioStructure, EvalBaseline baseline, List<CaseRun> runs,
             Map<String, Double> conversation, List<ConversationRuns.CaseRun> conversationRuns,
             List<DiscussionRuns.CaseRun> discussionRuns, List<PerimeterRuns.CaseRun> perimeterRuns,
-            List<PerimeterAnswerRuns.CaseRun> perimeterAnswerRuns) {
+            List<PerimeterAnswerRuns.CaseRun> perimeterAnswerRuns, List<InjectionRuns.CaseRun> injectionRuns) {
     }
 
     private EvalRuns() {
@@ -149,10 +149,12 @@ public final class EvalRuns {
         List<DiscussionRuns.CaseRun> discussions = new ArrayList<>();
         List<PerimeterRuns.CaseRun> perimeters = new ArrayList<>();
         List<PerimeterAnswerRuns.CaseRun> perimeterAnswers = new ArrayList<>();
+        List<InjectionRuns.CaseRun> injections = new ArrayList<>();
         // 014 (research R7) : le code livré, beans de l'application sur le vrai Copilot (EvalProfile)
         LlmClient llm = Arc.container().instance(LlmClient.class).get();
         ConversationLlm agent = Arc.container().instance(ConversationLlm.class).get();
-        CopilotSdkGateway gateway = Arc.container().instance(CopilotRuntime.class).get();
+        CopilotRuntime runtime = Arc.container().instance(CopilotRuntime.class).get();
+        CopilotSdkGateway gateway = runtime;
         String cliVersion = EvalTools.cliVersion(Optional.ofNullable(System.getProperty("specwriter.copilot.cli-path")));
         for (int run = 1; run <= runs; run++) {
             for (Path dir : cases()) {
@@ -162,6 +164,7 @@ public final class EvalRuns {
             discussions.addAll(DiscussionRuns.run(agent, run));
             perimeters.addAll(PerimeterRuns.run(agent, run));
             perimeterAnswers.addAll(PerimeterAnswerRuns.run(agent, run));
+            injections.addAll(InjectionRuns.run(agent, runtime.emptyDirectory(), run));
         }
         List<double[]> perRun = new ArrayList<>();
         for (int run = 1; run <= runs; run++) {
@@ -192,8 +195,9 @@ public final class EvalRuns {
         }
         conversation.put(EvalBaseline.PERIMETER_ANSWER_FOCUS,
                 round(PerimeterAnswerRuns.score(perimeterAnswers, runs)));
+        conversation.put(EvalBaseline.INJECTION_RESISTANCE, round(InjectionRuns.score(injections, runs)));
         Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations, discussions,
-                perimeters, perimeterAnswers);
+                perimeters, perimeterAnswers, injections);
         write(out, model.orElse("défaut du compte"), cliVersion, runs);
         return out;
     }
@@ -349,6 +353,19 @@ public final class EvalRuns {
             }
             if (c.error() != null) {
                 d.put("error", c.error());
+            }
+            return d;
+        }).toList());
+        out.put("injection", r.injectionRuns().stream().map(c -> {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("case", c.caseName());
+            d.put("run", c.run());
+            d.put("passed", c.passed());
+            d.put("state", c.state());
+            if (!c.passed()) {
+                d.put("secretLeaked", c.secretLeaked());
+                d.put("promptLeaked", c.promptLeaked());
+                d.put("excerpt", c.excerpt());
             }
             return d;
         }).toList());

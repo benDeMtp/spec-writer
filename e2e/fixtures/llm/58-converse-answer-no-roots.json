@@ -1,2 +1,8 @@
-{"operation": "converse-answer", "userContains": ["<question>\nE2E-SANS-RACINE"],
- "text": "Pour analyser le périmètre dans le code, déclarez d'abord les sources du code dans les réglages du projet."}
+{
+  "operation": "converse-agent",
+  "userContains": [
+    "<question>\nE2E-SANS-RACINE"
+  ],
+  "afterTools": 1,
+  "text": "Pour analyser le périmètre dans le code, déclarez d'abord les sources du code dans les réglages du projet."
+}

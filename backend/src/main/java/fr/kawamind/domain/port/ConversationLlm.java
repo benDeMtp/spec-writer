@@ -5,7 +5,6 @@ import fr.kawamind.domain.sources.PerimeterSnapshot;
 import fr.kawamind.domain.conversation.CitedSource;
 import fr.kawamind.domain.conversation.MessageRole;
 import fr.kawamind.domain.conversation.NeedDraft;
-import fr.kawamind.domain.conversation.SourceKind;
 import fr.kawamind.domain.conversation.TurnSource;
 import fr.kawamind.domain.knowledge.ProjectKnowledge;
 import fr.kawamind.domain.llm.DraftSpecification;
@@ -14,12 +13,10 @@ import fr.kawamind.domain.session.Language;
 import fr.kawamind.domain.sources.ModuleQualification;
 import fr.kawamind.domain.sources.PerimeterAnalysis;
 import java.util.List;
-import java.util.Set;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
- * Agent conversationnel (010, research.md R1, R2) : chaque appel reçoit des données seulement ; les
+ * Agent conversationnel (010, 014 research R5) : chaque appel reçoit des données seulement ; les
  * consignes sont celles de l'outil. Erreurs en {@code DomainException} comme {@link LlmClient}.
  */
 public interface ConversationLlm {
@@ -33,50 +30,20 @@ public interface ConversationLlm {
     }
 
     /**
-     * Ce que l'agent sait au moment de choisir : chercher encore, ou répondre. {@code memory} :
-     * résumé des échanges anciens (vide s'il n'y en a pas), avant {@code history}, les récents.
+     * Données d'un tour de l'agent (014, research R5). {@code sources} : celles déjà là au début du
+     * tour (spécification discutée, documents désignés), numérotées ; les autres arrivent par les
+     * outils. {@code memory} : résumé des échanges anciens (vide s'il n'y en a pas), avant
+     * {@code history}, les récents.
      */
-    record PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history, String question,
-            List<TurnSource> found, int searchesLeft, Discussed discussed, boolean perimeterAvailable,
-            List<String> lastPerimeterTerms) {
+    record AgentRequest(Language language, String generalSheet, String memory, List<Exchange> history,
+            String question, List<TurnSource> sources, List<String> notCompared, int searchesLeft,
+            Discussed discussed, boolean perimeterAvailable, List<String> lastPerimeterTerms) {
 
-        public PlanRequest {
+        public AgentRequest {
+            history = List.copyOf(history);
+            sources = List.copyOf(sources);
+            notCompared = List.copyOf(notCompared);
             lastPerimeterTerms = lastPerimeterTerms == null ? List.of() : List.copyOf(lastPerimeterTerms);
-        }
-
-        public PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history,
-                String question, List<TurnSource> found, int searchesLeft, Discussed discussed) {
-            this(language, generalSheet, memory, history, question, found, searchesLeft, discussed, false, List.of());
-        }
-
-        public PlanRequest(Language language, String generalSheet, String memory, List<Exchange> history,
-                String question, List<TurnSource> found, int searchesLeft) {
-            this(language, generalSheet, memory, history, question, found, searchesLeft, null);
-        }
-    }
-
-    /** Chercher dans la connaissance, analyser le périmètre dans les sources du code (013), ou répondre. */
-    enum Action {
-        SEARCH, PERIMETER, ANSWER
-    }
-
-    /** {@code terms} : termes à chercher dans les sources du code, pour l'action {@code PERIMETER}. */
-    record Plan(Action action, String query, Set<SourceKind> kinds, List<String> terms) {
-
-        public Plan {
-            terms = terms == null ? List.of() : List.copyOf(terms);
-        }
-
-        public Plan(Action action, String query, Set<SourceKind> kinds) {
-            this(action, query, kinds, List.of());
-        }
-
-        public static Plan answer() {
-            return new Plan(Action.ANSWER, null, Set.of());
-        }
-
-        public static Plan perimeter(List<String> terms) {
-            return new Plan(Action.PERIMETER, null, Set.of(), terms);
         }
     }
 
@@ -85,26 +52,6 @@ public interface ConversationLlm {
      * l'échange récent et l'analyse, extraits compris.
      */
     record QualifyRequest(Language language, List<Exchange> history, String question, PerimeterAnalysis analysis) {
-    }
-
-    /**
-     * Données de la réponse : sources numérotées, sources non transmises faute de place, et si la
-     * recherche s'est arrêtée au plafond.
-     */
-    record AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
-            String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped,
-            Discussed discussed, boolean perimeterUnavailable) {
-
-        public AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
-                String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped,
-                Discussed discussed) {
-            this(language, generalSheet, memory, history, question, sources, notCompared, searchStopped, discussed, false);
-        }
-
-        public AnswerRequest(Language language, String generalSheet, String memory, List<Exchange> history,
-                String question, List<TurnSource> sources, List<String> notCompared, boolean searchStopped) {
-            this(language, generalSheet, memory, history, question, sources, notCompared, searchStopped, null);
-        }
     }
 
     /** Échange et sources citées dans la conversation, pour rédiger un besoin (010, US2). */
@@ -199,19 +146,19 @@ public interface ConversationLlm {
         work.run();
     }
 
-    Plan plan(PlanRequest request);
+    /**
+     * Un tour de l'agent (014, research R5) : l'agent cherche et analyse le périmètre par les
+     * {@code tools} du tour, autant que nécessaire dans leurs limites, puis rédige sa réponse en
+     * Markdown en flux ; chaque morceau est passé à {@code deltas}. S'arrête dès que
+     * {@link TurnTools#cancelled()} est vrai. Renvoie le texte complet (ou ce qui a été écrit).
+     */
+    String converse(AgentRequest request, TurnTools tools, Consumer<String> deltas);
 
     /**
      * Qualifie les modules d'une analyse de périmètre (013) : impacté, à vérifier ou non impacté,
      * avec une justification. Un module omis reste non qualifié ; aucun n'est retiré.
      */
     List<ModuleQualification> qualify(QualifyRequest request);
-
-    /**
-     * Rédige la réponse en Markdown en flux : chaque morceau est passé à {@code deltas} ; s'arrête
-     * dès que {@code cancelled} est vrai. Renvoie le texte complet (ou ce qui a été écrit).
-     */
-    String answer(AnswerRequest request, Consumer<String> deltas, BooleanSupplier cancelled);
 
     /** Propose un besoin et des points établis ; rien n'est démarré. */
     NeedDraft draftNeed(DraftRequest request);
