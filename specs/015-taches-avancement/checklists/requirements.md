@@ -35,7 +35,6 @@
   choix d'implémentation ; les noms d'outils MCP (`next_task`, `start_task`, `complete_task`) sont
   laissés au plan.
 - Choix par défaut retenus sans clarification (à revoir avec `/speckit-clarify` si besoin) :
-  transition refusée si Jira est injoignable (pas de file d'attente), aucune suppression de
+  aucune suppression de
   sous-tâche dans Jira, nouvelle proposition seulement complémentaire après validation, relecture
-  Jira à la demande sans tâche de fond, statut de la spécification réaligné au prochain changement
-  de tâche après un changement manuel.
+  Jira à la demande sans tâche de fond.

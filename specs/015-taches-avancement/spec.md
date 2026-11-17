@@ -8,6 +8,29 @@
 
 **Input**: User description: "Feature 015 : rédaction d'une story avec cas d'usage à partir d'un document entrant, découpage en tâches proposé par spec-writer et suivi d'avancement synchronisé avec Jira et exposé aux agents par le MCP. Décisions prises le 16/11 : découpage sur demande, fondé sur les modules touchés ou sur les cas d'usage, 3 à 8 tâches vérifiables, relu puis validé, créé en sous-tâches Jira ; suivi par l'agent avec get_feature, next_task, start_task, complete_task, choix déterministe ; transitions Jira choisies d'après la catégorie de statut ; statut de la spécification automatique ; statut des sous-tâches relu depuis Jira ; avancement affiché sur la spécification ; consignes inspirées de skills publics (user-story, INVEST, user-story-splitting, planning-and-task-breakdown) sans recopie, sous forme de consignes réutilisables gardées par l'évaluation réelle. Hors périmètre : l'argument --project du pont MCP, livré avant dans sa propre PR."
 
+## Clarifications
+
+### Session 2026-11-17
+
+- Q: Quand un agent prend ou termine une tâche et que Jira est injoignable, spec-writer refuse-t-il ou
+  enregistre-t-il pour envoyer plus tard ? → A: Il enregistre la transition et marque la tâche « à
+  synchroniser » ; l'envoi à Jira est retenté à la prochaine occasion et par un bouton
+  « Synchroniser » ; la passerelle répond à l'agent que la transition est enregistrée mais pas encore
+  dans Jira, et l'agent choisit de continuer ou non.
+- Q: Peut-on découper et suivre les tâches d'une spécification liée à aucun ticket Jira ? → A: Non :
+  sans ticket lié, la proposition est indisponible et un message invite à envoyer d'abord la
+  spécification vers Jira ; aucune tâche n'existe sans sous-tâche Jira.
+- Q: Une fois qu'une spécification a des tâches, l'utilisateur peut-il changer son statut à la main ?
+  → A: Non pour « En cours » et « Implémentée », qui ne dépendent que des tâches ; il peut la
+  repasser en Brouillon ou en Prête, ce qui suspend le suivi par les agents.
+- Q: Comment spec-writer distingue-t-il deux agents qui travaillent en même temps ? → A: Par
+  connexion : chaque lancement de la passerelle a son identifiant et une tâche est réservée à cette
+  connexion ; l'écran montre le nom de l'agent et l'heure de prise ; une tâche tenue par une connexion
+  fermée est proposée à la conversation suivante pour être reprise.
+- Q: En terminant une tâche, l'agent fournit-il un compte rendu ajouté en commentaire sur la
+  sous-tâche Jira ? → A: Facultatif : 2 000 caractères au plus, ajouté en commentaire Jira et
+  affiché sur l'écran de la spécification.
+
 ## Contexte
 
 Une spécification de spec-writer est liée à un seul ticket Jira (une story). Aujourd'hui, son
@@ -85,8 +108,11 @@ rien.
 1. **Given** une feature avec des tâches, **When** l'agent lit la feature, **Then** il reçoit aussi la
    liste des tâches : clé Jira, titre, résultat attendu, ordre, statut et, pour une tâche en cours,
    l'agent qui l'a prise.
-2. **Given** une tâche en cours, **When** l'agent demande la prochaine tâche, **Then** il reçoit cette
-   tâche en cours, même dans une nouvelle conversation.
+2. **Given** une tâche en cours tenue par la connexion de l'agent, ou par une connexion fermée,
+   **When** l'agent demande la prochaine tâche, **Then** il reçoit cette tâche en cours, même dans une
+   nouvelle conversation, et la reprendre la rattache à sa connexion.
+2b. **Given** une tâche en cours tenue par une autre connexion encore ouverte, **When** un agent
+   demande la prochaine tâche, **Then** il reçoit la tâche « À faire » suivante, pas celle-ci.
 3. **Given** aucune tâche en cours, **When** l'agent demande la prochaine tâche, **Then** il reçoit la
    première tâche « À faire » dans l'ordre dont les tâches préalables sont terminées.
 4. **Given** toutes les tâches terminées, **When** l'agent demande la prochaine tâche, **Then** la
@@ -97,6 +123,9 @@ rien.
    **Then** la demande est refusée avec un message clair qui nomme l'agent qui l'a prise.
 7. **Given** une tâche « En cours », **When** l'agent la termine, **Then** elle passe « Terminée » dans
    spec-writer et dans Jira, et le journal des agents l'inscrit.
+7b. **Given** une tâche « En cours », **When** l'agent la termine avec un compte rendu, **Then** le
+   compte rendu est ajouté en commentaire sur la sous-tâche Jira et affiché avec la tâche sur l'écran
+   de la spécification ; au-delà de 2 000 caractères, la demande est refusée avec un message clair.
 8. **Given** la même situation, **When** deux appels « prochaine tâche » se suivent sans autre
    changement, **Then** ils renvoient la même tâche.
 
@@ -185,16 +214,25 @@ document, et l'évaluation réelle mesure la conformité de cet énoncé.
   « introuvable dans Jira », sort du calcul de l'avancement et ne peut plus être prise par un agent.
 - **Workflow Jira sans transition directe** vers la catégorie visée : la transition est refusée avec
   un message qui nomme le statut actuel et la catégorie visée ; l'état de spec-writer ne change pas.
-- **Jira injoignable pendant une transition demandée par un agent** : la demande est refusée avec un
-  message clair et l'état ne change ni dans spec-writer ni dans Jira, pour ne jamais diverger.
+- **Jira injoignable pendant une transition demandée par un agent** : la transition est enregistrée
+  dans spec-writer et la tâche est marquée « à synchroniser ». La réponse à l'agent le signale
+  (transition enregistrée, pas encore dans Jira) ; l'agent choisit de continuer ou de s'arrêter.
+  L'envoi est retenté à l'ouverture de la spécification, au prochain appel d'un agent ou par le
+  bouton « Synchroniser ».
+- **Tâche à synchroniser modifiée entre-temps dans Jira** : à la relecture, le statut de Jira est
+  comparé à la transition en attente ; si Jira est déjà au statut visé, l'attente est levée ;
+  sinon la transition en attente est envoyée.
 - **Agent qui ne termine jamais sa tâche** : l'utilisateur peut libérer la tâche depuis l'écran de la
   spécification ; elle redevient « À faire » dans spec-writer et dans Jira.
 - **Tâche terminée dans Jira alors qu'un agent la tient** : la relecture la passe « Terminée » ; un
   appel « terminer » de l'agent répond qu'elle l'est déjà, sans erreur.
-- **Spécification non « Prête » ou « Brouillon »** : un agent ne voit pas ses tâches (la passerelle
+- **Spécification en Brouillon** : un agent ne voit pas ses tâches (la passerelle
   ne montre que les features à implémenter) ; l'utilisateur peut tout de même proposer et valider.
-- **Statut de la spécification changé à la main** : le choix de l'utilisateur est respecté jusqu'au
-  prochain changement de statut d'une tâche, qui l'aligne de nouveau sur les tâches.
+- **Statut de la spécification changé à la main** : une fois les tâches validées, « En cours » et
+  « Implémentée » ne se choisissent plus à la main. L'utilisateur peut repasser la spécification en
+  Brouillon ou en Prête : le suivi par les agents est alors suspendu (les outils de tâches refusent
+  avec un message clair) jusqu'à ce qu'il le reprenne ; le statut est alors recalculé d'après les
+  tâches.
 - **Contenu adressé à une IA** dans un titre de tâche ou dans le document joint : c'est une donnée,
   jamais une consigne, pour le modèle comme pour l'agent qui lit la feature.
 - **Proposition hors bornes** (moins de 3 ou plus de 8 tâches, tâche sans résultat vérifiable) : la
@@ -209,6 +247,9 @@ document, et l'évaluation réelle mesure la conformité de cet énoncé.
 
 - **FR-001**: L'utilisateur DOIT pouvoir demander une proposition de tâches sur une spécification
   liée à une story Jira, depuis l'écran de la spécification.
+- **FR-001a**: Sans ticket Jira lié, la proposition DOIT être indisponible, avec un message qui
+  invite à envoyer d'abord la spécification vers Jira ; aucune tâche n'est gardée sans sa sous-tâche
+  Jira, hors proposition en cours de relecture.
 - **FR-002**: La proposition DOIT compter de 3 à 8 tâches ordonnées ; chacune a un titre (120
   caractères au plus), un résultat vérifiable (une phrase), sa base (un module touché ou un cas
   d'usage de la spécification, cité par son nom) et, au besoin, les tâches qui doivent la précéder.
@@ -229,16 +270,32 @@ document, et l'évaluation réelle mesure la conformité de cet énoncé.
 - **FR-009**: La lecture d'une feature par un agent DOIT inclure ses tâches : clé Jira, titre,
   résultat attendu, ordre, tâches préalables, statut et agent qui la tient.
 - **FR-010**: La passerelle DOIT offrir un outil « prochaine tâche » qui renvoie, de façon
-  déterministe, la tâche en cours si elle existe, sinon la première tâche « À faire » dans l'ordre
-  dont les préalables sont terminés, sinon l'indication qu'il ne reste rien.
+  déterministe, la tâche en cours tenue par la connexion appelante ou par une connexion fermée si
+  elle existe, sinon la première tâche « À faire » dans l'ordre dont les préalables sont terminés,
+  sinon l'indication qu'il ne reste rien (ou que les tâches restantes sont tenues par d'autres
+  connexions).
 - **FR-011**: La passerelle DOIT offrir un outil « prendre une tâche » (vers « En cours », réservée à
   l'agent appelant) et un outil « terminer une tâche » (vers « Terminée »), désignant la tâche par sa
   clé Jira.
-- **FR-012**: Une tâche tenue par un agent NE DOIT PAS pouvoir être prise par un autre ; le refus
+- **FR-011a**: Chaque lancement de la passerelle DOIT être identifié comme une connexion distincte ;
+  une tâche prise est réservée à la connexion qui l'a prise, et l'écran affiche le nom de l'agent et
+  l'heure de prise. Une tâche tenue par une connexion fermée DOIT pouvoir être reprise par une autre
+  connexion, et « prochaine tâche » la propose en priorité.
+- **FR-011b**: « Terminer une tâche » DOIT accepter un compte rendu facultatif de 2 000 caractères au
+  plus, ajouté en commentaire sur la sous-tâche Jira (envoyé avec la transition, et mis « à
+  synchroniser » avec elle si Jira est injoignable) et affiché avec la tâche sur l'écran de la
+  spécification. Le compte rendu est une donnée : il n'est jamais journalisé ni transmis au modèle
+  comme consigne.
+- **FR-012**: Une tâche tenue par une connexion ouverte NE DOIT PAS pouvoir être prise par une autre ; le refus
   nomme l'agent qui la tient.
-- **FR-013**: Chaque transition demandée par un agent DOIT être appliquée à la sous-tâche Jira avant
-  d'être enregistrée dans spec-writer ; si Jira la refuse ou est injoignable, rien ne change et
+- **FR-013**: Chaque transition demandée par un agent DOIT être envoyée à la sous-tâche Jira. Si Jira
+  est injoignable, la transition DOIT être enregistrée dans spec-writer et la tâche marquée « à
+  synchroniser » ; la réponse à l'agent DOIT indiquer que la transition n'est pas encore dans Jira,
+  pour qu'il décide de continuer ou non. Si Jira refuse la transition (workflow), rien ne change et
   l'agent reçoit un message clair.
+- **FR-013a**: Les transitions en attente DOIVENT être renvoyées à l'ouverture de la spécification, au
+  prochain appel d'un agent sur la feature, et à la demande de l'utilisateur par un bouton
+  « Synchroniser » ; l'écran DOIT montrer les tâches à synchroniser.
 - **FR-014**: Chaque prise et chaque fin de tâche DOIVENT être inscrites au journal des agents, avec
   l'agent, la feature, la clé de la tâche et l'heure, sans contenu de la spécification.
 - **FR-015**: La transition Jira DOIT être choisie automatiquement parmi celles disponibles, d'après
@@ -257,6 +314,10 @@ document, et l'évaluation réelle mesure la conformité de cet énoncé.
 - **FR-020**: Le statut de la spécification DOIT suivre ses tâches : « En cours » dès qu'une tâche est
   en cours ou terminée sans que toutes le soient, « Implémentée » quand toutes les tâches suivies sont
   terminées.
+- **FR-020a**: Une fois des tâches validées, l'utilisateur NE DOIT PLUS pouvoir choisir « En cours » ni
+  « Implémentée » à la main. Il DOIT pouvoir repasser la spécification en Brouillon ou en Prête, ce
+  qui suspend le suivi par les agents (prochaine tâche, prendre, terminer refusés avec un message
+  clair) jusqu'à ce qu'il reprenne le suivi ; le statut est alors recalculé d'après les tâches.
 - **FR-021**: Si Jira ne peut pas être relu, l'écran DOIT montrer les derniers statuts connus, l'heure
   de la dernière relecture et un message qui le signale.
 - **FR-022**: L'utilisateur DOIT pouvoir libérer une tâche tenue par un agent ; elle redevient
@@ -287,7 +348,9 @@ document, et l'évaluation réelle mesure la conformité de cet énoncé.
 
 - **Tâche** : une étape d'implémentation d'une spécification. Titre, résultat attendu, base (module
   ou cas d'usage), ordre, tâches préalables, statut (À faire, En cours, Terminée, Introuvable dans
-  Jira), clé de la sous-tâche Jira, agent qui la tient et depuis quand, heure de dernière relecture.
+  Jira), clé de la sous-tâche Jira, connexion et nom de l'agent qui la tient et depuis quand, heure de dernière relecture,
+  transition en attente d'envoi à Jira (« à synchroniser ») le cas échéant, compte rendu de fin
+  donné par l'agent (facultatif).
   Appartient à une spécification.
 - **Proposition de tâches** : la liste proposée puis corrigée par l'utilisateur, tant qu'elle n'est
   pas validée. Elle n'existe que pour la spécification qui l'a demandée.
@@ -307,8 +370,9 @@ document, et l'évaluation réelle mesure la conformité de cet énoncé.
   moins de 2 minutes pour une proposition qu'il accepte telle quelle.
 - **SC-004**: Un agent qui reprend dans une nouvelle conversation obtient sa tâche en un seul appel,
   et deux appels successifs sans changement renvoient toujours la même tâche (100 % des essais).
-- **SC-005**: 100 % des transitions demandées par un agent sont visibles dans Jira quand spec-writer
-  confirme ; aucune divergence entre spec-writer et Jira après un refus ou une coupure.
+- **SC-005**: 100 % des transitions confirmées sans réserve sont visibles dans Jira ; une transition
+  faite pendant une coupure de Jira y arrive à la première synchronisation qui suit le retour de
+  Jira, et l'agent comme l'écran signalent l'écart tant qu'il dure.
 - **SC-006**: Une sous-tâche avancée directement dans Jira apparaît avec son nouveau statut dès
   l'ouverture suivante de la spécification.
 - **SC-007**: Sur l'évaluation réelle, au moins 90 % des énoncés de story nomment un rôle, une
