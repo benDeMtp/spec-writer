@@ -1,0 +1,6 @@
+{
+  "operation": "converse-agent",
+  "userContains": ["E2E-FIABILITE", "source=\"sharepoint\"", "fiabilite=\"reference\"", "source=\"confluence\""],
+  "afterTools": 1,
+  "text": "La demande d'origine plafonne une note de frais à 500 euros par mois [1]. La page Confluence « Notes de frais » indique 1 000 euros [2] : écart relevé, la demande SharePoint fait foi."
+}

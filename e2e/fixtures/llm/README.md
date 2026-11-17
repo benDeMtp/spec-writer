@@ -39,7 +39,8 @@ Les identifiants aléatoires se désignent par des substitutions, dans `response
 `arguments` :
 - `"__GOAL__"` (un thème de question) : l'identifiant de la question de ce thème ;
 - `"__DISCUSSION_n__"` : la référence du n-ième message de la discussion (011) ;
-- `"__MODULE:nom__"` : l'identifiant du module de ce nom (013).
+- `"__MODULE:nom__"` : l'identifiant du module de ce nom (013) ;
+- `"__DOC:titre__"` : la référence du document de ce titre transmis à la génération (016).
 
 Un tour de l'agent (`converse-agent`) se rejoue en plusieurs entrées, une par appel au modèle :
 `afterTools: 0` avec les `toolCalls` de la première étape, `afterTools: 1` avec ceux de la
@@ -57,6 +58,17 @@ l'entrée la plus proche, les fragments manquants. Le journal du jar E2E
 - `64-story-questions.json` et `65-generate-story.json` : besoin marqué `E2E-STORY` et document
   joint `Accueil velos.html` ; la génération rend `story` et `splitProposal` (US4). Les fixtures
   de génération antérieures n'ont pas ces champs : ils sont facultatifs à la lecture.
+
+## Fixtures de la 016
+
+- `70-fiabilite-plan.json` et `71-fiabilite-answer.json` : question marquée `E2E-FIABILITE` ; la
+  réponse n'est rendue que si les résultats de la recherche portent la provenance (`source=
+  "sharepoint"`, `fiabilite="reference"`, `source="confluence"`) et signale l'écart 500 € contre
+  1 000 € (`us16-confluence.spec.ts`).
+- `72-fiabilite-questions.json` et `73-fiabilite-specification.json` : génération avec un écart
+  entre sources. La demande SharePoint y est désignée par `"__DOC:titre__"`, remplacé par la
+  référence du document de ce titre dans le message (sa référence contient l'identifiant, aléatoire,
+  de sa source).
 
 ## Réenregistrer un échange
 
