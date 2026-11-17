@@ -119,7 +119,11 @@ import fr.kawamind.domain.port.SpecificationRepository;
 import fr.kawamind.domain.port.TextDiff;
 import fr.kawamind.domain.port.TicketLinkRepository;
 import fr.kawamind.domain.port.WikiMarkup;
+import fr.kawamind.application.task.AgentTasks;
 import fr.kawamind.application.task.EditProposal;
+import fr.kawamind.application.task.TaskJira;
+import fr.kawamind.application.task.TaskSync;
+import fr.kawamind.application.task.TrackingActions;
 import fr.kawamind.application.task.EditTasks;
 import fr.kawamind.application.task.ProposeTasks;
 import fr.kawamind.application.task.ReadTasks;
@@ -163,8 +167,33 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    ReadTasks readTasks(TaskDesk desk, AgentConnections connections) {
-        return new ReadTasks(desk, connections);
+    ReadTasks readTasks(TaskDesk desk, AgentConnections connections, TaskSync sync) {
+        return new ReadTasks(desk, connections, sync);
+    }
+
+    @Produces
+    @ApplicationScoped
+    TaskJira taskJira(IssueTracker tracker) {
+        return new TaskJira(tracker);
+    }
+
+    @Produces
+    @ApplicationScoped
+    TaskSync taskSync(TaskDesk desk, TaskJira jira) {
+        return new TaskSync(desk, jira);
+    }
+
+    @Produces
+    @ApplicationScoped
+    TrackingActions trackingActions(TaskDesk desk, TaskSync sync, TaskJira jira, ReadTasks read, AgentJournal journal) {
+        return new TrackingActions(desk, sync, jira, read, journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AgentTasks agentTasks(TaskDesk desk, TaskSync sync, TaskJira jira, AgentConnections connections,
+            AgentJournal journal) {
+        return new AgentTasks(desk, sync, jira, connections, journal);
     }
 
     @Produces
@@ -599,8 +628,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     GetFeature getFeature(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
-            ProjectRepository projects, KnowledgeIndex index, AgentJournal journal) {
-        return new GetFeature(sessions, versions, tickets, new FeatureKnowledge(projects, index), journal);
+            ProjectRepository projects, KnowledgeIndex index, AgentJournal journal, AgentTasks agentTasks) {
+        return new GetFeature(sessions, versions, tickets, new FeatureKnowledge(projects, index), journal, agentTasks);
     }
 
     @Produces
@@ -611,14 +640,15 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    AgentChangeStatus agentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal) {
-        return new AgentChangeStatus(sessions, clock, journal);
+    AgentChangeStatus agentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal,
+            TaskRepository tasks) {
+        return new AgentChangeStatus(sessions, clock, journal, tasks);
     }
 
     @Produces
     @ApplicationScoped
-    ChangeStatus changeStatus(SessionRepository sessions, ClockPort clock) {
-        return new ChangeStatus(sessions, clock);
+    ChangeStatus changeStatus(SessionRepository sessions, ClockPort clock, TaskRepository tasks) {
+        return new ChangeStatus(sessions, clock, tasks);
     }
 
     @Produces

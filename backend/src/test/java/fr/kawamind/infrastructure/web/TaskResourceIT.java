@@ -137,5 +137,11 @@ class TaskResourceIT {
         api().delete(base + "/" + taskId).then().statusCode(409)
                 .body("code", org.hamcrest.Matchers.equalTo("CANNOT_DELETE_CREATED"));
         api().delete(base + "/proposal").then().statusCode(204);
+        // la relecture échoue (aucune recherche simulée) : statuts connus et problème signalé
+        api().post(base + "/sync").then().statusCode(200)
+                .body("readProblem", org.hamcrest.Matchers.equalTo("JIRA_UNREACHABLE"))
+                .body("tasks[0].status", org.hamcrest.Matchers.equalTo("TODO"));
+        api().post(base + "/" + taskId + "/release").then().statusCode(409)
+                .body("code", org.hamcrest.Matchers.equalTo("TASK_NOT_READY"));
     }
 }

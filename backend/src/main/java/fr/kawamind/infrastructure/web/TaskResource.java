@@ -5,6 +5,7 @@ import fr.kawamind.application.task.EditTasks;
 import fr.kawamind.application.task.ProposeTasks;
 import fr.kawamind.application.task.ReadTasks;
 import fr.kawamind.application.task.TasksView;
+import fr.kawamind.application.task.TrackingActions;
 import fr.kawamind.application.task.ValidateTasks;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
@@ -86,6 +87,8 @@ public class TaskResource {
     ValidateTasks validateTasks;
     @Inject
     EditTasks editTasks;
+    @Inject
+    TrackingActions trackingActions;
 
     @GET
     public TasksJson list(@PathParam("id") String id) {
@@ -96,7 +99,7 @@ public class TaskResource {
     @Path("/proposal")
     public Response proposal(@PathParam("id") String id) {
         UUID session = Ids.parse(id);
-        return editProposal.current(session).map(p -> Response.ok(proposal(p, readTasks.run(session))).build())
+        return editProposal.current(session).map(p -> Response.ok(proposal(p, readTasks.current(session))).build())
                 .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build());
     }
 
@@ -105,7 +108,7 @@ public class TaskResource {
     public ProposalJson propose(@PathParam("id") String id) {
         UUID session = Ids.parse(id);
         TaskProposal p = proposeTasks.run(session);
-        return proposal(p, readTasks.run(session));
+        return proposal(p, readTasks.current(session));
     }
 
     @PUT
@@ -120,7 +123,7 @@ public class TaskResource {
                 t.basis() == null ? Basis.NONE : basis(t.basis()), t.dependsOn() == null ? List.of() : t.dependsOn(),
                 t.manual())).toList();
         TaskProposal saved = editProposal.save(session, new TaskProposal(TaskProposal.Basing.USE_CASES, tasks));
-        return proposal(saved, readTasks.run(session));
+        return proposal(saved, readTasks.current(session));
     }
 
     @DELETE
@@ -166,6 +169,24 @@ public class TaskResource {
     @Path("/{taskId}")
     public TasksJson delete(@PathParam("id") String id, @PathParam("taskId") String taskId) {
         return json(editTasks.delete(Ids.parse(id), Ids.parse(taskId)));
+    }
+
+    @POST
+    @Path("/{taskId}/release")
+    public TasksJson release(@PathParam("id") String id, @PathParam("taskId") String taskId) {
+        return json(trackingActions.release(Ids.parse(id), Ids.parse(taskId)));
+    }
+
+    @POST
+    @Path("/sync")
+    public TasksJson sync(@PathParam("id") String id) {
+        return json(trackingActions.sync(Ids.parse(id)));
+    }
+
+    @POST
+    @Path("/resume")
+    public TasksJson resume(@PathParam("id") String id) {
+        return json(trackingActions.resume(Ids.parse(id)));
     }
 
     private static Basis basis(BasisView view) {

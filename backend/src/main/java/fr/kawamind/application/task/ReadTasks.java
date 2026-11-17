@@ -19,13 +19,27 @@ public class ReadTasks {
 
     private final TaskDesk desk;
     private final AgentConnections connections;
+    private final TaskSync sync;
 
     public ReadTasks(TaskDesk desk, AgentConnections connections) {
+        this(desk, connections, null);
+    }
+
+    /** {@code sync} : à l'ouverture, rejeu des transitions en attente et relecture dans Jira (R5, R6). */
+    public ReadTasks(TaskDesk desk, AgentConnections connections, TaskSync sync) {
         this.desk = desk;
         this.connections = connections;
+        this.sync = sync;
     }
 
     public TasksView run(UUID sessionId) {
+        desk.requireSession(sessionId);
+        boolean problem = sync != null && desk.locks.with(sessionId, () -> sync.refresh(sessionId));
+        return view(sessionId, problem);
+    }
+
+    /** Vue sans appel à Jira. */
+    public TasksView current(UUID sessionId) {
         desk.requireSession(sessionId);
         return view(sessionId, false);
     }
