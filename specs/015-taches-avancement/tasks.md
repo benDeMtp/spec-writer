@@ -248,7 +248,7 @@ reprennent.
 - [X] T085 Revue de `HexagonalArchitectureTest` : `Instant.now` et `ProcessHandle` seulement dans `infrastructure.platform` (et la passerelle pour son propre processus), écritures gardées par le verrou ; règle `processusLusParLaPlateforme` ajoutée.
 - [X] T086 Dérouler quickstart.md §1 à §5 en dev mode (Jira simulé, LLM rejoué) — joués par l'E2E `us15-taches.spec.ts` sur le jar (mêmes Jira simulé et rejeu), le dev mode piloté par MCP n'étant pas joignable.
 - [X] T087 Gates complètes (verify, package, E2E) sur la branche.
-- [ ] T088 Évaluation réelle `./mvnw -pl backend verify -Peval -DskipDependencyCheck` puis `ci/check-eval.sh` : nouvelles métriques au-dessus de leur minimum, aucun indicateur existant sous sa base ; commit de `BTR/eval/last-run.json`.
+- [X] T088 Évaluation réelle `./mvnw -pl backend verify -Peval -DskipDependencyCheck` puis `ci/check-eval.sh` : nouvelles métriques au-dessus de leur minimum, aucun indicateur existant sous sa base ; commit de `BTR/eval/last-run.json`.
 - [ ] T089 Vérification manuelle du mainteneur (quickstart §7, profil `live`, vrai Jira de test) : proposer, valider, faire travailler Claude Code sur deux tâches, vérifier sous-tâches et commentaires.
 
 ---
