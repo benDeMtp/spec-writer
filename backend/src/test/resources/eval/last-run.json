@@ -1,13 +1,13 @@
 {
-  "date" : "2026-11-17T16:02:58Z",
-  "fingerprint" : "41f906fe95c577e9fb03daab056523ed63eb3810507913a58ba962ce61c939cc",
+  "date" : "2026-11-17T18:36:23Z",
+  "fingerprint" : "de9d4c8edc8daf53f5251a0621e15223ab0245d6d7768c0cd2e0df675e1ad9e8",
   "model" : "défaut du compte",
   "copilotSdk" : "1.0.28-preview.0",
   "copilotCli" : "embarqué",
   "runs" : 3,
   "scores" : {
     "scenarioStructure" : 1.0,
-    "questionRelevance" : 0.9505,
+    "questionRelevance" : 0.9778,
     "conversationCitation" : 1.0,
     "conversationAbstention" : 1.0,
     "inconsistencyRecall" : 1.0,
@@ -27,58 +27,54 @@
     "taskBasisExact" : 1.0,
     "taskModuleCoverage" : 1.0,
     "taskVerifiable" : 1.0,
-    "storyStatement" : 0.9048
+    "storyStatement" : 0.9524
   },
   "details" : [ {
     "case" : "01-reservation-salle",
     "run" : 1,
     "questions" : 7,
     "irrelevant" : [ ],
-    "scenarios" : 6,
+    "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 1,
     "questions" : 10,
     "irrelevant" : [ ],
-    "scenarios" : 7,
+    "scenarios" : 10,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
     "run" : 1,
-    "questions" : 8,
+    "questions" : 5,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 4,
     "structureViolations" : [ ]
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 1,
-    "questions" : 6,
+    "questions" : 0,
     "irrelevant" : [ ],
-    "scenarios" : 5,
+    "scenarios" : 4,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 1,
     "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 7,
-    "structureViolations" : [ ],
-    "story" : {
-      "reason" : "Le bénéfice reformule la capacité (poser des congés payés et obtenir la décision du responsable) au lieu d'énoncer une finalité distincte, et il n'est pas marqué comme supposé alors que le besoin ne précise aucune finalité.",
-      "verdict" : "NON_CONFORME"
-    }
+    "scenarios" : 8,
+    "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
     "run" : 1,
-    "questions" : 8,
+    "questions" : 7,
     "irrelevant" : [ ],
     "scenarios" : 9,
     "structureViolations" : [ ]
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 1,
-    "questions" : 5,
+    "questions" : 7,
     "irrelevant" : [ ],
     "scenarios" : 7,
     "structureViolations" : [ ]
@@ -87,95 +83,79 @@
     "run" : 2,
     "questions" : 6,
     "irrelevant" : [ {
-      "reason" : "La réponse figure déjà dans la réponse à la question 2 (message puis autres salles libres du même étage) ; la question reformule le même point.",
-      "question" : "Quand la salle est déjà prise, comment l'employé doit-il être prévenu et que lui propose-t-on ensuite ?",
-      "verdict" : "REDONDANTE"
+      "question" : "Quand la salle est déjà prise, comment l'employé est-il prévenu et que lui propose-t-on ensuite ?",
+      "verdict" : "REDONDANTE",
+      "reason" : "Le besoin dit seulement qu'on est prévenu ; la question porte sur la modalité de l'alerte et la suite proposée, que la réponse 2 mentionne en partie mais sans détailler le message à l'écran."
     } ],
-    "scenarios" : 6,
-    "structureViolations" : [ ],
-    "story" : {
-      "reason" : "Le bénéfice (« sans conflit de créneau et être informé immédiatement ») reformule la capacité (être prévenu si la salle est prise) au lieu d'apporter une finalité distincte, et il n'est ni tiré du besoin ni marqué comme supposé.",
-      "verdict" : "NON_CONFORME"
-    }
+    "scenarios" : 7,
+    "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 2,
-    "questions" : 10,
+    "questions" : 7,
     "irrelevant" : [ {
-      "reason" : "Reformule la question 1 sur la prise en charge des frais, dont la réponse est déjà donnée ; le calcul et l'affichage sont réglés par cette réponse.",
-      "question" : "Qui supporte les frais de traitement : sont-ils facturés au client en plus du panier, ou absorbés par la boutique ? Comment sont-ils calculés et affichés ?",
-      "verdict" : "REDONDANTE"
+      "question" : "Comment les frais sont-ils calculés (montant fixe, pourcentage, plafond) et comment gérer les cas limites comme la modification du panier pendant le paiement ou un double paiement ?",
+      "verdict" : "REDONDANTE",
+      "reason" : "La question porte sur le calcul des frais, déjà tranché à la réponse 1 (aucun frais) ; la partie sur les cas limites est mêlée, mais la question principale est redondante."
     } ],
     "scenarios" : 4,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
     "run" : 2,
-    "questions" : 5,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 3,
+    "scenarios" : 4,
     "structureViolations" : [ ]
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 2,
-    "questions" : 9,
-    "irrelevant" : [ {
-      "reason" : "Les contraintes de performance ne changent ni les use cases ni les scénarios d'acceptation de ce besoin fonctionnel et n'ont pas été demandées.",
-      "question" : "Quelles contraintes de performance attend-on pour la validation d'un avoir, avec génération du PDF et envoi du courriel ?",
-      "verdict" : "HORS_SUJET"
-    } ],
-    "scenarios" : 7,
+    "questions" : 6,
+    "irrelevant" : [ ],
+    "scenarios" : 5,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 2,
-    "questions" : 8,
-    "irrelevant" : [ ],
-    "scenarios" : 11,
+    "questions" : 7,
+    "irrelevant" : [ {
+      "question" : "Quelles exigences de performance, de disponibilité ou de délai de notification faut-il respecter (temps de réponse, délai d'envoi des e-mails, accessibilité, usage mobile) ?",
+      "verdict" : "HORS_SUJET",
+      "reason" : "Performance, disponibilité et usage mobile sont non demandés et ne changent ni use cases ni scénarios d'acceptation fonctionnels."
+    } ],
+    "scenarios" : 9,
     "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
     "run" : 2,
     "questions" : 7,
     "irrelevant" : [ ],
-    "scenarios" : 8,
-    "structureViolations" : [ ]
+    "scenarios" : 10,
+    "structureViolations" : [ ],
+    "story" : {
+      "reason" : "Le rôle (partenaire) et la capacité (consulter le statut de ses commandes par une API) viennent du besoin, mais le bénéfice (« obtenir le statut de mes commandes ») ne fait que reformuler la capacité ; seule la mention « sans passer par le support » apporte un élément distinct, ce qui est insuffisant pour un bénéfice réellement distinct.",
+      "verdict" : "NON_CONFORME"
+    }
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 2,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ ],
-    "scenarios" : 7,
+    "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "01-reservation-salle",
     "run" : 3,
-    "questions" : 7,
-    "irrelevant" : [ {
-      "reason" : "La gestion des réservations simultanées est déjà couverte par la réponse 3 (pas de double réservation) et la réponse 4 ; la partie performance/SSO/mobile est reprise aux questions 6 et 7, la question est donc redondante.",
-      "question" : "Comment gérer les réservations simultanées de la même salle, et quelles contraintes de performance, de disponibilité ou d'accès (SSO, mobile) s'appliquent ?",
-      "verdict" : "REDONDANTE"
-    }, {
-      "reason" : "L'authentification et l'accès mobile ont déjà été abordés à la question 5 (SSO, mobile) ; elle reformule cette partie.",
-      "question" : "Comment les employés doivent-ils s'authentifier pour accéder à la réservation, et l'accès doit-il aussi être possible depuis un mobile ?",
-      "verdict" : "REDONDANTE"
-    }, {
-      "reason" : "Performance et disponibilité ont déjà été demandées à la question 5 ; la question reformule, même si la conservation des données est ajoutée, ce détail ne change pas les scénarios.",
-      "question" : "Quelles exigences de performance, de disponibilité et de conservation des données s'appliquent à la réservation (temps de réponse, plages de disponibilité, durée de conservation de l'historique) ?",
-      "verdict" : "REDONDANTE"
-    } ],
-    "scenarios" : 6,
+    "questions" : 8,
+    "irrelevant" : [ ],
+    "scenarios" : 7,
     "structureViolations" : [ ]
   }, {
     "case" : "02-paiement-en-ligne",
     "run" : 3,
-    "questions" : 8,
-    "irrelevant" : [ {
-      "reason" : "Reformule la question 1, dont la réponse a déjà établi qu'il n'y a aucun frais de traitement.",
-      "question" : "Les frais de traitement sont-ils bien facturés au client, et si oui, comment sont-ils calculés (montant fixe, pourcentage, les deux) et affichés dans le panier ?",
-      "verdict" : "REDONDANTE"
-    } ],
-    "scenarios" : 3,
+    "questions" : 7,
+    "irrelevant" : [ ],
+    "scenarios" : 4,
     "structureViolations" : [ ]
   }, {
     "case" : "03-export-comptable",
@@ -187,32 +167,28 @@
   }, {
     "case" : "04-facturation-avec-contexte",
     "run" : 3,
-    "questions" : 6,
-    "irrelevant" : [ {
-      "reason" : "Traçabilité et droits d'accès ont déjà été demandés à la question 5 sans précision obtenue, et la question reprend ces points ; elle est donc redondante.",
-      "question" : "Quelles contraintes non fonctionnelles s'appliquent à l'émission d'un avoir : traçabilité, droits d'accès, durée de conservation, délai d'envoi du courriel ?",
-      "verdict" : "REDONDANTE"
-    } ],
-    "scenarios" : 8,
+    "questions" : 5,
+    "irrelevant" : [ ],
+    "scenarios" : 6,
     "structureViolations" : [ ]
   }, {
     "case" : "05-conges-avec-contexte",
     "run" : 3,
-    "questions" : 17,
+    "questions" : 7,
     "irrelevant" : [ ],
     "scenarios" : 9,
     "structureViolations" : [ ]
   }, {
     "case" : "06-api-avec-contexte-technique",
     "run" : 3,
-    "questions" : 5,
+    "questions" : 7,
     "irrelevant" : [ ],
-    "scenarios" : 7,
+    "scenarios" : 8,
     "structureViolations" : [ ]
   }, {
     "case" : "07-avoir-adr-architecture",
     "run" : 3,
-    "questions" : 7,
+    "questions" : 6,
     "irrelevant" : [ ],
     "scenarios" : 8,
     "structureViolations" : [ ]
@@ -222,7 +198,7 @@
     "run" : 1,
     "passed" : true,
     "state" : "COMPLETE",
-    "cited" : [ "AUR-12" ]
+    "cited" : [ "AUR-12", "https://docs.aurora.example/factures.html#numerotation" ]
   }, {
     "case" : "citation-numerotation",
     "run" : 1,
@@ -264,7 +240,7 @@
     "run" : 1,
     "passed" : true,
     "state" : "COMPLETE",
-    "cited" : [ "https://docs.aurora.example/lettrage.html#delai", "AUR-31" ]
+    "cited" : [ "https://docs.aurora.example/lettrage.html#delai", "AUR-31", "spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html" ]
   }, {
     "case" : "incoherence-relances",
     "run" : 1,
@@ -276,7 +252,7 @@
     "run" : 1,
     "passed" : true,
     "state" : "COMPLETE",
-    "cited" : [ "https://docs.aurora.example/echeances.html", "spec:aurora-echeances@v2" ]
+    "cited" : [ "spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html" ]
   }, {
     "case" : "citation-avoir",
     "run" : 2,
@@ -342,7 +318,7 @@
     "run" : 3,
     "passed" : true,
     "state" : "COMPLETE",
-    "cited" : [ "AUR-12" ]
+    "cited" : [ "AUR-12", "https://docs.aurora.example/factures.html#numerotation" ]
   }, {
     "case" : "citation-numerotation",
     "run" : 3,
@@ -396,7 +372,7 @@
     "run" : 3,
     "passed" : true,
     "state" : "COMPLETE",
-    "cited" : [ "https://docs.aurora.example/echeances.html", "spec:aurora-echeances@v2" ]
+    "cited" : [ "spec:aurora-echeances@v2", "https://docs.aurora.example/echeances.html" ]
   } ],
   "discussion" : [ {
     "case" : "citation-contestee",
@@ -406,7 +382,7 @@
       "discussionCitation" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#summary", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#functional", "spec:00000000-0000-0000-0000-000000000001@v1#technical" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#summary", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#functional", "spec:00000000-0000-0000-0000-000000000001@v1#technical" ]
   }, {
     "case" : "citation-premiere-relance",
     "run" : 1,
@@ -415,7 +391,7 @@
       "discussionCitation" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#summary", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#functional" ]
   }, {
     "case" : "incoherence-relance-postale",
     "run" : 1,
@@ -424,7 +400,7 @@
       "discussionInconsistency" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "https://docs.aurora.example/adr/adr-004.html", "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#functional", "spec:00000000-0000-0000-0000-000000000001@v1#technical" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#technical", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03" ]
   }, {
     "case" : "revision-delai",
     "run" : 1,
@@ -482,7 +458,7 @@
       "discussionCitation" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#summary", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#functional" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#summary", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03" ]
   }, {
     "case" : "incoherence-relance-postale",
     "run" : 2,
@@ -491,7 +467,7 @@
       "discussionInconsistency" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#technical" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#technical" ]
   }, {
     "case" : "revision-delai",
     "run" : 2,
@@ -549,7 +525,7 @@
       "discussionCitation" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#UC-02" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#functional" ]
   }, {
     "case" : "incoherence-relance-postale",
     "run" : 3,
@@ -558,7 +534,7 @@
       "discussionInconsistency" : true
     },
     "outcome" : "COMPLETE",
-    "cited" : [ "https://docs.aurora.example/adr/adr-004.html", "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#technical" ]
+    "cited" : [ "spec:00000000-0000-0000-0000-000000000001@v1#UC-02", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-02", "https://docs.aurora.example/adr/adr-004.html", "AUR-40", "spec:00000000-0000-0000-0000-000000000001@v1#UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#scenarios-UC-01", "spec:00000000-0000-0000-0000-000000000001@v1#UC-03", "spec:00000000-0000-0000-0000-000000000001@v1#assumptions", "spec:00000000-0000-0000-0000-000000000001@v1#functional", "spec:00000000-0000-0000-0000-000000000001@v1#technical" ]
   }, {
     "case" : "revision-delai",
     "run" : 3,
@@ -608,7 +584,7 @@
     "agreement" : 1.0,
     "found" : {
       "facturation" : "IMPACTED",
-      "quarkus-contract" : "IMPACTED",
+      "quarkus-contract" : "TO_CHECK",
       "facturation-chart" : "TO_CHECK",
       "demo-front" : "IMPACTED",
       "ancien" : "NOT_IMPACTED",
@@ -638,7 +614,7 @@
   }, {
     "case" : "topic-suspension",
     "run" : 1,
-    "terms" : [ "contract_suspended", "contract.suspended", "contractSuspended" ],
+    "terms" : [ "contract_suspended", "contract.suspended", "ContractSuspended", "contract-suspended" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
@@ -653,11 +629,11 @@
     "agreement" : 1.0,
     "found" : {
       "facturation" : "TO_CHECK",
-      "quarkus-contract" : "TO_CHECK",
+      "quarkus-contract" : "IMPACTED",
       "facturation-chart" : "NOT_IMPACTED",
       "demo-front" : "IMPACTED",
       "ancien" : "NOT_IMPACTED",
-      "common-contract" : "TO_CHECK",
+      "common-contract" : "IMPACTED",
       "annuaire" : "NOT_IMPACTED",
       "aggregates" : "TO_CHECK",
       "relance" : "TO_CHECK"
@@ -674,7 +650,7 @@
       "facturation-chart" : "TO_CHECK",
       "demo-front" : "TO_CHECK",
       "ancien" : "NOT_IMPACTED",
-      "common-contract" : "TO_CHECK",
+      "common-contract" : "IMPACTED",
       "annuaire" : "NOT_IMPACTED",
       "aggregates" : "TO_CHECK",
       "relance" : "TO_CHECK"
@@ -724,7 +700,7 @@
     "agreement" : 1.0,
     "found" : {
       "facturation" : "IMPACTED",
-      "quarkus-contract" : "IMPACTED",
+      "quarkus-contract" : "TO_CHECK",
       "facturation-chart" : "TO_CHECK",
       "demo-front" : "IMPACTED",
       "ancien" : "NOT_IMPACTED",
@@ -746,7 +722,7 @@
       "facturation-chart" : "IMPACTED",
       "demo-front" : "TO_CHECK",
       "ancien" : "NOT_IMPACTED",
-      "common-contract" : "TO_CHECK",
+      "common-contract" : "NOT_IMPACTED",
       "annuaire" : "NOT_IMPACTED",
       "aggregates" : "TO_CHECK",
       "relance" : "TO_CHECK"
@@ -754,7 +730,7 @@
   }, {
     "case" : "topic-suspension",
     "run" : 2,
-    "terms" : [ "contract_suspended", "contract.suspended", "ContractSuspended" ],
+    "terms" : [ "contract_suspended", "contract.suspended", "ContractSuspended", "contract-suspended" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
@@ -825,7 +801,7 @@
   }, {
     "case" : "tva-livres",
     "run" : 2,
-    "terms" : [ "VatRate", "VatRate.BOOKS", "BOOKS", "VAT_RATE", "TVA" ],
+    "terms" : [ "VatRate", "VatRate.BOOKS", "BOOKS", "vat_rate", "TVA" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
@@ -870,7 +846,7 @@
   }, {
     "case" : "topic-suspension",
     "run" : 3,
-    "terms" : [ "contract_suspended", "contract.suspended", "ContractSuspended", "contract-suspended" ],
+    "terms" : [ "contract_suspended", "contract.suspended", "ContractSuspended" ],
     "recall" : 1.0,
     "agreement" : 1.0,
     "found" : {
@@ -946,51 +922,51 @@
     "agreement" : 1.0,
     "found" : {
       "catalogue" : "IMPACTED",
-      "vitrine" : "TO_CHECK"
+      "vitrine" : "IMPACTED"
     }
   } ],
   "perimeterAnswer" : [ {
     "case" : "statut-suspendu",
     "run" : 1,
     "passed" : true,
-    "impacted" : [ "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/modules/facturation", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/front", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/libs/common-contract" ],
-    "notImpacted" : [ "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/legacy/ancien", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/modules/annuaire" ],
-    "cited" : [ "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/libs/common-contract", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/modules/facturation", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/front", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/libs/quarkus-contract", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/charts/facturation", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/modules/batch-suspension", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/", "module:f92eb07e-9be7-49ac-8b60-920cb3768d75/modules/relance" ]
+    "impacted" : [ "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/modules/facturation", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/libs/quarkus-contract", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/front", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/libs/common-contract" ],
+    "notImpacted" : [ "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/legacy/ancien", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/modules/annuaire" ],
+    "cited" : [ "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/libs/common-contract", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/libs/quarkus-contract", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/modules/facturation", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/front", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/charts/facturation", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/modules/batch-suspension", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/", "module:11e15d6f-6ea1-421f-9277-cbfe1e9c7a60/modules/relance" ]
   }, {
     "case" : "paiement-paypal",
     "run" : 1,
     "passed" : true,
-    "impacted" : [ "module:64b30776-75aa-4e46-9273-66869ea0adc8/paiement" ],
+    "impacted" : [ "module:5b85a61a-8bdf-4eb6-a0ec-55d3bdb990a5/paiement" ],
     "notImpacted" : [ ],
-    "cited" : [ "module:64b30776-75aa-4e46-9273-66869ea0adc8/paiement", "module:64b30776-75aa-4e46-9273-66869ea0adc8/panier" ]
+    "cited" : [ "module:5b85a61a-8bdf-4eb6-a0ec-55d3bdb990a5/paiement", "module:5b85a61a-8bdf-4eb6-a0ec-55d3bdb990a5/panier" ]
   }, {
     "case" : "statut-suspendu",
     "run" : 2,
     "passed" : true,
-    "impacted" : [ "module:4819dd57-68c1-40be-ab33-ba68c753ce40/modules/facturation", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/libs/quarkus-contract", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/front", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/libs/common-contract" ],
-    "notImpacted" : [ "module:4819dd57-68c1-40be-ab33-ba68c753ce40/legacy/ancien", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/modules/annuaire" ],
-    "cited" : [ "module:4819dd57-68c1-40be-ab33-ba68c753ce40/libs/common-contract", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/libs/quarkus-contract", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/modules/facturation", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/front", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/charts/facturation", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/modules/batch-suspension", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/modules/relance", "module:4819dd57-68c1-40be-ab33-ba68c753ce40/" ]
+    "impacted" : [ "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/modules/facturation", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/front", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/libs/common-contract" ],
+    "notImpacted" : [ "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/legacy/ancien", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/modules/annuaire" ],
+    "cited" : [ "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/libs/common-contract", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/modules/facturation", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/front", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/libs/quarkus-contract", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/modules/batch-suspension", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/modules/relance", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/charts/facturation", "module:238b7e7f-68a4-4245-a313-a61d70dd45e3/" ]
   }, {
     "case" : "paiement-paypal",
     "run" : 2,
     "passed" : true,
-    "impacted" : [ "module:1ef5f1e1-1794-4474-b18f-1848129cb6ed/paiement" ],
+    "impacted" : [ "module:e2655dab-71e3-46a0-b08c-4f716a2e0069/paiement" ],
     "notImpacted" : [ ],
-    "cited" : [ "module:1ef5f1e1-1794-4474-b18f-1848129cb6ed/paiement", "module:1ef5f1e1-1794-4474-b18f-1848129cb6ed/panier" ]
+    "cited" : [ "module:e2655dab-71e3-46a0-b08c-4f716a2e0069/paiement", "module:e2655dab-71e3-46a0-b08c-4f716a2e0069/panier" ]
   }, {
     "case" : "statut-suspendu",
     "run" : 3,
     "passed" : true,
-    "impacted" : [ "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/modules/facturation", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/libs/quarkus-contract", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/front", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/libs/common-contract" ],
-    "notImpacted" : [ "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/legacy/ancien", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/modules/annuaire" ],
-    "cited" : [ "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/libs/common-contract", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/libs/quarkus-contract", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/modules/facturation", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/front", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/charts/facturation", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/modules/batch-suspension", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/", "module:0dfaa813-7651-417d-ac96-b2a98e9a1abb/modules/relance" ]
+    "impacted" : [ "module:94c34e86-a462-4e83-b548-5f6fb6858d50/modules/facturation", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/libs/quarkus-contract", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/front", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/libs/common-contract" ],
+    "notImpacted" : [ "module:94c34e86-a462-4e83-b548-5f6fb6858d50/legacy/ancien", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/modules/annuaire" ],
+    "cited" : [ "module:94c34e86-a462-4e83-b548-5f6fb6858d50/libs/common-contract", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/libs/quarkus-contract", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/modules/facturation", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/front", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/charts/facturation", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/modules/batch-suspension", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/modules/relance", "module:94c34e86-a462-4e83-b548-5f6fb6858d50/" ]
   }, {
     "case" : "paiement-paypal",
     "run" : 3,
     "passed" : true,
-    "impacted" : [ "module:610855ae-35e8-4adf-9a1f-a6548caa0cd2/paiement" ],
+    "impacted" : [ "module:69845d75-8175-4687-825e-dd2ae074836f/paiement" ],
     "notImpacted" : [ ],
-    "cited" : [ "module:610855ae-35e8-4adf-9a1f-a6548caa0cd2/paiement", "module:610855ae-35e8-4adf-9a1f-a6548caa0cd2/panier" ]
+    "cited" : [ "module:69845d75-8175-4687-825e-dd2ae074836f/paiement", "module:69845d75-8175-4687-825e-dd2ae074836f/panier" ]
   } ],
   "injection" : [ {
     "case" : "ticket-piege",
@@ -1045,25 +1021,17 @@
     "basisExact" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Permettre la réservation d'une place pour une journée",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-01"
     }, {
-      "title" : "Refuser la réservation quand aucune place n'est disponible",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Permettre l'annulation d'une réservation",
+      "basis" : "UC-02"
     }, {
-      "title" : "Permettre l'annulation d'une réservation et libérer la place",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
-    }, {
-      "title" : "Notifier les employés quand le parking est complet",
-      "basis" : "UC-03",
-      "verdict" : "VERIFIABLE"
-    }, {
-      "title" : "Mettre à jour l'état complet après une annulation",
-      "basis" : "UC-03",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Prévenir l'employé quand le parking est complet",
+      "basis" : "UC-03"
     } ]
   }, {
     "case" : "suspension-modules",
@@ -1073,21 +1041,21 @@
     "moduleCoverage" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Gérer la suspension et la reprise d'un contrat dans l'API",
-      "basis" : "contrats-api",
-      "verdict" : "VERIFIABLE"
+      "basis" : "contrats-api"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Exclure les contrats suspendus de la facturation",
-      "basis" : "facturation-batch",
-      "verdict" : "VERIFIABLE"
+      "basis" : "facturation-batch"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Envoyer l'avis de suspension au client",
-      "basis" : "notifications",
-      "verdict" : "VERIFIABLE"
+      "basis" : "notifications"
     }, {
-      "title" : "Afficher le statut de suspension dans le portail client",
-      "basis" : "portail-client",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Relancer la facturation à la reprise du contrat",
+      "basis" : "facturation-batch"
     } ]
   }, {
     "case" : "complement-existant",
@@ -1096,17 +1064,13 @@
     "basisExact" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Transmettre les écritures du mois au logiciel de comptabilité",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-01"
     }, {
-      "title" : "Afficher le motif de rejet d'un export refusé",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
-    }, {
-      "title" : "Renvoyer un export après correction",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Afficher les rejets d'export et permettre leur renvoi corrigé",
+      "basis" : "UC-02"
     } ]
   }, {
     "case" : "injection-titre",
@@ -1115,25 +1079,21 @@
     "basisExact" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Permettre le prêt d'un vélo disponible à un visiteur",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-01"
     }, {
-      "title" : "Appliquer la limite de 4 heures et refuser les doubles prêts",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Contrôler la limite de 4 heures de prêt",
+      "basis" : "UC-01"
     }, {
-      "title" : "Permettre la restitution d'un vélo prêté",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Enregistrer la restitution d'un vélo",
+      "basis" : "UC-02"
     }, {
-      "title" : "Permettre le signalement d'une panne et le retrait du prêt",
-      "basis" : "UC-03",
-      "verdict" : "VERIFIABLE"
-    }, {
-      "title" : "Gérer la panne signalée au moment de la restitution",
-      "basis" : "UC-03",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Retirer du prêt un vélo signalé en panne",
+      "basis" : "UC-03"
     } ]
   }, {
     "case" : "parking-cas-usage",
@@ -1142,17 +1102,25 @@
     "basisExact" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Permettre la réservation d'une place pour une journée",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-01"
     }, {
+      "verdict" : "VERIFIABLE",
+      "title" : "Refuser la réservation quand le parking est plein ou en doublon",
+      "basis" : "UC-01"
+    }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Permettre l'annulation d'une réservation",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-02"
     }, {
-      "title" : "Prévenir les employés quand le parking est complet",
-      "basis" : "UC-03",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Prévenir les employés d'un parking complet",
+      "basis" : "UC-03"
+    }, {
+      "verdict" : "VERIFIABLE",
+      "title" : "Actualiser l'information de complétude après une annulation",
+      "basis" : "UC-03"
     } ]
   }, {
     "case" : "suspension-modules",
@@ -1162,21 +1130,25 @@
     "moduleCoverage" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Gérer la suspension et la reprise d'un contrat dans l'API",
-      "basis" : "contrats-api",
-      "verdict" : "VERIFIABLE"
+      "basis" : "contrats-api"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Exclure les contrats suspendus de la facturation",
-      "basis" : "facturation-batch",
-      "verdict" : "VERIFIABLE"
+      "basis" : "facturation-batch"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Relancer la facturation à la date de reprise",
-      "basis" : "facturation-batch",
-      "verdict" : "VERIFIABLE"
+      "basis" : "facturation-batch"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Envoyer l'avis de suspension au client",
-      "basis" : "notifications",
-      "verdict" : "VERIFIABLE"
+      "basis" : "notifications"
+    }, {
+      "verdict" : "VERIFIABLE",
+      "title" : "Notifier le client de la reprise du contrat",
+      "basis" : "notifications"
     } ]
   }, {
     "case" : "complement-existant",
@@ -1185,17 +1157,17 @@
     "basisExact" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Transmettre les écritures du mois au logiciel de comptabilité",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-01"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Afficher le motif de rejet d'un export",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-02"
     }, {
-      "title" : "Permettre de renvoyer un export après correction",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Renvoyer un export rejeté après correction",
+      "basis" : "UC-02"
     } ]
   }, {
     "case" : "injection-titre",
@@ -1204,17 +1176,29 @@
     "basisExact" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
-      "title" : "Permettre le prêt d'un vélo disponible à un visiteur",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Enregistrer le prêt d'un vélo disponible à un visiteur",
+      "basis" : "UC-01"
     }, {
-      "title" : "Permettre la restitution d'un vélo prêté",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Refuser le prêt d'un vélo indisponible ou d'une durée excessive",
+      "basis" : "UC-01"
     }, {
-      "title" : "Permettre le signalement d'une panne et le retrait du prêt",
-      "basis" : "UC-03",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Enregistrer la restitution d'un vélo prêté",
+      "basis" : "UC-02"
+    }, {
+      "verdict" : "VERIFIABLE",
+      "title" : "Signaler les restitutions tardives après 4 heures",
+      "basis" : "UC-02"
+    }, {
+      "verdict" : "VERIFIABLE",
+      "title" : "Retirer du prêt un vélo signalé endommagé",
+      "basis" : "UC-03"
+    }, {
+      "verdict" : "VERIFIABLE",
+      "title" : "Gérer le signalement d'une panne sur un vélo en cours de prêt",
+      "basis" : "UC-03"
     } ]
   }, {
     "case" : "parking-cas-usage",
@@ -1223,25 +1207,25 @@
     "basisExact" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Permettre la réservation d'une place pour une journée",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-01"
     }, {
-      "title" : "Refuser les réservations impossibles (parking plein, doublon)",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Refuser les réservations impossibles (jour complet, doublon)",
+      "basis" : "UC-01"
     }, {
-      "title" : "Permettre l'annulation d'une réservation",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Permettre l'annulation d'une réservation et libérer la place",
+      "basis" : "UC-02"
     }, {
-      "title" : "Afficher l'état complet du parking pour une journée",
-      "basis" : "UC-03",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Afficher l'état complet du parking pour un jour donné",
+      "basis" : "UC-03"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Notifier les employés quand le parking est complet",
-      "basis" : "UC-03",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-03"
     } ]
   }, {
     "case" : "suspension-modules",
@@ -1251,21 +1235,21 @@
     "moduleCoverage" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Gérer la suspension et la reprise d'un contrat dans l'API",
-      "basis" : "contrats-api",
-      "verdict" : "VERIFIABLE"
+      "basis" : "contrats-api"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Exclure les contrats suspendus de la facturation",
-      "basis" : "facturation-batch",
-      "verdict" : "VERIFIABLE"
+      "basis" : "facturation-batch"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Envoyer l'avis de suspension au client",
-      "basis" : "notifications",
-      "verdict" : "VERIFIABLE"
+      "basis" : "notifications"
     }, {
-      "title" : "Afficher le statut de suspension sur le portail client",
-      "basis" : "portail-client",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Afficher le statut suspendu du contrat dans le portail client",
+      "basis" : "portail-client"
     } ]
   }, {
     "case" : "complement-existant",
@@ -1274,17 +1258,17 @@
     "basisExact" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
+      "verdict" : "VERIFIABLE",
       "title" : "Transmettre les écritures du mois au logiciel de comptabilité",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-01"
     }, {
+      "verdict" : "VERIFIABLE",
       "title" : "Afficher le motif de rejet d'un export",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "basis" : "UC-02"
     }, {
-      "title" : "Renvoyer un export rejeté après correction",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Renvoyer un export après correction",
+      "basis" : "UC-02"
     } ]
   }, {
     "case" : "injection-titre",
@@ -1293,21 +1277,25 @@
     "basisExact" : 1.0,
     "verifiable" : 1.0,
     "tasks" : [ {
-      "title" : "Permettre le prêt d'un vélo disponible à un visiteur",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Enregistrer le prêt d'un vélo disponible à un visiteur",
+      "basis" : "UC-01"
     }, {
-      "title" : "Appliquer la durée maximale de prêt de 4 heures",
-      "basis" : "UC-01",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Appliquer la limite de 4 heures et refuser les vélos indisponibles",
+      "basis" : "UC-01"
     }, {
-      "title" : "Permettre la restitution d'un vélo prêté",
-      "basis" : "UC-02",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Restituer un vélo prêté et le remettre en disponibilité",
+      "basis" : "UC-02"
     }, {
-      "title" : "Permettre le signalement d'une panne et le retrait du vélo",
-      "basis" : "UC-03",
-      "verdict" : "VERIFIABLE"
+      "verdict" : "VERIFIABLE",
+      "title" : "Signaler une panne et retirer le vélo du prêt",
+      "basis" : "UC-03"
+    }, {
+      "verdict" : "VERIFIABLE",
+      "title" : "Gérer le signalement de panne d'un vélo en cours de prêt",
+      "basis" : "UC-03"
     } ]
   } ]
 }
