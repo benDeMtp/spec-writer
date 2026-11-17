@@ -66,6 +66,17 @@ Les installeurs ne sont pas encore signés. Le système vous avertira au premier
 - **Linux** : installez le paquet (`sudo apt install ./spec-writer_<version>_amd64.deb`), ou
   décompressez l'archive `.tar.gz` et lancez l'exécutable `spec-writer` qu'elle contient.
 
+### Mise à jour
+
+Installez la nouvelle version par-dessus l'ancienne : vos données, vos réglages et le jeton Jira du
+trousseau sont gardés.
+
+**Version qui renomme le code en `fr.kawamind` (feature 014)** : la commande de la passerelle MCP
+change quand un agent la lance par `java -cp <jar> dev.specwriter.mcp.McpBridge` (lancement depuis
+les sources). Cette ancienne commande ne démarre plus. Recopiez la commande affichée dans
+**Configuration › Accès des agents** (elle lance `fr.kawamind.mcp.McpBridge`) dans la configuration
+MCP de chaque agent. Le lanceur `spec-writer-mcp` des installeurs, lui, ne change pas.
+
 ## Premier lancement
 
 1. L'outil ouvre la page **Configuration** dans votre navigateur.

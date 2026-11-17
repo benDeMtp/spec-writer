@@ -2,9 +2,12 @@ package fr.kawamind.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -12,6 +15,7 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.nio.file.Path;
 import java.util.Set;
 
 /** Règles de l'architecture hexagonale (plan.md, Structure Decision). */
@@ -38,6 +42,33 @@ class HexagonalArchitectureTest {
             .and().resideOutsideOfPackage("fr.kawamind.infrastructure.web..")
             .should().callMethod(java.time.Instant.class, "now")
             .orShould().callMethod(java.util.UUID.class, "randomUUID");
+
+    /**
+     * 014 (FR-018) : seul l'adaptateur LLM déclare des AI Services et parle au modèle par le Copilot
+     * SDK ; l'adaptateur du compte GitHub ({@code infrastructure.github}) n'en lit que l'état de
+     * connexion.
+     */
+    @ArchTest
+    static final ArchRule aiServicesDansLAdaptateurLlm = noClasses()
+            .that().resideOutsideOfPackage("fr.kawamind.infrastructure.llm..")
+            .should().dependOnClassesThat().resideInAnyPackage("dev.langchain4j.service..");
+
+    @ArchTest
+    static final ArchRule copilotSdkDansLesAdaptateurs = noClasses()
+            .that().resideOutsideOfPackage("fr.kawamind.infrastructure.llm..")
+            .and().resideOutsideOfPackage("fr.kawamind.infrastructure.github..")
+            .should().dependOnClassesThat().resideInAnyPackage("com.github.copilot..");
+
+    /** 014 (FR-017) : tout le code livré vit sous {@code fr.kawamind}, plus rien sous l'ancien nom. */
+    @ArchTest
+    static void toutLeCodeSousKawamind(JavaClasses analyzed) {
+        JavaClasses all = new ClassFileImporter().importPath(Path.of("target/classes"));
+        assertThat(all).isNotEmpty();
+        assertThat(all.stream().map(JavaClass::getPackageName)
+                .filter(p -> !p.equals("fr.kawamind") && !p.startsWith("fr.kawamind."))
+                // migrations Java de Flyway : paquet imposé par sa convention
+                .filter(p -> !p.equals("db.migration")).distinct().toList()).isEmpty();
+    }
 
     /** La passerelle MCP est un processus à part, sans Quarkus : elle ne parle à l'outil que par HTTP (research.md R1). */
     @ArchTest
