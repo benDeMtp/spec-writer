@@ -49,15 +49,15 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 **Purpose**: schéma V26 et valeurs d'énumération dont toutes les histoires dépendent.
 
-- [ ] T001 Écrire le test de migration `BT/infrastructure/persistence/task/V26MigrationTest.java` : sur une base migrée, `spec_task`, `spec_task_dependency`, `spec_task_proposal` existent avec leurs contraintes ; `session.task_tracking` vaut `'ACTIVE'` par défaut ; `agent_access_log` garde ses lignes, accepte `NEXT_TASK`, `START_TASK`, `COMPLETE_TASK`, `RELEASE_TASK` et a la colonne `task_key`.
-- [ ] T002 Écrire `BR/db/migration/V26__spec_tasks.sql` (data-model.md) :
+- [X] T001 Écrire le test de migration `BT/infrastructure/persistence/MigrationV26IT.java` : sur une base migrée, `spec_task`, `spec_task_dependency`, `spec_task_proposal` existent avec leurs contraintes ; `session.task_tracking` vaut `'ACTIVE'` par défaut ; `agent_access_log` garde ses lignes, accepte `NEXT_TASK`, `START_TASK`, `COMPLETE_TASK`, `RELEASE_TASK` et a la colonne `task_key`.
+- [X] T002 Écrire `BR/db/migration/V26__spec_tasks.sql` (data-model.md) :
   - `spec_task` : `id` TEXT PK ; `session_id` TEXT NOT NULL FK `session(id)` ON DELETE CASCADE ; `position` INTEGER NOT NULL, UNIQUE (`session_id`, `position`) ; `title` TEXT NOT NULL « 1 à 120 caractères » ; `outcome` TEXT NOT NULL « 1 à 300 caractères (vide permis seulement pour `origin = JIRA`) » ; `basis_kind` CHECK IN (`MODULE`, `USE_CASE`, `NONE`) ; `basis_ref` TEXT « NULL si `NONE` » ; `origin` CHECK IN (`PROPOSED`, `MANUAL`, `JIRA`) ; `creation` CHECK IN (`NOT_CREATED`, `CREATED`) ; `jira_key` TEXT UNIQUE, « NOT NULL si `creation = CREATED` » ; `status` CHECK IN (`TODO`, `IN_PROGRESS`, `DONE`, `MISSING`) ; `jira_status_name`, `holder_connection`, `holder_agent`, `held_since` TEXT ; `pending_target` CHECK IN (`TODO`, `IN_PROGRESS`, `DONE`) ; `pending_comment` INTEGER NOT NULL DEFAULT 0 ; `completion_report` TEXT « 2 000 caractères au plus » ; `last_read_at` TEXT ;
   - `spec_task_dependency` (`task_id`, `depends_on_id`, FK `spec_task(id)` ON DELETE CASCADE, PK des deux) ;
   - `spec_task_proposal` (`session_id` TEXT PK FK `session(id)` ON DELETE CASCADE, `content` TEXT NOT NULL, `created_at` TEXT NOT NULL) ;
   - `ALTER TABLE session ADD COLUMN task_tracking TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (task_tracking IN ('ACTIVE','SUSPENDED'))` ;
   - reconstruction de `agent_access_log` (`_new`, copie, suppression, renommage, index `agent_access_log_at` recréé) avec le CHECK `operation` étendu et `task_key TEXT`.
-- [ ] T003 [P] Ajouter `NEXT_TASK`, `START_TASK`, `COMPLETE_TASK`, `RELEASE_TASK` à `BM/domain/agent/AgentOperation.java` et `taskKey` (nullable) à `BM/domain/agent/AgentAccess.java` ; persistance de `task_key` dans `BM/infrastructure/persistence/agent/` ; tests existants du journal adaptés.
-- [ ] T004 [P] Ajouter `Actor.TASKS` à `BM/domain/session/ImplementationStatus.java` : toutes transitions entre `READY`, `IN_PROGRESS`, `IMPLEMENTED`, sans confirmation de déverrouillage (R7) ; test d'abord dans `BT/domain/session/ImplementationStatusTest.java`.
+- [X] T003 [P] Ajouter `NEXT_TASK`, `START_TASK`, `COMPLETE_TASK`, `RELEASE_TASK` à `BM/domain/agent/AgentOperation.java` et `taskKey` (nullable) à `BM/domain/agent/AgentAccess.java` ; persistance de `task_key` dans `BM/infrastructure/persistence/agent/` ; tests existants du journal adaptés.
+- [X] T004 [P] Ajouter `Actor.TASKS` à `BM/domain/session/ImplementationStatus.java` : toutes transitions entre `READY`, `IN_PROGRESS`, `IMPLEMENTED`, sans confirmation de déverrouillage (R7) ; test d'abord dans `BT/domain/session/ImplementationStatusTest.java`.
 
 **Checkpoint** : `verify` vert, migration appliquée sur une base de test. Commit `feat(db): migration V26, tâches et journal des agents étendu`.
 
@@ -69,26 +69,26 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ### Domaine
 
-- [ ] T005 [P] Tests puis records du domaine dans `BM/domain/task/` : `TaskStatus { TODO, IN_PROGRESS, DONE, MISSING }`, `Basis(kind, ref)` (`kind` ∈ `MODULE`, `USE_CASE`, `NONE`, `ref` nul si `NONE`), `Holder(connection, agentName, since)` (`agentName` « 80 caractères, sans caractère de contrôle »), `Pending(target, comment)`, `TaskOrigin`, `TaskCreation`, `SpecTask` (validation : titre 1 à 120, résultat 1 à 300 sauf origine `JIRA`, compte rendu ≤ 2 000, clé requise si `CREATED`) ; tests `BT/domain/task/SpecTaskTest.java`.
-- [ ] T006 [P] `BM/domain/task/StatusCategory.java` (`NEW`, `IN_PROGRESS`, `DONE` ↔ clés Jira `new`, `indeterminate`, `done`, correspondance vers `TaskStatus`) et test `BT/domain/task/StatusCategoryTest.java`.
+- [X] T005 [P] Tests puis records du domaine dans `BM/domain/task/` : `TaskStatus { TODO, IN_PROGRESS, DONE, MISSING }`, `Basis(kind, ref)` (`kind` ∈ `MODULE`, `USE_CASE`, `NONE`, `ref` nul si `NONE`), `Holder(connection, agentName, since)` (`agentName` « 80 caractères, sans caractère de contrôle »), `Pending(target, comment)`, `TaskOrigin`, `TaskCreation`, `SpecTask` (validation : titre 1 à 120, résultat 1 à 300 sauf origine `JIRA`, compte rendu ≤ 2 000, clé requise si `CREATED`) ; tests `BT/domain/task/SpecTaskTest.java`.
+- [X] T006 [P] `BM/domain/task/StatusCategory.java` (`NEW`, `IN_PROGRESS`, `DONE` ↔ clés Jira `new`, `indeterminate`, `done`, correspondance vers `TaskStatus`) et test `BT/domain/task/StatusCategoryTest.java`.
 
 ### Ports
 
-- [ ] T007 [P] Port `BM/domain/port/TaskRepository.java` : tâches d'une session (ordonnées), tâche par clé Jira, enregistrement d'une liste, mise à jour d'une tâche, préalables, proposition en cours (lire, écrire, supprimer), `task_tracking` (lire, écrire).
-- [ ] T008 [P] Port `BM/domain/port/AgentConnections.java` : `boolean alive(String connection)` (R4).
-- [ ] T009 Étendre `BM/domain/port/IssueTracker.java` (R2) : `subtaskType(endpoint, projectKey)`, `createSubtask(endpoint, projectKey, parentKey, typeId, summary, wiki)`, `transitions(endpoint, key)` → liste `Transition(id, name, toCategory)`, `transition(endpoint, key, transitionId)`, `addComment(endpoint, key, wiki)`, et sous-tâches d'un ticket (`subtasks(endpoint, parentKey)` → clé, résumé, statut, catégorie) ; doubles de test existants mis à jour.
+- [X] T007 [P] Port `BM/domain/port/TaskRepository.java` : tâches d'une session (ordonnées), tâche par clé Jira, enregistrement d'une liste, mise à jour d'une tâche, préalables, proposition en cours (lire, écrire, supprimer), `task_tracking` (lire, écrire).
+- [X] T008 [P] Port `BM/domain/port/AgentConnections.java` : `boolean alive(String connection)` (R4).
+- [X] T009 Étendre `BM/domain/port/IssueTracker.java` (R2) : `subtaskType(endpoint, projectKey)`, `createSubtask(endpoint, projectKey, parentKey, typeId, summary, wiki)`, `transitions(endpoint, key)` → liste `Transition(id, name, toCategory)`, `transition(endpoint, key, transitionId)`, `addComment(endpoint, key, wiki)`, et sous-tâches d'un ticket (`subtasks(endpoint, parentKey)` → clé, résumé, statut, catégorie) ; doubles de test existants mis à jour.
 
 ### Infrastructure
 
-- [ ] T010 Test `BT/infrastructure/jira/JiraTasksIT.java` (WireMock, sous Maven) : type sous-tâche lu par `createmeta/{project}/issuetypes` (premier `subtask: true`) ; `POST /rest/api/2/issue` avec `fields.parent.key` ; `GET`/`POST …/transitions` ; `POST …/comment` ; `fields.subtasks` lu sur la story ; refus 400/403 → `IssueTrackerException` de genre refus, panne → `UNREACHABLE`.
-- [ ] T011 Implémenter T009 dans `BM/infrastructure/jira/JiraApi.java` et `BM/infrastructure/jira/JiraRestClient.java` (même proxy, CA, limitation de débit ; `issueTypes()` continue d'écarter les sous-tâches) ; T010 vert.
-- [ ] T012 [P] `BM/infrastructure/persistence/task/SqliteTaskRepository.java` (JDBC, comme les autres dépôts SQLite) et test `BT/infrastructure/persistence/task/SqliteTaskRepositoryTest.java` (ordre, unicité de position, préalables, proposition JSON, cascade à la suppression de la session, `task_tracking`).
-- [ ] T013 [P] `BM/infrastructure/platform/ProcessAgentConnections.java` : connexion `<pid>-<début ms>` vivante si `ProcessHandle.of(pid)` existe avec le même `startInstant` ; format invalide → fermée ; test `BT/infrastructure/platform/ProcessAgentConnectionsTest.java` (processus courant vivant, pid inconnu fermé, même pid autre début fermé).
+- [X] T010 Test `BT/infrastructure/jira/JiraTasksIT.java` (WireMock, sous Maven) : type sous-tâche lu par `createmeta/{project}/issuetypes` (premier `subtask: true`) ; `POST /rest/api/2/issue` avec `fields.parent.key` ; `GET`/`POST …/transitions` ; `POST …/comment` ; `fields.subtasks` lu sur la story ; refus 400/403 → `IssueTrackerException` de genre refus, panne → `UNREACHABLE`.
+- [X] T011 Implémenter T009 dans `BM/infrastructure/jira/JiraApi.java` et `BM/infrastructure/jira/JiraRestClient.java` (même proxy, CA, limitation de débit ; `issueTypes()` continue d'écarter les sous-tâches) ; T010 vert.
+- [X] T012 [P] `BM/infrastructure/persistence/task/SqliteTaskRepository.java` (JDBC, comme les autres dépôts SQLite) et test `BT/infrastructure/persistence/TaskPersistenceIT.java` (ordre, unicité de position, préalables, proposition JSON, cascade à la suppression de la session, `task_tracking`).
+- [X] T013 [P] `BM/infrastructure/platform/ProcessAgentConnections.java` : connexion `<pid>-<début ms>` vivante si `ProcessHandle.of(pid)` existe avec le même `startInstant` ; format invalide → fermée ; test `BT/infrastructure/platform/ProcessAgentConnectionsTest.java` (processus courant vivant, pid inconnu fermé, même pid autre début fermé).
 
 ### Application
 
-- [ ] T014 `BM/application/task/TaskJira.java` (R3) : pour une catégorie visée, ne fait rien si la sous-tâche y est déjà, sinon prend la première transition de Jira menant à cette catégorie, sinon `NO_TRANSITION` avec le statut actuel ; distingue refus (`JIRA_REFUSED`) et injoignable ; test `BT/application/task/TaskJiraTest.java` avec un double d'`IssueTracker`.
-- [ ] T015 [P] Fixture WireMock `e2e/fixtures/jira/mappings/tasks.json` : `createmeta` avec un type sous-tâche, création de sous-tâche (clés `FACT-124`…), transitions (`new`, `indeterminate`, `done`), commentaire, recherche par clés.
+- [X] T014 `BM/application/task/TaskJira.java` (R3) : pour une catégorie visée, ne fait rien si la sous-tâche y est déjà, sinon prend la première transition de Jira menant à cette catégorie, sinon `NO_TRANSITION` avec le statut actuel ; distingue refus (`JIRA_REFUSED`) et injoignable ; test `BT/application/task/TaskJiraTest.java` avec un double d'`IssueTracker`.
+- [X] T015 [P] Bouchons WireMock posés par `e2e/tests/us15-taches.spec.ts` (API d'administration, comme US5) : `createmeta` avec un type sous-tâche, création de sous-tâche (clés `FACT-124`…), transitions (`new`, `indeterminate`, `done`), commentaire, recherche par clés.
 
 **Checkpoint** : `JiraTasksIT`, `TaskJiraTest`, dépôt et connexions verts. Commit `feat(task): domaine, dépôt et appels Jira des tâches`.
 
@@ -104,30 +104,30 @@ exactement les sous-tâches de la liste validée, dans l'ordre, sous la bonne st
 
 ### Tests US1
 
-- [ ] T016 [P] [US1] `BT/domain/task/TaskProposalTest.java` : bornes 3 à 8 (complémentaire : 1 à 8 moins les existantes), titre 1 à 120, résultat 1 à 300, base connue (module de la liste ou code de cas d'usage), préalable vers une tâche antérieure seulement, titre identique à une tâche existante refusé ; opérations renommer, fusionner, supprimer (réindexe les préalables), déplacer, ajouter.
-- [ ] T017 [P] [US1] `BT/infrastructure/llm/ai/TasksGuardrailTest.java` : réponses hors bornes refusées avec un message de redemande, réponse valide acceptée (`LlmOutputs::tasks`).
-- [ ] T018 [P] [US1] `BT/application/task/ProposeTasksTest.java` : sans ticket lié → `NO_LINKED_TICKET` ; ticket de type sous-tâche → `PARENT_IS_SUBTASK` ; base `MODULES` si la session a un périmètre (013), sinon `USE_CASES` ; sous-tâches existantes de la story importées (`origin = JIRA`) et passées en `<taches-existantes>` ; proposition en cours remplacée ; échec du modèle → `TASKS_UNAVAILABLE`.
-- [ ] T019 [P] [US1] `BT/application/task/ValidateTasksTest.java` (R10) : création une par une dans l'ordre, clé gardée ; sous-tâche de même résumé exact reprise au lieu d'être créée ; erreur au milieu → restantes `NOT_CREATED`, relance sans doublon ; pas de type sous-tâche → `NO_SUBTASK_TYPE`, rien créé ; aucun appel de suppression à Jira.
-- [ ] T020 [P] [US1] `BT/application/task/EditTasksTest.java` : ajout manuel après validation créé aussitôt dans Jira (`origin = MANUAL`) ; renommer met à jour le résumé Jira ; suppression d'une tâche `NOT_CREATED` permise, d'une `CREATED` refusée (`CANNOT_DELETE_CREATED`).
-- [ ] T021 [P] [US1] `BT/infrastructure/web/TaskResourceIT.java` (US1) : routes `GET /`, `POST|PUT|DELETE /proposal`, `POST /proposal/validate`, `POST /create-remaining`, `POST /`, `PATCH|DELETE /{taskId}` avec les codes d'erreur de contracts/rest-api.md, protection cookie et Origin.
+- [X] T016 [P] [US1] `BT/domain/task/TaskProposalTest.java` : bornes 3 à 8 (complémentaire : 1 à 8 moins les existantes), titre 1 à 120, résultat 1 à 300, base connue (module de la liste ou code de cas d'usage), préalable vers une tâche antérieure seulement, titre identique à une tâche existante refusé ; opérations renommer, fusionner, supprimer (réindexe les préalables), déplacer, ajouter.
+- [X] T017 [P] [US1] `BT/infrastructure/llm/ai/TasksGuardrailTest.java` : réponses hors bornes refusées avec un message de redemande, réponse valide acceptée (`LlmOutputs::tasks`).
+- [X] T018 [P] [US1] `BT/application/task/ProposeTasksTest.java` : sans ticket lié → `NO_LINKED_TICKET` ; ticket de type sous-tâche → `PARENT_IS_SUBTASK` ; base `MODULES` si la session a un périmètre (013), sinon `USE_CASES` ; sous-tâches existantes de la story importées (`origin = JIRA`) et passées en `<taches-existantes>` ; proposition en cours remplacée ; échec du modèle → `TASKS_UNAVAILABLE`.
+- [X] T019 [P] [US1] `BT/application/task/ValidateTasksTest.java` (R10) : création une par une dans l'ordre, clé gardée ; sous-tâche de même résumé exact reprise au lieu d'être créée ; erreur au milieu → restantes `NOT_CREATED`, relance sans doublon ; pas de type sous-tâche → `NO_SUBTASK_TYPE`, rien créé ; aucun appel de suppression à Jira.
+- [X] T020 [P] [US1] `BT/application/task/EditTasksTest.java` : ajout manuel après validation créé aussitôt dans Jira (`origin = MANUAL`) ; renommer met à jour le résumé Jira ; suppression d'une tâche `NOT_CREATED` permise, d'une `CREATED` refusée (`CANNOT_DELETE_CREATED`).
+- [X] T021 [P] [US1] `BT/infrastructure/web/TaskResourceIT.java` (US1) : routes `GET /`, `POST|PUT|DELETE /proposal`, `POST /proposal/validate`, `POST /create-remaining`, `POST /`, `PATCH|DELETE /{taskId}` avec les codes d'erreur de contracts/rest-api.md, protection cookie et Origin.
 
 ### Implémentation US1
 
-- [ ] T022 [US1] `BM/domain/task/TaskProposal.java` (`ProposedTask(title, outcome, basis, dependsOn)`, validation et opérations d'édition) ; T016 vert.
-- [ ] T023 [US1] Port `BM/domain/port/TaskLlm.java` (`proposeTasks(TaskProposalRequest) → TaskProposal`) et `TaskProposalRequest` (spécification, modules, tâches existantes, bornes, langue).
-- [ ] T024 [P] [US1] Consigne réutilisable `BR/prompts/skills/decoupage-taches.md` (une tâche = un résultat vérifiable par un relecteur ; découpage par étapes de parcours, variantes de règle ou de données, dépendances ; ordre d'implémentation ; ni tâche d'analyse pure ni tâche « tests » séparée), rédigée pour spec-writer sans recopier les sources (R8) ; mention dans `BR/prompts/skills/README.md`.
-- [ ] T025 [US1] Consigne `BR/prompts/propose-tasks.txt` (`[operation:propose-tasks]`, `[skill:decoupage-taches]`, données balisées jamais consignes, base `MODULE` si `<modules>` présent avec au moins un module IMPACTED couvert, sinon `USE_CASE`) ; enregistrer l'opération dans `BM/infrastructure/llm/Operations.java` et son schéma JSON dans `BM/infrastructure/llm/LlmSchemas.java`.
-- [ ] T026 [US1] `BM/infrastructure/llm/ai/TasksAi.java` (`propose(String data, ChatRequestParameters format)`, `@SystemMessage(fromResource = "prompts/propose-tasks.txt")`), garde-fou `BM/infrastructure/llm/ai/guardrails/TasksGuardrail.java`, parseur `LlmOutputs::tasks` ; T017 vert ; `SkillLibrary` valide la consigne déclarée au démarrage.
-- [ ] T027 [US1] `BM/infrastructure/llm/LangChainTaskLlm.java` : message utilisateur balisé de contracts/llm-propose-tasks.md (`<specification>`, `<modules>`, `<taches-existantes>`, `<nombre min max>`, `<langue>`), sans documents ni connaissance ; test unitaire du message construit `BT/infrastructure/llm/LangChainTaskLlmTest.java`.
-- [ ] T028 [US1] `BM/application/task/ProposeTasks.java` et `BM/application/task/EditProposal.java` (enregistrer, abandonner) ; T018 vert.
-- [ ] T029 [US1] `BM/application/task/ValidateTasks.java` (validation et « créer les tâches restantes ») et `BM/application/task/EditTasks.java` (ajout manuel, renommage, réordonnancement, préalables, suppression des non créées) ; description de la sous-tâche = résultat attendu en wiki via `WikiMarkup` ; T019 et T020 verts.
-- [ ] T030 [US1] `BM/application/task/ReadTasks.java` (première version : vue `TasksView` sans relecture Jira : `linkedIssueKey`, `canPropose`, `proposeBlocked`, `hasProposal`, `creationProblem`, `tasks`).
-- [ ] T031 [US1] `BM/infrastructure/web/TaskResource.java` (`@Path("/api/sessions/{id}/tasks")`, DTO `TasksView` et `ProposalView` de contracts/rest-api.md) et câblage dans `BM/infrastructure/config/UseCaseProducer.java` ; T021 vert ; règle ArchUnit `HexagonalArchitectureTest` verte (sous Maven).
-- [ ] T032 [P] [US1] Front : `FE/core/tasks/tasks.model.ts` et `FE/core/tasks/tasks.api.ts` (routes de T031) avec tests `tasks.api.spec.ts`.
-- [ ] T033 [US1] Front : `FE/features/specification/task-proposal.component.ts` (relecture : renommer, fusionner, supprimer, monter/descendre par boutons, ajouter, valider, abandonner ; base affichée ; libellés et contrastes WCAG AA) et son test `task-proposal.component.spec.ts`.
-- [ ] T034 [US1] Front : `FE/features/specification/tasks-panel.component.ts` (bouton « Proposer des tâches », message « Envoyez d'abord la spécification vers Jira » sans ticket, liste avec clé Jira cliquable et statut, « Créer les tâches restantes », ajout manuel) et test `tasks-panel.component.spec.ts` ; panneau placé au-dessus de `sw-subtasks-panel` dans `FE/features/specification/specification.page.ts`.
-- [ ] T035 [P] [US1] Fixtures de rejeu `e2e/fixtures/llm/63-propose-tasks-modules.json` et `64-propose-tasks-cas-usage.json` (`operation: "propose-tasks"`, `userContains` sur le titre de la spécification de l'essai).
-- [ ] T036 [US1] E2E `e2e/tests/us15-taches.spec.ts`, parcours US1 : proposer, supprimer, ajouter, monter, recharger (corrections gardées), valider → journal WireMock avec un `POST /rest/api/2/issue` par tâche et `fields.parent.key` ; spécification sans ticket → bouton indisponible ; vérification axe.
+- [X] T022 [US1] `BM/domain/task/TaskProposal.java` (`ProposedTask(title, outcome, basis, dependsOn)`, validation et opérations d'édition) ; T016 vert.
+- [X] T023 [US1] Port `BM/domain/port/TaskLlm.java` (`proposeTasks(TaskProposalRequest) → TaskProposal`) et `TaskProposalRequest` (spécification, modules, tâches existantes, bornes, langue).
+- [X] T024 [P] [US1] Consigne réutilisable `BR/prompts/skills/decoupage-taches.md` (une tâche = un résultat vérifiable par un relecteur ; découpage par étapes de parcours, variantes de règle ou de données, dépendances ; ordre d'implémentation ; ni tâche d'analyse pure ni tâche « tests » séparée), rédigée pour spec-writer sans recopier les sources (R8) ; mention dans `BR/prompts/skills/README.md`.
+- [X] T025 [US1] Consigne `BR/prompts/propose-tasks.txt` (`[operation:propose-tasks]`, `[skill:decoupage-taches]`, données balisées jamais consignes, base `MODULE` si `<modules>` présent avec au moins un module IMPACTED couvert, sinon `USE_CASE`) ; enregistrer l'opération dans `BM/infrastructure/llm/Operations.java` et son schéma JSON dans `BM/infrastructure/llm/LlmSchemas.java`.
+- [X] T026 [US1] `BM/infrastructure/llm/ai/TasksAi.java` (`propose(String data, ChatRequestParameters format)`, `@SystemMessage(fromResource = "prompts/propose-tasks.txt")`), garde-fou `BM/infrastructure/llm/ai/guardrails/TasksGuardrail.java`, parseur `LlmOutputs::tasks` ; T017 vert ; `SkillLibrary` valide la consigne déclarée au démarrage.
+- [X] T027 [US1] `BM/infrastructure/llm/LangChainTaskLlm.java` : message utilisateur balisé de contracts/llm-propose-tasks.md (`<specification>`, `<modules>`, `<taches-existantes>`, `<nombre min max>`, `<langue>`), sans documents ni connaissance ; test unitaire du message construit `BT/infrastructure/llm/LangChainTaskLlmTest.java`.
+- [X] T028 [US1] `BM/application/task/ProposeTasks.java` et `BM/application/task/EditProposal.java` (enregistrer, abandonner) ; T018 vert.
+- [X] T029 [US1] `BM/application/task/ValidateTasks.java` (validation et « créer les tâches restantes ») et `BM/application/task/EditTasks.java` (ajout manuel, renommage, réordonnancement, préalables, suppression des non créées) ; description de la sous-tâche = résultat attendu en wiki via `WikiMarkup` ; T019 et T020 verts.
+- [X] T030 [US1] `BM/application/task/ReadTasks.java` (première version : vue `TasksView` sans relecture Jira : `linkedIssueKey`, `canPropose`, `proposeBlocked`, `hasProposal`, `creationProblem`, `tasks`).
+- [X] T031 [US1] `BM/infrastructure/web/TaskResource.java` (`@Path("/api/sessions/{id}/tasks")`, DTO `TasksView` et `ProposalView` de contracts/rest-api.md) et câblage dans `BM/infrastructure/config/UseCaseProducer.java` ; T021 vert ; règle ArchUnit `HexagonalArchitectureTest` verte (sous Maven).
+- [X] T032 [P] [US1] Front : `FE/core/tasks/tasks.model.ts` et `FE/core/tasks/tasks.api.ts` (routes de T031) avec tests `tasks.api.spec.ts`.
+- [X] T033 [US1] Front : `FE/features/specification/task-proposal.component.ts` (relecture : renommer, fusionner, supprimer, monter/descendre par boutons, ajouter, valider, abandonner ; base affichée ; libellés et contrastes WCAG AA) et son test `task-proposal.component.spec.ts`.
+- [X] T034 [US1] Front : `FE/features/specification/tasks-panel.component.ts` (bouton « Proposer des tâches », message « Envoyez d'abord la spécification vers Jira » sans ticket, liste avec clé Jira cliquable et statut, « Créer les tâches restantes », ajout manuel) et test `tasks-panel.component.spec.ts` ; panneau placé au-dessus de `sw-subtasks-panel` dans `FE/features/specification/specification.page.ts`.
+- [X] T035 [P] [US1] Fixtures de rejeu `e2e/fixtures/llm/63-propose-tasks-modules.json` et `64-propose-tasks-cas-usage.json` (`operation: "propose-tasks"`, `userContains` sur le titre de la spécification de l'essai).
+- [X] T036 [US1] E2E `e2e/tests/us15-taches.spec.ts`, parcours US1 : proposer, supprimer, ajouter, monter, recharger (corrections gardées), valider → journal WireMock avec un `POST /rest/api/2/issue` par tâche et `fields.parent.key` ; spécification sans ticket → bouton indisponible ; vérification axe.
 
 **Checkpoint** : US1 utilisable seule. Commits `feat(task): proposition de tâches par le modèle`, `feat(task): validation en sous-tâches Jira`, `feat(front): panneau des tâches`.
 
@@ -144,7 +144,7 @@ chaque étape, la quatrième demande répond `NONE_LEFT`.
 
 ### Tests US2
 
-- [ ] T037 [P] [US2] `BT/domain/task/TaskProgressTest.java` (choix `next`) : tâche en cours de la connexion appelante, puis première en cours d'une connexion fermée, puis première `TODO` créée dont les préalables sont `DONE`, sinon `NONE_LEFT` ou `ALL_HELD` ; `MISSING` jamais choisie ; deux appels sans changement → même tâche (SC-004).
+- [X] T037 [P] [US2] `BT/domain/task/TaskProgressTest.java` (choix `next`) : tâche en cours de la connexion appelante, puis première en cours d'une connexion fermée, puis première `TODO` créée dont les préalables sont `DONE`, sinon `NONE_LEFT` ou `ALL_HELD` ; `MISSING` jamais choisie ; deux appels sans changement → même tâche (SC-004).
 - [ ] T038 [P] [US2] `BT/application/agent/StartTaskTest.java` : `TODO` → `IN_PROGRESS` tenue par la connexion, transition Jira `indeterminate` ; reprise d'une tâche d'une connexion fermée ; tenue par une connexion ouverte → `TASK_HELD` nommant l'agent ; préalables non finis ou `MISSING` → `TASK_NOT_READY` ; Jira injoignable → état enregistré, `pending_target`, `jiraSync: PENDING` et message ; Jira refuse → rien ne change (`JIRA_REFUSED`, `NO_TRANSITION`) ; suivi suspendu → `TRACKING_SUSPENDED` ; sans connexion → `BRIDGE_OUTDATED` ; journal `START_TASK` avec `task_key`.
 - [ ] T039 [P] [US2] `BT/application/agent/CompleteTaskTest.java` : transition `done`, connexion effacée ; compte rendu ≤ 2 000 ajouté en commentaire préfixé « Compte rendu de <agent> : » et gardé ; > 2 000 → `REPORT_TOO_LONG` ; tâche non tenue par l'appelant → `TASK_NOT_READY` ; déjà `DONE` → `alreadyDone` sans erreur ; Jira injoignable → `pending_target = DONE` et `pending_comment = 1` ; compte rendu jamais journalisé.
 - [ ] T040 [P] [US2] `BT/application/agent/NextTaskTest.java` et extension de `GetFeatureTest.java` : rejeu des transitions en attente puis choix ; `get_feature` renvoie `tasks` (tâches `CREATED` seulement, `heldBy`, `heldByYou`, `jiraSync`), `progress`, `tracking` ; journal `NEXT_TASK`.
@@ -153,7 +153,7 @@ chaque étape, la quatrième demande répond `NONE_LEFT`.
 
 ### Implémentation US2
 
-- [ ] T043 [US2] `BM/domain/task/TaskProgress.java` : `done()`, `total()` (hors `MISSING`), `next(tasks, connection, alive)` ; T037 vert.
+- [X] T043 [US2] `BM/domain/task/TaskProgress.java` : `done()`, `total()` (hors `MISSING`), `next(tasks, connection, alive)` ; T037 vert.
 - [ ] T044 [US2] `BM/application/task/PendingSync.java` : rejoue, dans l'ordre des tâches, les transitions en attente et le commentaire en attente (envoyé une seule fois) ; lève l'attente sans appel si Jira est déjà dans la catégorie visée (R5) ; test `BT/application/task/PendingSyncTest.java`.
 - [ ] T045 [US2] `BM/application/agent/StartTask.java`, `CompleteTask.java`, `NextTask.java` (Jira d'abord, sinon « à synchroniser », R5) avec `AgentJournal.record` étendu à `task_key` ; T038, T039, T040 verts.
 - [ ] T046 [US2] Étendre `BM/application/agent/GetFeature.java` (`FeatureContent` + `tasks`, `progress`, `tracking`, `readProblem`) ; T040 vert.
@@ -178,7 +178,7 @@ terminées » et « En cours » ; les deux dernières terminées dans Jira → �
 
 ### Tests US3
 
-- [ ] T052 [P] [US3] Étendre `BT/domain/task/TaskProgressTest.java` : `status(tasks)` hors `MISSING` (aucune commencée → `READY`, en cours ou partiellement terminées → `IN_PROGRESS`, toutes terminées → `IMPLEMENTED`).
+- [X] T052 [P] [US3] Étendre `BT/domain/task/TaskProgressTest.java` : `status(tasks)` hors `MISSING` (aucune commencée → `READY`, en cours ou partiellement terminées → `IN_PROGRESS`, toutes terminées → `IMPLEMENTED`).
 - [ ] T053 [P] [US3] `BT/application/task/ReadTasksTest.java` : rejeu des attentes puis relecture par `issuesByKeys` (50 clés par lecture) ; `new`/`indeterminate`/`done` → statuts, clé absente → `MISSING` ; tâche passée `DONE` dans Jira perd sa connexion ; statut de la spécification recalculé par `Actor.TASKS` si le suivi est `ACTIVE` ; Jira injoignable → statuts connus, `lastReadAt` inchangé, `readProblem: JIRA_UNREACHABLE`.
 - [ ] T054 [P] [US3] `BT/application/task/ReleaseTaskTest.java`, `SyncTasksTest.java`, `ResumeTrackingTest.java` : libération → `TODO`, transition `new`, journal `RELEASE_TASK` au nom de l'agent qui tenait la tâche ; « Synchroniser » rejoue les attentes ; reprise → `ACTIVE` et statut recalculé.
 - [ ] T055 [P] [US3] Étendre `BT/application/session/ChangeStatusTest.java` et `BT/application/agent/AgentChangeStatusTest.java` : `IN_PROGRESS` ou `IMPLEMENTED` à la main sur une session avec tâches → `STATUS_FOLLOWS_TASKS` ; `DRAFT` ou `READY` → `task_tracking = SUSPENDED` ; `set_feature_status` → `STATUS_FOLLOWS_TASKS`.
@@ -186,7 +186,7 @@ terminées » et « En cours » ; les deux dernières terminées dans Jira → �
 
 ### Implémentation US3
 
-- [ ] T057 [US3] `TaskProgress.status` dans `BM/domain/task/TaskProgress.java` ; T052 vert.
+- [X] T057 [US3] `TaskProgress.status` dans `BM/domain/task/TaskProgress.java` ; T052 vert.
 - [ ] T058 [US3] Relecture et recalcul dans `BM/application/task/ReadTasks.java` (R6, R7), réutilisée par `NextTask` et `GetFeature` (FR-019) ; T053 vert.
 - [ ] T059 [US3] `BM/application/task/ReleaseTask.java`, `SyncTasks.java`, `ResumeTracking.java` ; ajout à `CAS_D_USAGE_D_ECRITURE` dans `BT/architecture/HexagonalArchitectureTest.java` de ceux qui modifient la session ; T054 vert.
 - [ ] T060 [US3] `BM/application/session/ChangeStatus.java` et `BM/application/agent/AgentChangeStatus.java` (R7) ; T055 vert.

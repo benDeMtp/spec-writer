@@ -1,0 +1,10 @@
+{"operation": "propose-tasks", "userContains": ["<titre>Réservation des places de parking</titre>"], "response": {
+  "tasks": [
+    {"title": "Enregistrer une réservation de place", "outcome": "Une réservation pour un jour libre est enregistrée et confirmée à l'employé",
+     "basisKind": "USE_CASE", "basisRef": "UC-01", "dependsOn": []},
+    {"title": "Refuser la réservation quand le parking est complet", "outcome": "Un jour complet affiche un message et n'enregistre rien",
+     "basisKind": "USE_CASE", "basisRef": "UC-01", "dependsOn": [0]},
+    {"title": "Écran de réservation", "outcome": "L'employé choisit un jour et confirme depuis l'écran de réservation",
+     "basisKind": "USE_CASE", "basisRef": "UC-01", "dependsOn": [0]}
+  ]
+}}

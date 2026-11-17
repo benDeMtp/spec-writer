@@ -56,6 +56,8 @@ import {
 } from '../projects/move-session-dialog.component';
 import { ExportService } from './export.service';
 import { SubtasksPanelComponent } from './subtasks-panel.component';
+import { TasksPanelComponent } from './tasks-panel.component';
+import { TasksView } from '../../core/tasks/tasks.model';
 import { VersionsPanelComponent } from './versions-panel.component';
 import { DiscussionPanelComponent } from './discussion-panel.component';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
@@ -126,6 +128,7 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     RouterLink,
     ScenarioComponent,
     SubtasksPanelComponent,
+    TasksPanelComponent,
     VersionsPanelComponent,
   ],
   template: `
@@ -171,10 +174,20 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                     (selectionChange)="changeStatus($event.value)"
                   >
                     @for (o of statusOptions; track o.value) {
-                      <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                      <mat-option
+                        [value]="o.value"
+                        [disabled]="followsTasks() && (o.value === 'IN_PROGRESS' || o.value === 'IMPLEMENTED')"
+                        >{{ o.label }}</mat-option
+                      >
                     }
                   </mat-select>
                 </mat-form-field>
+                @if (followsTasks()) {
+                  <p class="hint">
+                    « En cours » et « Implémentée » suivent l’avancement des tâches. Repasser en Brouillon
+                    ou en Prête suspend leur suivi par les agents.
+                  </p>
+                }
                 @if (locked()) {
                   <p id="locked-reason" class="hint">
                     Implémentée le {{ s.implementation.implementedAt | date: 'd MMMM y' }} : cette
@@ -497,6 +510,7 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                   </ul>
                 </section>
               }
+              <sw-tasks-panel [sessionId]="id()" (changed)="tasksChanged($event)" />
               <sw-subtasks-panel [sessionId]="id()" [versionNumber]="v.number" />
             </div>
             @if (versions().length > 1) {
@@ -1097,6 +1111,23 @@ export class SpecificationPage {
     await this.follower.follow(target).catch(() => undefined);
     const name = this.projects.projects().find((p) => p.id === target)?.name ?? '';
     this.status.set(`Spécification déplacée vers le projet « ${name} ».`);
+  }
+
+  /** Des tâches sont suivies : le statut « En cours » ou « Implémentée » vient d'elles (015, FR-020a). */
+  protected readonly followsTasks = signal(false);
+
+  /** Après une lecture ou une action sur les tâches, le statut a pu suivre (015, R7). */
+  protected async tasksChanged(view: TasksView): Promise<void> {
+    this.followsTasks.set(view.progress.total > 0);
+    const session = this.session();
+    if (!session || view.progress.total === 0) {
+      return;
+    }
+    const fresh = await this.api.get(session.id).catch(() => null);
+    if (fresh && fresh.implementation.status !== session.implementation.status) {
+      this.session.set(fresh);
+      this.status.set(`Statut : ${IMPLEMENTATION_LABELS[fresh.implementation.status]}.`);
+    }
   }
 
   /** Statut d'implémentation ; quitter « implémentée » se confirme, en rappelant sa date (FR-026b de 002). */
