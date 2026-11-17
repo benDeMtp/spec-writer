@@ -88,6 +88,15 @@ class JsonOutputGuardrailTest {
     }
 
     @Test
+    void uneStoryHorsBornesEstRedemandee() {
+        String spec = fr.kawamind.infrastructure.llm.ai.LlmOutputsTest.with(
+                "{\"role\":\"\",\"capability\":\"c\",\"benefit\":\"b\",\"assumed\":[]}", "[]");
+        OutputGuardrailResult result = new SpecificationGuardrail().validate(request(spec, 1));
+        assertThat(result.isRetry()).isTrue();
+        assertThat(result.getReprompt()).contains(JsonOutputGuardrail.REPROMPT);
+    }
+
+    @Test
     void uneSortieNonConformeEstRedemandeeSansContenuAuJournal() {
         List<LogRecord> logged = Collections.synchronizedList(new ArrayList<>());
         java.util.logging.Logger logger = java.util.logging.Logger.getLogger(JsonOutputGuardrail.class.getName());

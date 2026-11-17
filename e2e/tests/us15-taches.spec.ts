@@ -232,6 +232,51 @@ test.describe.serial('US15 tâches et avancement', () => {
     await expectNoA11yViolations(page);
   });
 
+  test('US4 : la spécification tirée d’un document s’ouvre sur l’énoncé de story, repris à l’export et vers Jira', async () => {
+    const created = await page.request.post('/api/sessions', {
+      headers,
+      data: { need: "E2E-STORY : les agents d'accueil prêtent des vélos de courtoisie aux visiteurs du siège." },
+    });
+    const story = (await created.json()) as { id: string };
+    try {
+      const html =
+        '<html><head><title>Accueil vélos</title></head><body><h1>Prêt de vélos</h1>' +
+        '<p>Le prêt dure au plus 4 heures.</p></body></html>';
+      const joined = await page.request.post(`/api/sessions/${story.id}/attachments?name=${encodeURIComponent('Accueil velos.html')}`, {
+        headers: { ...headers, 'Content-Type': 'application/octet-stream' },
+        data: Buffer.from(html),
+      });
+      expect(joined.status()).toBe(201);
+      expect((await page.request.post(`/api/sessions/${story.id}/versions`, { headers })).status()).toBe(201);
+
+      await page.goto(`/sessions/${story.id}/versions/1`);
+      await expect(page.getByTestId('story')).toHaveText(
+        "En tant que agent d'accueil, je veux prêter un vélo de courtoisie à un visiteur, afin de faciliter ses " +
+          'déplacements entre les sites (hypothèse).',
+        { useInnerText: true },
+      );
+      const split = page.getByRole('region', { name: 'Découpage proposé' });
+      await expect(split.getByRole('listitem')).toHaveText(['Prêter un vélo', 'Restituer un vélo et signaler une panne']);
+      await expectNoA11yViolations(page);
+
+      const markdown = await (await page.request.get(`/api/sessions/${story.id}/versions/1/export`)).text();
+      expect(markdown).toMatch(
+        /^# Prêt de vélos de courtoisie\n\n> En tant que \*\*agent d'accueil\*\*, je veux \*\*prêter un vélo de courtoisie à un visiteur\*\*, afin de \*\*faciliter ses déplacements entre les sites\*\* \(hypothèse\)\.\n/,
+      );
+      expect(markdown).toContain('## Découpage proposé');
+      const preview = await page.request.post(`/api/sessions/${story.id}/jira/preview`, {
+        headers,
+        data: { versionNumber: 1, issueTypeId: '10001' },
+      });
+      expect(preview.status()).toBe(200);
+      const wiki = ((await preview.json()) as { descriptionWiki: string }).descriptionWiki;
+      expect(wiki).toContain('En tant que');
+      expect(wiki.indexOf("agent d'accueil")).toBeLessThan(wiki.indexOf('Résumé'));
+    } finally {
+      await page.request.delete(`/api/sessions/${story.id}`, { headers });
+    }
+  });
+
   test.describe.serial('US2 et US3 : suivi par les agents et avancement', () => {
     let first: McpClient;
     let second: McpClient;

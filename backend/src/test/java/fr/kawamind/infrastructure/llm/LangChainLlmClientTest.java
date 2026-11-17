@@ -81,7 +81,11 @@ class LangChainLlmClientTest {
     void leSchemaDemandeLesDetails() {
         JsonObjectSchema root = (JsonObjectSchema) LlmSchemas.SPECIFICATION.jsonSchema().rootElement();
 
-        assertThat(root.properties()).containsKeys("summary", "details");
+        assertThat(root.properties()).containsKeys("summary", "details", "story", "splitProposal");
+        JsonObjectSchema story = (JsonObjectSchema) root.properties().get("story");
+        assertThat(story.properties()).containsOnlyKeys("role", "capability", "benefit", "assumed");
+        JsonObjectSchema revision = (JsonObjectSchema) LlmSchemas.REVISION.jsonSchema().rootElement();
+        assertThat(((JsonObjectSchema) revision.properties().get("specification")).properties()).containsKey("story");
     }
 
     /** L'erreur du modèle reste celle du port, cause comprise ; le journal est celui de LlmCallLog (LlmCallLogTest). */

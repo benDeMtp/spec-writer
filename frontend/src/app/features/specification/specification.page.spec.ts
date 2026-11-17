@@ -178,6 +178,46 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     ).toBe(true);
   });
 
+  it('s’ouvre sur l’énoncé de story, l’hypothèse marquée, et le découpage proposé (015)', async () => {
+    fixture = TestBed.createComponent(SpecificationPage);
+    fixture.componentRef.setInput('id', 's1');
+    fixture.componentRef.setInput('n', '1');
+    el = fixture.nativeElement;
+    fixture.detectChanges();
+    ctrl.expectOne('/api/sessions/s1/versions/1').flush({
+      ...SPEC,
+      story: {
+        role: 'gestionnaire',
+        capability: 'saisir un avoir',
+        benefit: 'rembourser le client',
+        assumed: ['BENEFIT'],
+      },
+      splitProposal: ['Saisir un avoir', 'Annuler un avoir'],
+    });
+    ctrl.expectOne('/api/sessions/s1').flush(SESSION);
+    ctrl.expectOne('/api/sessions/s1/versions').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const story = el.querySelector('[data-testid="story"]')!;
+    expect(text(story).trim()).toBe(
+      'En tant que gestionnaire, je veux saisir un avoir, afin de rembourser le client (hypothèse).',
+    );
+    expect(story.compareDocumentPosition(section('summary')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const split = section('split');
+    expect(split.querySelector('h2')?.textContent).toBe('Découpage proposé');
+    expect(Array.from(split.querySelectorAll('li')).map((li) => li.textContent)).toEqual([
+      'Saisir un avoir',
+      'Annuler un avoir',
+    ]);
+  });
+
+  it('sans énoncé de story (versions antérieures), ni énoncé ni découpage', async () => {
+    await open(SESSION, []);
+    expect(el.querySelector('[data-testid="story"]')).toBeNull();
+    expect(section('split')).toBeNull();
+  });
+
   it('affiche les rubriques Architecture, Écarts aux ADR et Efforts supplémentaires', async () => {
     await open(SESSION, []);
     const architecture = section('architecture');

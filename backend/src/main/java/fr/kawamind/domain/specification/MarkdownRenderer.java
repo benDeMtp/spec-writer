@@ -73,6 +73,15 @@ public final class MarkdownRenderer {
     private static final PerimeterLabels PERIMETER_EN = new PerimeterLabels("Affected modules", "Impacted", "To check",
             "The perimeter analysis is incomplete: some modules may be missing.");
 
+    /** Énoncé de story et découpage proposé (015, R9). */
+    private record StoryLabels(String asA, String iWant, String soThat, String assumed, String split, String splitIntro) {
+    }
+
+    private static final StoryLabels STORY_FR = new StoryLabels("En tant que", "je veux", "afin de", "(hypothèse)",
+            "Découpage proposé", "Cette story est large : elle gagnerait à être découpée en plusieurs stories.");
+    private static final StoryLabels STORY_EN = new StoryLabels("As a", "I want", "so that", "(assumption)",
+            "Proposed split", "This story is broad: it would be better split into several stories.");
+
     private MarkdownRenderer() {
     }
 
@@ -85,6 +94,7 @@ public final class MarkdownRenderer {
         for (Labels l : List.of(FR, EN)) {
             out.put(l.summary(), "summary");
             out.put(l.details(), "details");
+            out.put((l == FR ? STORY_FR : STORY_EN).split(), "split");
             out.put(l.useCases(), "use-cases");
             out.put(l.scenarios(), "scenarios");
             out.put(l.assumptions(), "assumptions");
@@ -119,11 +129,14 @@ public final class MarkdownRenderer {
             PerimeterSnapshot perimeter) {
         Labels l = language == Language.EN ? EN : FR;
         StringBuilder md = new StringBuilder();
+        StoryLabels st = language == Language.EN ? STORY_EN : STORY_FR;
         md.append("# ").append(inline(spec.title())).append("\n\n");
+        story(md, spec.story(), st);
         md.append("## ").append(l.summary()).append("\n\n").append(rich(spec.summary())).append("\n\n");
         if (!spec.details().isBlank()) {
             md.append("## ").append(l.details()).append("\n\n").append(rich(spec.details())).append("\n\n");
         }
+        split(md, spec.splitProposal(), st);
 
         md.append("## ").append(l.useCases()).append("\n\n");
         for (UseCase uc : spec.useCases()) {
@@ -175,6 +188,39 @@ public final class MarkdownRenderer {
         deviations(md, spec.adrDeviations(), l);
         efforts(md, k.deploymentFacts(), l);
         return md.toString().stripTrailing() + "\n";
+    }
+
+    /** « En tant que rôle, je veux capacité, afin de bénéfice. », en tête (FR-023, FR-025). */
+    private static void story(StringBuilder md, UserStory story, StoryLabels st) {
+        if (story == null) {
+            return;
+        }
+        md.append("> ").append(st.asA()).append(' ');
+        storyPart(md, story, StoryPart.ROLE, story.role(), st);
+        md.append(", ").append(st.iWant()).append(' ');
+        storyPart(md, story, StoryPart.CAPABILITY, story.capability(), st);
+        md.append(", ").append(st.soThat()).append(' ');
+        storyPart(md, story, StoryPart.BENEFIT, story.benefit(), st);
+        md.append(".\n\n");
+    }
+
+    private static void storyPart(StringBuilder md, UserStory story, StoryPart part, String text, StoryLabels st) {
+        md.append("**").append(inline(text)).append("**");
+        if (story.isAssumed(part)) {
+            md.append(' ').append(st.assumed());
+        }
+    }
+
+    /** Stories proposées pour une story trop large, jamais découpée d'office (FR-024). */
+    private static void split(StringBuilder md, List<String> titles, StoryLabels st) {
+        if (titles.isEmpty()) {
+            return;
+        }
+        md.append("## ").append(st.split()).append("\n\n").append(st.splitIntro()).append("\n\n");
+        for (int i = 0; i < titles.size(); i++) {
+            md.append(i + 1).append(". ").append(inline(titles.get(i))).append('\n');
+        }
+        md.append('\n');
     }
 
     private static void architecture(StringBuilder md, KnowledgeSelection k, Labels l, boolean analysed) {

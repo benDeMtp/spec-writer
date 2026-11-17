@@ -210,18 +210,18 @@ reprennent.
 
 ### Tests US4
 
-- [ ] T065 [P] [US4] `BT/domain/specification/UserStoryTest.java` : `role`, `capability`, `benefit` ≤ 300 caractères ; `assumed` ⊂ {`ROLE`, `CAPABILITY`, `BENEFIT`} ; `splitProposal` vide ou de 2 à 5 titres ≤ 120.
-- [ ] T066 [P] [US4] Étendre `BT/domain/specification/MarkdownRendererTest.java` : énoncé en tête, élément supposé suivi de « (hypothèse) », rubrique « Découpage proposé » si `splitProposal` n'est pas vide, rendu inchangé sans story (versions antérieures).
-- [ ] T067 [P] [US4] Étendre les tests du parseur `BT/infrastructure/llm/ai/LlmOutputsTest.java` : JSON sans `story` accepté (anciennes fixtures), `story` invalide refusé avec un message de redemande.
+- [X] T065 [P] [US4] `BT/domain/specification/UserStoryTest.java` : `role`, `capability`, `benefit` ≤ 300 caractères ; `assumed` ⊂ {`ROLE`, `CAPABILITY`, `BENEFIT`} ; `splitProposal` vide ou de 2 à 5 titres ≤ 120.
+- [X] T066 [P] [US4] Étendre `BT/domain/specification/MarkdownRendererTest.java` : énoncé en tête, élément supposé suivi de « (hypothèse) », rubrique « Découpage proposé » si `splitProposal` n'est pas vide, rendu inchangé sans story (versions antérieures).
+- [X] T067 [P] [US4] Tests du parseur `BT/infrastructure/llm/ai/LlmOutputsTest.java` (créé) et de `SpecificationGuardrail` (`JsonOutputGuardrailTest`) : JSON sans `story` accepté (anciennes fixtures), `story` invalide refusé avec un message de redemande.
 
 ### Implémentation US4
 
-- [ ] T068 [US4] `BM/domain/specification/UserStory.java`, `StoryPart`, et `story` (nullable) et `splitProposal` (liste, vide par défaut) dans `BM/domain/specification/SpecificationContent.java` ; lecture des contenus JSON antérieurs sans ces champs ; T065 vert.
-- [ ] T069 [US4] `BM/domain/specification/MarkdownRenderer.java` ; T066 vert ; l'export et la description Jira (`CreateJiraTicket`, `PushToJira`) reprennent le Markdown sans autre changement.
-- [ ] T070 [US4] Parseur `LlmOutputs` et schémas JSON de `LlmSchemas` des opérations `generate-specification`, `edit-specification`, `merge-conflict`, `structure-imported-text` (champs facultatifs) ; T067 vert.
-- [ ] T071 [P] [US4] Consigne réutilisable `BR/prompts/skills/redaction-story.md` (énoncé rôle/capacité/bénéfice tiré du besoin, des réponses ou des documents ; élément supposé déclaré ; critères INVEST ; signal de story trop large avec 2 à 5 stories proposées, sans découper d'office), rédigée sans recopie (R9).
-- [ ] T072 [US4] Déclarer `[skill:redaction-story]` et le format `story`/`splitProposal` dans `BR/prompts/generate-specification.txt`, `edit-specification.txt`, `merge-conflict.txt`, `structure-imported-text.txt`.
-- [ ] T073 [P] [US4] Fixture `e2e/fixtures/llm/65-generate-story.json` (génération avec `story` et un document joint) et E2E `e2e/tests/us15-taches.spec.ts`, parcours US4 : la spécification s'ouvre sur l'énoncé, l'export Markdown et l'aperçu Jira le reprennent.
+- [X] T068 [US4] `BM/domain/specification/UserStory.java`, `StoryPart`, et `story` (nullable) et `splitProposal` (liste, vide par défaut) dans `BM/domain/specification/SpecificationContent.java` ; lecture des contenus JSON antérieurs sans ces champs ; T065 vert.
+- [X] T069 [US4] `BM/domain/specification/MarkdownRenderer.java` ; T066 vert ; l'export et la description Jira (`CreateJiraTicket`, `PushToJira`) reprennent le Markdown sans autre changement ; l'écran de la spécification affiche l'énoncé et le découpage (`SessionViews.SpecificationView`, `specification.page.ts`).
+- [X] T070 [US4] Parseur `LlmOutputs` et schémas JSON de `LlmSchemas` des opérations `generate-specification`, `edit-specification`, `merge-conflict`, `structure-imported-text` (champs facultatifs), et `revise-specification` qui partage le même schéma ; T067 vert.
+- [X] T071 [P] [US4] Consigne réutilisable `BR/prompts/skills/redaction-story.md` (énoncé rôle/capacité/bénéfice tiré du besoin, des réponses ou des documents ; élément supposé déclaré ; critères INVEST ; signal de story trop large avec 2 à 5 stories proposées, sans découper d'office), rédigée sans recopie (R9).
+- [X] T072 [US4] Déclarer `[skill:redaction-story]` et le format `story`/`splitProposal` dans `BR/prompts/generate-specification.txt`, `edit-specification.txt`, `merge-conflict.txt`, `structure-imported-text.txt`, et `revise-specification.txt` (même schéma).
+- [X] T073 [P] [US4] Fixtures `e2e/fixtures/llm/64-story-questions.json` et `65-generate-story.json` (génération avec `story` et un document joint) et E2E `e2e/tests/us15-taches.spec.ts`, parcours US4 : la spécification s'ouvre sur l'énoncé, l'export Markdown et l'aperçu Jira le reprennent.
 
 **Checkpoint** : les fixtures de génération existantes restent valides (E2E complets verts). Commit `feat(specification): énoncé de story et découpage proposé`.
 

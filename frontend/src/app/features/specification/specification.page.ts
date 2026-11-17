@@ -35,6 +35,7 @@ import {
   Specification,
   SyncState,
   UseCase,
+  UserStory,
   VersionSummary,
 } from '../../core/sessions/sessions.model';
 import { AttachmentsComponent } from '../../shared/ui/attachments.component';
@@ -109,6 +110,18 @@ const PERIMETER = /^## (Modules touchés|Affected modules)\n([\s\S]*?)(?=^## |(?
 export function perimeterSection(markdown: string | null | undefined): { title: string; body: string } | null {
   const found = markdown ? PERIMETER.exec(markdown) : null;
   return found ? { title: found[1], body: found[2].trim() } : null;
+}
+
+/** Parties de l'énoncé de story (015, FR-023), la partie supposée marquée « (hypothèse) ». */
+export function storyParts(
+  story: UserStory,
+): { lead: string; text: string; assumed: boolean; end: string }[] {
+  const assumed = new Set(story.assumed ?? []);
+  return [
+    { lead: 'En tant que', text: story.role, assumed: assumed.has('ROLE'), end: ',' },
+    { lead: 'je veux', text: story.capability, assumed: assumed.has('CAPABILITY'), end: ',' },
+    { lead: 'afin de', text: story.benefit, assumed: assumed.has('BENEFIT'), end: '.' },
+  ];
 }
 
 /** Version de spécification : résumé, use cases, scénarios, hypothèses et exigences (FR-010). */
@@ -302,6 +315,16 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
           </header>
           <div class="layout">
             <div class="sheet document">
+              @if (v.story; as story) {
+                <p class="story" data-testid="story">
+                  @for (part of storyParts(story); track part.lead) {
+                    {{ part.lead }} <strong>{{ part.text }}</strong
+                    >@if (part.assumed) {
+                      <span class="assumed"> (hypothèse)</span>
+                    }{{ part.end }}
+                  }
+                </p>
+              }
               <section aria-labelledby="summary">
                 <h2 id="summary">Résumé</h2>
                 <markdown class="rich" [data]="v.summary" />
@@ -311,6 +334,18 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                 <section aria-labelledby="details">
                   <h2 id="details">Détails</h2>
                   <markdown class="rich" [data]="v.details" />
+                </section>
+              }
+
+              @if (v.splitProposal?.length) {
+                <section aria-labelledby="split">
+                  <h2 id="split">Découpage proposé</h2>
+                  <p>Cette story est large : elle gagnerait à être découpée en plusieurs stories.</p>
+                  <ol>
+                    @for (title of v.splitProposal; track $index) {
+                      <li>{{ title }}</li>
+                    }
+                  </ol>
                 </section>
               }
 
@@ -720,6 +755,16 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     .document dd {
       white-space: pre-line;
     }
+    .story {
+      margin: 0 0 1.5rem;
+      padding-left: 1rem;
+      border-left: 3px solid var(--sw-rule);
+      font-size: 1.05rem;
+    }
+    .story .assumed {
+      color: var(--sw-ink-soft);
+      font-style: italic;
+    }
     .rich {
       display: block;
       font-family: var(--sw-font-doc);
@@ -791,6 +836,7 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
 })
 export class SpecificationPage {
   protected readonly perimeter = perimeterSection;
+  protected readonly storyParts = storyParts;
   private readonly api = inject(SessionsApi);
   private readonly jira = inject(JiraApi);
   private readonly dialog = inject(MatDialog);

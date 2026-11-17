@@ -158,6 +158,20 @@ export interface Specification {
   architecture?: Architecture | null;
   /** Adresse de chaque référence citée : ticket, page ou ADR. */
   links?: Record<string, string>;
+  /** Énoncé de story en tête (015, FR-023) ; absent des versions antérieures. */
+  story?: UserStory | null;
+  /** Stories proposées pour une story trop large (FR-024) ; vide sinon. */
+  splitProposal?: string[];
+}
+
+export type StoryPart = 'ROLE' | 'CAPABILITY' | 'BENEFIT';
+
+export interface UserStory {
+  role: string;
+  capability: string;
+  benefit: string;
+  /** Parties supposées, marquées « (hypothèse) ». */
+  assumed: StoryPart[];
 }
 
 export interface AdrDeviation {

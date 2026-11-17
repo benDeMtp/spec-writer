@@ -73,6 +73,13 @@ Structure attendue :
 - "adrDeviations" : écarts de la spécification aux ADR de <connaissance-projet>, chacun
   avec "adrRef" (la référence de l'ADR, recopiée exactement), "decision" (ce que l'ADR décide) et
   "deviation" (en quoi la spécification s'en écarte) ; liste vide sans écart.
+- "story" : énoncé de story de la spécification, selon la méthode ci-dessous : "role",
+  "capability" et "benefit" (texte simple, 300 caractères au maximum chacun), et "assumed" (les
+  parties supposées parmi ROLE, CAPABILITY et BENEFIT ; liste vide si aucune).
+- "splitProposal" : titres des stories proposées quand la story est trop large (de 2 à 5, 120
+  caractères au maximum chacun) ; liste vide sinon.
+
+[skill:redaction-story]
 
 Si <correction> n'est pas vide, ta tentative précédente a été refusée pour ces raisons : corrige-les.
 

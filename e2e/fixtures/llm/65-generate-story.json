@@ -1,0 +1,28 @@
+{
+  "operation": "generate-specification",
+  "userContains": ["E2E-STORY", "<document ref=\"joint:Accueil velos.html\"", "Le prêt dure au plus 4 heures"],
+  "response": {
+    "title": "Prêt de vélos de courtoisie",
+    "summary": "Les agents d'accueil prêtent des vélos de courtoisie aux visiteurs du siège, pour 4 heures au plus.",
+    "details": "",
+    "useCases": [
+      {"title": "Prêter un vélo", "actor": "agent d'accueil", "goal": "Remettre un vélo disponible à un visiteur",
+       "preconditions": ["Le visiteur est enregistré à l'accueil"], "nominalFlow": ["Choisir un vélo disponible", "Enregistrer le prêt"],
+       "alternatives": ["Aucun vélo disponible : le visiteur est prévenu"],
+       "source": {"kind": "DOC_PAGE", "questionId": "", "excerpt": "Le prêt dure au plus 4 heures", "ref": "joint:Accueil velos.html"}}
+    ],
+    "scenarios": [
+      {"useCaseIndex": 0, "title": "Prêt enregistré", "kind": "NOMINAL", "asA": "agent d'accueil",
+       "given": ["un visiteur enregistré et un vélo disponible"], "when": ["j'enregistre le prêt"],
+       "then": ["le vélo est indiqué prêté jusqu'à 4 heures plus tard"], "assumption": false}
+    ],
+    "assumptions": [],
+    "requirements": [
+      {"category": "FUNCTIONAL", "statement": "Un prêt dure au plus 4 heures."}
+    ],
+    "adrDeviations": [],
+    "story": {"role": "agent d'accueil", "capability": "prêter un vélo de courtoisie à un visiteur",
+              "benefit": "faciliter ses déplacements entre les sites", "assumed": ["BENEFIT"]},
+    "splitProposal": ["Prêter un vélo", "Restituer un vélo et signaler une panne"]
+  }
+}

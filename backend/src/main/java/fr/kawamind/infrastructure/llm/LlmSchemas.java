@@ -109,6 +109,15 @@ final class LlmSchemas {
                     .addStringProperty("decision")
                     .addStringProperty("deviation")
                     .build()))
+            // 015 (R9) : énoncé de story et découpage proposé d'une story trop large
+            .addProperty("story", JsonObjectSchema.builder()
+                    .addStringProperty("role")
+                    .addStringProperty("capability")
+                    .addStringProperty("benefit")
+                    .addProperty("assumed", array(JsonEnumSchema.builder()
+                            .enumValues("ROLE", "CAPABILITY", "BENEFIT").build()))
+                    .build())
+            .addProperty("splitProposal", array(string()))
             .build();
     }
 

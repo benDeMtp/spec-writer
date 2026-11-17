@@ -1,10 +1,13 @@
 package fr.kawamind.domain.llm;
 
+import fr.kawamind.domain.specification.UserStory;
 import java.util.List;
 
 /**
  * Spécification brute renvoyée par le LLM, <strong>sans identifiants</strong> : ils sont attribués
  * par le code (research.md R12). Les scénarios référencent leur use case par son index (base 0).
+ * L'énoncé de story et le découpage proposé (015, R9) sont facultatifs : une story hors bornes rend la
+ * réponse non conforme, donc redemandée.
  */
 public record DraftSpecification(
         String title,
@@ -14,7 +17,9 @@ public record DraftSpecification(
         List<DraftScenario> scenarios,
         List<DraftAssumption> assumptions,
         List<DraftRequirement> requirements,
-        List<DraftAdrDeviation> adrDeviations) {
+        List<DraftAdrDeviation> adrDeviations,
+        UserStory story,
+        List<String> splitProposal) {
 
     public DraftSpecification {
         details = details == null ? "" : details;
@@ -23,6 +28,14 @@ public record DraftSpecification(
         assumptions = List.copyOf(assumptions);
         requirements = List.copyOf(requirements);
         adrDeviations = adrDeviations == null ? List.of() : List.copyOf(adrDeviations);
+        splitProposal = UserStory.split(splitProposal);
+    }
+
+    /** Sans énoncé de story : réponses antérieures à 015 (fixtures rejouées), research R9. */
+    public DraftSpecification(String title, String summary, String details, List<DraftUseCase> useCases,
+            List<DraftScenario> scenarios, List<DraftAssumption> assumptions, List<DraftRequirement> requirements,
+            List<DraftAdrDeviation> adrDeviations) {
+        this(title, summary, details, useCases, scenarios, assumptions, requirements, adrDeviations, null, List.of());
     }
 
     /** Sans écart aux ADR. */

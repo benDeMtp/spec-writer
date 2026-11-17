@@ -3,6 +3,7 @@ package fr.kawamind.infrastructure.web;
 import fr.kawamind.domain.knowledge.ArchitectureModel;
 import fr.kawamind.domain.knowledge.KnowledgeSelection;
 import fr.kawamind.domain.specification.SpecificationContent;
+import fr.kawamind.domain.specification.UserStory;
 import java.util.Map;
 import fr.kawamind.application.session.ConcludeQuestionnaire;
 import fr.kawamind.application.session.ManageSessions;
@@ -77,12 +78,12 @@ final class SessionViews {
             String details, List<UseCase> useCases, List<AcceptanceScenario> scenarios, List<Assumption> assumptions,
             List<Requirement> requirements, String markdown, Instant contextUpdatedAt,
             List<SpecificationContent.AdrDeviation> adrDeviations, ArchitectureView architecture,
-            Map<String, String> links, UUID conversationId) {
+            Map<String, String> links, UUID conversationId, UserStory story, List<String> splitProposal) {
 
         SpecificationView withLinks(Map<String, String> newLinks) {
             return new SpecificationView(number, origin, createdAt, title, summary, details, useCases, scenarios,
                     assumptions, requirements, markdown, contextUpdatedAt, adrDeviations, architecture, newLinks,
-                    conversationId);
+                    conversationId, story, splitProposal);
         }
     }
 
@@ -164,7 +165,8 @@ final class SessionViews {
         var c = v.content();
         return new SpecificationView(v.number(), v.origin().name(), v.createdAt(), c.title(), c.summary(), c.details(),
                 c.useCases(), c.scenarios(), c.assumptions(), c.requirements(), v.markdown(), v.contextUpdatedAt(),
-                c.adrDeviations(), ArchitectureView.of(v.knowledge()), Map.of(), conversationId);
+                c.adrDeviations(), ArchitectureView.of(v.knowledge()), Map.of(), conversationId, c.story(),
+                c.splitProposal());
     }
 
     /** La proposition est présentée comme la version qu'elle deviendra si elle est acceptée. */
@@ -173,6 +175,6 @@ final class SessionViews {
         return new ProposalView(p.id(), p.baseVersion(), new SpecificationView(p.baseVersion() + 1, p.origin().name(),
                 p.createdAt(), c.title(), c.summary(), c.details(), c.useCases(), c.scenarios(), c.assumptions(), c.requirements(),
                 p.markdown(), p.contextUpdatedAt(), c.adrDeviations(), ArchitectureView.of(p.knowledge().selection()),
-                Map.of(), p.conversationId()), p.unifiedDiff());
+                Map.of(), p.conversationId(), c.story(), c.splitProposal()), p.unifiedDiff());
     }
 }

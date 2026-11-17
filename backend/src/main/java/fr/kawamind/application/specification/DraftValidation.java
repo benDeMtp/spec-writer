@@ -59,7 +59,8 @@ public final class DraftValidation {
                         uc.alternatives(), SourceRef.knowledge(SourceRef.Kind.DISCUSSION, s.ref(), citable.get(s.ref())));
             }).toList();
             return new SpecificationContent(content.title(), content.summary(), content.details(), useCases,
-                    content.scenarios(), content.assumptions(), content.requirements(), content.adrDeviations());
+                    content.scenarios(), content.assumptions(), content.requirements(), content.adrDeviations(), content.story(),
+                    content.splitProposal());
         }
 
         /**
@@ -163,7 +164,8 @@ public final class DraftValidation {
                 })
                 .filter(Objects::nonNull).toList();
         return new SpecificationContent(content.title(), content.summary(), content.details(), useCases,
-                content.scenarios(), content.assumptions(), content.requirements(), deviations);
+                content.scenarios(), content.assumptions(), content.requirements(), deviations, content.story(),
+                content.splitProposal());
     }
 
     /** Réponses citables par les sources, dans l'ordre du questionnaire. */

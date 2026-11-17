@@ -127,7 +127,7 @@ public final class IdentifierAssigner {
                         strip(d.deviation())))
                 .toList();
         SpecificationContent content = new SpecificationContent(title, summary, details, useCases, scenarios,
-                assumptions, requirements, deviations);
+                assumptions, requirements, deviations, draft.story(), draft.splitProposal());
         return new Assigned(content, new StructureViolations(violations));
     }
 
