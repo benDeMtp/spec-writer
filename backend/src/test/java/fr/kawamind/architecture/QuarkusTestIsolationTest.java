@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Les tests unitaires tournent en parallèle sous Maven (pom, surefire) : un {@code @QuarkusTest}
  * partage l'application de test, sa base et ses ports, il doit donc tourner seul
- * ({@code @Isolated}).
+ * ({@code @Isolated}). Sauf la suite d'évaluation, en série dans le profil eval.
  */
 class QuarkusTestIsolationTest {
 
@@ -23,7 +23,10 @@ class QuarkusTestIsolationTest {
     void chaqueTestQuarkusEstIsole() throws IOException {
         List<Path> missing;
         try (Stream<Path> files = Files.walk(Path.of("src/test/java"))) {
-            missing = files.filter(p -> p.toString().endsWith(".java")).filter(p -> {
+            // la suite d'évaluation (profil eval) tourne en série, et son code fait partie de
+            // l'empreinte de last-run.json : elle n'a pas besoin de @Isolated
+            missing = files.filter(p -> p.toString().endsWith(".java"))
+                    .filter(p -> !p.startsWith(Path.of("src/test/java/fr/kawamind/eval"))).filter(p -> {
                 String s = read(p);
                 return QUARKUS_TEST.matcher(s).find() && !s.contains("@org.junit.jupiter.api.parallel.Isolated")
                         && !s.contains("@Isolated");
