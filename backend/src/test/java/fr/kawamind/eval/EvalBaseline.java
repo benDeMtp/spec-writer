@@ -52,6 +52,10 @@ public record EvalBaseline(double tolerance, Map<String, Double> minimum, Map<St
     public static final String TASK_VERIFIABLE = "taskVerifiable";
     /** 015 (SC-007) : spécifications générées dont l'énoncé de story est jugé conforme. */
     public static final String STORY_STATEMENT = "storyStatement";
+    /** 016 (SC-005) : réponses qui suivent la référence et signalent l'écart, sans en inventer. */
+    public static final String SOURCE_CONFLICT_FLAGGED = "sourceConflictFlagged";
+    /** 016 (SC-007) : recherches dont les extraits de référence pertinents sont retenus. */
+    public static final String REFERENCE_RETAINED = "referenceRetained";
 
     private static final double EPSILON = 1e-9;
 
