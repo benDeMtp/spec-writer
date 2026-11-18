@@ -86,10 +86,11 @@ class LangChainLlmClientTest {
         assertThat(story.properties()).containsOnlyKeys("role", "capability", "benefit", "assumed");
         JsonObjectSchema revision = (JsonObjectSchema) LlmSchemas.REVISION.jsonSchema().rootElement();
         assertThat(((JsonObjectSchema) revision.properties().get("specification")).properties()).containsKey("story");
-        // 016 (R8) : écarts entre sources, dans la rédaction et la révision
+        // 016 (R8) : écarts entre sources dans la rédaction ; pas dans la révision, dont la grammaire
+        // compilée dépasserait la limite de Copilot (la révision reprend ceux de la version discutée)
         assertThat(root.properties()).containsKey("sourceDeviations");
         assertThat(((JsonObjectSchema) revision.properties().get("specification")).properties())
-                .containsKey("sourceDeviations");
+                .doesNotContainKey("sourceDeviations");
     }
 
     /** L'erreur du modèle reste celle du port, cause comprise ; le journal est celui de LlmCallLog (LlmCallLogTest). */

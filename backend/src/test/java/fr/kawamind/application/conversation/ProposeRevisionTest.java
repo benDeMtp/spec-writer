@@ -305,4 +305,22 @@ class ProposeRevisionTest {
         assertThat(again.unchanged()).isTrue();
         assertThat(again.reason()).isEqualTo("Rien de neuf.");
     }
+
+    /** 016 : la révision n'a pas d'écarts entre sources dans son format, elle reprend ceux de la version discutée. */
+    @Test
+    void lesEcartsEntreSourcesDeLaVersionDiscuteeSontRepris() {
+        var base = w.versions.find(session.id(), 1).orElseThrow().content();
+        var deviation = new fr.kawamind.domain.specification.SourceDeviation(
+                new fr.kawamind.domain.specification.SourceDeviation.Cited("docs:s/Demande.docx",
+                        fr.kawamind.domain.knowledge.SourceOrigin.DOCUMENTS, "Demande", null),
+                new fr.kawamind.domain.specification.SourceDeviation.Cited("https://wiki/x?pageId=1",
+                        fr.kawamind.domain.knowledge.SourceOrigin.CONFLUENCE, "Notes", null),
+                "500 euros contre 1 000 euros.");
+        var discussed = base.withSourceDeviations(List.of(deviation));
+
+        assertThat(ProposeRevision.withBaseDeviations(base, discussed).sourceDeviations()).containsExactly(deviation);
+        // une révision qui en porte (format futur) garde les siennes ; sans écart, rien n'est inventé
+        assertThat(ProposeRevision.withBaseDeviations(discussed, base).sourceDeviations()).containsExactly(deviation);
+        assertThat(ProposeRevision.withBaseDeviations(base, base).sourceDeviations()).isEmpty();
+    }
 }

@@ -327,6 +327,7 @@ public class ProposeRevision {
             content = base.content();
             perimeterOnly = u;
         }
+        content = withBaseDeviations(content, base.content());
         PerimeterSnapshot perimeter = analysed == null ? null : analysed.corrected(corrections);
         ProposalStore.Proposal p = proposals.propose(session, base, content, VersionOrigin.DISCUSSION, null, null,
                 known, cid, perimeter == null || perimeter.equals(current.orElse(null)) ? null : perimeter);
@@ -402,5 +403,14 @@ public class ProposeRevision {
 
     private long duration(Instant begin) {
         return Math.max(0, Duration.between(begin, clock.now()).toMillis());
+    }
+
+    /**
+     * Le format de la révision n'a pas d'écarts entre sources (016, {@code LlmSchemas.REVISION}) :
+     * la version proposée reprend ceux de la version discutée.
+     */
+    static SpecificationContent withBaseDeviations(SpecificationContent revised, SpecificationContent base) {
+        return revised.sourceDeviations().isEmpty() && !base.sourceDeviations().isEmpty()
+                ? revised.withSourceDeviations(base.sourceDeviations()) : revised;
     }
 }
