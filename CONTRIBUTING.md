@@ -99,7 +99,7 @@ Un changement de comportement sans test qui l'a fait échouer d'abord n'est pas 
 | Couverture JaCoCo de `domain` et `application` | 80 % par package |
 | SpotBugs, PMD, ESLint | aucune alerte |
 | Accessibilité (axe, dans les E2E) | aucune violation WCAG 2.1 AA |
-| OWASP Dependency-Check, `npm audit` | aucune vulnérabilité haute |
+| OWASP Dependency-Check, `npm audit` (`ci/npm-audit.sh`) | aucune vulnérabilité haute, hors des avis sans correctif listés dans `ci/npm-audit-ignore.txt` et suivis dans `TODO.md` |
 | Semgrep, gitleaks | aucun constat |
 | Évaluation LLM (`ci/check-eval.sh`) | à jour si les prompts, le code LLM, le golden set, le Copilot SDK ou le modèle par défaut changent ; scores au-dessus de la base |
 
