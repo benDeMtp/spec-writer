@@ -241,7 +241,7 @@ public class Converse {
         } catch (DomainException e) {
             fail(progress, thinking, begin, e.code(), e.userMessage());
         } catch (RuntimeException e) {
-            LOG.errorf("Conversation : erreur inattendue (%s)", e.getClass().getSimpleName());
+            LOG.errorf(e, "Conversation : erreur inattendue (%s)", e.getClass().getSimpleName());
             fail(progress, thinking, begin, ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());
         }
     }

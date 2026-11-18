@@ -323,4 +323,14 @@ class ProposeRevisionTest {
         assertThat(ProposeRevision.withBaseDeviations(discussed, base).sourceDeviations()).containsExactly(deviation);
         assertThat(ProposeRevision.withBaseDeviations(base, base).sourceDeviations()).isEmpty();
     }
+
+    @Test
+    void uneErreurInattendueEstSitueeSansSonMessage() {
+        IllegalStateException e = new IllegalStateException("texte de la spécification");
+        e.setStackTrace(new StackTraceElement[] {new StackTraceElement("io.quarkus.arc.Impl", "get", "Impl.java", 3),
+            new StackTraceElement("fr.kawamind.application.knowledge.SelectKnowledge", "forEdit", "SelectKnowledge.java", 42)});
+
+        assertThat(ProposeRevision.origin(e)).isEqualTo("SelectKnowledge.forEdit:42");
+        assertThat(ProposeRevision.origin(new IllegalStateException())).isNotBlank();
+    }
 }
