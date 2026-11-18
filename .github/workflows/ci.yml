@@ -52,9 +52,9 @@ jobs:
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          # repli : dernier cache, puis l'ancien de setup-java (cache: maven) à la première exécution
           restore-keys: |
             maven-${{ runner.os }}-
-            # ancien cache de setup-java (cache: maven), pour la première exécution
             setup-java-${{ runner.os }}-
 
       - name: Base NVD (restauration)
@@ -106,9 +106,9 @@ jobs:
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          # repli : dernier cache, puis l'ancien de setup-java (cache: maven) à la première exécution
           restore-keys: |
             maven-${{ runner.os }}-
-            # ancien cache de setup-java (cache: maven), pour la première exécution
             setup-java-${{ runner.os }}-
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
