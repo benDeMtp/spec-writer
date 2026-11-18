@@ -61,6 +61,18 @@ public final class MarkdownRenderer {
             "crosses infrastructures (network opening or exposure to plan)", "depends on a shared infrastructure",
             "attached document");
 
+    /** Rubrique « Écarts entre sources » (016, R8) : la référence, l'interprétation, ce qui diffère. */
+    private record SourceLabels(String title, String reference, String interpretation, String difference,
+            String unknownDate, java.time.format.DateTimeFormatter date) {
+    }
+
+    private static final SourceLabels SOURCES_FR = new SourceLabels("Écarts entre sources", "Référence",
+            "Interprétation", "Écart", "date inconnue",
+            java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", java.util.Locale.FRENCH));
+    private static final SourceLabels SOURCES_EN = new SourceLabels("Source deviations", "Reference",
+            "Interpretation", "Difference", "unknown date",
+            java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy", java.util.Locale.ENGLISH));
+
     /**
      * Rubrique « Modules touchés » (013, US5) : les modules impactés et à vérifier, un par ligne. Les
      * non impactés et les preuves restent dans l'analyse de la discussion (T060).
@@ -186,6 +198,7 @@ public final class MarkdownRenderer {
         architecture(md, k, l, analysed);
         perimeter(md, perimeter, language);
         deviations(md, spec.adrDeviations(), l);
+        sourceDeviations(md, spec.sourceDeviations(), language == Language.EN ? SOURCES_EN : SOURCES_FR, l);
         efforts(md, k.deploymentFacts(), l);
         return md.toString().stripTrailing() + "\n";
     }
@@ -304,6 +317,40 @@ public final class MarkdownRenderer {
                     .append('\n');
         }
         md.append('\n');
+    }
+
+    /** Écarts entre sources (016, FR-021) ; omise sans écart. */
+    private static void sourceDeviations(StringBuilder md, List<SourceDeviation> deviations, SourceLabels sl,
+            Labels l) {
+        if (deviations.isEmpty()) {
+            return;
+        }
+        md.append("## ").append(sl.title()).append("\n\n");
+        for (SourceDeviation d : deviations) {
+            md.append("- **").append(sl.reference()).append("**").append(l.colon()).append(cited(d.reference(), sl))
+                    .append('\n');
+            md.append("  - **").append(sl.interpretation()).append("**").append(l.colon())
+                    .append(cited(d.interpretation(), sl)).append('\n');
+            md.append("  - ").append(sl.difference()).append(l.colon()).append(escape(d.difference(), "    "))
+                    .append('\n');
+        }
+        md.append('\n');
+    }
+
+    /** « Titre (SharePoint, 12 septembre 2026) — référence ». */
+    private static String cited(SourceDeviation.Cited c, SourceLabels sl) {
+        StringBuilder out = new StringBuilder(escape(c.title() == null || c.title().isBlank() ? c.ref() : c.title()));
+        String date = c.updatedAt() == null ? sl.unknownDate()
+                : sl.date().format(c.updatedAt().atZone(fr.kawamind.domain.knowledge.Provenance.ZONE));
+        out.append(" (");
+        if (c.origin() != null) {
+            out.append(c.origin().label()).append(", ");
+        }
+        out.append(date).append(')');
+        if (c.title() != null && !c.title().isBlank()) {
+            out.append(" — ").append(escape(c.ref()));
+        }
+        return out.toString();
     }
 
     private static void efforts(StringBuilder md, List<DeploymentFact> facts, Labels l) {

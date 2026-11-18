@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 /** T162 (FR-012b) : le résumé et les détails de la spécification produite sont du Markdown. */
 @io.quarkus.test.junit.QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class LangChainLlmClientTest {
 
     /** Port de l'application, sur les AI Services (014). */
@@ -86,6 +87,11 @@ class LangChainLlmClientTest {
         assertThat(story.properties()).containsOnlyKeys("role", "capability", "benefit", "assumed");
         JsonObjectSchema revision = (JsonObjectSchema) LlmSchemas.REVISION.jsonSchema().rootElement();
         assertThat(((JsonObjectSchema) revision.properties().get("specification")).properties()).containsKey("story");
+        // 016 (R8) : écarts entre sources dans la rédaction ; pas dans la révision, dont la grammaire
+        // compilée dépasserait la limite de Copilot (la révision reprend ceux de la version discutée)
+        assertThat(root.properties()).containsKey("sourceDeviations");
+        assertThat(((JsonObjectSchema) revision.properties().get("specification")).properties())
+                .doesNotContainKey("sourceDeviations");
     }
 
     /** L'erreur du modèle reste celle du port, cause comprise ; le journal est celui de LlmCallLog (LlmCallLogTest). */

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
  * et une page de la recherche unifiée s'affichent en moins de 3 s au 95ᵉ centile.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class PagingPerformanceIT {
 
     static final long LIMIT_MS = 3_000;

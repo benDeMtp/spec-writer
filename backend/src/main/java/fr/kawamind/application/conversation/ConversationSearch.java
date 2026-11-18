@@ -1,7 +1,11 @@
 package fr.kawamind.application.conversation;
 
+import fr.kawamind.application.knowledge.ProvenanceResolver;
 import fr.kawamind.domain.conversation.SourceKind;
 import fr.kawamind.domain.knowledge.KnowledgeBudget;
+import fr.kawamind.domain.knowledge.Provenance;
+import fr.kawamind.domain.knowledge.Reliability;
+import fr.kawamind.domain.knowledge.ReservedPlaces;
 import fr.kawamind.domain.knowledge.KnowledgeItem;
 import fr.kawamind.domain.knowledge.KnowledgeKind;
 import fr.kawamind.domain.port.EmbeddingPort;
@@ -29,8 +33,19 @@ public class ConversationSearch {
     private static final int RRF_K = 60;
     private static final int PER_SOURCE = 20;
 
-    /** Résultat transmis à l'IA ; le texte n'apparaît jamais dans {@link #toString()}. */
-    public record Found(SourceKind kind, String ref, String title, String text) {
+    /**
+     * Résultat transmis à l'IA, avec sa provenance (016, {@code null} pour les modules et la
+     * discussion) ; le texte n'apparaît jamais dans {@link #toString()}.
+     */
+    public record Found(SourceKind kind, String ref, String title, String text, Provenance provenance) {
+
+        public Found(SourceKind kind, String ref, String title, String text) {
+            this(kind, ref, title, text, null);
+        }
+
+        public boolean reference() {
+            return provenance != null && provenance.level() == Reliability.REFERENCE;
+        }
 
         @Override
         public String toString() {
@@ -41,11 +56,18 @@ public class ConversationSearch {
     private final KnowledgeIndex index;
     private final EmbeddingPort embedding;
     private final LocalSearch specifications;
+    private final ProvenanceResolver provenance;
 
-    public ConversationSearch(KnowledgeIndex index, EmbeddingPort embedding, LocalSearch specifications) {
+    public ConversationSearch(KnowledgeIndex index, EmbeddingPort embedding, LocalSearch specifications,
+            ProvenanceResolver provenance) {
         this.index = index;
         this.embedding = embedding;
         this.specifications = specifications;
+        this.provenance = provenance;
+    }
+
+    public ConversationSearch(KnowledgeIndex index, EmbeddingPort embedding, LocalSearch specifications) {
+        this(index, embedding, specifications, ProvenanceResolver.defaults());
     }
 
     /** {@code kinds} vide : toutes les sortes. */
@@ -54,6 +76,7 @@ public class ConversationSearch {
         record Ranked(Found found, double score) {
         }
         Map<String, Ranked> fused = new LinkedHashMap<>();
+        ProvenanceResolver.Resolution resolution = provenance.forProject(projectId);
         List<KnowledgeKind> indexKinds = wanted.stream().map(ConversationSearch::indexKind)
                 .filter(java.util.Objects::nonNull).toList();
         if (!indexKinds.isEmpty()) {
@@ -62,7 +85,7 @@ public class ConversationSearch {
                     vector == null ? null : embedding.modelId(), indexKinds, PER_SOURCE);
             int rank = 0;
             for (KnowledgeIndex.Hit h : hits) {
-                Found f = found(h.item());
+                Found f = found(h.item(), resolution.of(h.item()));
                 double score = 1.0 / (RRF_K + ++rank);
                 fused.merge(f.kind() + "|" + f.ref(), new Ranked(f, score),
                         (a, b) -> new Ranked(a.found(), Math.max(a.score(), b.score())));
@@ -73,18 +96,19 @@ public class ConversationSearch {
             for (LocalSearch.SpecHit s : specifications.byRelevance(projectId, query, PER_SOURCE)) {
                 String text = (s.implemented() ? "(feature implémentée) " : "") + s.text();
                 Found f = new Found(SourceKind.SPECIFICATION, SPEC_PREFIX + s.sessionId() + "@v" + s.version(),
-                        s.title(), excerpt(text));
+                        s.title(), excerpt(text), resolution.specification(s.updatedAt()));
                 fused.putIfAbsent(f.kind() + "|" + f.ref(), new Ranked(f, 1.0 / (RRF_K + ++rank)));
             }
         }
         List<Ranked> ranked = new ArrayList<>(fused.values());
         ranked.sort(Comparator.comparingDouble(Ranked::score).reversed());
-        return ranked.stream().limit(MAX_RESULTS).map(Ranked::found).toList();
+        // la coupe garde au moins deux extraits de référence pertinents (FR-019), les scores restent
+        return ReservedPlaces.apply(ranked.stream().map(Ranked::found).toList(), MAX_RESULTS, Found::reference);
     }
 
-    private static Found found(KnowledgeItem item) {
+    private static Found found(KnowledgeItem item, Provenance provenance) {
         String body = item.status() == null ? item.body() : "[" + item.status() + "] " + item.body();
-        return new Found(sourceKind(item.kind()), item.ref(), item.title(), excerpt(body));
+        return new Found(sourceKind(item.kind()), item.ref(), item.title(), excerpt(body), provenance);
     }
 
     static String excerpt(String text) {

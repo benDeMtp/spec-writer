@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 /** T010 (015, research R2) : sous-tâches, transitions et commentaires de Jira Server / Data Center. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class JiraTasksIT {
 
     static WireMockServer jira;

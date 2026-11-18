@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
  * au plus.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class KnowledgeAiTest {
 
     static final String NEED = "IT-PROCHES Le gestionnaire doit pouvoir annuler une facture émise par un avoir total.";

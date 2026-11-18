@@ -21,6 +21,8 @@ permissions:
 
 env:
   NVD_DATA: /home/runner/.cache/dependency-check-data
+  # Maven Central limite le débit (429) : plus de reprises, plus espacées (3 et 5 s par défaut)
+  MAVEN_OPTS: -Daether.connector.http.retryHandler.count=8 -Daether.connector.http.retryHandler.interval=10000
 
 jobs:
   # Base NVD de Dependency-Check, mise en cache : le premier remplissage lit tous les flux annuels,
@@ -43,7 +45,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: maven
+
+      # Dépôt Maven local : sans correspondance exacte (un pom a changé), le cache précédent est
+      # repris et seuls les nouveaux artefacts viennent de Maven Central (limité en débit, 429).
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          # repli : dernier cache, puis l'ancien de setup-java (cache: maven) à la première exécution
+          restore-keys: |
+            maven-${{ runner.os }}-
+            setup-java-${{ runner.os }}-
 
       - name: Base NVD (restauration)
         id: restore
@@ -87,7 +99,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: maven
+
+      # Dépôt Maven local : sans correspondance exacte (un pom a changé), le cache précédent est
+      # repris et seuls les nouveaux artefacts viennent de Maven Central (limité en débit, 429).
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          # repli : dernier cache, puis l'ancien de setup-java (cache: maven) à la première exécution
+          restore-keys: |
+            maven-${{ runner.os }}-
+            setup-java-${{ runner.os }}-
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

@@ -69,6 +69,21 @@ class HexagonalArchitectureTest {
             .and().resideOutsideOfPackage("fr.kawamind.infrastructure.github..")
             .should().dependOnClassesThat().resideInAnyPackage("com.github.copilot..");
 
+    /** 016 (T060) : le client REST Confluence ne vit que dans son adaptateur. */
+    @ArchTest
+    static final ArchRule clientConfluenceDansSonAdaptateur = noClasses()
+            .that().resideOutsideOfPackage("fr.kawamind.infrastructure.confluence..")
+            .and().doNotHaveFullyQualifiedName("fr.kawamind.infrastructure.config.UseCaseProducer")
+            .should().dependOnClassesThat().haveFullyQualifiedName("fr.kawamind.infrastructure.confluence.ConfluenceApi")
+            .orShould().dependOnClassesThat().haveFullyQualifiedName("fr.kawamind.infrastructure.confluence.ConfluenceThrottle");
+
+    /** 016 (T060) : niveaux et places réservées restent du domaine pur. */
+    @ArchTest
+    static final ArchRule fiabiliteSansInfrastructure = noClasses()
+            .that().haveSimpleNameStartingWith("Reliability").or().haveSimpleName("ReservedPlaces")
+            .and().resideInAPackage("fr.kawamind.domain..")
+            .should().dependOnClassesThat().resideInAnyPackage("fr.kawamind.infrastructure..", "fr.kawamind.application..");
+
     /** 014 (FR-017) : tout le code livré vit sous {@code fr.kawamind}, plus rien sous l'ancien nom. */
     @ArchTest
     static void toutLeCodeSousKawamind(JavaClasses analyzed) {

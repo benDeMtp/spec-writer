@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 /** T125 : types de ticket, champs obligatoires et création (Jira Data Center ≥ 8.4). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class JiraCreateMetaIT {
 
     static WireMockServer jira;

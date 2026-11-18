@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 /** T043 : pages de tickets du projet et recherche par mot-clé, lues par 25 (FR-020 à FR-021a de 002). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class JiraIssuePagingIT {
 
     static WireMockServer jira;

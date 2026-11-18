@@ -34,6 +34,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SessionPersistenceIT {
 
     static final Instant T0 = Instant.parse("2026-10-30T09:00:00Z");

@@ -94,8 +94,11 @@ class ConverseTest {
         assertThat(answer.id()).isEqualTo(started.turnId());
         assertThat(answer.state()).isEqualTo(MessageState.COMPLETE);
         assertThat(answer.text()).isEqualTo("L'avoir est émis par le service Avoirs [1]. Voir.");
-        assertThat(conversations.sources(answer.id())).containsExactly(
-                new CitedSource(1, SourceKind.TICKET, "FACT-7", "Émettre un avoir"));
+        assertThat(conversations.sources(answer.id())).usingRecursiveFieldByFieldElementComparatorIgnoringFields(
+                "provenance").containsExactly(new CitedSource(1, SourceKind.TICKET, "FACT-7", "Émettre un avoir"));
+        // 016 : la source citée garde sa provenance, enregistrée avec le message
+        assertThat(conversations.sources(answer.id()).getFirst().provenance().origin())
+                .isEqualTo(fr.kawamind.domain.knowledge.SourceOrigin.JIRA);
         assertThat(conversations.steps(answer.id())).containsExactly(
                 new SearchStep(1, "émission des avoirs", Set.of(SourceKind.TICKET), 1));
 
@@ -176,6 +179,7 @@ class ConverseTest {
         assertThat(llm.planRequests.getFirst().found()).extracting(s -> s.kind(), s -> s.ref())
                 .containsExactly(org.assertj.core.groups.Tuple.tuple(SourceKind.ATTACHMENT, "joint:lettrage.pdf"));
         assertThat(conversations.sources(conversations.messages(conversation.id()).getLast().id()))
+                .usingRecursiveFieldByFieldElementComparatorIgnoringFields("provenance")
                 .containsExactly(new CitedSource(1, SourceKind.ATTACHMENT, "joint:lettrage.pdf", "Règles de lettrage"));
     }
 

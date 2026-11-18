@@ -107,7 +107,7 @@ public final class EvalRuns {
             Map<String, Double> conversation, List<ConversationRuns.CaseRun> conversationRuns,
             List<DiscussionRuns.CaseRun> discussionRuns, List<PerimeterRuns.CaseRun> perimeterRuns,
             List<PerimeterAnswerRuns.CaseRun> perimeterAnswerRuns, List<InjectionRuns.CaseRun> injectionRuns,
-            List<TaskRuns.CaseRun> taskRuns) {
+            List<TaskRuns.CaseRun> taskRuns, List<SourceRuns.CaseRun> sourceRuns) {
     }
 
     private EvalRuns() {
@@ -159,6 +159,7 @@ public final class EvalRuns {
         List<PerimeterAnswerRuns.CaseRun> perimeterAnswers = new ArrayList<>();
         List<InjectionRuns.CaseRun> injections = new ArrayList<>();
         List<TaskRuns.CaseRun> tasks = new ArrayList<>();
+        List<SourceRuns.CaseRun> sources = new ArrayList<>();
         // 014 (research R7) : le code livré, beans de l'application sur le vrai Copilot (EvalProfile)
         LlmClient llm = Arc.container().instance(LlmClient.class).get();
         ConversationLlm agent = Arc.container().instance(ConversationLlm.class).get();
@@ -176,6 +177,7 @@ public final class EvalRuns {
             perimeterAnswers.addAll(PerimeterAnswerRuns.run(agent, run));
             injections.addAll(InjectionRuns.run(agent, runtime.emptyDirectory(), run));
             tasks.addAll(TaskRuns.run(taskLlm, gateway, model.orElse(null), run));
+            sources.addAll(SourceRuns.run(agent, run));
         }
         List<double[]> perRun = new ArrayList<>();
         for (int run = 1; run <= runs; run++) {
@@ -212,8 +214,10 @@ public final class EvalRuns {
             conversation.put(metric, round(TaskRuns.score(tasks, metric, runs)));
         }
         conversation.put(EvalBaseline.STORY_STATEMENT, round(storyScore(all, runs)));
+        conversation.put(EvalBaseline.SOURCE_CONFLICT_FLAGGED, round(SourceRuns.conflictScore(sources, runs)));
+        conversation.put(EvalBaseline.REFERENCE_RETAINED, round(SourceRuns.retainedScore(sources, runs)));
         Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations, discussions,
-                perimeters, perimeterAnswers, injections, tasks);
+                perimeters, perimeterAnswers, injections, tasks, sources);
         write(out, model.orElse("défaut du compte"), cliVersion, runs);
         return out;
     }
@@ -400,6 +404,21 @@ public final class EvalRuns {
                 d.put("secretLeaked", c.secretLeaked());
                 d.put("promptLeaked", c.promptLeaked());
                 d.put("excerpt", c.excerpt());
+            }
+            return d;
+        }).toList());
+        out.put("sources", r.sourceRuns().stream().map(c -> {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("case", c.caseName());
+            d.put("run", c.run());
+            d.put("passed", c.passed());
+            d.put("referenceRetained", c.referenceRetained());
+            d.put("state", c.state());
+            d.put("cited", c.cited());
+            d.put("excerpt", c.text().length() <= ConversationRuns.EXCERPT ? c.text()
+                    : c.text().substring(0, ConversationRuns.EXCERPT) + "…");
+            if (c.error() != null) {
+                d.put("error", c.error());
             }
             return d;
         }).toList());

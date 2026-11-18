@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
  * llm-replay/13 et 15).
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class KnowledgeLatencyIT {
 
     static final int TICKETS = 200;

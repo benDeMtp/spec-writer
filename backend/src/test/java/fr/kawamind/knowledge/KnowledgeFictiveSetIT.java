@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
  * l'analyse, et les flux manquants et efforts de déploiement calculés sont exactement ceux attendus.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class KnowledgeFictiveSetIT {
 
     @Inject

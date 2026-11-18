@@ -39,6 +39,7 @@ public class SqliteTaskRepository implements TaskRepository {
     @Inject
     EntityManager em;
 
+    @Transactional
     @Override
     @SuppressWarnings("unchecked")
     public List<SpecTask> tasks(UUID sessionId) {
@@ -115,6 +116,7 @@ public class SqliteTaskRepository implements TaskRepository {
                 .setParameter(19, t.lastReadAt() == null ? null : t.lastReadAt().toString());
     }
 
+    @Transactional
     @Override
     @SuppressWarnings("unchecked")
     public Optional<TaskProposal> proposal(UUID sessionId) {
@@ -139,6 +141,7 @@ public class SqliteTaskRepository implements TaskRepository {
                 .setParameter(1, sessionId.toString()).executeUpdate();
     }
 
+    @Transactional
     @Override
     public TaskTracking tracking(UUID sessionId) {
         @SuppressWarnings("unchecked")

@@ -241,7 +241,7 @@ public class Converse {
         } catch (DomainException e) {
             fail(progress, thinking, begin, e.code(), e.userMessage());
         } catch (RuntimeException e) {
-            LOG.errorf("Conversation : erreur inattendue (%s)", e.getClass().getSimpleName());
+            LOG.errorf(e, "Conversation : erreur inattendue (%s)", e.getClass().getSimpleName());
             fail(progress, thinking, begin, ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());
         }
     }
@@ -518,7 +518,8 @@ public class Converse {
                     continue;
                 }
                 left -= size;
-                TurnSource source = new TurnSource(byRef.size() + 1, f.kind(), f.ref(), f.title(), f.text());
+                TurnSource source = new TurnSource(byRef.size() + 1, f.kind(), f.ref(), f.title(), f.text(),
+                        f.provenance());
                 byRef.put(key, source);
                 added.add(source);
             }

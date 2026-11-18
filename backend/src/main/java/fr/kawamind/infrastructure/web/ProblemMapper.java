@@ -64,8 +64,7 @@ public class ProblemMapper {
 
     @ServerExceptionMapper(priority = jakarta.ws.rs.Priorities.USER + 1000)
     public Response unexpected(Throwable e) {
-        LOG.errorf("Erreur inattendue (%s)", e.getClass().getName());
-        LOG.debug("Détail de l'erreur inattendue", e);
+        LOG.errorf(e, "Erreur inattendue (%s)", e.getClass().getName());
         return respond(Problem.of(ErrorCode.INTERNAL_ERROR));
     }
 

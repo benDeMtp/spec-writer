@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 /** Contrat de {@code /api/settings/**} et {@code /api/consents/{service}} (contracts/openapi.yaml). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SettingsResourceIT {
 
     static WireMockServer jira;

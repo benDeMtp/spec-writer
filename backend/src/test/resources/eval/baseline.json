@@ -22,7 +22,9 @@
     "taskBasisExact": 0.9,
     "taskModuleCoverage": 0.9,
     "taskVerifiable": 0.9,
-    "storyStatement": 0.9
+    "storyStatement": 0.9,
+    "sourceConflictFlagged": 0.9,
+    "referenceRetained": 1.0
   },
   "scores": {
     "questionRelevance": 0.9,
@@ -46,6 +48,8 @@
     "taskBasisExact": 0.9,
     "taskModuleCoverage": 0.9,
     "taskVerifiable": 0.9,
-    "storyStatement": 0.9
+    "storyStatement": 0.9,
+    "sourceConflictFlagged": 0.9,
+    "referenceRetained": 1.0
   }
 }

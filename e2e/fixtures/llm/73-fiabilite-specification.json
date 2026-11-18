@@ -1,0 +1,85 @@
+{
+  "operation": "generate-specification",
+  "userContains": [
+    "E2E-FIABILITE",
+    "<document ref=\"http://127.0.0.1:47698/confluence/pages/viewpage.action?pageId=103\"",
+    "source=\"sharepoint\""
+  ],
+  "response": {
+    "title": "Plafond des notes de frais",
+    "summary": "Une note de frais est plafonnée à 500 euros par mois et par salarié, comme le fixe la demande d'origine.",
+    "details": "",
+    "useCases": [
+      {
+        "title": "Saisir une note de frais",
+        "actor": "salarié",
+        "goal": "Se faire rembourser ses dépenses du mois",
+        "preconditions": [
+          "Le salarié a des justificatifs"
+        ],
+        "nominalFlow": [
+          "Saisir les dépenses",
+          "Soumettre la note"
+        ],
+        "alternatives": [
+          "Note au-delà de 500 euros : elle est refusée"
+        ],
+        "source": {
+          "kind": "DOC_PAGE",
+          "questionId": "",
+          "excerpt": "500 euros par mois",
+          "ref": "__DOC:Demande de remboursement des frais__"
+        }
+      }
+    ],
+    "scenarios": [
+      {
+        "useCaseIndex": 0,
+        "title": "Note acceptée sous le plafond",
+        "kind": "NOMINAL",
+        "asA": "salarié",
+        "given": [
+          "des dépenses de 400 euros ce mois-ci"
+        ],
+        "when": [
+          "je soumets la note"
+        ],
+        "then": [
+          "la note est acceptée"
+        ],
+        "assumption": false
+      },
+      {
+        "useCaseIndex": 0,
+        "title": "Note refusée au-delà du plafond",
+        "kind": "ERROR",
+        "asA": "salarié",
+        "given": [
+          "des dépenses de 600 euros ce mois-ci"
+        ],
+        "when": [
+          "je soumets la note"
+        ],
+        "then": [
+          "la note est refusée car elle dépasse 500 euros"
+        ],
+        "assumption": false
+      }
+    ],
+    "assumptions": [],
+    "requirements": [
+      {
+        "category": "FUNCTIONAL",
+        "statement": "Une note de frais est plafonnée à 500 euros par mois et par salarié."
+      }
+    ],
+    "adrDeviations": [],
+    "sourceDeviations": [
+      {
+        "referenceRef": "__DOC:Demande de remboursement des frais__",
+        "interpretationRef": "http://127.0.0.1:47698/confluence/pages/viewpage.action?pageId=103",
+        "difference": "La demande fixe le plafond à 500 euros par mois, la page Confluence à 1 000 euros : la spécification suit la demande."
+      }
+    ]
+  }
+}

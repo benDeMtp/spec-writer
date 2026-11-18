@@ -1,7 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { DocSource, DocSourceKind, DocumentsPreview, Project } from './projects.model';
+import type { Reliability, SourceOrigin } from '../knowledge/provenance';
+import {
+  ConfluencePreview,
+  DocSource,
+  DocSourceKind,
+  DocumentsPreview,
+  Project,
+  ReliabilityLevels,
+} from './projects.model';
 
 /** Fiche générale et sources de documentation d'un projet (US2 de 002, research.md R25). */
 @Injectable({ providedIn: 'root' })
@@ -31,6 +39,30 @@ export class ContextApi {
   /** Aperçu des motifs sur un dossier : rien n'est lu ni indexé. */
   preview(projectId: string, location: string, exclusions: string[]): Promise<DocumentsPreview> {
     return firstValueFrom(this.http.post<DocumentsPreview>(`${this.base(projectId)}/doc-sources/preview`, { location, exclusions }));
+  }
+
+  /** Aperçu d'une racine Confluence (016) : titre et nombre de pages, ou le motif du refus. */
+  previewConfluence(projectId: string, location: string): Promise<ConfluencePreview> {
+    return firstValueFrom(
+      this.http.post<ConfluencePreview>(`${this.base(projectId)}/doc-sources/preview`, { kind: 'CONFLUENCE', location }),
+    );
+  }
+
+  /** Niveau propre d'une racine Confluence ; `null` : celui de Confluence (016, FR-016a). */
+  setSourceReliability(projectId: string, sourceId: string, reliability: Reliability | null): Promise<DocSource> {
+    return firstValueFrom(
+      this.http.put<DocSource>(`${this.base(projectId)}/doc-sources/${encodeURIComponent(sourceId)}/reliability`, {
+        reliability,
+      }),
+    );
+  }
+
+  reliability(projectId: string): Promise<ReliabilityLevels> {
+    return firstValueFrom(this.http.get<ReliabilityLevels>(`${this.base(projectId)}/reliability`));
+  }
+
+  setReliability(projectId: string, origin: SourceOrigin, level: Reliability): Promise<ReliabilityLevels> {
+    return firstValueFrom(this.http.put<ReliabilityLevels>(`${this.base(projectId)}/reliability`, { origin, level }));
   }
 
   deleteSource(projectId: string, sourceId: string): Promise<void> {

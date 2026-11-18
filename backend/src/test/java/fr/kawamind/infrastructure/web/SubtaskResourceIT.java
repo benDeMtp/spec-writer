@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 /** T126 : rubrique des sous-tâches d'une version (contrat openapi.yaml, research.md R29). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SubtaskResourceIT {
 
     static final Instant T = Instant.parse("2026-10-01T10:00:00Z");

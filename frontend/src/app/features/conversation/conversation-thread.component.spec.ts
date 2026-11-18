@@ -209,6 +209,89 @@ describe('ConversationThreadComponent', () => {
     expect(navigate).toHaveBeenCalledWith('/sessions/s2/versions/2');
   });
 
+  it('montre la source et la date de chaque source citée (016)', async () => {
+    fixture.componentRef.setInput('conversationId', 'c1');
+    fixture.componentInstance.messages.set([
+      user('u1', 1),
+      {
+        ...agent('a1', 2, 1, 'Voir [1], [2] et [3].'),
+        sources: [
+          {
+            n: 1,
+            kind: 'DOC_SECTION',
+            ref: 'https://wiki/pages/viewpage.action?pageId=42',
+            title: 'Notes de frais',
+            url: null,
+            origin: 'CONFLUENCE',
+            updatedAt: '2026-03-03T10:00:00Z',
+            level: 'INTERPRETATION',
+          },
+          {
+            n: 2,
+            kind: 'DOC_SECTION',
+            ref: 'docs:x/Demande.docx#2',
+            title: 'Demande',
+            url: null,
+            origin: 'DOCUMENTS',
+            updatedAt: null,
+            level: 'REFERENCE',
+          },
+          // message enregistré avant 016 : ni source ni date
+          { n: 3, kind: 'TICKET', ref: 'FACT-7', title: 'Avoir', url: null },
+        ],
+      },
+    ]);
+    await settle(fixture);
+
+    const provenances = Array.from(el.querySelectorAll('[data-testid="source-provenance"]')).map((p) =>
+      p.textContent?.trim(),
+    );
+    expect(provenances).toEqual(['Confluence · 3 mars 2026', 'SharePoint · date inconnue · Référence']);
+    expect(el.querySelectorAll('.sources li')).toHaveLength(3);
+  });
+
+  it('le lien d’une section de spécification garde son ancre au lieu de l’encoder dans le chemin', async () => {
+    fixture.componentRef.setInput('conversationId', 'c1');
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    fixture.componentInstance.messages.set([
+      user('u1', 1),
+      {
+        ...agent('a1', 2, 1, 'Voir [1].'),
+        sources: [{ n: 1, kind: 'SPECIFICATION', ref: 'spec:s1@v1#technical', title: 'Technique', url: '/sessions/s1/versions/1#technical' }],
+      },
+    ]);
+    await settle(fixture);
+
+    const link = el.querySelector<HTMLAnchorElement>('.sources a')!;
+    expect(link.getAttribute('href')).toBe('/sessions/s1/versions/1#technical');
+    link.click();
+    expect(navigate).toHaveBeenCalledWith('/sessions/s1/versions/1#technical');
+  });
+
+  it('ouvre sur le poste le document d’un dossier déclaré (site Antora en dossier, OneDrive)', async () => {
+    fixture.componentRef.setInput('conversationId', 'c1');
+    fixture.componentInstance.messages.set([
+      user('u1', 1),
+      {
+        ...agent('a1', 2, 1, 'Voir [1].'),
+        sources: [
+          { n: 1, kind: 'DOC_SECTION', ref: 'docs:x/10. MVP/CR.docx#4', title: 'CR atelier', url: null, local: true },
+        ],
+      },
+    ]);
+    await settle(fixture);
+
+    const open = el.querySelector<HTMLButtonElement>('.sources button.open-local')!;
+    expect(open.textContent?.trim()).toBe('CR atelier');
+    expect(open.getAttribute('aria-label')).toBe('CR atelier, ouvrir sur ce poste');
+    open.click();
+    const req = TestBed.inject(HttpTestingController).expectOne({ method: 'POST', url: '/api/conversations/c1/sources/open' });
+    expect(req.request.body).toEqual({ ref: 'docs:x/10. MVP/CR.docx#4' });
+    req.flush({ opened: 'APPLICATION' });
+    await settle(fixture);
+    expect(el.querySelector('.announce')?.textContent).toContain('CR atelier ouvert dans son application.');
+  });
+
   it('crée la conversation au premier envoi, puis suit le tour', async () => {
     let prepared = 0;
     fixture.componentRef.setInput('prepare', async () => {

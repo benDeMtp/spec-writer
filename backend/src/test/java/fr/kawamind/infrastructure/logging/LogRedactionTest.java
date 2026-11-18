@@ -11,6 +11,7 @@ import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class LogRedactionTest {
 
     private static final Path LOG_FILE = Path.of("target/test-logs/spec-writer.log");

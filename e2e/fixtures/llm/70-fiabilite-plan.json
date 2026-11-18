@@ -1,0 +1,8 @@
+{
+  "operation": "converse-agent",
+  "userContains": ["E2E-FIABILITE", "<recherches-restantes>5</recherches-restantes>"],
+  "afterTools": 0,
+  "toolCalls": [
+    {"name": "search_knowledge", "arguments": {"query": "plafond mensuel des notes de frais", "kinds": []}}
+  ]
+}

@@ -269,7 +269,9 @@ public class ProposeRevision {
             LOG.warnf("Discussion : proposition en échec (%s)", e.code());
             events.publish(turn, new Event.Error(e.code().name(), e.userMessage()));
         } catch (RuntimeException e) {
-            LOG.errorf("Discussion : erreur inattendue pendant la proposition (%s)", e.getClass().getSimpleName());
+            // pile complète : le journal en expurge les messages (JournalFormatter)
+            LOG.errorf(e, "Discussion : erreur inattendue pendant la proposition (%s, %s)",
+                    e.getClass().getSimpleName(), origin(e));
             events.publish(turn, new Event.Error(ErrorCode.INTERNAL_ERROR.name(),
                     ErrorCode.INTERNAL_ERROR.defaultMessage()));
         }
@@ -327,6 +329,7 @@ public class ProposeRevision {
             content = base.content();
             perimeterOnly = u;
         }
+        content = withBaseDeviations(content, base.content());
         PerimeterSnapshot perimeter = analysed == null ? null : analysed.corrected(corrections);
         ProposalStore.Proposal p = proposals.propose(session, base, content, VersionOrigin.DISCUSSION, null, null,
                 known, cid, perimeter == null || perimeter.equals(current.orElse(null)) ? null : perimeter);
@@ -402,5 +405,25 @@ public class ProposeRevision {
 
     private long duration(Instant begin) {
         return Math.max(0, Duration.between(begin, clock.now()).toMillis());
+    }
+
+    /**
+     * Le format de la révision n'a pas d'écarts entre sources (016, {@code LlmSchemas.REVISION}) :
+     * la version proposée reprend ceux de la version discutée.
+     */
+    static SpecificationContent withBaseDeviations(SpecificationContent revised, SpecificationContent base) {
+        return revised.sourceDeviations().isEmpty() && !base.sourceDeviations().isEmpty()
+                ? revised.withSourceDeviations(base.sourceDeviations()) : revised;
+    }
+
+    /** Premier appel du code de l'outil dans la pile d'une erreur, pour la situer sans son message. */
+    static String origin(Throwable e) {
+        for (StackTraceElement f : e.getStackTrace()) {
+            if (f.getClassName().startsWith("fr.kawamind.")) {
+                return f.getClassName().substring(f.getClassName().lastIndexOf('.') + 1) + "." + f.getMethodName()
+                        + ":" + f.getLineNumber();
+            }
+        }
+        return "hors de l'outil";
     }
 }

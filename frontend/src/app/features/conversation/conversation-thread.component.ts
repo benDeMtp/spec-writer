@@ -1,3 +1,4 @@
+import { provenanceLabel, RELIABILITY_LABELS } from '../../core/knowledge/provenance';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -19,7 +20,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
 import { ConversationsApi, TurnStream } from '../../core/conversations/conversations.api';
 import {
@@ -79,7 +80,6 @@ const KINDS: Record<SourceKind, string> = {
     MarkdownComponent,
     MentionDirective,
     PerimeterStepComponent,
-    RouterLink,
   ],
   template: `
     <div role="log" aria-live="off" aria-label="Échanges avec l’agent">
@@ -185,13 +185,19 @@ const KINDS: Record<SourceKind, string> = {
                     <li [value]="s.n" [id]="sourceId(m, s)" tabindex="-1">
                       <span class="kind">{{ kind(s) }}</span>
                       @if (internal(s); as path) {
-                        <a [routerLink]="path">{{ s.title }}</a>
+                        <a [href]="path" (click)="followSource($event, path)">{{ s.title }}</a>
+                      } @else if (s.local && conversationId()) {
+                        <button type="button" class="open-local" (click)="openLocal(s)"
+                          [attr.aria-label]="s.title + ', ouvrir sur ce poste'">{{ s.title }}</button>
                       } @else if (s.url) {
                         <a [href]="s.url" target="_blank" rel="noopener noreferrer"
                           >{{ s.title }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
                         >
                       } @else {
                         {{ s.title }}
+                      }
+                      @if (provenance(s); as p) {
+                        <span class="provenance" data-testid="source-provenance">{{ p }}</span>
                       }
                     </li>
                   }
@@ -337,12 +343,28 @@ const KINDS: Record<SourceKind, string> = {
       font-size: var(--sw-step--1);
       color: var(--sw-ink-soft);
     }
+    .open-local {
+      font: inherit;
+      color: var(--sw-link, inherit);
+      text-decoration: underline;
+      background: none;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+    }
     .sources li:focus-visible {
       outline: 2px solid var(--sw-pencil);
       outline-offset: 2px;
     }
     .sources .kind {
       margin-right: 0.4rem;
+    }
+    .sources .provenance {
+      margin-left: 0.4rem;
+      color: var(--sw-ink-soft);
+    }
+    .sources .provenance::before {
+      content: '— ';
     }
     .thinking {
       margin: 0 0 0.75rem;
@@ -722,9 +744,48 @@ export class ConversationThreadComponent implements OnDestroy {
     return KINDS[s.kind];
   }
 
+  /** Source et date de mise à jour (016) : « Confluence · 3 mars 2026 », niveau s'il n'est pas l'interprétation. */
+  protected provenance(s: CitedSource): string {
+    const label = provenanceLabel(s);
+    if (!label) {
+      return '';
+    }
+    return s.level && s.level !== 'INTERPRETATION' ? `${label} · ${RELIABILITY_LABELS[s.level]}` : label;
+  }
+
   /** Adresse dans l'outil (version d'une spécification) : ouverte par le routeur. */
   protected internal(s: CitedSource): string | null {
     return s.url?.startsWith('/') ? s.url : null;
+  }
+
+  /**
+   * Lien d'une source dans l'outil : par le routeur, qui garde la section ({@code #…}) comme
+   * fragment, ou par l'écran quand la section est affichée (discussion d'une spécification).
+   */
+  protected followSource(event: MouseEvent, href: string): void {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    if (!this.internalLink()?.(href)) {
+      void this.router.navigateByUrl(href);
+    }
+  }
+
+  /** Document d'un dossier déclaré : l'outil l'ouvre sur le poste (navigateur ou application). */
+  protected async openLocal(s: CitedSource): Promise<void> {
+    const id = this.conversationId();
+    if (!id) {
+      return;
+    }
+    try {
+      const r = await this.api.openSource(id, s.ref);
+      this.announce.set(
+        r.opened === 'BROWSER' ? `${s.title} ouvert dans le navigateur.` : `${s.title} ouvert dans son application.`,
+      );
+    } catch {
+      // Le bandeau d'erreur affiche la cause (document absent du dossier déclaré).
+    }
   }
 
   /** Version de la spécification discutée, devant le premier message de l'agent qui la reçoit. */

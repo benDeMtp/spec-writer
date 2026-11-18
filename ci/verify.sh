@@ -10,7 +10,7 @@ step "Build, tests unitaires et d'intégration, couverture, SpotBugs, PMD, Depen
 ./mvnw -B verify
 
 step "Audit npm (front)"
-npm --prefix frontend audit --audit-level=high
+ci/npm-audit.sh
 
 step "SAST Semgrep"
 semgrep scan --error --config .semgrep.yml --config p/java --config p/typescript --config p/owasp-top-ten

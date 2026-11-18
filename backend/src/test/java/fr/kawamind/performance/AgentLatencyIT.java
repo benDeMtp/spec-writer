@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 /** T060, SC-007 de 002 : un agent obtient la liste des features puis le contenu d'une feature en moins de 5 s. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class AgentLatencyIT {
 
     static final long LIMIT_MS = 5_000;

@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 /** 011, US1 : discussion d'une spécification, contexte transmis et cité par section, verrou. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SpecificationDiscussionResourceIT {
 
     static final Instant T0 = Instant.parse("2026-11-11T09:00:00Z");

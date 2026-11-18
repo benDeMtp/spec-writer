@@ -48,4 +48,19 @@ class SkillLibraryTest {
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("prompts/skills/absente.md");
         assertThat(SkillLibrary.declared("[operation:x]\n[skill:a]\n[skill:b-2]\n")).containsExactly("a", "b-2");
     }
+
+    /** T042 (016) : la lecture de la fiabilité est déclarée dans les sept consignes qui reçoivent des sources. */
+    @Test
+    void fiabiliteDesSourcesDeclareeDansLesSeptConsignes() throws Exception {
+        for (String operation : List.of("converse-agent", "revise-specification", "generate-specification",
+                "edit-specification", "merge-conflict", "structure-imported-text", "propose-questions")) {
+            String prompt;
+            try (var in = getClass().getClassLoader().getResourceAsStream("prompts/" + operation + ".txt")) {
+                prompt = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+            assertThat(SkillLibrary.declared(prompt)).as(operation).contains("fiabilite-sources");
+            assertThat(SkillLibrary.expand(prompt)).as(operation).contains("Méthode de lecture des sources selon leur fiabilité")
+                    .doesNotContain("[skill:");
+        }
+    }
 }

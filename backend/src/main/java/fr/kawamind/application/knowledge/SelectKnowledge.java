@@ -14,6 +14,10 @@ import fr.kawamind.domain.knowledge.MentionKind;
 import fr.kawamind.domain.knowledge.Mentionable;
 import fr.kawamind.domain.knowledge.Mentions;
 import fr.kawamind.domain.knowledge.ProjectKnowledge;
+import fr.kawamind.domain.knowledge.Provenance;
+import fr.kawamind.domain.knowledge.Reliability;
+import fr.kawamind.domain.knowledge.ReservedPlaces;
+import fr.kawamind.domain.knowledge.SourceOrigin;
 import fr.kawamind.domain.llm.QuestionAndAnswer;
 import fr.kawamind.domain.port.AttachmentRepository;
 import fr.kawamind.domain.port.DocSourceRepository;
@@ -97,11 +101,14 @@ public class SelectKnowledge implements SessionKnowledge {
     private final ModelCapacities capacities;
     /** Documents joints aux sessions (009) ; sans eux (null), aucun document joint n'est transmis. */
     private final AttachmentRepository attachments;
+    /** Source, date et niveau de chaque élément transmis (016). */
+    private final ProvenanceResolver provenance;
 
     public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
             AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
-            ModelCapacities capacities, AttachmentRepository attachments) {
+            ModelCapacities capacities, AttachmentRepository attachments, ProvenanceResolver provenance) {
         this.attachments = attachments;
+        this.provenance = provenance == null ? ProvenanceResolver.defaults() : provenance;
         this.projects = projects;
         this.index = index;
         this.embedding = embedding;
@@ -110,6 +117,13 @@ public class SelectKnowledge implements SessionKnowledge {
         this.docSources = docSources;
         this.folder = folder;
         this.capacities = capacities;
+    }
+
+    public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
+            AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
+            ModelCapacities capacities, AttachmentRepository attachments) {
+        this(projects, index, embedding, analyze, families, docSources, folder, capacities, attachments,
+                new ProvenanceResolver(docSources, null, null));
     }
 
     public SelectKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
@@ -177,6 +191,7 @@ public class SelectKnowledge implements SessionKnowledge {
         int documentBudget = Math.min(budget.documentText(), left(budget, sheet, entries));
         entries.addAll(documents(session, searches, budget.documentPart(), documentBudget, designated));
         entries.addAll(tickets(session, family, searches, budget.ticketText()));
+        entries = withProvenance(session.projectId(), entries);
         ProjectKnowledge selected = new ProjectKnowledge(sheet.generalSheet(), sheet.sheetUpdatedAt(), entries,
                 List.of(), List.of(), List.of(), subtasks(session, family, budget.subtaskText()), budget.total());
         if (!architecture) {
@@ -266,7 +281,38 @@ public class SelectKnowledge implements SessionKnowledge {
                 break;
             }
         }
-        return chosen;
+        return withProvenance(projectId, chosen);
+    }
+
+    /**
+     * Source, date et niveau de chaque élément retenu (016, R5), d'après l'élément indexé : la tête
+     * d'un document recomposé, le premier morceau d'un ADR. Un document joint n'a pas de niveau.
+     */
+    private List<ProjectKnowledge.Entry> withProvenance(UUID projectId, List<ProjectKnowledge.Entry> entries) {
+        if (entries.isEmpty()) {
+            return entries;
+        }
+        ProvenanceResolver.Resolution resolution = provenance.forProject(projectId);
+        List<ProjectKnowledge.Entry> out = new ArrayList<>(entries.size());
+        for (ProjectKnowledge.Entry e : entries) {
+            if (e.provenance() != null) {
+                out.add(e);
+            } else if (e.ref().startsWith(Attachment.REF_PREFIX)) {
+                out.add(e.withProvenance(resolution.of(SourceOrigin.ATTACHMENT, null)));
+            } else {
+                out.add(indexed(projectId, e).map(i -> e.withProvenance(resolution.of(i))).orElse(e));
+            }
+        }
+        return out;
+    }
+
+    private Optional<KnowledgeItem> indexed(UUID projectId, ProjectKnowledge.Entry e) {
+        Optional<KnowledgeItem> exact = index.find(projectId, new KnowledgeIndex.Key(e.kind(), e.ref(), e.chunk()));
+        if (exact.isPresent() || e.kind() != KnowledgeKind.DOC_SECTION) {
+            return exact.isPresent() ? exact
+                    : index.find(projectId, new KnowledgeIndex.Key(e.kind(), e.ref(), 0));
+        }
+        return passages(projectId, e.ref()).stream().findFirst();
     }
 
     /** Documents joints de la session, dans l'ordre d'ajout (009). */
@@ -436,9 +482,25 @@ public class SelectKnowledge implements SessionKnowledge {
         if (budget <= 0) {
             return List.of();
         }
-        List<String> refs = hits(session, searches, KnowledgeKind.DOC_SECTION, DOCUMENT_CANDIDATES).stream()
-                .map(KnowledgeItem::ref).filter(r -> r.startsWith(DOCUMENTS_PREFIX) && r.lastIndexOf('#') > 0)
-                .map(r -> r.substring(0, r.lastIndexOf('#'))).filter(r -> !designated.contains(r)).distinct().toList();
+        // documents des dossiers (006) et pages Confluence (016), recomposés ; les pages d'un site
+        // Antora passent par le vocabulaire, la vue d'ensemble et les ADR
+        ProvenanceResolver.Resolution resolution = provenance.forProject(session.projectId());
+        Map<String, Provenance> byRef = new LinkedHashMap<>();
+        for (KnowledgeItem item : hits(session, searches, KnowledgeKind.DOC_SECTION, DOCUMENT_CANDIDATES)) {
+            if (item.role() != null) {
+                continue;
+            }
+            Provenance p = resolution.of(item);
+            String ref = documentRef(item.ref(), p.origin());
+            if (ref != null && !designated.contains(ref)) {
+                byRef.putIfAbsent(ref, p);
+            }
+        }
+        // au moins deux documents de référence pertinents parmi les premiers essayés (016, FR-019)
+        List<String> candidates = List.copyOf(byRef.keySet());
+        List<String> refs = new ArrayList<>(ReservedPlaces.apply(candidates, MAX_DOCUMENTS,
+                r -> byRef.get(r).level() == Reliability.REFERENCE));
+        candidates.stream().filter(r -> !refs.contains(r)).forEach(refs::add);
         List<ProjectKnowledge.Entry> chosen = new ArrayList<>();
         int left = budget;
         for (String ref : refs) {
@@ -458,6 +520,19 @@ public class SelectKnowledge implements SessionKnowledge {
             }
         }
         return chosen;
+    }
+
+    /** Document d'une section : {@code docs:…} sans son numéro de section, page Confluence sans ancre. */
+    private static String documentRef(String ref, SourceOrigin origin) {
+        if (origin == SourceOrigin.DOCUMENTS) {
+            return ref.startsWith(DOCUMENTS_PREFIX) && ref.lastIndexOf('#') > 0 ? ref.substring(0, ref.lastIndexOf('#'))
+                    : null;
+        }
+        if (origin == SourceOrigin.CONFLUENCE) {
+            int hash = ref.indexOf('#');
+            return hash > 0 ? ref.substring(0, hash) : ref;
+        }
+        return null;
     }
 
     /** Un document, relu ou recomposé, coupé à une section au-delà de {@code part} (titre compris). */

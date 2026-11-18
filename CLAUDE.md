@@ -1,7 +1,11 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/015-taches-avancement/` (tâches d'une spécification proposées par
+La feature en cours est `specs/016-confluence-fiabilite-sources/` (Confluence Server / Data
+Center comme source de documentation : racines et toute leur descendance, réindexation par numéro
+de version ; source, date et fiabilité de chaque extrait transmis au modèle ; niveaux référence,
+interprétation, à confirmer ; places réservées aux références ; rubrique « Écarts entre
+sources »), après `specs/015-taches-avancement/` (tâches d'une spécification proposées par
 le modèle, créées en sous-tâches Jira, suivies par les agents par `next_task`, `start_task`,
 `complete_task` ; statut qui suit les tâches ; énoncé de story en tête de la spécification), après
 `specs/014-couche-llm-quarkus/` (couche LLM sur les AI Services de
@@ -60,9 +64,10 @@ extension. Ne jamais modifier une migration Flyway déjà appliquée : en ajoute
 `.dev-data/`.
 
 **Avant chaque commit** : arrêter le dev mode (`quarkus_stop`), puis lancer `./mvnw -B verify
--DskipDependencyCheck` (JaCoCo, ArchUnit, SpotBugs, PMD, front) et les E2E sur le jar
-(`./mvnw -B package -DskipTests` puis `npm --prefix e2e test`). Le dev mode ne remplace aucune
-gate.
+-DskipDependencyCheck` (JaCoCo, ArchUnit, SpotBugs, PMD, front) et les E2E sur le jar que
+`verify` vient de construire (`npm --prefix e2e test`, sans `package` de plus, comme la CI). Le
+dev mode ne remplace aucune gate. Le jar de `backend/target/quarkus-app` est reconstruit à chaque
+`verify` : ne pas lancer l'outil installé depuis ce dossier pendant un build.
 
 ## Pièges de l'environnement
 

@@ -50,5 +50,7 @@ Ta tâche : proposer le prochain lot de questions, 5 au maximum, qui lèvent les
 - Si les thèmes restants sont déjà couverts et qu'il n'y a pas de contradiction, renvoie une liste
   de questions vide.
 
+[skill:fiabilite-sources]
+
 Rédige les questions, justifications, suggestions et valeurs par défaut dans la langue indiquée
 par <langue> (fr : français, en : anglais). Réponds uniquement avec le JSON demandé.

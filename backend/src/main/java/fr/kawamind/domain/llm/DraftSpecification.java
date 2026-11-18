@@ -19,7 +19,8 @@ public record DraftSpecification(
         List<DraftRequirement> requirements,
         List<DraftAdrDeviation> adrDeviations,
         UserStory story,
-        List<String> splitProposal) {
+        List<String> splitProposal,
+        List<DraftSourceDeviation> sourceDeviations) {
 
     public DraftSpecification {
         details = details == null ? "" : details;
@@ -29,6 +30,15 @@ public record DraftSpecification(
         requirements = List.copyOf(requirements);
         adrDeviations = adrDeviations == null ? List.of() : List.copyOf(adrDeviations);
         splitProposal = UserStory.split(splitProposal);
+        sourceDeviations = sourceDeviations == null ? List.of() : List.copyOf(sourceDeviations);
+    }
+
+    /** Sans écart entre sources : réponses antérieures à 016 (fixtures rejouées), R8. */
+    public DraftSpecification(String title, String summary, String details, List<DraftUseCase> useCases,
+            List<DraftScenario> scenarios, List<DraftAssumption> assumptions, List<DraftRequirement> requirements,
+            List<DraftAdrDeviation> adrDeviations, UserStory story, List<String> splitProposal) {
+        this(title, summary, details, useCases, scenarios, assumptions, requirements, adrDeviations, story,
+                splitProposal, List.of());
     }
 
     /** Sans énoncé de story : réponses antérieures à 015 (fixtures rejouées), research R9. */
@@ -79,6 +89,13 @@ public record DraftSpecification(
 
     /** Écart du besoin à un ADR de la connaissance : référence, décision de l'ADR, écart (FR-037). */
     public record DraftAdrDeviation(String adrRef, String decision, String deviation) {
+    }
+
+    /**
+     * Écart entre une source de référence et une interprétation (016, R8) : les deux références
+     * citées, telles que transmises, et ce qui diffère.
+     */
+    public record DraftSourceDeviation(String referenceRef, String interpretationRef, String difference) {
     }
 
     /** {@code kind} : NOMINAL, ERROR ou EDGE. */

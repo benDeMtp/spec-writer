@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 /** T021, T056 (015, contracts/rest-api.md) : routes du panneau Tâches et leurs codes d'erreur. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class TaskResourceIT {
 
     static WireMockServer jira;

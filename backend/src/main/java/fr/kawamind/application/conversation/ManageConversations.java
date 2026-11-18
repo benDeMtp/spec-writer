@@ -4,6 +4,9 @@ import fr.kawamind.application.sources.PerimeterView;
 import fr.kawamind.application.jira.JiraAccess;
 import fr.kawamind.application.specification.OperationRegistry;
 import fr.kawamind.domain.conversation.CitedSource;
+import fr.kawamind.domain.knowledge.Provenance;
+import fr.kawamind.domain.knowledge.Reliability;
+import fr.kawamind.domain.knowledge.SourceOrigin;
 import fr.kawamind.domain.conversation.Conversation;
 import fr.kawamind.domain.conversation.ConversationMemory;
 import fr.kawamind.domain.conversation.ConversationMessage;
@@ -34,7 +37,13 @@ import java.util.UUID;
 public class ManageConversations {
 
     /** Source citée, avec l'adresse où l'ouvrir : ticket Jira, page, ADR, version d'une spécification. */
-    public record SourceView(int n, SourceKind kind, String ref, String title, String url) {
+    /**
+     * Source citée, avec sa provenance (016) : sorte de source, date de mise à jour et niveau, nuls
+     * pour un message antérieur. {@code local} : sans adresse web, le document peut s'ouvrir sur le
+     * poste depuis un dossier déclaré ({@link fr.kawamind.application.knowledge.OpenSourceDocument}).
+     */
+    public record SourceView(int n, SourceKind kind, String ref, String title, String url, SourceOrigin origin,
+            Instant updatedAt, Reliability level, boolean local) {
     }
 
     /** {@code specificationVersion} : version de la spécification discutée transmise pour ce tour (011). */
@@ -153,7 +162,12 @@ public class ManageConversations {
     }
 
     private SourceView view(CitedSource s) {
-        return new SourceView(s.n(), s.kind(), s.ref(), s.title(), url(s));
+        Provenance p = s.provenance();
+        String url = url(s);
+        boolean local = url == null && (s.kind() == SourceKind.DOC_SECTION || s.kind() == SourceKind.ADR)
+                && fr.kawamind.application.knowledge.OpenSourceDocument.local(s.ref());
+        return new SourceView(s.n(), s.kind(), s.ref(), s.title(), url, p == null ? null : p.origin(),
+                p == null ? null : p.updatedAt(), p == null ? null : p.level(), local);
     }
 
     private String url(CitedSource s) {

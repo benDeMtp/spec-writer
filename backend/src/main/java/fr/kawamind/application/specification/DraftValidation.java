@@ -12,6 +12,7 @@ import fr.kawamind.domain.scenario.ScenarioStructureValidator;
 import fr.kawamind.domain.session.Language;
 import fr.kawamind.domain.specification.IdentifierAssigner;
 import fr.kawamind.domain.specification.SourceRef;
+import fr.kawamind.domain.specification.SourceDeviation;
 import fr.kawamind.domain.specification.SpecificationContent;
 import fr.kawamind.domain.specification.StructureViolations;
 import fr.kawamind.domain.specification.TraceabilityValidator;
@@ -60,7 +61,7 @@ public final class DraftValidation {
             }).toList();
             return new SpecificationContent(content.title(), content.summary(), content.details(), useCases,
                     content.scenarios(), content.assumptions(), content.requirements(), content.adrDeviations(), content.story(),
-                    content.splitProposal());
+                    content.splitProposal(), content.sourceDeviations());
         }
 
         /**
@@ -165,7 +166,41 @@ public final class DraftValidation {
                 .filter(Objects::nonNull).toList();
         return new SpecificationContent(content.title(), content.summary(), content.details(), useCases,
                 content.scenarios(), content.assumptions(), content.requirements(), deviations, content.story(),
-                content.splitProposal());
+                content.splitProposal(), sourceDeviations(content.sourceDeviations(), knowledge));
+    }
+
+    /**
+     * Écarts entre sources (016, R8) : gardés seulement si leurs deux références désignent des
+     * éléments transmis, distincts, ramenés à leur forme transmise et complétés de leur source, titre
+     * et date d'après la connaissance ; le modèle n'est jamais cru sur les références.
+     */
+    static List<SourceDeviation> sourceDeviations(List<SourceDeviation> deviations, ProjectKnowledge knowledge) {
+        if (deviations.isEmpty()) {
+            return deviations;
+        }
+        Map<String, ProjectKnowledge.Entry> entries = new java.util.LinkedHashMap<>();
+        knowledge.entries().forEach(e -> entries.putIfAbsent(e.ref(), e));
+        Citations.Resolver resolver = Citations.resolver(entries.keySet());
+        List<SourceDeviation> kept = new java.util.ArrayList<>();
+        for (SourceDeviation d : deviations) {
+            SourceDeviation.Cited reference = cited(resolver, entries, d.reference().ref());
+            SourceDeviation.Cited interpretation = cited(resolver, entries, d.interpretation().ref());
+            if (reference != null && interpretation != null && !reference.ref().equals(interpretation.ref())) {
+                kept.add(new SourceDeviation(reference, interpretation, d.difference()));
+            }
+        }
+        return kept;
+    }
+
+    private static SourceDeviation.Cited cited(Citations.Resolver resolver, Map<String, ProjectKnowledge.Entry> entries,
+            String written) {
+        String ref = resolver.resolve(written);
+        ProjectKnowledge.Entry e = ref == null ? null : entries.get(ref);
+        if (e == null) {
+            return null;
+        }
+        return new SourceDeviation.Cited(ref, e.provenance() == null ? null : e.provenance().origin(), e.title(),
+                e.provenance() == null ? null : e.provenance().updatedAt());
     }
 
     /** Réponses citables par les sources, dans l'ordre du questionnaire. */

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** 013, T027 : analyse de périmètre publiée en flux, puis relue avec la conversation ; IA rejouée. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ConversationPerimeterIT {
 
     static final String PROJECT = "/api/projects/" + Project.DEFAULT_ID;

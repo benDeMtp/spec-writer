@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 /** 011 : discussions des spécifications et versions qui en sont issues (V22). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SpecificationDiscussionPersistenceIT {
 
     static final Instant T0 = Instant.parse("2026-11-11T09:00:00Z");

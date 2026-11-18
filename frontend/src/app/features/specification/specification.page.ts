@@ -1,4 +1,4 @@
-import { DOCUMENT, DatePipe } from '@angular/common';
+import { DOCUMENT, DatePipe, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -21,6 +21,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
 import { firstValueFrom } from 'rxjs';
+import { ORIGIN_LABELS, updatedLabel } from '../../core/knowledge/provenance';
 import { JiraApi, PushOutcome } from '../../core/jira/jira.api';
 import { ProjectsApi } from '../../core/projects/projects.api';
 import { ProjectsStore } from '../../core/projects/projects.store';
@@ -28,6 +29,7 @@ import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira.model';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import {
+  CitedExtract,
   IMPLEMENTATION_LABELS,
   ImplementationStatus,
   Language,
@@ -135,6 +137,7 @@ export function storyParts(
     DiscussionPanelComponent,
     AttachmentsComponent,
     DatePipe,
+    NgTemplateOutlet,
     MarkdownComponent,
     MatButtonModule,
     MatInputModule,
@@ -561,6 +564,39 @@ export function storyParts(
                       </li>
                     }
                   </ul>
+                </section>
+              }
+              @if (v.sourceDeviations?.length) {
+                <section aria-labelledby="source-deviations" data-testid="source-deviations">
+                  <h2 id="source-deviations">Écarts entre sources</h2>
+                  <ul class="deviations">
+                    @for (d of v.sourceDeviations; track $index) {
+                      <li>
+                        <dl>
+                          <dt>Référence</dt>
+                          <dd>
+                            <ng-container *ngTemplateOutlet="extract; context: { $implicit: d.reference, v: v }" />
+                          </dd>
+                          <dt>Interprétation</dt>
+                          <dd>
+                            <ng-container *ngTemplateOutlet="extract; context: { $implicit: d.interpretation, v: v }" />
+                          </dd>
+                          <dt>Écart</dt>
+                          <dd>{{ d.difference }}</dd>
+                        </dl>
+                      </li>
+                    }
+                  </ul>
+                  <ng-template #extract let-c let-v="v">
+                    @if (v.links?.[c.ref]; as href) {
+                      <a [href]="href" target="_blank" rel="noopener noreferrer"
+                        >{{ c.title ?? c.ref }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+                      >
+                    } @else {
+                      <strong>{{ c.title ?? c.ref }}</strong>
+                    }
+                    <span class="meta"> ({{ extractMeta(c) }})</span>
+                  </ng-template>
                 </section>
               }
               @if (v.architecture?.deploymentFacts?.length) {
@@ -1465,6 +1501,11 @@ export class SpecificationPage {
     this.session.set(session);
     this.versions.set(versions);
     this.spec.set(spec);
+    // une citation d'une section (#technical, #UC-01…) ouvre la version à cette section
+    const fragment = this.route.snapshot.fragment;
+    if (fragment) {
+      setTimeout(() => this.showSection(`/sessions/${id}/versions/${n}#${fragment}`));
+    }
     // 012 : une spécification d'un autre projet rend ce projet courant
     void this.follower.follow(session.projectId).catch(() => undefined);
   }
@@ -1519,6 +1560,12 @@ export class SpecificationPage {
   }
 
   /** Dernier segment d'une adresse de page, sans extension : « adr-005 » pour …/adr/adr-005.html. */
+  /** Source et date d'un extrait cité par un écart (016) : « SharePoint, 12 septembre 2026 ». */
+  protected extractMeta(c: CitedExtract): string {
+    const date = updatedLabel(c.updatedAt);
+    return c.origin ? `${ORIGIN_LABELS[c.origin]}, ${date}` : date;
+  }
+
   protected pageName(ref: string): string {
     const last =
       ref

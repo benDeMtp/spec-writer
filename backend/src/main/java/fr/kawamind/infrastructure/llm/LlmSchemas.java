@@ -47,13 +47,17 @@ final class LlmSchemas {
             .addProperty("newQuestions", array(QUESTION))
             .build());
 
-    static final ResponseFormat SPECIFICATION = format("specification", specification(List.of()));
+    static final ResponseFormat SPECIFICATION = format("specification", specification(List.of(), true));
 
-    /** 011 : nouvelle version d'après la discussion, ou aucun changement établi et sa raison. */
+    /**
+     * 011 : nouvelle version d'après la discussion, ou aucun changement établi et sa raison. Sans
+     * écarts entre sources (016) : avec eux, la grammaire compilée de ce schéma dépasse la limite de
+     * Copilot (« compiled grammar is too large ») ; la révision reprend ceux de la version discutée.
+     */
     static final ResponseFormat REVISION = format("revision", JsonObjectSchema.builder()
             .addProperty("changed", JsonBooleanSchema.builder().build())
             .addStringProperty("reason")
-            .addProperty("specification", specification(List.of("DISCUSSION")))
+            .addProperty("specification", specification(List.of("DISCUSSION"), false))
             .addProperty("perimeter", array(JsonObjectSchema.builder()
                     .addStringProperty("module")
                     .addProperty("qualification", JsonEnumSchema.builder()
@@ -62,12 +66,15 @@ final class LlmSchemas {
                     .build()))
             .build());
 
-    /** {@code extraKinds} : sortes de source propres à l'opération (DISCUSSION pour une proposition). */
-    private static JsonObjectSchema specification(List<String> extraKinds) {
+    /**
+     * @param extraKinds sortes de source propres à l'opération (DISCUSSION pour une proposition)
+     * @param sourceDeviations demander les écarts entre sources (016)
+     */
+    private static JsonObjectSchema specification(List<String> extraKinds, boolean sourceDeviations) {
         List<String> kinds = new java.util.ArrayList<>(List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION",
                 "PROJECT_CONTEXT", "JIRA_ISSUE", "DOC_PAGE", "ARCH_ELEMENT"));
         kinds.addAll(extraKinds);
-        return JsonObjectSchema.builder()
+        JsonObjectSchema.Builder out = JsonObjectSchema.builder()
             .addStringProperty("title")
             .addStringProperty("summary")
             .addStringProperty("details")
@@ -117,8 +124,16 @@ final class LlmSchemas {
                     .addProperty("assumed", array(JsonEnumSchema.builder()
                             .enumValues("ROLE", "CAPABILITY", "BENEFIT").build()))
                     .build())
-            .addProperty("splitProposal", array(string()))
-            .build();
+            .addProperty("splitProposal", array(string()));
+        if (sourceDeviations) {
+            // 016 (R8) : écarts entre une source de référence et une interprétation, cités par leurs références
+            out.addProperty("sourceDeviations", array(JsonObjectSchema.builder()
+                    .addStringProperty("referenceRef")
+                    .addStringProperty("interpretationRef")
+                    .addStringProperty("difference")
+                    .build()));
+        }
+        return out.build();
     }
 
     /** Tickets proches retenus (feature 002, research.md R23). */
