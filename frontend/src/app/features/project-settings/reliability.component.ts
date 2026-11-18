@@ -30,7 +30,7 @@ const MEANINGS: Record<Reliability, string> = {
       <ul class="levels">
         @for (o of origins(); track o) {
           <li>
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>{{ originLabel(o) }}</mat-label>
               <mat-select
                 [value]="l.levels[o]"
@@ -57,7 +57,7 @@ const MEANINGS: Record<Reliability, string> = {
       padding: 0;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-      gap: 0.25rem 1rem;
+      gap: 1rem;
     }
     mat-form-field {
       width: 100%;

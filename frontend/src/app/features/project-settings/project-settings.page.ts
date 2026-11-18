@@ -86,7 +86,8 @@ import { SourceRootsComponent } from './source-roots.component';
                 <span class="location">{{ s.kind === 'CONFLUENCE' && s.title ? s.title : s.location }}</span>
                 <span class="meta">{{ kindLabel(s) }} · {{ lastRead(s) }}</span>
                 @if (s.kind === 'CONFLUENCE') {
-                  <mat-form-field appearance="outline" class="level">
+                  <span class="break" aria-hidden="true"></span>
+                  <mat-form-field appearance="outline" class="level" subscriptSizing="dynamic">
                     <mat-label>Niveau de cette racine</mat-label>
                     <mat-select
                       [value]="s.reliability ?? 'INHERIT'"
@@ -357,6 +358,17 @@ import { SourceRootsComponent } from './source-roots.component';
     .location {
       overflow-wrap: anywhere;
       font-weight: 600;
+    }
+    /* niveau propre d'une racine Confluence, dans la ligne de la source (016) */
+    .sources li:has(.level) {
+      align-items: center;
+    }
+    .level {
+      width: 15rem;
+    }
+    .break {
+      flex-basis: 100%;
+      height: 0;
     }
   `,
 })
