@@ -290,6 +290,7 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
         return rows.stream().map(SqliteKnowledgeIndex::item).toList();
     }
 
+    @Transactional
     @Override
     public List<KnowledgeItem> documentParts(UUID projectId, String documentRef) {
         String prefix = documentRef + "#";
@@ -301,6 +302,7 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
         return rows.stream().map(SqliteKnowledgeIndex::item).toList();
     }
 
+    @Transactional
     @Override
     public List<Mentionable> mentionables(UUID projectId) {
         // sans les corps : leur longueur seule, pour estimer la place (007, research.md R3)

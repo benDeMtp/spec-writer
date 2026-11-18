@@ -227,6 +227,7 @@ public class SessionJpaRepository implements SessionRepository {
                 answer);
     }
 
+    @Transactional
     @Override
     public Optional<Implementation> implementation(UUID sessionId) {
         List<Object[]> rows = em.createNativeQuery(

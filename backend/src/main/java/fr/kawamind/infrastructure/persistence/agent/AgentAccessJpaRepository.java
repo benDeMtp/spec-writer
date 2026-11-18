@@ -19,6 +19,7 @@ public class AgentAccessJpaRepository implements AgentAccessRepository {
     @Inject
     EntityManager em;
 
+    @Transactional
     @Override
     public boolean enabled() {
         Number value = (Number) em.createNativeQuery("select enabled from agent_access_settings where id = 1").getSingleResult();
@@ -49,6 +50,7 @@ public class AgentAccessJpaRepository implements AgentAccessRepository {
                 .executeUpdate();
     }
 
+    @Transactional
     @Override
     @SuppressWarnings("unchecked")
     public List<Line> page(int startAt, int max) {
@@ -61,6 +63,7 @@ public class AgentAccessJpaRepository implements AgentAccessRepository {
                 AgentOperation.valueOf((String) r[2]), (String) r[3], (String) r[4], status(r[5]), status(r[6]), (String) r[7])).toList();
     }
 
+    @Transactional
     @Override
     public int count() {
         return ((Number) em.createNativeQuery("select count(*) from agent_access_log").getSingleResult()).intValue();
