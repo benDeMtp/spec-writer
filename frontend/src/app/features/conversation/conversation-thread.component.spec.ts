@@ -250,6 +250,48 @@ describe('ConversationThreadComponent', () => {
     expect(el.querySelectorAll('.sources li')).toHaveLength(3);
   });
 
+  it('le lien d’une section de spécification garde son ancre au lieu de l’encoder dans le chemin', async () => {
+    fixture.componentRef.setInput('conversationId', 'c1');
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    fixture.componentInstance.messages.set([
+      user('u1', 1),
+      {
+        ...agent('a1', 2, 1, 'Voir [1].'),
+        sources: [{ n: 1, kind: 'SPECIFICATION', ref: 'spec:s1@v1#technical', title: 'Technique', url: '/sessions/s1/versions/1#technical' }],
+      },
+    ]);
+    await settle(fixture);
+
+    const link = el.querySelector<HTMLAnchorElement>('.sources a')!;
+    expect(link.getAttribute('href')).toBe('/sessions/s1/versions/1#technical');
+    link.click();
+    expect(navigate).toHaveBeenCalledWith('/sessions/s1/versions/1#technical');
+  });
+
+  it('ouvre sur le poste le document d’un dossier déclaré (site Antora en dossier, OneDrive)', async () => {
+    fixture.componentRef.setInput('conversationId', 'c1');
+    fixture.componentInstance.messages.set([
+      user('u1', 1),
+      {
+        ...agent('a1', 2, 1, 'Voir [1].'),
+        sources: [
+          { n: 1, kind: 'DOC_SECTION', ref: 'docs:x/10. MVP/CR.docx#4', title: 'CR atelier', url: null, local: true },
+        ],
+      },
+    ]);
+    await settle(fixture);
+
+    const open = el.querySelector<HTMLButtonElement>('.sources button.open-local')!;
+    expect(open.textContent?.trim()).toBe('CR atelier');
+    expect(open.getAttribute('aria-label')).toBe('CR atelier, ouvrir sur ce poste');
+    open.click();
+    const req = TestBed.inject(HttpTestingController).expectOne({ method: 'POST', url: '/api/conversations/c1/sources/open' });
+    expect(req.request.body).toEqual({ ref: 'docs:x/10. MVP/CR.docx#4' });
+    req.flush({ opened: 'APPLICATION' });
+    await settle(fixture);
+    expect(el.querySelector('.announce')?.textContent).toContain('CR atelier ouvert dans son application.');
+  });
+
   it('crée la conversation au premier envoi, puis suit le tour', async () => {
     let prepared = 0;
     fixture.componentRef.setInput('prepare', async () => {

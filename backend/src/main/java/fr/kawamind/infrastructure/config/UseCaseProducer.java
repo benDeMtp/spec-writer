@@ -808,6 +808,14 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
+    fr.kawamind.application.knowledge.OpenSourceDocument openSourceDocument(DocSourceRepository docSources,
+            ManageBrowser browser, BrowserPort browsers) {
+        return new fr.kawamind.application.knowledge.OpenSourceDocument(docSources,
+                new fr.kawamind.infrastructure.platform.LocalFileLocator(), browser, browsers);
+    }
+
+    @Produces
+    @ApplicationScoped
     ListAdrs listAdrs(ProjectRepository projects, KnowledgeIndex index, DocSourceRepository docSources,
             DocumentFiles files, Indexations indexations) {
         return new ListAdrs(projects, index, docSources, files, indexations);

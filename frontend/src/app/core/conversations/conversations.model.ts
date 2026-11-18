@@ -46,6 +46,8 @@ export interface CitedSource {
   ref: string;
   title: string;
   url: string | null;
+  /** Sans adresse web : document d'un dossier déclaré, ouvert sur le poste par l'outil. */
+  local?: boolean;
   origin?: SourceOrigin | null;
   updatedAt?: string | null;
   level?: Reliability | null;

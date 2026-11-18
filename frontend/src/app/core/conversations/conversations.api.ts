@@ -101,6 +101,15 @@ export class ConversationsApi {
     );
   }
 
+  /** Ouvre sur le poste le document d'une source citée sans adresse web (site en dossier, OneDrive). */
+  openSource(id: string, ref: string): Promise<{ opened: 'BROWSER' | 'APPLICATION' }> {
+    return firstValueFrom(
+      this.http.post<{ opened: 'BROWSER' | 'APPLICATION' }>(`/api/conversations/${encodeURIComponent(id)}/sources/open`, {
+        ref,
+      }),
+    );
+  }
+
   rename(id: string, name: string): Promise<ConversationSummary> {
     return firstValueFrom(
       this.http.patch<ConversationSummary>(

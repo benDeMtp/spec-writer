@@ -39,10 +39,11 @@ public class ManageConversations {
     /** Source citée, avec l'adresse où l'ouvrir : ticket Jira, page, ADR, version d'une spécification. */
     /**
      * Source citée, avec sa provenance (016) : sorte de source, date de mise à jour et niveau, nuls
-     * pour un message antérieur.
+     * pour un message antérieur. {@code local} : sans adresse web, le document peut s'ouvrir sur le
+     * poste depuis un dossier déclaré ({@link fr.kawamind.application.knowledge.OpenSourceDocument}).
      */
     public record SourceView(int n, SourceKind kind, String ref, String title, String url, SourceOrigin origin,
-            Instant updatedAt, Reliability level) {
+            Instant updatedAt, Reliability level, boolean local) {
     }
 
     /** {@code specificationVersion} : version de la spécification discutée transmise pour ce tour (011). */
@@ -162,8 +163,11 @@ public class ManageConversations {
 
     private SourceView view(CitedSource s) {
         Provenance p = s.provenance();
-        return new SourceView(s.n(), s.kind(), s.ref(), s.title(), url(s), p == null ? null : p.origin(),
-                p == null ? null : p.updatedAt(), p == null ? null : p.level());
+        String url = url(s);
+        boolean local = url == null && (s.kind() == SourceKind.DOC_SECTION || s.kind() == SourceKind.ADR)
+                && fr.kawamind.application.knowledge.OpenSourceDocument.local(s.ref());
+        return new SourceView(s.n(), s.kind(), s.ref(), s.title(), url, p == null ? null : p.origin(),
+                p == null ? null : p.updatedAt(), p == null ? null : p.level(), local);
     }
 
     private String url(CitedSource s) {

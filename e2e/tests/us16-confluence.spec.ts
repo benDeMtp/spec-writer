@@ -170,6 +170,11 @@ test.describe.serial('016 Confluence et fiabilité des sources', () => {
     await expect(provenance.filter({ hasText: 'SharePoint' }).first()).toContainText('Référence');
     await expect(provenance.filter({ hasText: 'Confluence · 3 octobre 2026' }).first()).toBeVisible();
     await expectNoA11yViolations(page);
+    // la demande n'a pas d'adresse web : l'outil l'ouvre sur le poste (navigateur simulé en E2E)
+    await cited.getByRole('button', { name: new RegExp(`^${DEMAND}.*, ouvrir sur ce poste$`) }).click();
+    await expect(page.locator('.announce')).toContainText('ouvert dans le navigateur.');
+    // la page Confluence garde son adresse
+    await expect(cited.getByRole('link', { name: /Notes de frais/ })).toHaveAttribute('href', /pageId=103/);
   });
 
   test('F6 : la spécification suit la référence et montre l’écart entre sources', async () => {

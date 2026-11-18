@@ -1501,6 +1501,11 @@ export class SpecificationPage {
     this.session.set(session);
     this.versions.set(versions);
     this.spec.set(spec);
+    // une citation d'une section (#technical, #UC-01…) ouvre la version à cette section
+    const fragment = this.route.snapshot.fragment;
+    if (fragment) {
+      setTimeout(() => this.showSection(`/sessions/${id}/versions/${n}#${fragment}`));
+    }
     // 012 : une spécification d'un autre projet rend ce projet courant
     void this.follower.follow(session.projectId).catch(() => undefined);
   }
