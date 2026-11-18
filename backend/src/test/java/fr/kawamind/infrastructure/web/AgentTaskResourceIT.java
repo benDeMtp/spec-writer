@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 /** T041 (015, contracts/mcp-tools.md) : outils de tâches de l'API des agents, codes et statuts HTTP. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class AgentTaskResourceIT {
 
     static WireMockServer jira;

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
  * avec le LLM rejoué depuis {@code src/test/resources/llm-replay}.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SessionResourceIT {
 
     static final String NEED = "Les employés doivent pouvoir réserver une salle de réunion pour une durée donnée.";

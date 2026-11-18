@@ -28,6 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** 010, 014 : agent à outils en flux, opérations structurées, données entre balises (research R5). */
 @io.quarkus.test.junit.QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class LangChainConversationLlmTest {
 
     /** Port de l'application ; les opérations migrées passent par les AI Services (014). */

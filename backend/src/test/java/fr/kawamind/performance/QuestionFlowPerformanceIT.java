@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
  * {@code /q/health/ready} est mesuré par l'E2E (startup.spec.ts), sur le vrai jar.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class QuestionFlowPerformanceIT {
 
     private static final String NEED = "Les employés doivent pouvoir réserver une salle de réunion pour une durée donnée. IT-OK";

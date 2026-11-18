@@ -25,6 +25,7 @@ import org.junit.jupiter.api.io.TempDir;
  * {@code Converse} n'est touchée pour les ajouter.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class AgentToolsExtensionTest {
 
     @Inject

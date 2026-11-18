@@ -64,9 +64,10 @@ extension. Ne jamais modifier une migration Flyway déjà appliquée : en ajoute
 `.dev-data/`.
 
 **Avant chaque commit** : arrêter le dev mode (`quarkus_stop`), puis lancer `./mvnw -B verify
--DskipDependencyCheck` (JaCoCo, ArchUnit, SpotBugs, PMD, front) et les E2E sur le jar
-(`./mvnw -B package -DskipTests` puis `npm --prefix e2e test`). Le dev mode ne remplace aucune
-gate.
+-DskipDependencyCheck` (JaCoCo, ArchUnit, SpotBugs, PMD, front) et les E2E sur le jar que
+`verify` vient de construire (`npm --prefix e2e test`, sans `package` de plus, comme la CI). Le
+dev mode ne remplace aucune gate. Le jar de `backend/target/quarkus-app` est reconstruit à chaque
+`verify` : ne pas lancer l'outil installé depuis ce dossier pendant un build.
 
 ## Pièges de l'environnement
 

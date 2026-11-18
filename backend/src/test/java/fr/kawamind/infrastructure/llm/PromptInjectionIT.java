@@ -48,6 +48,7 @@ import org.junit.jupiter.api.Test;
  * message système, reste entre ses balises et ne peut pas les refermer ; la sortie reste conforme.
  */
 @io.quarkus.test.junit.QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class PromptInjectionIT {
 
     /** Port LLM de l'application : ses opérations migrées passent par les AI Services (014). */

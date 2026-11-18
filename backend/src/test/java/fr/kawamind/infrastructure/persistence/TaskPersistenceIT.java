@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 /** T012 (015, V26) : tâches, préalables, proposition et suivi en base. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class TaskPersistenceIT {
 
     static final Instant T0 = Instant.parse("2026-11-17T09:00:00Z");

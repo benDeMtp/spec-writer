@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
  * sur le jeu fictif (BTR/knowledge), avec Jira simulé et le modèle d'embedding de test.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class KnowledgeResourceIT {
 
     static WireMockServer jira;

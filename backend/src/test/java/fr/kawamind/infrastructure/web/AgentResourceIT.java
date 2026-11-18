@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 /** T050 : API des agents (contracts/mcp-tools.md), journal, et refus (SC-007, SC-008). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class AgentResourceIT {
 
     static final String DEFAULT = Project.DEFAULT_ID.toString();

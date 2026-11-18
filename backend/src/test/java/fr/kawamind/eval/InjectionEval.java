@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
  */
 @Tag("eval")
 @io.quarkus.test.junit.QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 @io.quarkus.test.junit.TestProfile(EvalProfile.class)
 class InjectionEval {
 

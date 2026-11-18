@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 /** T021 (016) : client Confluence contre WireMock (contracts/confluence-client.md). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ConfluenceRestClientIT {
 
     static WireMockServer wiki;

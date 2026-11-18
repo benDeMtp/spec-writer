@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
  * documents OneDrive ou des pages Confluence, relus par documentParts).
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class BackgroundReadsIT {
 
     @Inject

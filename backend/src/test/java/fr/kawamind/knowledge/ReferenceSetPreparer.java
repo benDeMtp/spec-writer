@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
  * {@code ./mvnw -pl backend test -Preference -Dtest=ReferenceSetPreparer -Dspecwriter.reference-set=<dossier>}.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 @Tag("reference")
 class ReferenceSetPreparer {
 

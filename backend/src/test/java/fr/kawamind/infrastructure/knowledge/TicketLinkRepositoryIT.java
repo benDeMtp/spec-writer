@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 /** T122 : liens entre tickets indexés (data-model TicketLink, migration V14, research.md R29). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class TicketLinkRepositoryIT {
 
     static final Instant T0 = Instant.parse("2026-11-04T09:00:00Z");

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
  */
 @Tag("spike")
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 @TestProfile(SqliteHibernateSpikeIT.SpikeProfile.class)
 class SqliteHibernateSpikeIT {
 

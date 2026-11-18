@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 /** T101 : lectures et écritures Jira de la connaissance du projet (research.md R20, R23). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class JiraKnowledgeSyncIT {
 
     static WireMockServer jira;

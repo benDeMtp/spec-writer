@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 /** T162 (FR-012b) : le résumé et les détails de la spécification produite sont du Markdown. */
 @io.quarkus.test.junit.QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class LangChainLlmClientTest {
 
     /** Port de l'application, sur les AI Services (014). */

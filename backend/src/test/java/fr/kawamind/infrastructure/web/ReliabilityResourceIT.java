@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
  * ({@code …/doc-sources/{sourceId}/reliability}), aperçu Confluence sans serveur déclaré.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ReliabilityResourceIT {
 
     String projectId;

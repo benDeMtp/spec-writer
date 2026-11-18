@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @Tag("eval")
 @io.quarkus.test.junit.QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 @io.quarkus.test.junit.TestProfile(EvalProfile.class)
 class ConversationEval {
 

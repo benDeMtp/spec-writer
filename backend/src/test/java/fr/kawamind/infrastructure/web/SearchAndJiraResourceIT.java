@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 /** T104 : recherche, ticket Jira, modification assistée et envoi, selon contracts/openapi.yaml. LLM rejoué. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SearchAndJiraResourceIT {
 
     static WireMockServer jira;

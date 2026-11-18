@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 /** T013 : {@code /api/projects*} et {@code /api/sessions/{id}/project} (contracts/openapi.yaml de 002, US1). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ProjectResourceIT {
 
     static WireMockServer jira;

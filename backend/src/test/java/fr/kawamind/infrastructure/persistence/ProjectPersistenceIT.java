@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 /** Projets et projet courant en base (T009, FR-005). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ProjectPersistenceIT {
 
     static final Instant T0 = Instant.parse("2026-11-03T09:00:00Z");

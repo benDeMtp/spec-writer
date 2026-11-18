@@ -322,6 +322,17 @@
             <specwriter.test-model>${project.build.directory}/test-model</specwriter.test-model>
           </systemPropertyVariables>
           <argLine>@{argLine}</argLine>
+          <!-- Tests unitaires en parallèle, par classe ; chaque @QuarkusTest est @Isolated : il tourne
+               seul, l'application de test est unique (QuarkusTestIsolationTest). Sous Maven seulement :
+               le dev mode garde son exécution en série. -->
+          <properties>
+            <configurationParameters>
+              junit.jupiter.execution.parallel.enabled = true
+              junit.jupiter.execution.parallel.mode.default = same_thread
+              junit.jupiter.execution.parallel.mode.classes.default = concurrent
+              junit.jupiter.execution.parallel.config.strategy = dynamic
+            </configurationParameters>
+          </properties>
         </configuration>
       </plugin>
 

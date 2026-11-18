@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
  * « relates to » (FR-034, FR-035), avec Jira simulé et le LLM rejoué (llm-replay/13 à 16).
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class RelatedIssuesIT {
 
     static final String NEED = "IT-PROCHES Le gestionnaire doit pouvoir annuler une facture émise par un avoir total.";

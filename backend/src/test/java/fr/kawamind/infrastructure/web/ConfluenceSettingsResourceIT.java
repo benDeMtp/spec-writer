@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 /** T024 (016) : {@code /api/settings/confluence} ; le jeton n'est jamais renvoyé. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ConfluenceSettingsResourceIT {
 
     static WireMockServer wiki;

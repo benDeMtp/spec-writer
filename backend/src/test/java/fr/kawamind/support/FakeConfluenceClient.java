@@ -77,16 +77,20 @@ public class FakeConfluenceClient implements ConfluenceClient {
         calls.add("descendants " + id + " " + start);
         check();
         List<PageInfo> all = new ArrayList<>();
-        collect(id, all);
+        // enfants de chaque page, calculés une fois par appel : une descendance de 2 000 pages reste linéaire
+        Map<String, List<Node>> children = new java.util.HashMap<>();
+        nodes.values().stream().filter(n -> n.parent() != null)
+                .forEach(n -> children.computeIfAbsent(n.parent(), k -> new ArrayList<>()).add(n));
+        collect(id, children, all);
         List<PageInfo> slice = all.subList(Math.min(start, all.size()), Math.min(all.size(), start + Math.min(limit, pageSize)));
         return new Descendants(slice, all.size());
     }
 
-    private void collect(String parent, List<PageInfo> out) {
-        nodes.values().stream().filter(n -> parent.equals(n.parent())).forEach(n -> {
+    private static void collect(String parent, Map<String, List<Node>> children, List<PageInfo> out) {
+        for (Node n : children.getOrDefault(parent, List.of())) {
             out.add(new PageInfo(n.id(), n.title(), n.version(), n.updatedAt()));
-            collect(n.id(), out);
-        });
+            collect(n.id(), children, out);
+        }
     }
 
     @Override

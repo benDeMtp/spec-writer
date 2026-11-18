@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 /** 009 : documents joints rangés avec la session, uniques, supprimés avec elle (research.md R4). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class AttachmentPersistenceIT {
 
     static final Instant T0 = Instant.parse("2026-11-09T09:00:00Z");

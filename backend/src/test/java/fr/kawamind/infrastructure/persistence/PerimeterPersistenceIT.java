@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 /** Analyses de périmètre en base (013, T021, research.md R9). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class PerimeterPersistenceIT {
 
     static final Instant T0 = Instant.parse("2026-11-11T09:00:00Z");

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 /** T054 : statut d'implémentation et verrou par l'API (FR-026 à FR-026b de 002). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ImplementationStatusIT {
 
     @Test

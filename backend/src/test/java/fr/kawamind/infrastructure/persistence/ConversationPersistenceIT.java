@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 /** 010 : conversations rangées par projet, supprimées avec lui (research.md R6). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ConversationPersistenceIT {
 
     static final Instant T0 = Instant.parse("2026-11-09T09:00:00Z");

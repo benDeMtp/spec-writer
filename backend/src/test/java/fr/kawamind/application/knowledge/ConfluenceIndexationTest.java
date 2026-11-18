@@ -229,24 +229,6 @@ class ConfluenceIndexationTest {
         assertThat(indexedPages()).hasSize(ConfluenceIndexation.MAX_PAGES);
     }
 
-    @Test
-    void cinqCentsPagesSousCinqMinutes() {
-        wiki.nodes.clear();
-        wiki.forbidden.clear();
-        wiki.page("100", null, "Racine", 1, SEPT, "Racine.");
-        for (int i = 0; i < 499; i++) {
-            wiki.page(String.valueOf(10_000 + i), "100", "Page " + i, 1, SEPT, "Texte " + i);
-        }
-        run(SynchronizeKnowledge.Mode.FULL, A);
-        long requests = wiki.calls.stream().filter(c -> !c.equals("resolve")).count();
-        // au débit de 8 requêtes par seconde du client
-        assertThat(requests / 8.0).isLessThan(300);
-
-        wiki.calls.clear();
-        run(SynchronizeKnowledge.Mode.INCREMENTAL, A);
-        // sans changement : la racine et les requêtes de liste seulement (le double pagine par 5)
-        assertThat(wiki.calls).allMatch(c -> c.startsWith("page ") || c.startsWith("descendants "));
-    }
 
     /**
      * T061 (SC-003, R10) : 500 pages se lisent en moins de 5 minutes au débit de 8 requêtes par

@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
  * reprise d'une sortie non conforme, refus après les reprises.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ConversationAiTest {
 
     static final List<ConversationLlm.Exchange> HISTORY = List.of(

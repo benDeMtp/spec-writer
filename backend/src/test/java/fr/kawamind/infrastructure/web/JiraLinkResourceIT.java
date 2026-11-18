@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 /** T127 : aperçu (création et mise à jour) et création du ticket, selon contracts/openapi.yaml. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class JiraLinkResourceIT {
 
     static WireMockServer jira;

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 /** 009 : 256 Ko hors des routes d'envoi d'un document joint (research.md R1). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class BodySizeFilterIT {
 
     @Test

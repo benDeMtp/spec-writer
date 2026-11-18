@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 /** Gestion des sessions et réponse modifiée (FR-007, FR-017, FR-018), LLM rejoué. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SessionManagementIT {
 
     @BeforeEach
