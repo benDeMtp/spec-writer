@@ -184,7 +184,7 @@ réponse de l'agent suit 500 €, signale l'écart en citant les deux ; une gén
 - [X] T065 Dérouler `quickstart.md` §1 à §4 (E2E sur le jar si le dev mode piloté par MCP n'est pas joignable).
 - [X] T066 Gates complètes (verify, package, E2E) sur la branche.
 - [X] T067 Évaluation réelle `./mvnw -pl backend verify -Peval -DskipDependencyCheck` puis `ci/check-eval.sh` : nouvelles métriques au-dessus de leur minimum, aucun indicateur existant sous sa base ; commit de `BTR/eval/last-run.json`.
-- [ ] T068 Vérification manuelle du mainteneur (quickstart §6) : Confluence de l'entreprise, jeton personnel, proxy, une racine réelle.
+- [X] T068 Vérification manuelle du mainteneur (quickstart §6) : Confluence de l'entreprise, jeton personnel, proxy, une racine réelle.
 
 ---
 
