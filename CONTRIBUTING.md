@@ -64,6 +64,16 @@ Un changement de comportement sans test qui l'a fait échouer d'abord n'est pas 
 - Les cas d'usage sont câblés dans `infrastructure/config/UseCaseProducer`.
 - L'heure vient de `ClockPort`, jamais de `Instant.now()` hors plateforme et web.
 - Migrations Flyway : ne jamais modifier une migration déjà appliquée, en ajouter une.
+- Confluence (016) : le port `ConfluenceClient` a un seul adaptateur,
+  `infrastructure/confluence` (`ConfluenceApi`, client REST ; `ConfluenceThrottle`, 8 requêtes par
+  seconde et `Retry-After` ; `ConfluencePageAddress`, les trois formes d'adresse). ArchUnit
+  l'interdit ailleurs. Le certificat interne passe par `platform/HttpTlsConfigurer`, partagé avec
+  Jira. Ses IT (`ConfluenceRestClientIT`) appellent WireMock : lancez-les sous Maven, comme les IT
+  Jira. Dans les E2E, l'arbre de démonstration est servi par le WireMock de Jira, sous
+  `/confluence` (`e2e/fixtures/confluence/README.md`).
+- Provenance (016) : la source, la date et le niveau d'un extrait se calculent à la lecture
+  (`ProvenanceResolver`), jamais dans l'index ; `UserMessages` les écrit sur une ligne
+  `<provenance …/>` sous la balise de l'extrait, pour que les balises existantes ne changent pas.
 
 ### Passerelle MCP
 
@@ -137,7 +147,8 @@ boucle d'outils appartient au framework. Une capacité s'ajoute par déclaration
 - **Une consigne réutilisable** : un fichier `prompts/skills/<nom>.md`, inclus dans le message
   système d'une opération par une ligne `[skill:<nom>]` (`SkillLibrary`). Une consigne absente
   arrête le démarrage. Exemples : `decoupage-taches` (opération `propose-tasks`, 015) et
-  `redaction-story` (les cinq rédactions de spécification).
+  `redaction-story` (les cinq rédactions de spécification), `fiabilite-sources` (lecture de la
+  provenance et arbitrage entre sources, 016 : l'agent, les questions et les cinq rédactions).
 
 Dans tous les cas : un test sur le rejeu (`ScriptedChatModel` ou `ReplayChatModel`, voir
 `AgentToolsExtensionTest`), une fixture de rejeu pour les E2E

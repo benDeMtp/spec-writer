@@ -339,6 +339,50 @@ les sources ; pour un dossier de documents, les fichiers supprimés ou exclus so
 réindexation du dossier. Une erreur inattendue dans une source n'arrête que son étape : les autres sources sont
 indexées, et l'indexation se termine « avec des erreurs ».
 
+### Confluence
+
+Une page Confluence Server ou Data Center (pas Confluence Cloud) et **toute sa descendance**, à
+toute profondeur, peuvent servir de documentation à un projet. spec-writer lit Confluence et n'y
+écrit jamais.
+
+1. **Configuration › Confluence** : adresse du serveur (avec son chemin de contexte, par exemple
+   `https://wiki.entreprise.fr/confluence`) et jeton d'accès personnel (Confluence : votre profil,
+   Jetons d'accès personnels). Le jeton est gardé au trousseau, jamais renvoyé ni journalisé. Le
+   proxy d'entreprise et le certificat de l'autorité interne s'appliquent comme pour Jira.
+   **Tester la connexion** affiche votre compte.
+2. **Réglages du projet › Sources de documentation**, type « Page Confluence et toute sa
+   descendance » : collez l'adresse de la page depuis le navigateur (`…/pages/viewpage.action?
+   pageId=…`, `…/spaces/CLE/pages/…` ou `…/display/CLE/Titre`). **Aperçu de la racine** donne son
+   titre et son nombre de pages ; une racine de plus de 2 000 pages est refusée, choisissez une
+   page plus basse.
+3. L'indexation lit chaque page et la découpe en sections. **Resynchroniser** ne relit que les
+   pages nouvelles ou modifiées (numéro de version) et retire celles sorties de l'arbre ; **Tout
+   réindexer** relit tout. Une page restreinte pour votre jeton est comptée en erreur, sans bloquer
+   le reste.
+
+### Source, date et fiabilité des extraits
+
+Chaque extrait transmis à l'IA porte sa source (Jira, Antora, SharePoint, Confluence, modèle
+d'architecture, spécification, fiche générale, document joint), sa date de dernière mise à jour
+(ou « date inconnue ») et le niveau de fiabilité de sa source. Les étapes de recherche de la
+conversation et la recherche d'essai affichent la source et la date de chaque résultat.
+
+Trois niveaux, réglés dans **Réglages du projet › Fiabilité des sources** :
+
+- **Référence** : porte la demande d'origine, l'emporte en cas d'écart. Par défaut, les documents
+  SharePoint (ils portent les demandes métier).
+- **Interprétation** : compréhension de l'équipe ; suit la référence, l'écart est signalé. Par
+  défaut, tout le reste, dont Confluence.
+- **À confirmer** : pas encore validée ; l'IA dit quand elle s'y appuie.
+
+Une racine Confluence peut avoir son propre niveau. Un changement vaut dès la recherche suivante,
+sans réindexation. Quand un extrait de référence correspond à une recherche, deux places au plus
+lui sont réservées dans les résultats, sans changer les scores.
+
+En cas d'écart, la spécification suit la référence et le signale dans la rubrique **Écarts entre
+sources**, avec les deux extraits, leur source et leur date ; la rubrique est reprise à l'export
+et dans la description Jira. Dans la conversation, l'écart est présenté comme une incohérence.
+
 ## Sources du code et analyse de périmètre
 
 Pour une évolution technique, l'agent peut recenser tous les modules du code qu'elle touche, sans
