@@ -61,7 +61,7 @@ const KINDS: Record<KnowledgeKind, string> = {
   imports: [FormsModule, IndexationProgressComponent, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, RouterLink],
   template: `
     @if (status(); as s) {
-      <p class="counts">
+      <p class="counts" data-tour="knowledge-state">
         {{ countsBefore(s) }}
         @if (s.adrs > 0) {
           <a routerLink="/projet/connaissance/adr">{{ adrCount(s) }}</a>

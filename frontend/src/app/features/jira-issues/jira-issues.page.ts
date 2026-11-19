@@ -66,7 +66,7 @@ function failure(error: unknown): string {
       }
       @if (page(); as p) {
         @if (p.issues.length) {
-          <div class="sheet">
+          <div class="sheet" data-tour="jira-table">
             <table>
               <caption class="sw-visually-hidden">Tickets du projet {{ key }}, {{ position() }}, {{ sortLabel() }}</caption>
               <thead>

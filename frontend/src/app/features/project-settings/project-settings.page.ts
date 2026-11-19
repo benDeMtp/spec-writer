@@ -64,7 +64,7 @@ import { SourceSyncComponent } from './source-sync.component';
         <sw-sheet-editor [markdown]="p.context" [updatedAt]="p.contextUpdatedAt" [busy]="busy()" (saved)="save($event)" />
       </section>
 
-      <section class="sheet" aria-labelledby="sources-title">
+      <section class="sheet" aria-labelledby="sources-title" data-tour="doc-sources">
         <h2 id="sources-title">Sources de documentation</h2>
         <sw-doc-sources [project]="p" />
       </section>

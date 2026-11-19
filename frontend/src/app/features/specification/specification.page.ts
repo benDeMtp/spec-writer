@@ -251,6 +251,7 @@ export function storyParts(
             <div class="actions">
               <button
                 #discussButton
+                data-tour="discuss"
                 mat-flat-button
                 type="button"
                 [attr.aria-expanded]="discussing() && !locked()"
@@ -359,7 +360,7 @@ export function storyParts(
                   }
                 </p>
               }
-              <section aria-labelledby="summary">
+              <section aria-labelledby="summary" data-tour="spec-document">
                 <h2 id="summary">Résumé</h2>
                 <markdown class="rich" [data]="v.summary" />
               </section>

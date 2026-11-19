@@ -36,7 +36,7 @@ const STATES: Record<SessionState, string> = {
       <sw-search-page [q]="q()" [embedded]="true" />
     </section>
     <h2 id="list-title">Vos spécifications</h2>
-    <div class="sheet" role="region" aria-labelledby="list-title">
+    <div class="sheet" role="region" aria-labelledby="list-title" data-tour="sessions-list">
       <p role="status" aria-live="polite" class="announce">{{ announce() }}</p>
       @if (sessions(); as list) {
         @if (list.length) {
