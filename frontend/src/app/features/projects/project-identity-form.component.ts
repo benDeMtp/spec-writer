@@ -33,6 +33,7 @@ function draftOf(p: Project | null): Draft {
         <mat-label>Description (facultative)</mat-label>
         <textarea matInput name="description" maxlength="1000" rows="2" autocomplete="off" [ngModel]="draft().description" (ngModelChange)="patch({ description: $event })"></textarea>
       </mat-form-field>
+      @if (showKey()) {
       <mat-form-field appearance="outline">
         <mat-label>Clé Jira (facultative)</mat-label>
         <input
@@ -49,6 +50,7 @@ function draftOf(p: Project | null): Draft {
         />
         <mat-hint [id]="keyId() + '-hint'">{{ keyHint() }}</mat-hint>
       </mat-form-field>
+      }
       <div class="actions">
         <button mat-flat-button type="submit" [disabled]="!draft().name.trim() || !dirty() || busy()">Enregistrer</button>
         @if (cancellable()) {
@@ -78,6 +80,8 @@ export class ProjectIdentityFormComponent {
   /** Clé Jira par défaut de l'application, rappelée dans l'aide. */
   readonly defaultKey = input<string | null>(null);
   readonly keyId = input('jira-key');
+  /** Clé Jira proposée ; l'assistant de premier lancement la cache sans Jira connecté (018, FR-006). */
+  readonly showKey = input(true);
   readonly busy = input(false);
   /** Création : « Annuler » ferme le formulaire ; modification : il rétablit les valeurs. */
   readonly cancellable = input(false);

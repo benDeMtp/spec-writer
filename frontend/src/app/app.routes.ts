@@ -76,6 +76,13 @@ export const routes: Routes = [
   { path: 'projets/:id/contexte', canActivate: [followProjectGuard('/projet/connaissance')], children: [] },
   { path: 'projets', title: 'Projets', loadComponent: () => import('./features/projects/projects.page').then((m) => m.ProjectsPage) },
   { path: 'journal', title: 'Journal', loadComponent: () => import('./features/journal/journal.page').then((m) => m.JournalPage) },
+  // 018 : assistant de premier lancement, une étape par adresse
+  { path: 'premiers-pas', pathMatch: 'full', redirectTo: 'premiers-pas/accueil' },
+  {
+    path: 'premiers-pas/:etape',
+    title: 'Premiers pas',
+    loadComponent: () => import('./features/onboarding/onboarding.page').then((m) => m.OnboardingPage),
+  },
   { path: 'configuration', title: 'Configuration', loadComponent: () => import('./features/settings/settings.page').then((m) => m.SettingsPage) },
   { path: '**', redirectTo: '' },
 ];

@@ -47,6 +47,7 @@ import fr.kawamind.application.knowledge.ManageArchitectureSource;
 import fr.kawamind.application.knowledge.ManageEmbeddingSettings;
 import fr.kawamind.application.settings.ManageBrowser;
 import fr.kawamind.application.settings.ManageNotifications;
+import fr.kawamind.application.onboarding.ManageOnboarding;
 import fr.kawamind.application.knowledge.MentionQueries;
 import fr.kawamind.application.knowledge.ReadDocFile;
 import fr.kawamind.application.knowledge.RelatedIssuesStore;
@@ -130,6 +131,7 @@ import fr.kawamind.domain.port.SourceTree;
 import fr.kawamind.domain.port.SecretStore;
 import fr.kawamind.domain.port.SessionRelationRepository;
 import fr.kawamind.domain.port.SessionRepository;
+import fr.kawamind.domain.port.OnboardingRepository;
 import fr.kawamind.domain.port.SettingsRepository;
 import fr.kawamind.domain.port.SpecificationDiscussionRepository;
 import fr.kawamind.domain.port.SpecificationRepository;
@@ -806,6 +808,15 @@ public class UseCaseProducer {
     @ApplicationScoped
     ManageNotifications manageNotifications(SettingsRepository settings) {
         return new ManageNotifications(settings);
+    }
+
+    /** Assistant de premier lancement (018) ; ouvert de lui-même sauf en e2e (research.md R5, R7). */
+    @Produces
+    @ApplicationScoped
+    ManageOnboarding manageOnboarding(OnboardingRepository onboarding, SettingsRepository settings,
+            ConsentRepository consents, ClockPort clock,
+            @ConfigProperty(name = "specwriter.onboarding.auto-open", defaultValue = "true") boolean autoOpen) {
+        return new ManageOnboarding(onboarding, settings, consents, clock, autoOpen);
     }
 
     @Produces

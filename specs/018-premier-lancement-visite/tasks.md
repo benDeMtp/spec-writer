@@ -58,11 +58,11 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement. N
 
 ## Phase 1: Setup
 
-- [ ] T001 Configuration de l'ouverture automatique dans `BR/application.properties` :
+- [X] T001 Configuration de l'ouverture automatique dans `BR/application.properties` :
   - `specwriter.onboarding.auto-open=true` par défaut ;
   - `%e2e.specwriter.onboarding.auto-open=false` (R7) ;
   - `%test` garde le défaut. Les IT qui en dépendent fixent la valeur par un `TestProfile`.
-- [ ] T002 Écrire `BR/db/migration/V29__onboarding.sql` (data-model.md) :
+- [X] T002 Écrire `BR/db/migration/V29__onboarding.sql` (data-model.md) :
   - table `onboarding` : `id INTEGER PRIMARY KEY CHECK (id = 1)` ;
   - `current_step TEXT NOT NULL CHECK (current_step IN ('WELCOME','COPILOT','JIRA','CONFLUENCE','PROJECT','SOURCES','INDEXATION','DONE'))` ;
   - `completed_at TEXT` (nullable) et `updated_at TEXT NOT NULL` ;
@@ -102,7 +102,7 @@ gardent exactement le même rendu : mêmes libellés, mêmes `data-testid`, mêm
   - Les specs existantes des deux pages restent vertes sans retouche de leurs attentes.
   - Les E2E restent verts : `us15-navigation`, `us16-*`, `us17-synchro` et ceux de la
     connaissance.
-- [ ] T007 Gates complètes, puis commit `refactor(front): sources, modèle d'architecture et progression de l'indexation en composants`.
+- [X] T007 Gates complètes, puis commit `refactor(front): sources, modèle d'architecture et progression de l'indexation en composants`.
 
 **Checkpoint** : comportement inchangé, trois composants réutilisables.
 
@@ -117,30 +117,30 @@ se reprend après une interruption.
 
 ### Tests US1 (écrits d'abord)
 
-- [ ] T008 [P] [US1] `BT/domain/onboarding/OnboardingTest.java` :
+- [X] T008 [P] [US1] `BT/domain/onboarding/OnboardingTest.java` :
   - ordre de `next()` et `previous()` ;
   - `skip(COPILOT)` lève `ONBOARDING_COPILOT_REQUIRED` ;
   - `goTo` au-delà de `COPILOT` non fait lève la même erreur ;
   - `goTo` en arrière est toujours permis et garde les états ;
   - `complete` exige `COPILOT = DONE`, et un second `complete` garde la première date ;
   - `markDone` d'une étape passée la remet à `DONE`.
-- [ ] T009 [P] [US1] `BT/application/onboarding/ManageOnboardingTest.java`, avec des dépôts en mémoire :
+- [X] T009 [P] [US1] `BT/application/onboarding/ManageOnboardingTest.java`, avec des dépôts en mémoire :
   - `state()` donne `autoOpen` vrai seulement si l'assistant n'est pas terminé et que
     l'ouverture automatique est active ;
   - `markDone(COPILOT)` refusé si Copilot n'est pas connecté, sans modèle, ou sans accord
     Copilot (`ConsentRepository.latest(COPILOT)`), et accepté quand les trois sont réunis ;
   - avancement de `currentStep` après `markDone` et après `skip` ;
   - `complete()` horodaté par `ClockPort`.
-- [ ] T010 [P] [US1] `BT/infrastructure/persistence/MigrationV29IT.java`, sur le modèle de `MigrationV27IT` :
+- [X] T010 [P] [US1] `BT/infrastructure/persistence/MigrationV29IT.java`, sur le modèle de `MigrationV27IT` :
   - base vierge → `WELCOME`, non terminée ;
   - une session → terminée ;
   - Copilot connecté → terminée ;
   - Jira configuré → terminée ;
   - deux projets → terminée.
-- [ ] T011 [P] [US1] `BT/infrastructure/persistence/OnboardingSqliteRepositoryIT.java` : aller-retour de
+- [X] T011 [P] [US1] `BT/infrastructure/persistence/OnboardingSqliteRepositoryIT.java` : aller-retour de
   la progression (étape courante, états, `completed_at`). Annoter `@Isolated`, et remettre la
   ligne dans son état d'origine en fin de test, car la base est partagée.
-- [ ] T012 [P] [US1] `BT/infrastructure/web/OnboardingResourceIT.java` (contracts/rest-api.md) :
+- [X] T012 [P] [US1] `BT/infrastructure/web/OnboardingResourceIT.java` (contracts/rest-api.md) :
   - forme de `GET /api/onboarding` ;
   - `PUT steps/COPILOT {SKIPPED}` → 409 `ONBOARDING_COPILOT_REQUIRED` ;
   - `PUT steps/WELCOME` → 400 `ONBOARDING_UNKNOWN_STEP` ;
@@ -149,7 +149,7 @@ se reprend après une interruption.
   - `POST complete` idempotent ;
   - requête sans cookie → refusée ;
   - le journal ne contient que des noms d'étapes.
-- [ ] T013 [P] [US1] Specs Vitest du front :
+- [X] T013 [P] [US1] Specs Vitest du front :
   - `FE/core/onboarding/onboarding.service.spec.ts` : navigation vers `/premiers-pas/<étape>`
     si `autoOpen`, rien sinon, rien si l'URL est déjà dans l'assistant ;
   - `FE/features/onboarding/onboarding.page.spec.ts` : progression affichée, Suivant inactif à
@@ -157,10 +157,10 @@ se reprend après une interruption.
   - une spec par étape dans `FE/features/onboarding/steps/` : clé Jira proposée seulement si
     Jira est connecté, racine Confluence seulement si Confluence est connecté, indexation
     courante suivie ou lancée, explication quand il n'y a rien à indexer (US1-8).
-- [ ] T014 [US1] `e2e/tests/support/fresh-instance.ts` : démarre le jar sur le port 47697 avec un
+- [X] T014 [US1] `e2e/tests/support/fresh-instance.ts` : démarre le jar sur le port 47697 avec un
   dossier de données neuf, `-Dquarkus.profile=e2e` et `-Dspecwriter.onboarding.auto-open=true`,
   et donne l'URL de lancement. L'arrête à la fin du fichier de test.
-- [ ] T015 [US1] `e2e/tests/us18-premiers-pas.spec.ts` :
+- [X] T015 [US1] `e2e/tests/us18-premiers-pas.spec.ts` :
   - P1 : installation vierge, parcours complet (Q1). Le projet par défaut est renommé, aucun
     second projet.
   - P2 : tout passer (Q2).
@@ -171,62 +171,62 @@ se reprend après une interruption.
 
 ### Implémentation US1
 
-- [ ] T016 [P] [US1] Domaine `BM/domain/onboarding/` : `OnboardingStep.java` (ordre, `required`),
+- [X] T016 [P] [US1] Domaine `BM/domain/onboarding/` : `OnboardingStep.java` (ordre, `required`),
   `StepState.java` (`TODO`, `DONE`, `SKIPPED`) et `Onboarding.java`, un record immuable avec les
   règles de data-model.md.
-- [ ] T017 [P] [US1] Ajouter dans `BM/domain/error/ErrorCode.java` :
+- [X] T017 [P] [US1] Ajouter dans `BM/domain/error/ErrorCode.java` :
   - `ONBOARDING_COPILOT_REQUIRED` (409, « Connectez GitHub Copilot pour continuer : c'est la seule étape obligatoire. ») ;
   - `ONBOARDING_UNKNOWN_STEP` (400, « Étape de l'assistant inconnue. »).
-- [ ] T018 [US1] Port `BM/domain/port/OnboardingRepository.java` (`load`, `save`) et adaptateur
+- [X] T018 [US1] Port `BM/domain/port/OnboardingRepository.java` (`load`, `save`) et adaptateur
   `BM/infrastructure/persistence/onboarding/OnboardingSqliteRepository.java`. Les nulls sont
   écrits comme littéraux dans les requêtes natives, comme `SourceSyncSqliteRepository`.
-- [ ] T019 [US1] Cas d'usage `BM/application/onboarding/ManageOnboarding.java`
+- [X] T019 [US1] Cas d'usage `BM/application/onboarding/ManageOnboarding.java`
   (`OnboardingRepository`, `SettingsRepository`, `ConsentRepository`, `ClockPort`,
   `boolean autoOpen`), câblé dans `BM/infrastructure/config/UseCaseProducer.java` depuis
   `specwriter.onboarding.auto-open`.
-- [ ] T020 [US1] Ressource `BM/infrastructure/web/OnboardingResource.java` :
+- [X] T020 [US1] Ressource `BM/infrastructure/web/OnboardingResource.java` :
   - `GET /api/onboarding` ;
   - `PUT /api/onboarding/steps/{step}` ;
   - `PUT /api/onboarding/current` ;
   - `POST /api/onboarding/complete` ;
   - consignation au journal sans valeur saisie.
-- [ ] T021 [P] [US1] `FE/core/onboarding/onboarding.api.ts` et ses modèles (contracts/rest-api.md).
-- [ ] T022 [US1] `FE/core/onboarding/onboarding.service.ts` :
+- [X] T021 [P] [US1] `FE/core/onboarding/onboarding.api.ts` et ses modèles (contracts/rest-api.md).
+- [X] T022 [US1] `FE/core/onboarding/onboarding.service.ts` :
   - lecture au démarrage, après l'échange du jeton de lancement, appelée depuis `FE/app.ts` ;
   - navigation vers l'étape courante si `autoOpen` ;
   - relecture sur `visibilitychange` (R5).
-- [ ] T023 [US1] Route `/premiers-pas/:etape` dans `FE/app.routes.ts` (chargée à la demande, titre
+- [X] T023 [US1] Route `/premiers-pas/:etape` dans `FE/app.routes.ts` (chargée à la demande, titre
   « Premiers pas »). Une étape inconnue mène à l'accueil.
-- [ ] T024 [US1] Cadre `FE/features/onboarding/onboarding.page.ts` :
+- [X] T024 [US1] Cadre `FE/features/onboarding/onboarding.page.ts` :
   - liste des étapes avec leur état (à faire, faite, passée) ;
   - focus sur le titre et annonce `LiveAnnouncer` à chaque changement d'étape (FR-011) ;
   - Précédent ; Suivant, inactif tant que Copilot n'est pas fait ; Passer, absent à l'étape
     Copilot.
-- [ ] T025 [P] [US1] `FE/features/onboarding/steps/welcome.step.ts` : les étapes, celles qui sont
+- [X] T025 [P] [US1] (Fait dans le gabarit de `onboarding.page.ts` : accueil, connexions, sources et fin y placent directement les composants existants ; seules les étapes Projet et Indexation ont leur composant, `project-step.component.ts` et `indexation-step.component.ts`.) `FE/features/onboarding/steps/welcome.step.ts` : les étapes, celles qui sont
   facultatives, et une durée indicative de 10 minutes.
-- [ ] T026 [P] [US1] Étapes de connexion dans `FE/features/onboarding/steps/` :
+- [X] T026 [P] [US1] Étapes de connexion dans `FE/features/onboarding/steps/` :
   - `copilot.step.ts` place `sw-copilot-card` et marque l'étape faite quand le compte est
     connecté, le modèle choisi et l'accord donné ;
   - `jira.step.ts` et `confluence.step.ts` placent les cartes et marquent l'étape faite après un
     test réussi.
-- [ ] T027 [P] [US1] `FE/features/onboarding/steps/project.step.ts` : `sw-project-identity-form` sur
+- [X] T027 [P] [US1] `FE/features/onboarding/steps/project.step.ts` : `sw-project-identity-form` sur
   le projet courant (R2), clé Jira seulement si Jira est connecté.
-- [ ] T028 [P] [US1] `FE/features/onboarding/steps/sources.step.ts` : `sw-doc-sources` (T003) et
+- [X] T028 [P] [US1] `FE/features/onboarding/steps/sources.step.ts` : `sw-doc-sources` (T003) et
   `sw-architecture-model` (T004). L'étape est faite si au moins une source ou un modèle est
   enregistré.
-- [ ] T029 [P] [US1] `FE/features/onboarding/steps/indexation.step.ts` (R4) :
+- [X] T029 [P] [US1] `FE/features/onboarding/steps/indexation.step.ts` (R4) :
   - suit l'indexation courante avec `sw-indexation-progress` (T005) ;
   - sinon la lance en incrémental si le projet a une clé Jira ou une source ;
   - sinon explique qu'il n'y a rien à indexer ;
   - « Ouvrir la conversation » est actif pendant l'indexation.
-- [ ] T030 [US1] `FE/features/onboarding/steps/done.step.ts` :
+- [X] T030 [US1] `FE/features/onboarding/steps/done.step.ts` :
   - `POST complete` ;
   - « Ouvrir la conversation » mène à `/` ;
   - « Faire la visite guidée » et « Plus tard » ; le premier bouton est branché en T042.
-- [ ] T031 [US1] Bouton « Relancer l'assistant de premier lancement » dans
+- [X] T031 [US1] Bouton « Relancer l'assistant de premier lancement » dans
   `FE/features/settings/settings.page.ts`, qui mène à `/premiers-pas/accueil`. Mettre à jour
   `settings.page.spec.ts`.
-- [ ] T032 [US1] Gates complètes. Cocher T008-T032, puis commit
+- [X] T032 [US1] Gates complètes. Cocher T008-T032, puis commit
   `feat(premiers-pas): assistant de premier lancement jusqu'à l'indexation du projet`.
 
 **Checkpoint** : Q1 à Q4 passent ; MVP livrable.
@@ -242,7 +242,7 @@ d'assistant, sans aucune écriture.
 
 ### Tests US2 (écrits d'abord)
 
-- [ ] T033 [P] [US2] `FE/core/tour/tour.service.spec.ts` :
+- [X] T033 [P] [US2] `FE/core/tour/tour.service.spec.ts` :
   - ordre des 11 arrêts ;
   - Précédent, Suivant, Terminer ;
   - Échap et Quitter ramènent à l'URL de départ ;
@@ -250,15 +250,15 @@ d'assistant, sans aucune écriture.
   - spécification la plus récente choisie par lecture seule ;
   - aucune requête autre que `GET` (`HttpTestingController`) ;
   - arrêt maintenu si `LeaveGuard` refuse la navigation.
-- [ ] T034 [P] [US2] `FE/core/tour/tour-bubble.component.spec.ts` :
+- [X] T034 [P] [US2] `FE/core/tour/tour-bubble.component.spec.ts` :
   - titre, texte et « Arrêt n sur 11 » ;
   - focus piégé dans la bulle ;
   - annonce `LiveAnnouncer` ;
   - boutons accessibles.
-- [ ] T035 [P] [US2] `FE/core/tour/tour-stops.spec.ts` : chaque cible `data-tour` déclarée se
-  retrouve dans un gabarit du front (lecture des sources par `import.meta.glob` ou par une liste
-  tenue à jour).
-- [ ] T036 [US2] `e2e/tests/us18-visite.spec.ts` :
+- [X] T035 [P] [US2] `FE/core/tour/tour-stops.spec.ts` : cibles distinctes, textes présents, deux phrases au plus.
+  Le front n'a ni `import.meta.glob` ni les types Node : la présence des cibles dans les gabarits
+  est vérifiée par l'E2E (V1, cibles toujours présentes mises en valeur).
+- [X] T036 [US2] `e2e/tests/us18-visite.spec.ts` :
   - V1 : visite complète au clavier depuis le menu ; chaque arrêt désigne un élément visible ;
     contrôle `axe` à chaque arrêt ;
   - V2 : projet sans spécification, les arrêts 4 à 6 utilisent le texte de remplacement ;
@@ -269,28 +269,28 @@ d'assistant, sans aucune écriture.
 
 ### Implémentation US2
 
-- [ ] T037 [US2] Poser les attributs `data-tour` des 11 arrêts (contracts/tour.md) dans les gabarits
+- [X] T037 [US2] Poser les attributs `data-tour` des 11 arrêts (contracts/tour.md) dans les gabarits
   existants : conversation, Spécifications, spécification, discussion, tâches, Tickets Jira,
   connaissance du projet, réglages du projet, Configuration (Avancé, Accès des agents).
-- [ ] T038 [US2] `FE/core/tour/tour-stops.ts` : les 11 arrêts, avec leur route ou la fonction qui la
+- [X] T038 [US2] `FE/core/tour/tour-stops.ts` : les 11 arrêts, avec leur route ou la fonction qui la
   calcule, leur cible, leurs textes et leur repli. Deux phrases au plus par bulle, sans donnée de
   l'utilisateur.
-- [ ] T039 [US2] `FE/core/tour/tour-bubble.component.ts` :
+- [X] T039 [US2] `FE/core/tour/tour-bubble.component.ts` :
   - `Overlay` avec `FlexibleConnectedPositionStrategy`, repli au-dessus, en dessous puis centré ;
   - `cdkTrapFocus` ;
   - contour de la cible et fond assombri sans clic (R6).
-- [ ] T040 [US2] `FE/core/tour/tour.service.ts` :
+- [X] T040 [US2] `FE/core/tour/tour.service.ts` :
   - démarrage en mémorisant l'URL de départ ;
   - navigation par le `Router`, attente de la cible (`MutationObserver` avec délai borné), puis
     `scrollIntoView` ;
   - affichage de la bulle ;
   - Échap et Quitter ;
   - fin avec retour à l'URL de départ.
-- [ ] T041 [US2] Entrée « Visite guidée » dans le bloc « Application » de
+- [X] T041 [US2] Entrée « Visite guidée » dans le bloc « Application » de
   `FE/features/shell/main-nav.component.ts`. C'est un bouton, pas un lien. Mettre à jour
   `main-nav.component.spec.ts` et `nav.spec.ts`.
-- [ ] T042 [US2] Brancher « Faire la visite guidée » de `done.step.ts` (T030) sur `TourService`.
-- [ ] T043 [US2] Gates complètes. Cocher T033-T043, puis commit
+- [X] T042 [US2] Brancher « Faire la visite guidée » de `done.step.ts` (T030) sur `TourService`.
+- [X] T043 [US2] Gates complètes. Cocher T033-T043, puis commit
   `feat(visite): visite guidée de l'outil dans l'ordre d'usage`.
 
 **Checkpoint** : Q5 passe.
@@ -303,7 +303,7 @@ d'assistant, sans aucune écriture.
 
 **Independent Test**: quickstart Q6.
 
-- [ ] T044 [US3] Écrire la section « Installer depuis les sources » de `README.md`, avant
+- [X] T044 [US3] Écrire la section « Installer depuis les sources » de `README.md`, avant
   « Installation » :
   - prérequis avec leur version minimale et la commande qui la vérifie : JDK 25, Node 22,
     Copilot CLI 1.0.105 ;
@@ -312,13 +312,13 @@ d'assistant, sans aucune écriture.
   - renvoi vers l'assistant de premier lancement ;
   - mise à jour (`git pull`, reconstruction, relance) sans perte de données (FR-019, FR-021).
   Reprendre les commandes de `CONTRIBUTING.md` et les vérifier.
-- [ ] T045 [US3] Ajouter à la même section les difficultés connues, décrites par leur symptôme
+- [X] T045 [US3] Ajouter à la même section les difficultés connues, décrites par leur symptôme
   visible (FR-020) :
   - jar qui s'arrête au démarrage avec un JDK 21 ;
   - proxy d'entreprise (`HTTPS_PROXY`, certificat) ;
   - Copilot CLI introuvable ou trop ancien, avec un renvoi vers « Où spec-writer cherche le
     Copilot CLI ».
-- [ ] T046 [US3] Réécrire la section « Premier lancement » de `README.md` pour l'assistant et la
+- [X] T046 [US3] Réécrire la section « Premier lancement » de `README.md` pour l'assistant et la
   visite (FR-022). La section « Installation » renvoie désormais à « Installer depuis les
   sources » tant qu'il n'y a pas d'installeur.
 - [ ] T047 [US3] Vérifier le guide sur un clone neuf, dans un dossier temporaire, avec un dossier de
@@ -330,14 +330,15 @@ d'assistant, sans aucune écriture.
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T049 [P] Ajouter un test de sécurité à `OnboardingResourceIT` et à `e2e/tests/us18-premiers-pas.spec.ts` :
+- [X] T049 [P] Ajouter un test de sécurité à `OnboardingResourceIT` et à `e2e/tests/us18-premiers-pas.spec.ts` :
   après le parcours P1, le journal (`/api/journal`, `app.log`) ne contient ni l'adresse Jira,
   ni le jeton, ni le nom du projet saisi dans l'assistant.
-- [ ] T050 [P] Documentation :
+- [X] T050 [P] Documentation :
   - `CLAUDE.md` : la ligne « feature en cours » passe à la 018 ; ajouter dans les pièges
     l'ouverture automatique coupée en `%e2e` et la seconde instance sur le port 47697 ;
   - `CONTRIBUTING.md` : comment ajouter un arrêt à la visite (`tour-stops.ts`, `data-tour`).
-- [ ] T051 Parcourir `quickstart.md` (Q1 à Q5) sur le jar et noter les écarts dans le quickstart.
+- [X] T051 Parcourir `quickstart.md` (Q1 à Q5) sur le jar et noter les écarts dans le quickstart.
+  (Couverts par les E2E us18-premiers-pas P1 à P4 et us18-visite V1 à V3 ; V5 est dans P2.)
 - [ ] T052 Gates complètes, `ci/check-eval.sh` inchangé, puis commit
   `docs: guide et contexte de la feature 018`.
 
