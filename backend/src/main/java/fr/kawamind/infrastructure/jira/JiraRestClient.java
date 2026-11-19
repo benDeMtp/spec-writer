@@ -18,6 +18,10 @@ import fr.kawamind.domain.jira.IssueStatus;
 import fr.kawamind.domain.jira.TicketLink;
 import fr.kawamind.domain.jira.TrackedIssue;
 import fr.kawamind.domain.jira.TrackedIssuePage;
+import fr.kawamind.domain.jira.ParentIssue;
+import fr.kawamind.domain.jira.Subtask;
+import fr.kawamind.domain.jira.Transition;
+import java.util.Optional;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -59,6 +63,7 @@ public class JiraRestClient implements IssueTracker {
     static final String ISSUE_FIELDS = "summary,description,updated";
     static final String TRACKED_FIELDS = "summary,description,status,issuetype,updated,parent,subtasks,issuelinks";
     static final String STATUS_FIELDS = "status,updated";
+    static final String PARENT_FIELDS = "summary,status,issuetype,subtasks";
     private static final int KEYS_PAGE = 100;
     private static final int MAX_KEYS = 50_000;
 
@@ -325,17 +330,109 @@ public class JiraRestClient implements IssueTracker {
         fields.put("summary", summary);
         fields.put("description", wikiDescription);
         fields.putAll(extraFields);
-        Map<String, Object> created = call(endpoint, api -> {
-            try {
-                return api.createIssue(Map.of("fields", fields));
-            } catch (WebApplicationException e) {
-                if (e.getResponse() != null && e.getResponse().getStatus() == 400) {
-                    throw new IssueTrackerException(Kind.REJECTED, "Jira a refusé la création", e, rejection(e));
-                }
-                throw e;
-            }
-        });
+        Map<String, Object> created = call(endpoint, api -> rejecting("la création", () -> api.createIssue(Map.of("fields", fields))));
         return new CreatedIssue(String.valueOf(created.get("id")), String.valueOf(created.get("key")));
+    }
+
+    /** Un 400 de Jira est un refus, avec ses causes ; les autres statuts suivent {@link #fromStatus}. */
+    private static <T> T rejecting(String what, java.util.function.Supplier<T> action) {
+        try {
+            return action.get();
+        } catch (WebApplicationException e) {
+            if (e.getResponse() != null && e.getResponse().getStatus() == 400) {
+                throw new IssueTrackerException(Kind.REJECTED, "Jira a refusé " + what, e, rejection(e));
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public Optional<IssueType> subtaskType(JiraEndpoint endpoint, String projectKey) {
+        for (Map<?, ?> v : pages(endpoint, (api, start) -> api.createMetaIssueTypes(projectKey, start, META_PAGE))) {
+            if (Boolean.TRUE.equals(v.get("subtask"))) {
+                return Optional.of(new IssueType(String.valueOf(v.get("id")), text(v.get("name"))));
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public ParentIssue parentIssue(JiraEndpoint endpoint, String issueKey) {
+        requireKey(issueKey);
+        Map<String, Object> body = call(endpoint, api -> api.issue(issueKey, PARENT_FIELDS));
+        Map<?, ?> fields = map(body.get("fields"));
+        Map<?, ?> status = map(fields.get("status"));
+        List<Subtask> subtasks = new ArrayList<>();
+        if (fields.get("subtasks") instanceof List<?> list) {
+            for (Object o : list) {
+                Map<?, ?> sub = map(o);
+                Map<?, ?> subFields = map(sub.get("fields"));
+                Map<?, ?> subStatus = map(subFields.get("status"));
+                String key = text(sub.get("key"));
+                if (key != null) {
+                    subtasks.add(new Subtask(key, text(subFields.get("summary")), text(subStatus.get("name")),
+                            text(map(subStatus.get("statusCategory")).get("key"))));
+                }
+            }
+        }
+        return new ParentIssue(String.valueOf(body.get("key")), text(status.get("name")),
+                text(map(status.get("statusCategory")).get("key")),
+                Boolean.TRUE.equals(map(fields.get("issuetype")).get("subtask")), subtasks);
+    }
+
+    @Override
+    public CreatedIssue createSubtask(JiraEndpoint endpoint, String projectKey, String parentKey, String issueTypeId,
+            String summary, String wikiDescription) {
+        requireKey(parentKey);
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("project", Map.of("key", projectKey));
+        fields.put("issuetype", Map.of("id", issueTypeId));
+        fields.put("parent", Map.of("key", parentKey));
+        fields.put("summary", summary);
+        fields.put("description", wikiDescription);
+        Map<String, Object> created = call(endpoint,
+                api -> rejecting("la sous-tâche", () -> api.createIssue(Map.of("fields", fields))));
+        return new CreatedIssue(String.valueOf(created.get("id")), String.valueOf(created.get("key")));
+    }
+
+    @Override
+    public void updateSummary(JiraEndpoint endpoint, String issueKey, String summary) {
+        requireKey(issueKey);
+        call(endpoint, api -> rejecting("le titre", () -> {
+            api.updateIssue(issueKey, Map.of("fields", Map.of("summary", summary)));
+            return null;
+        }));
+    }
+
+    @Override
+    public List<Transition> transitions(JiraEndpoint endpoint, String issueKey) {
+        requireKey(issueKey);
+        Map<String, Object> body = call(endpoint, api -> api.transitions(issueKey));
+        List<Transition> out = new ArrayList<>();
+        if (body.get("transitions") instanceof List<?> list) {
+            for (Object o : list) {
+                Map<?, ?> t = map(o);
+                Map<?, ?> to = map(t.get("to"));
+                out.add(new Transition(text(t.get("id")), text(t.get("name")),
+                        text(map(to.get("statusCategory")).get("key")), text(to.get("name"))));
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public void transition(JiraEndpoint endpoint, String issueKey, String transitionId) {
+        requireKey(issueKey);
+        call(endpoint, api -> rejecting("la transition", () -> {
+            api.transition(issueKey, Map.of("transition", Map.of("id", transitionId)));
+            return null;
+        }));
+    }
+
+    @Override
+    public void addComment(JiraEndpoint endpoint, String issueKey, String wikiBody) {
+        requireKey(issueKey);
+        call(endpoint, api -> rejecting("le commentaire", () -> api.addComment(issueKey, Map.of("body", wikiBody))));
     }
 
     /** Causes d'un 400 de Jira : {@code errorMessages} et {@code errors} (champ : message). Jamais journalisées. */

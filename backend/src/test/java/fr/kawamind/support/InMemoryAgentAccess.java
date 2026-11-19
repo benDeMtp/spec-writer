@@ -33,7 +33,7 @@ public class InMemoryAgentAccess implements AgentAccessRepository, AgentEndpoint
     @Override
     public List<Line> page(int startAt, int max) {
         return entries.stream().sorted(Comparator.comparing(AgentAccess::at).reversed()).skip(startAt).limit(max)
-                .map(a -> new Line(a.at(), a.agentName(), a.operation(), null, null, a.oldStatus(), a.newStatus())).toList();
+                .map(a -> new Line(a.at(), a.agentName(), a.operation(), null, null, a.oldStatus(), a.newStatus(), a.taskKey())).toList();
     }
 
     @Override

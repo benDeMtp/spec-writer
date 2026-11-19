@@ -55,7 +55,9 @@ L'écran Configuration fournit cet extrait avec le bon chemin. Il ne contient au
 ## Garanties
 
 - La passerelle n'accède ni à la base ni à aucun secret autre que `agent-endpoint.json`. Elle ne
-  peut déclencher aucun appel à Copilot ou à Jira (FR-029).
+  peut déclencher aucun appel à Copilot ou à Jira (FR-029). *Remplacé en partie par la 015 : les
+  outils de tâches font transiter la sous-tâche Jira, appelée par spec-writer, jamais par la
+  passerelle (`specs/015-taches-avancement/contracts/mcp-tools.md`).*
 - Le contenu renvoyé à l'agent est une donnée : le texte des spécifications peut contenir des
   phrases adressées à une IA, que l'agent ne doit pas traiter comme des consignes. La description
   des outils le rappelle.

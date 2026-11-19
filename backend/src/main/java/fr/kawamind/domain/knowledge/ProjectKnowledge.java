@@ -36,10 +36,15 @@ public record ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List
      * ticket lié explicitement à la story de la session, la phrase du lien (research.md R29).
      */
     public record Entry(KnowledgeKind kind, KnowledgeRole role, String ref, int chunk, String title, String status,
-            boolean closed, String text, String contentHash, String link, boolean designated) {
+            boolean closed, String text, String contentHash, String link, boolean designated, Provenance provenance) {
 
         public Entry {
             text = text == null ? "" : text;
+        }
+
+        public Entry(KnowledgeKind kind, KnowledgeRole role, String ref, int chunk, String title, String status,
+                boolean closed, String text, String contentHash, String link, boolean designated) {
+            this(kind, role, ref, chunk, title, status, closed, text, contentHash, link, designated, null);
         }
 
         public Entry(KnowledgeKind kind, KnowledgeRole role, String ref, int chunk, String title, String status,
@@ -53,12 +58,19 @@ public record ProjectKnowledge(String generalSheet, Instant sheetUpdatedAt, List
         }
 
         public Entry withLink(String newLink) {
-            return new Entry(kind, role, ref, chunk, title, status, closed, text, contentHash, newLink, designated);
+            return new Entry(kind, role, ref, chunk, title, status, closed, text, contentHash, newLink, designated,
+                    provenance);
         }
 
         /** Élément désigné par l'utilisateur avec @ (007) : transmis d'office, marqué pour l'IA. */
         public Entry withDesignated() {
-            return new Entry(kind, role, ref, chunk, title, status, closed, text, contentHash, link, true);
+            return new Entry(kind, role, ref, chunk, title, status, closed, text, contentHash, link, true, provenance);
+        }
+
+        /** Source, date et niveau de l'élément (016), transmis au modèle ; hors de l'empreinte. */
+        public Entry withProvenance(Provenance newProvenance) {
+            return new Entry(kind, role, ref, chunk, title, status, closed, text, contentHash, link, designated,
+                    newProvenance);
         }
     }
 

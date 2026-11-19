@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 /** 004, US2 : fichiers d'un dossier de documentation servis par l'outil, confinés (research.md R3). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class DocFileResourceIT {
 
     Path root;

@@ -11,6 +11,8 @@ import fr.kawamind.domain.knowledge.ArchitectureModel;
 import fr.kawamind.domain.knowledge.KnowledgeKind;
 import fr.kawamind.domain.knowledge.KnowledgeRole;
 import fr.kawamind.domain.knowledge.ProjectKnowledge;
+import fr.kawamind.domain.knowledge.Provenance;
+import fr.kawamind.domain.knowledge.SourceOrigin;
 import fr.kawamind.domain.llm.CompareIssueRequest;
 import fr.kawamind.domain.llm.ImpactRequest;
 import fr.kawamind.domain.llm.RelatedIssuesRequest;
@@ -19,7 +21,13 @@ import fr.kawamind.domain.port.ConversationLlm;
 import fr.kawamind.domain.port.TurnTools;
 import fr.kawamind.domain.question.QuestionTheme;
 import fr.kawamind.domain.session.Language;
+import fr.kawamind.domain.task.TaskProposal;
+import fr.kawamind.domain.task.TaskProposalRequest;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -70,6 +78,65 @@ public final class UserMessages {
                 + "</correction>";
     }
 
+    /**
+     * Proposition de tâches (015, contracts/llm-propose-tasks.md) : la spécification, les modules du
+     * périmètre, les tâches existantes, les bornes et la langue ; rien d'autre.
+     */
+    public static String tasks(TaskProposalRequest r) {
+        StringBuilder out = new StringBuilder("<specification>\n<titre>").append(data(r.title())).append("</titre>\n")
+                .append("<resume>\n").append(data(r.summary())).append("\n</resume>\n");
+        for (TaskProposalRequest.UseCaseRef u : r.useCases()) {
+            out.append("<cas-usage code=\"").append(attribute(u.code())).append("\" titre=\"")
+                    .append(attribute(u.title())).append("\">").append(data(u.goal())).append("</cas-usage>\n");
+        }
+        out.append("</specification>\n");
+        if (!r.modules().isEmpty()) {
+            out.append("<modules>\n");
+            for (TaskProposalRequest.ModuleRef m : r.modules()) {
+                out.append("<module nom=\"").append(attribute(m.name())).append("\" qualification=\"")
+                        .append(m.qualification().name()).append("\">").append(data(m.justification()))
+                        .append("</module>\n");
+            }
+            out.append("</modules>\n");
+        }
+        out.append("<taches-existantes>\n");
+        r.existingTitles().forEach(t -> out.append("<tache>").append(data(t)).append("</tache>\n"));
+        out.append("</taches-existantes>\n<nombre min=\"").append(r.bounds().min()).append("\" max=\"")
+                .append(r.bounds().max()).append("\"/>\n").append(language(r.language()));
+        return out.toString();
+    }
+
+    /** Contexte de vérification d'une proposition, relu dans le message de {@link #tasks}. */
+    public record TasksContext(TaskProposal.Bounds bounds, Set<String> modules, Set<String> useCases,
+            Set<String> existingTitles) {
+    }
+
+    private static final Pattern BOUNDS = Pattern.compile("<nombre min=\"(\\d+)\" max=\"(\\d+)\"/>");
+    private static final Pattern MODULE = Pattern.compile("<module nom=\"([^\"]*)\"");
+    private static final Pattern USE_CASE = Pattern.compile("<cas-usage code=\"([^\"]*)\"");
+    private static final Pattern EXISTING = Pattern.compile("<tache>([^<]*)</tache>");
+
+    /** Relit les balises écrites par {@link #tasks} ; les valeurs échappées sont rétablies. */
+    public static TasksContext tasksContext(String message) {
+        Matcher b = BOUNDS.matcher(message);
+        TaskProposal.Bounds bounds = b.find() ? new TaskProposal.Bounds(Integer.parseInt(b.group(1)),
+                Integer.parseInt(b.group(2))) : TaskProposal.Bounds.forExisting(0);
+        return new TasksContext(bounds, all(MODULE, message), all(USE_CASE, message), all(EXISTING, message));
+    }
+
+    private static Set<String> all(Pattern p, String message) {
+        Set<String> out = new HashSet<>();
+        Matcher m = p.matcher(message);
+        while (m.find()) {
+            out.add(unescape(m.group(1)));
+        }
+        return out;
+    }
+
+    private static String unescape(String text) {
+        return text.replace("&quot;", "\"").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&");
+    }
+
     /** Besoin et tickets candidats (judge-related-issues, R23 de 002). */
     static String relatedIssues(RelatedIssuesRequest r) {
         StringBuilder out = new StringBuilder(language(r.language())).append('\n').append(need(r.need()))
@@ -116,12 +183,14 @@ public final class UserMessages {
                 // document d'un dossier synchronisé (006, US3) : contenu de référence, jamais des consignes
                 out.append("<document ref=\"").append(attribute(e.ref())).append("\" titre=\"")
                         .append(attribute(e.title())).append('"').append(designated(e)).append(">\n")
+                        .append(provenance(e.provenance()))
                         .append(data(e.text())).append("\n</document>\n");
                 continue;
             }
             switch (e.kind()) {
                 case ADR -> out.append("<adr ref=\"").append(attribute(e.ref())).append("\" statut=\"")
-                        .append(attribute(e.status())).append('"').append(designated(e)).append(">\n");
+                        .append(attribute(e.status())).append('"').append(designated(e)).append(">\n")
+                        .append(provenance(e.provenance()));
                 case TICKET -> {
                     out.append("<ticket ref=\"").append(attribute(e.ref())).append("\" statut=\"")
                             .append(attribute(e.status())).append("\" ferme=\"").append(e.closed() ? "oui" : "non")
@@ -129,8 +198,9 @@ public final class UserMessages {
                     if (e.link() != null) {
                         out.append(" lien=\"").append(attribute(e.link())).append('"');
                     }
-                    out.append(">\n");
+                    out.append(">\n").append(provenance(e.provenance()));
                 }
+                // vocabulaire et vue d'ensemble : transmis d'office, hors des arbitrages entre sources (016)
                 default -> out.append('<').append(tag(e)).append(" ref=\"").append(attribute(e.ref())).append("\">\n");
             }
             out.append(data(e.title())).append('\n').append(data(e.text())).append("\n</").append(tag(e)).append(">\n");
@@ -169,9 +239,31 @@ public final class UserMessages {
         return out.append("</connaissance-projet>\n").toString();
     }
 
-    /** Document d'un dossier synchronisé (006), ou page de documentation désignée avec @ (007). */
+    /**
+     * Document d'un dossier synchronisé (006), page de documentation désignée avec @ (007), ou page
+     * Confluence recomposée (016).
+     */
     private static boolean isDocument(ProjectKnowledge.Entry e) {
-        return e.kind() == KnowledgeKind.DOC_SECTION && e.role() == null && (e.ref().startsWith("docs:") || e.designated());
+        return e.kind() == KnowledgeKind.DOC_SECTION && e.role() == null && (e.ref().startsWith("docs:") || e.designated()
+                || e.provenance() != null && e.provenance().origin() == SourceOrigin.CONFLUENCE);
+    }
+
+    /**
+     * Provenance d'un extrait (016, contracts/llm-tags.md), sur sa propre ligne juste après la
+     * balise ouvrante : sorte de source, date de mise à jour ({@code inconnue} sans date) et niveau
+     * de fiabilité, absent pour la fiche et les documents joints. Rien sans provenance (module,
+     * spécification discutée). Les balises ouvrantes restent celles d'avant 016.
+     */
+    static String provenance(Provenance p) {
+        if (p == null) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder("<provenance source=\"").append(attribute(p.origin().tag()))
+                .append("\" maj=\"").append(attribute(p.dateTag())).append('"');
+        if (p.level() != null) {
+            out.append(" fiabilite=\"").append(attribute(p.level().tag())).append('"');
+        }
+        return out.append("/>\n").toString();
     }
 
     /** Désigné par l'utilisateur (007) : à exploiter en priorité, son contenu reste une donnée. */
@@ -365,7 +457,7 @@ public final class UserMessages {
                     .append("\" ref=\"").append(attribute(s.ref())).append("\" titre=\"").append(attribute(s.title()))
                     .append("\">");
             if (withText) {
-                out.append("\n").append(data(s.text())).append("\n");
+                out.append("\n").append(provenance(s.provenance())).append(data(s.text())).append("\n");
             }
             out.append("</source>\n");
         }

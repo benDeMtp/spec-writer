@@ -31,7 +31,8 @@ public record Implementation(ImplementationStatus status, Instant implementedAt,
 
     /**
      * Nouveau statut. Quitter {@code IMPLEMENTED} demande la confirmation de l'utilisateur, qui
-     * rappelle la date d'implémentation ; un agent n'a que ses deux transitions.
+     * rappelle la date d'implémentation ; un agent n'a que ses deux transitions. Les tâches (015) le
+     * quittent sans confirmation : une tâche rouverte dans Jira suffit.
      */
     public Implementation change(ImplementationStatus target, ImplementationStatus.Actor actor, boolean confirmUnlock,
             Instant now) {
@@ -41,7 +42,7 @@ public record Implementation(ImplementationStatus status, Instant implementedAt,
         if (!status.allows(target, actor)) {
             throw new DomainException(ErrorCode.TRANSITION_NOT_ALLOWED);
         }
-        if (status == ImplementationStatus.IMPLEMENTED && !confirmUnlock) {
+        if (status == ImplementationStatus.IMPLEMENTED && !confirmUnlock && actor != ImplementationStatus.Actor.TASKS) {
             throw new DomainException(ErrorCode.UNLOCK_CONFIRMATION_REQUIRED);
         }
         return new Implementation(target, target == ImplementationStatus.IMPLEMENTED ? now : null, evolvedFrom);

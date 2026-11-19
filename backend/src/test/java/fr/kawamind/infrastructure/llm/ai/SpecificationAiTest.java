@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
  * structure et de périmètre de révision.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SpecificationAiTest {
 
     static final String SPEC = """

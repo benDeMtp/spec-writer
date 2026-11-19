@@ -8,10 +8,10 @@ import java.util.UUID;
 /**
  * Une ligne du journal des accès des agents (FR-028, research.md R11) : jamais de contenu, seulement
  * l'opération, la feature ou le projet concernés et, pour un changement de statut, l'ancien et le
- * nouveau. Le nom annoncé n'est pas vérifié : il sert à la lecture du journal.
+ * nouveau, et pour une tâche sa clé Jira (015). Le nom annoncé n'est pas vérifié : il sert à la lecture du journal.
  */
 public record AgentAccess(UUID id, Instant at, String agentName, AgentOperation operation, UUID projectId,
-        UUID sessionId, ImplementationStatus oldStatus, ImplementationStatus newStatus) {
+        UUID sessionId, ImplementationStatus oldStatus, ImplementationStatus newStatus, String taskKey) {
 
     public static final int MAX_NAME = 80;
     public static final String UNKNOWN = "agent sans nom";
@@ -21,6 +21,12 @@ public record AgentAccess(UUID id, Instant at, String agentName, AgentOperation 
         Objects.requireNonNull(at);
         Objects.requireNonNull(operation);
         agentName = agentName(agentName);
+    }
+
+    /** Accès sans tâche. */
+    public AgentAccess(UUID id, Instant at, String agentName, AgentOperation operation, UUID projectId, UUID sessionId,
+            ImplementationStatus oldStatus, ImplementationStatus newStatus) {
+        this(id, at, agentName, operation, projectId, sessionId, oldStatus, newStatus, null);
     }
 
     /** Nom lisible : sans caractère de contrôle, 80 caractères au plus, jamais vide. */

@@ -78,11 +78,14 @@ public class SynchronizeKnowledge {
     private final KnowledgeIndex index;
     private final EmbeddingPort embedding;
     private final ClockPort clock;
+    /** Racines Confluence (016) ; sans elle, leurs pages indexées sont gardées sans relecture. */
+    private final ConfluenceIndexation confluence;
 
     public SynchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
             DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
             DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
-            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
+            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock,
+            ConfluenceIndexation confluence) {
         this.projects = projects;
         this.sources = sources;
         this.docSources = docSources;
@@ -96,6 +99,15 @@ public class SynchronizeKnowledge {
         this.index = index;
         this.embedding = embedding;
         this.clock = clock;
+        this.confluence = confluence;
+    }
+
+    public SynchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
+            DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
+            DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
+            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
+        this(projects, sources, docSources, reader, folder, fileStates, architecture, jira, tracker, links, index,
+                embedding, clock, null);
     }
 
     public void run(UUID projectId, Mode mode, IndexationProgress progress) {
@@ -153,8 +165,9 @@ public class SynchronizeKnowledge {
         if (projectKey != null) {
             out.add(new IndexableSource(IndexationScope.JIRA, IndexableSource.Kind.JIRA, "Jira " + projectKey));
         }
-        docSources.list(projectId).forEach(d -> out.add(
-                new IndexableSource(d.id().toString(), IndexableSource.Kind.DOCUMENTATION, d.location())));
+        docSources.list(projectId).forEach(d -> out.add(new IndexableSource(d.id().toString(),
+                IndexableSource.Kind.DOCUMENTATION, d.kind() == DocSource.Kind.CONFLUENCE && d.title() != null
+                        ? "Confluence : " + d.title() : d.location())));
         String workspace = sources.find(projectId).workspace();
         if (workspace != null) {
             out.add(new IndexableSource(IndexationScope.ARCHITECTURE, IndexableSource.Kind.ARCHITECTURE, workspace));
@@ -331,7 +344,11 @@ public class SynchronizeKnowledge {
         Set<Key> keepSections = new HashSet<>();
         Set<Key> keepAdrs = new HashSet<>();
         boolean complete = true;
+        List<DocSource> roots = declared.stream().filter(d -> d.kind() == DocSource.Kind.CONFLUENCE).toList();
         for (DocSource source : declared) {
+            if (source.kind() == DocSource.Kind.CONFLUENCE) {
+                continue;
+            }
             checkCancelled(progress);
             try {
                 if (source.kind() == DocSource.Kind.DOCUMENTS) {
@@ -347,6 +364,7 @@ public class SynchronizeKnowledge {
                 complete = false;
             }
         }
+        complete &= confluence(projectId, roots, mode, progress, keepSections, keepAdrs);
         // chaque source lue en entier a déjà remplacé ses éléments (document) ; ce retrait global,
         // après une lecture complète de toutes les sources, emporte en plus les éléments sans source
         if (complete && scope.all()) {
@@ -357,6 +375,29 @@ public class SynchronizeKnowledge {
                     .forEach(keepAdrs::add);
             index.retain(projectId, KnowledgeKind.DOC_SECTION, keepSections);
             index.retain(projectId, KnowledgeKind.ADR, keepAdrs);
+        }
+    }
+
+    /** Racines Confluence (016) : leurs pages lues ou gardées s'ajoutent à ce qui reste indexé. */
+    private boolean confluence(UUID projectId, List<DocSource> roots, Mode mode, IndexationProgress progress,
+            Set<Key> keepSections, Set<Key> keepAdrs) {
+        if (roots.isEmpty()) {
+            return true;
+        }
+        if (confluence == null) {
+            return false;
+        }
+        try {
+            ConfluenceIndexation.Outcome outcome = confluence.run(projectId, roots, mode, progress);
+            keepSections.addAll(outcome.sections());
+            keepAdrs.addAll(outcome.adrs());
+            return outcome.complete();
+        } catch (RuntimeException | LinkageError e) {
+            if (cancelling(progress, e)) {
+                throw e;
+            }
+            unexpected(progress, IndexationError.Kind.SOURCE, roots.getFirst().location(), e);
+            return false;
         }
     }
 
@@ -405,10 +446,11 @@ public class SynchronizeKnowledge {
                 continue;
             }
             for (Section section : reading.page().sections()) {
-                KnowledgeItem item = item(projectId, section);
+                // date de modification du fichier, déjà lue pour l'incrémental (016, FR-012)
+                KnowledgeItem item = item(projectId, section, file.modifiedAt());
                 Key key = Key.of(item);
                 keep.add(key);
-                if (!item.contentHash().equals(existing.get(key))) {
+                if (changed(item, existing.get(key))) {
                     index.save(item, null, null);
                 }
             }
@@ -454,12 +496,12 @@ public class SynchronizeKnowledge {
         Set<Key> readKeys = new HashSet<>();
         for (DocumentationReader.Page page : read.pages()) {
             for (Section section : page.sections()) {
-                KnowledgeItem item = item(projectId, section);
+                KnowledgeItem item = item(projectId, section, page.updatedAt());
                 Key key = Key.of(item);
                 boolean adr = item.kind() == KnowledgeKind.ADR;
                 (adr ? keepAdrs : keepSections).add(key);
                 readKeys.add(key);
-                if (!item.contentHash().equals((adr ? adrs : sections).get(key))) {
+                if (changed(item, (adr ? adrs : sections).get(key))) {
                     index.save(item, null, null);
                 }
             }
@@ -479,14 +521,23 @@ public class SynchronizeKnowledge {
         return complete;
     }
 
-    private KnowledgeItem item(UUID projectId, Section section) {
+    /**
+     * Élément à réécrire : contenu changé, ou date de mise à jour connue, qui complète les éléments
+     * indexés avant 016 (une réécriture au même contenu garde son vecteur).
+     */
+    static boolean changed(KnowledgeItem item, String indexedHash) {
+        return !item.contentHash().equals(indexedHash) || item.sourceUpdatedAt() != null;
+    }
+
+    private KnowledgeItem item(UUID projectId, Section section, Instant updatedAt) {
         String title = truncate(section.title(), KnowledgeItem.MAX_TITLE);
         String body = truncate(section.body(), KnowledgeItem.MAX_BODY);
         if (section.kind() == KnowledgeKind.ADR) {
-            return KnowledgeItem.adr(projectId, section.ref(), section.chunk(), title, body, section.adr(), null, null);
+            return KnowledgeItem.adr(projectId, section.ref(), section.chunk(), title, body, section.adr(), updatedAt,
+                    null);
         }
-        return KnowledgeItem.docSection(projectId, section.ref(), section.chunk(), title, body, section.role(), null,
-                null);
+        return KnowledgeItem.docSection(projectId, section.ref(), section.chunk(), title, body, section.role(),
+                updatedAt, null);
     }
 
     // ---------- Architecture ----------

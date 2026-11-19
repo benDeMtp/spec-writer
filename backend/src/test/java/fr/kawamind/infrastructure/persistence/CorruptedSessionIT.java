@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 /** Edge case « fichier corrompu » : la session est signalée, rien ne plante, les autres restent accessibles. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class CorruptedSessionIT {
 
     @Inject

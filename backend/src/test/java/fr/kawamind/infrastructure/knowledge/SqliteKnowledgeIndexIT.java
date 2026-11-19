@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 
 /** Index local de la connaissance (T093, research.md R18). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SqliteKnowledgeIndexIT {
 
     static final Instant T0 = Instant.parse("2026-11-04T09:00:00Z");

@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
  * réattribués, refus pendant une opération de l'IA, et aucune requête vers Jira (SC-005).
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class DeletionIT {
 
     static WireMockServer jira;

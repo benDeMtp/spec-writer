@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 /** Famille Questions sur les AI Services (014, US1) : proposition et réévaluation, garde-fous du thème. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class QuestionsAiTest {
 
     static final String QUESTION = "{\"theme\":\"GOAL\",\"label\":\"Quel objectif ?\",\"rationale\":\"Pour cadrer\","

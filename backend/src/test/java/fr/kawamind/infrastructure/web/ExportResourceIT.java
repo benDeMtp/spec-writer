@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 /** T120 : export Markdown d'une version (FR-019, FR-020). LLM rejoué. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ExportResourceIT {
 
     @BeforeEach

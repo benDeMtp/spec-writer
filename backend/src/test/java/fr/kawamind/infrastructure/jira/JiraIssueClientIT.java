@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 /** T100 : recherche, lecture et mise à jour de la description, limitation de débit. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class JiraIssueClientIT {
 
     static WireMockServer jira;

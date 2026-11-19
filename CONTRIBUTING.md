@@ -64,6 +64,16 @@ Un changement de comportement sans test qui l'a fait échouer d'abord n'est pas 
 - Les cas d'usage sont câblés dans `infrastructure/config/UseCaseProducer`.
 - L'heure vient de `ClockPort`, jamais de `Instant.now()` hors plateforme et web.
 - Migrations Flyway : ne jamais modifier une migration déjà appliquée, en ajouter une.
+- Confluence (016) : le port `ConfluenceClient` a un seul adaptateur,
+  `infrastructure/confluence` (`ConfluenceApi`, client REST ; `ConfluenceThrottle`, 8 requêtes par
+  seconde et `Retry-After` ; `ConfluencePageAddress`, les trois formes d'adresse). ArchUnit
+  l'interdit ailleurs. Le certificat interne passe par `platform/HttpTlsConfigurer`, partagé avec
+  Jira. Ses IT (`ConfluenceRestClientIT`) appellent WireMock : lancez-les sous Maven, comme les IT
+  Jira. Dans les E2E, l'arbre de démonstration est servi par le WireMock de Jira, sous
+  `/confluence` (`e2e/fixtures/confluence/README.md`).
+- Provenance (016) : la source, la date et le niveau d'un extrait se calculent à la lecture
+  (`ProvenanceResolver`), jamais dans l'index ; `UserMessages` les écrit sur une ligne
+  `<provenance …/>` sous la balise de l'extrait, pour que les balises existantes ne changent pas.
 
 ### Passerelle MCP
 
@@ -75,6 +85,9 @@ Un changement de comportement sans test qui l'a fait échouer d'abord n'est pas 
 - Tests : `McpBridgeTest` rejoue les échanges JSON-RPC contre un serveur HTTP du JDK ;
   `AgentResourceIT` couvre l'API des agents et ses refus ; `e2e/tests/us11-agents.spec.ts` lance
   la passerelle avec le client `e2e/mcp-client.ts`. stdout ne doit porter que du JSON-RPC.
+- Outils de tâches (015) : `next_task`, `start_task`, `complete_task` envoient l'en-tête
+  `X-Agent-Connection` (pid et démarrage du processus de l'agent) ; la tâche tenue l'est par
+  cette connexion. `AgentTaskResourceIT` et `e2e/tests/us15-taches.spec.ts` les couvrent.
 - Le lanceur `spec-writer-mcp` des installeurs est déclaré dans `jreleaser.yml`
   (`dist/launchers/spec-writer-mcp.properties`).
 
@@ -86,7 +99,7 @@ Un changement de comportement sans test qui l'a fait échouer d'abord n'est pas 
 | Couverture JaCoCo de `domain` et `application` | 80 % par package |
 | SpotBugs, PMD, ESLint | aucune alerte |
 | Accessibilité (axe, dans les E2E) | aucune violation WCAG 2.1 AA |
-| OWASP Dependency-Check, `npm audit` | aucune vulnérabilité haute |
+| OWASP Dependency-Check, `npm audit` (`ci/npm-audit.sh`) | aucune vulnérabilité haute, hors des avis sans correctif listés dans `ci/npm-audit-ignore.txt` et suivis dans `TODO.md` |
 | Semgrep, gitleaks | aucun constat |
 | Évaluation LLM (`ci/check-eval.sh`) | à jour si les prompts, le code LLM, le golden set, le Copilot SDK ou le modèle par défaut changent ; scores au-dessus de la base |
 
@@ -133,7 +146,9 @@ boucle d'outils appartient au framework. Une capacité s'ajoute par déclaration
   `AgentAi.TurnMemory`, une mémoire par tour.
 - **Une consigne réutilisable** : un fichier `prompts/skills/<nom>.md`, inclus dans le message
   système d'une opération par une ligne `[skill:<nom>]` (`SkillLibrary`). Une consigne absente
-  arrête le démarrage.
+  arrête le démarrage. Exemples : `decoupage-taches` (opération `propose-tasks`, 015) et
+  `redaction-story` (les cinq rédactions de spécification), `fiabilite-sources` (lecture de la
+  provenance et arbitrage entre sources, 016 : l'agent, les questions et les cinq rédactions).
 
 Dans tous les cas : un test sur le rejeu (`ScriptedChatModel` ou `ReplayChatModel`, voir
 `AgentToolsExtensionTest`), une fixture de rejeu pour les E2E

@@ -336,6 +336,25 @@ describe('DiscussionPanelComponent', () => {
     });
     await settle(fixture);
 
-    expect(el.querySelector('[role="alert"]')?.textContent).toContain('inexploitable');
+    const alert = el.querySelector('[data-testid="discussion-problem"]')!;
+    expect(alert.getAttribute('role')).toBe('alert');
+    expect(alert.textContent).toContain('La nouvelle version n’a pas pu être rédigée. La réponse de l’IA était inexploitable.');
+    // l'échec s'affiche au-dessus de la saisie, là où l'action a été lancée, sans renvoi au journal
+    expect(alert.closest('[swComposerTop]')).not.toBeNull();
+    expect(alert.querySelector('a[href="/journal"]')).toBeNull();
+    expect(button('Proposer une nouvelle version').disabled).toBe(false);
+  });
+
+  it('une erreur inattendue renvoie au journal', async () => {
+    await settle(fixture);
+    await answer('c1', 3, [message('u1', 1, 'USER'), message('a1', 2, 'AGENT')]);
+
+    await confirmOne();
+    listeners.at(-1)!({ type: 'error', code: 'INTERNAL_ERROR', userMessage: 'Une erreur inattendue est survenue, réessayez.' });
+    await settle(fixture);
+
+    const alert = el.querySelector('[data-testid="discussion-problem"]')!;
+    expect(alert.textContent).toContain('Une erreur inattendue est survenue');
+    expect(alert.querySelector('a[href="/journal"]')).not.toBeNull();
   });
 });

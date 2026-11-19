@@ -31,6 +31,7 @@ import fr.kawamind.domain.port.KnowledgeIndex.Key;
 import fr.kawamind.domain.project.DocSource;
 import fr.kawamind.domain.project.ExclusionPatterns;
 import fr.kawamind.domain.project.Project;
+import fr.kawamind.support.FakeDocumentFolder;
 import fr.kawamind.support.FakeEmbedding;
 import fr.kawamind.support.InMemoryKnowledgeIndex;
 import fr.kawamind.support.InMemoryKnowledgeSources;
@@ -1198,5 +1199,28 @@ class SynchronizeKnowledgeTest {
         assertThat(embedding.passages).anyMatch(t -> t.startsWith("Fermé 3\nDescription de Fermé 3"));
         assertThat(index.withoutVector(P, "autre@2", 100)).isEmpty();
         assertThat(index.items.get(P).get(new Key(KnowledgeKind.TICKET, "PROJ-3", 0)).model()).isEqualTo("autre@2");
+    }
+
+    /** T008 (016) : date de mise à jour à la source gardée à l'indexation, jamais celle de l'indexation. */
+    @Test
+    void datesALaSourceGardeesALIndexation() {
+        Instant march = Instant.parse("2026-03-03T10:00:00Z");
+        Instant february = Instant.parse("2026-02-10T08:00:00Z");
+        world.docs.sites.put(SITE, new Result(List.of(new Page(SITE + "tarifs.html", "Tarifs", "texte", List.of(
+                new Section(SITE + "tarifs.html", 0, "Tarifs", "Les prix.", KnowledgeKind.DOC_SECTION, null, null)),
+                march)), List.of()));
+        UUID folderId = UUID.randomUUID();
+        world.docSources.save(DocSource.create(folderId, P, DocSource.Kind.DOCUMENTS, tmp.toString()));
+        String ref = "docs:" + folderId + "/Demande.docx";
+        world.folder.put(tmp.toString(), "Demande.docx", 10, february, FakeDocumentFolder.page(new Page(ref, "Demande",
+                "texte", List.of(new Section(ref + "#1", 0, "Demande", "Plafond de 500 euros.",
+                        KnowledgeKind.DOC_SECTION, null, null)))));
+
+        sync.run(P, Mode.FULL, progress);
+
+        assertThat(index.find(P, new Key(KnowledgeKind.DOC_SECTION, SITE + "tarifs.html", 0))).get()
+                .satisfies(i -> assertThat(i.sourceUpdatedAt()).isEqualTo(march));
+        assertThat(index.find(P, new Key(KnowledgeKind.DOC_SECTION, ref + "#1", 0))).get()
+                .satisfies(i -> assertThat(i.sourceUpdatedAt()).isEqualTo(february));
     }
 }

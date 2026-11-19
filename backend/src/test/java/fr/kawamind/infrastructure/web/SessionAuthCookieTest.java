@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 /** Profil dédié : application neuve, jeton de lancement pas encore consommé. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 @TestProfile(SessionAuthCookieTest.Fresh.class)
 class SessionAuthCookieTest {
 

@@ -7,12 +7,15 @@ import fr.kawamind.domain.jira.IssueType;
 import fr.kawamind.domain.jira.JiraEndpoint;
 import fr.kawamind.domain.jira.JiraIssue;
 import fr.kawamind.domain.jira.JiraSearchPage;
+import fr.kawamind.domain.jira.ParentIssue;
 import fr.kawamind.domain.jira.RequiredField;
 import fr.kawamind.domain.jira.TrackedIssue;
 import fr.kawamind.domain.jira.TrackedIssuePage;
+import fr.kawamind.domain.jira.Transition;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -104,4 +107,28 @@ public interface IssueTracker {
 
     /** Crée un lien {@code outwardKey} → {@code inwardKey} du type nommé ({@code issueLink}, FR-035). */
     void createLink(JiraEndpoint endpoint, String typeName, String outwardKey, String inwardKey);
+
+    // Tâches d'une spécification (015, research R2) : jamais de suppression dans Jira (FR-008).
+
+    /** Premier type sous-tâche du projet, dans l'ordre de Jira ({@code createmeta/{project}/issuetypes}). */
+    Optional<IssueType> subtaskType(JiraEndpoint endpoint, String projectKey);
+
+    /** La story et ses sous-tâches ({@code issue/{key}}, champs {@code summary,status,issuetype,subtasks}). */
+    ParentIssue parentIssue(JiraEndpoint endpoint, String issueKey);
+
+    /** Crée une sous-tâche de {@code parentKey} ({@code POST issue} avec {@code fields.parent.key}). */
+    CreatedIssue createSubtask(JiraEndpoint endpoint, String projectKey, String parentKey, String issueTypeId,
+            String summary, String wikiDescription);
+
+    /** Remplace le résumé d'un ticket, et rien d'autre. */
+    void updateSummary(JiraEndpoint endpoint, String issueKey, String summary);
+
+    /** Transitions offertes par le workflow, dans l'ordre de Jira ({@code issue/{key}/transitions}). */
+    List<Transition> transitions(JiraEndpoint endpoint, String issueKey);
+
+    /** Applique une transition ({@code POST issue/{key}/transitions}). */
+    void transition(JiraEndpoint endpoint, String issueKey, String transitionId);
+
+    /** Ajoute un commentaire en wiki markup ({@code POST issue/{key}/comment}). */
+    void addComment(JiraEndpoint endpoint, String issueKey, String wikiBody);
 }

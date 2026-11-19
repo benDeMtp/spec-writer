@@ -24,6 +24,7 @@ import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 import { ChangePickerComponent } from './change-picker.component';
 import { ConversationThreadComponent, reason } from '../conversation/conversation-thread.component';
+import { RouterLink } from '@angular/router';
 
 /**
  * Discussion d'une spécification avec l'agent (011, US1, US3), à côté du document : contexte
@@ -35,7 +36,7 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
 @Component({
   selector: 'sw-discussion-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ChangePickerComponent, ConversationThreadComponent, ElapsedComponent, MatButtonModule],
+  imports: [ChangePickerComponent, ConversationThreadComponent, ElapsedComponent, MatButtonModule, RouterLink],
   template: `
     <section class="discussion" aria-labelledby="discussion-title">
       <header class="top">
@@ -71,7 +72,7 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
       } @else if (!problem()) {
         <p class="hint" role="status">Ouverture de la discussion…</p>
       }
-      @if (problem()) {
+      @if (problem() && !view()) {
         <p class="problem" role="alert">{{ problem() }}</p>
       }
       <sw-conversation-thread
@@ -85,6 +86,15 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
         (finished)="onFinished($event)"
       >
         <div swComposerTop>
+          <!-- l'échec s'affiche là où l'action a été lancée, au-dessus de la saisie -->
+          @if (problem() && view()) {
+            <div class="problem" role="alert" data-testid="discussion-problem">
+              <p>{{ problem() }}</p>
+              @if (internal()) {
+                <p>Le détail technique est dans le <a routerLink="/journal">journal</a>.</p>
+              }
+            </div>
+          }
           @if (candidates(); as found) {
             <sw-change-picker
               [candidates]="found"
@@ -206,6 +216,7 @@ import { ConversationThreadComponent, reason } from '../conversation/conversatio
       border-left: 3px solid var(--sw-outcome);
     }
     .problem {
+      margin: 0 0 0.5rem;
       padding: 0.5rem 0.75rem;
       border-left: 4px solid var(--mat-sys-error, #b3261e);
     }
@@ -236,6 +247,8 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   protected readonly messages = signal<ConversationMessage[]>([]);
   protected readonly memoryUntil = signal<number | null>(null);
   protected readonly problem = signal('');
+  /** Le dernier échec est une erreur inattendue de l'outil : son détail est au journal. */
+  protected readonly internal = signal(false);
   protected readonly busy = signal(false);
   protected readonly proposing = signal(false);
   protected readonly proposingSince = signal<number | null>(null);
@@ -297,6 +310,7 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
       return;
     }
     this.problem.set('');
+    this.internal.set(false);
     this.unchanged.set(null);
     this.listing.set(true);
     try {
@@ -374,7 +388,9 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
         return;
       case 'error':
         this.endProposal();
-        this.problem.set(event.userMessage);
+        this.internal.set(event.code === 'INTERNAL_ERROR');
+        this.problem.set(`La nouvelle version n’a pas pu être rédigée. ${event.userMessage}`);
+        this.thread().say(this.problem());
         return;
       case 'gone':
         this.endProposal();

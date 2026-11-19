@@ -1,3 +1,4 @@
+import { provenanceLabel, RELIABILITY_LABELS } from '../../core/knowledge/provenance';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -203,6 +204,9 @@ const KINDS: Record<KnowledgeKind, string> = {
                     <span class="meta">· {{ h.scope === 'PROJECT' ? 'propre au projet' : 'commun' }}</span>
                   }
                 </p>
+                @if (provenance(h); as p) {
+                  <p class="meta provenance" data-testid="hit-provenance">{{ p }}</p>
+                }
                 <p class="excerpt">{{ h.excerpt }}</p>
               </li>
             }
@@ -317,6 +321,12 @@ export class KnowledgePanelComponent {
   protected readonly status = signal<KnowledgeStatus | null>(null);
   protected readonly indexation = signal<Indexation | null>(null);
   protected readonly hits = signal<KnowledgeHit[] | null>(null);
+
+  /** Source, date et niveau d'un résultat (016) : « SharePoint · 12 septembre 2026 · Référence ». */
+  protected provenance(h: KnowledgeHit): string {
+    const label = provenanceLabel(h);
+    return label && h.level ? `${label} · ${RELIABILITY_LABELS[h.level]}` : label;
+  }
   protected readonly query = signal('');
   protected readonly kind = signal<KnowledgeKind | ''>('');
   protected readonly busy = signal(false);

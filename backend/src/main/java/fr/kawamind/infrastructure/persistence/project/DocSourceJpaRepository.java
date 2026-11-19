@@ -1,6 +1,7 @@
 package fr.kawamind.infrastructure.persistence.project;
 
 import fr.kawamind.domain.port.DocSourceRepository;
+import fr.kawamind.domain.knowledge.Reliability;
 import fr.kawamind.domain.project.DocSource;
 import fr.kawamind.domain.project.ExclusionPatterns;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,6 +32,9 @@ public class DocSourceJpaRepository implements DocSourceRepository {
         e.lastReadAt = s.lastReadAt();
         e.lastResult = s.lastResult() == null ? null : JSON.writeValueAsString(s.lastResult());
         e.exclusions = s.exclusions().isEmpty() ? null : JSON.writeValueAsString(s.exclusions().patterns());
+        e.reliability = s.reliability() == null ? null : s.reliability().name();
+        e.pageId = s.pageId();
+        e.title = s.title();
         em.merge(e);
     }
 
@@ -64,6 +68,7 @@ public class DocSourceJpaRepository implements DocSourceRepository {
         ExclusionPatterns exclusions = e.exclusions == null ? ExclusionPatterns.NONE
                 : ExclusionPatterns.of(List.of(JSON.readValue(e.exclusions, String[].class)));
         return new DocSource(UUID.fromString(e.id), UUID.fromString(e.projectId), DocSource.Kind.valueOf(e.kind), e.location,
-                e.lastReadAt, result, exclusions);
+                e.lastReadAt, result, exclusions, e.reliability == null ? null : Reliability.valueOf(e.reliability),
+                e.pageId, e.title);
     }
 }

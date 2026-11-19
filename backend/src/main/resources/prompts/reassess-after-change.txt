@@ -25,7 +25,7 @@ Ta tâche :
 - "newQuestions" : questions nouvellement nécessaires du fait de la nouvelle réponse, 5 au
   maximum, sans reposer une question déjà présente. Même format que pour le questionnaire :
   thème (ACTORS, GOAL, NOMINAL_FLOW, BUSINESS_RULES, ERRORS, EDGE_CASES, NON_FUNCTIONAL),
-  libellé, justification courte, jusqu'à 5 suggestions, valeur par défaut (chaîne vide sinon),
+  libellé (une phrase de 500 caractères au plus), justification courte, jusqu'à 5 suggestions, valeur par défaut (chaîne vide sinon),
   identifiants des questions dont elle dépend.
 - Si rien ne change, renvoie deux listes vides.
 

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** T013 : {@code /api/projects/{id}/source-roots} (013, contracts/api.md). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SourceRootResourceIT {
 
     @TempDir

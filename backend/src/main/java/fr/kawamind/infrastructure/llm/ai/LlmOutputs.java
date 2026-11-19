@@ -5,6 +5,7 @@ import fr.kawamind.domain.conversation.NeedDraft;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.llm.Contradiction;
 import fr.kawamind.domain.llm.DraftSpecification;
+import fr.kawamind.domain.specification.SourceDeviation;
 import fr.kawamind.domain.llm.ImpactResult;
 import fr.kawamind.domain.llm.IssueComparison;
 import fr.kawamind.domain.llm.ProposeQuestionsResult;
@@ -15,10 +16,15 @@ import fr.kawamind.domain.port.ConversationLlm.ChangeCandidate;
 import fr.kawamind.domain.port.ConversationLlm.ChangeOrigin;
 import fr.kawamind.domain.port.ConversationLlm.Revision;
 import fr.kawamind.domain.port.WikiMarkup;
+import fr.kawamind.domain.question.Question;
 import fr.kawamind.domain.question.QuestionTheme;
 import fr.kawamind.domain.sources.ModuleCorrection;
 import fr.kawamind.domain.sources.ModuleQualification;
 import fr.kawamind.domain.sources.Qualification;
+import fr.kawamind.domain.task.Basis;
+import fr.kawamind.domain.task.BasisKind;
+import fr.kawamind.domain.task.ProposedTask;
+import fr.kawamind.domain.task.ProposedTasks;
 import fr.kawamind.infrastructure.jira.JiraFormatConverter;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -105,9 +111,20 @@ public final class LlmOutputs {
         if (draft == null) {
             throw new IllegalArgumentException("spécification absente");
         }
+        // écart entre sources hors bornes (016) : la réponse est redemandée
+        if (draft.sourceDeviations().size() > SourceDeviation.MAX_PER_VERSION) {
+            throw new IllegalArgumentException("plus de 10 écarts entre sources");
+        }
+        for (DraftSpecification.DraftSourceDeviation d : draft.sourceDeviations()) {
+            if (d == null || blank(d.referenceRef()) || blank(d.interpretationRef()) || blank(d.difference())
+                    || d.difference().strip().length() > SourceDeviation.MAX_DIFFERENCE) {
+                throw new IllegalArgumentException("écart entre sources incomplet ou trop long");
+            }
+        }
         return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
                 TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
-                draft.requirements(), draft.adrDeviations());
+                draft.requirements(), draft.adrDeviations(), draft.story(), draft.splitProposal(),
+                draft.sourceDeviations());
     }
 
     public static RelatedIssuesJudgement related(String json) {
@@ -124,6 +141,39 @@ public final class LlmOutputs {
             throw new IllegalArgumentException("comparaison sans suggestion");
         }
         return comparison;
+    }
+
+    record TaskDto(String title, String outcome, String basisKind, String basisRef, List<Integer> dependsOn) {
+    }
+
+    record TasksDto(List<TaskDto> tasks) {
+    }
+
+    /**
+     * Tâches proposées (015, contracts/llm-propose-tasks.md) : la forme seulement ; les bornes et la
+     * base, qui dépendent des données, sont vérifiées par le garde-fou de l'opération.
+     */
+    public static ProposedTasks tasks(String json) {
+        TasksDto dto = JSON.readValue(json, TasksDto.class);
+        if (dto == null || dto.tasks() == null) {
+            throw new IllegalArgumentException("tâches absentes");
+        }
+        List<ProposedTask> tasks = new ArrayList<>();
+        for (TaskDto t : dto.tasks()) {
+            if (t == null || blank(t.title()) || blank(t.outcome()) || blank(t.basisRef())) {
+                throw new IllegalArgumentException("tâche incomplète");
+            }
+            BasisKind kind = BasisKind.valueOf(t.basisKind());
+            if (kind == BasisKind.NONE) {
+                throw new IllegalArgumentException("base absente");
+            }
+            List<Integer> deps = t.dependsOn() == null ? List.of() : t.dependsOn();
+            if (deps.stream().anyMatch(java.util.Objects::isNull)) {
+                throw new IllegalArgumentException("préalable vide");
+            }
+            tasks.add(new ProposedTask(t.title(), t.outcome(), new Basis(kind, t.basisRef()), deps, false));
+        }
+        return new ProposedTasks(tasks);
     }
 
     public static ImpactResult impact(String json) {
@@ -144,8 +194,11 @@ public final class LlmOutputs {
         if (dto.coveredThemes() != null) {
             dto.coveredThemes().forEach(t -> covered.add(theme(t)));
         }
-        return new ProposeQuestionsResult(questions, dto.contradictions() == null ? List.of() : dto.contradictions(),
-                covered);
+        List<Contradiction> contradictions = dto.contradictions() == null ? List.of() : dto.contradictions();
+        if (contradictions.stream().anyMatch(c -> c == null || blank(c.description()) || !label(c.questionLabel()))) {
+            throw new IllegalArgumentException("contradiction sans description ou libellé hors bornes");
+        }
+        return new ProposeQuestionsResult(questions, contradictions, covered);
     }
 
     public static ReassessResult reassess(String json) {
@@ -162,10 +215,15 @@ public final class LlmOutputs {
                         q.suggestions() == null ? List.of() : q.suggestions().stream().limit(5).toList(),
                         q.defaultValue(), q.dependsOnQuestionIds() == null ? List.of() : q.dependsOnQuestionIds()))
                 .toList();
-        if (questions.stream().anyMatch(q -> blank(q.label()) || blank(q.rationale()))) {
-            throw new IllegalArgumentException("question sans libellé ou sans justification");
+        if (questions.stream().anyMatch(q -> !label(q.label()) || blank(q.rationale()))) {
+            throw new IllegalArgumentException("question sans justification ou libellé hors bornes");
         }
         return questions;
+    }
+
+    /** Libellé qu'une question du questionnaire accepte : 1 à {@link Question#MAX_LABEL} caractères. */
+    private static boolean label(String text) {
+        return !blank(text) && text.strip().length() <= Question.MAX_LABEL;
     }
 
     /** Thème inconnu ou absent : sortie non conforme, redemandée. */

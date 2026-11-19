@@ -13,6 +13,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class LocalSecurityFilterTest {
 
     @Inject

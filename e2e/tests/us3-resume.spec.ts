@@ -110,7 +110,8 @@ test.describe.serial('US3 reprise et révision', () => {
 
   test('renommer puis supprimer la session', async () => {
     await page.goto('/sessions');
-    const item = page.getByRole('listitem').filter({ hasText: 'réserver une place' });
+    // le nom tiré du besoin a laissé place au titre de la première version
+    const item = page.getByRole('listitem').filter({ hasText: 'Réservation des places de parking' });
     await item.getByRole('button', { name: 'Renommer' }).click();
     await page.getByLabel('Nom de la spécification').fill('Parking du siège');
     await page.getByRole('button', { name: 'Enregistrer' }).click();

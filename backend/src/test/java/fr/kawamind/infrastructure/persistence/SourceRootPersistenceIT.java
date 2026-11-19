@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 /** Racines de sources en base (013, T011). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SourceRootPersistenceIT {
 
     static final Instant T0 = Instant.parse("2026-11-11T09:00:00Z");

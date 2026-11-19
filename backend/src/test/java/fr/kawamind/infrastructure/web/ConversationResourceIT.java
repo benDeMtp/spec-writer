@@ -21,6 +21,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** 010 : conversation, tour en flux SSE rejoué, refus (contracts/api.md), IA rejouée. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ConversationResourceIT {
 
     static final String BASE = "/api/projects/" + Project.DEFAULT_ID + "/conversations";

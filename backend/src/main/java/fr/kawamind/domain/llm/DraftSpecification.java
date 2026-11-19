@@ -1,10 +1,13 @@
 package fr.kawamind.domain.llm;
 
+import fr.kawamind.domain.specification.UserStory;
 import java.util.List;
 
 /**
  * Spécification brute renvoyée par le LLM, <strong>sans identifiants</strong> : ils sont attribués
  * par le code (research.md R12). Les scénarios référencent leur use case par son index (base 0).
+ * L'énoncé de story et le découpage proposé (015, R9) sont facultatifs : une story hors bornes rend la
+ * réponse non conforme, donc redemandée.
  */
 public record DraftSpecification(
         String title,
@@ -14,7 +17,10 @@ public record DraftSpecification(
         List<DraftScenario> scenarios,
         List<DraftAssumption> assumptions,
         List<DraftRequirement> requirements,
-        List<DraftAdrDeviation> adrDeviations) {
+        List<DraftAdrDeviation> adrDeviations,
+        UserStory story,
+        List<String> splitProposal,
+        List<DraftSourceDeviation> sourceDeviations) {
 
     public DraftSpecification {
         details = details == null ? "" : details;
@@ -23,6 +29,23 @@ public record DraftSpecification(
         assumptions = List.copyOf(assumptions);
         requirements = List.copyOf(requirements);
         adrDeviations = adrDeviations == null ? List.of() : List.copyOf(adrDeviations);
+        splitProposal = UserStory.split(splitProposal);
+        sourceDeviations = sourceDeviations == null ? List.of() : List.copyOf(sourceDeviations);
+    }
+
+    /** Sans écart entre sources : réponses antérieures à 016 (fixtures rejouées), R8. */
+    public DraftSpecification(String title, String summary, String details, List<DraftUseCase> useCases,
+            List<DraftScenario> scenarios, List<DraftAssumption> assumptions, List<DraftRequirement> requirements,
+            List<DraftAdrDeviation> adrDeviations, UserStory story, List<String> splitProposal) {
+        this(title, summary, details, useCases, scenarios, assumptions, requirements, adrDeviations, story,
+                splitProposal, List.of());
+    }
+
+    /** Sans énoncé de story : réponses antérieures à 015 (fixtures rejouées), research R9. */
+    public DraftSpecification(String title, String summary, String details, List<DraftUseCase> useCases,
+            List<DraftScenario> scenarios, List<DraftAssumption> assumptions, List<DraftRequirement> requirements,
+            List<DraftAdrDeviation> adrDeviations) {
+        this(title, summary, details, useCases, scenarios, assumptions, requirements, adrDeviations, null, List.of());
     }
 
     /** Sans écart aux ADR. */
@@ -66,6 +89,13 @@ public record DraftSpecification(
 
     /** Écart du besoin à un ADR de la connaissance : référence, décision de l'ADR, écart (FR-037). */
     public record DraftAdrDeviation(String adrRef, String decision, String deviation) {
+    }
+
+    /**
+     * Écart entre une source de référence et une interprétation (016, R8) : les deux références
+     * citées, telles que transmises, et ce qui diffère.
+     */
+    public record DraftSourceDeviation(String referenceRef, String interpretationRef, String difference) {
     }
 
     /** {@code kind} : NOMINAL, ERROR ou EDGE. */

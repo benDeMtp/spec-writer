@@ -289,4 +289,53 @@ class MarkdownRendererTest {
         assertThat(MarkdownRenderer.render(c, Language.FR, FACTS, null)).isEqualTo(MarkdownRenderer.render(c, Language.FR,
                 FACTS)).doesNotContain("Modules touchés");
     }
+    static SpecificationContent withStory(UserStory story, List<String> split) {
+        SpecificationContent c = spec(refused(false), List.of(), List.of());
+        return new SpecificationContent(c.title(), c.summary(), c.details(), c.useCases(), c.scenarios(),
+                c.assumptions(), c.requirements(), c.adrDeviations(), story, split);
+    }
+
+    @Test
+    void enonceDeStoryEnTeteAvecSesHypotheses() {
+        UserStory story = new UserStory("client", "payer en ligne", "recevoir ma commande *vite*",
+                java.util.Set.of(StoryPart.BENEFIT));
+        String md = MarkdownRenderer.render(withStory(story, List.of()), Language.FR);
+        assertThat(md).startsWith("""
+                # Paiement
+
+                > En tant que **client**, je veux **payer en ligne**, afin de **recevoir ma commande \\*vite\\*** (hypothèse).
+
+                ## Résumé
+                """);
+        assertThat(md).doesNotContain("Découpage proposé");
+        String en = MarkdownRenderer.render(withStory(new UserStory("customer", "to pay online", "get my order",
+                java.util.Set.of(StoryPart.ROLE, StoryPart.CAPABILITY)), List.of()), Language.EN);
+        assertThat(en).contains("> As a **customer** (assumption), I want **to pay online** (assumption), so that "
+                + "**get my order**.");
+    }
+
+    @Test
+    void decoupageProposeQuandLaStoryEstTropLarge() {
+        UserStory story = new UserStory("client", "gérer ses commandes", "être autonome", java.util.Set.of());
+        String md = MarkdownRenderer.render(withStory(story, List.of("Passer commande", "Annuler une commande")),
+                Language.FR);
+        assertThat(md).contains("""
+                ## Découpage proposé
+
+                Cette story est large : elle gagnerait à être découpée en plusieurs stories.
+
+                1. Passer commande
+                2. Annuler une commande
+
+                ## Use cases
+                """);
+        assertThat(MarkdownRenderer.anchors()).containsEntry("Découpage proposé", "split")
+                .containsEntry("Proposed split", "split");
+    }
+
+    @Test
+    void sansStoryLeRenduResteCeluiDesVersionsAnterieures() {
+        String md = MarkdownRenderer.render(spec(refused(false), List.of(), List.of()), Language.FR);
+        assertThat(md).startsWith("# Paiement\n\n## Résumé\n").doesNotContain("Découpage proposé");
+    }
 }

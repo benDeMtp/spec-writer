@@ -29,6 +29,10 @@ import org.junit.jupiter.api.Test;
 class JsonOutputGuardrailTest {
 
     private static OutputGuardrailRequest request(String answer, int users) {
+        return request(answer, users, null);
+    }
+
+    private static OutputGuardrailRequest request(String answer, int users, String data) {
         MessageWindowChatMemory memory = MessageWindowChatMemory.withMaxMessages(20);
         memory.add(SystemMessage.from("[operation:judge-related-issues] consignes"));
         for (int i = 0; i < users; i++) {
@@ -48,7 +52,7 @@ class JsonOutputGuardrailTest {
                     }
                 })
                 .requestParams(GuardrailRequestParams.builder().chatMemory(memory).userMessageTemplate("{data}")
-                        .variables(java.util.Map.of()).build())
+                        .variables(data == null ? java.util.Map.of() : java.util.Map.of("data", data)).build())
                 .build();
     }
 
@@ -64,6 +68,32 @@ class JsonOutputGuardrailTest {
                 .isInstanceOf(IssueComparison.class);
         assertThat(new ImpactGuardrail().validate(request("{\"modules\":[\"A\"],\"exchanges\":[]}", 1))
                 .successfulResult()).isInstanceOf(ImpactResult.class);
+    }
+
+    @Test
+    void lesTachesSontLuesPuisVerifieesSurLeursDonnees() {
+        String data = "<specification>\n<cas-usage code=\"UC-01\" titre=\"T\">But</cas-usage>\n</specification>\n"
+                + "<taches-existantes>\n<tache>D&amp;J</tache>\n</taches-existantes>\n<nombre min=\"1\" max=\"2\"/>";
+        String ok = "{\"tasks\":[{\"title\":\"A\",\"outcome\":\"R\",\"basisKind\":\"USE_CASE\",\"basisRef\":\"UC-01\","
+                + "\"dependsOn\":[]}]}";
+        OutputGuardrailResult accepted = new TasksGuardrail().validate(request(ok, 1, data));
+        assertThat(accepted.isSuccess()).isTrue();
+        assertThat(accepted.successfulResult()).isInstanceOf(fr.kawamind.domain.task.ProposedTasks.class);
+        String taken = ok.replace("\"A\"", "\"d&j\"");
+        OutputGuardrailResult refused = new TasksGuardrail().validate(request(taken, 1, data));
+        assertThat(refused.isRetry()).isTrue();
+        assertThat(refused.getReprompt().orElseThrow()).contains("Tâche 1 : ce titre existe déjà.").doesNotContain("d&j");
+        assertThat(new TasksGuardrail().validate(request("{\"tasks\":[{\"title\":\"A\"}]}", 1, data)).isRetry())
+                .isTrue();
+    }
+
+    @Test
+    void uneStoryHorsBornesEstRedemandee() {
+        String spec = fr.kawamind.infrastructure.llm.ai.LlmOutputsTest.with(
+                "{\"role\":\"\",\"capability\":\"c\",\"benefit\":\"b\",\"assumed\":[]}", "[]");
+        OutputGuardrailResult result = new SpecificationGuardrail().validate(request(spec, 1));
+        assertThat(result.isRetry()).isTrue();
+        assertThat(result.getReprompt()).contains(JsonOutputGuardrail.REPROMPT);
     }
 
     @Test

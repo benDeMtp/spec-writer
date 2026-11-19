@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 /** {@code /api/settings/browser} (013, T057), avec les navigateurs simulés du profil test. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class BrowserSettingsResourceIT {
 
     @AfterEach

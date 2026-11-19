@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
  * dans le dossier du jeu. SC-003 et SC-004b, qui demandent le vrai Copilot, relèvent de {@code -Peval}.
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 @Tag("reference")
 class KnowledgeReferenceSetIT {
 

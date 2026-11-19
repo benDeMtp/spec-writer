@@ -10,6 +10,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class SpaFallbackTest {
 
     @Test

@@ -53,6 +53,8 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
     private static final String COLUMNS = """
             id, project_id, kind, ref, chunk, title, body, status, status_category, superseded_by, issue_type,
             element_type, scope, transport, role, content_hash, source_updated_at, indexed_at""";
+    /** Colonnes lues : celles écrites, puis la source de rattachement (V19, 016). */
+    private static final String READ = COLUMNS + ", source_id";
 
     @Inject
     EntityManager em;
@@ -191,6 +193,17 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
 
     @Override
     @Transactional
+    public void attach(UUID projectId, UUID sourceId, Set<Key> keys) {
+        for (Key key : keys) {
+            em.createNativeQuery("update knowledge_item set source_id = ?1 where project_id = ?2 and kind = ?3"
+                    + " and ref = ?4 and chunk = ?5").setParameter(1, sourceId.toString())
+                    .setParameter(2, projectId.toString()).setParameter(3, key.kind().name())
+                    .setParameter(4, key.ref()).setParameter(5, key.chunk()).executeUpdate();
+        }
+    }
+
+    @Override
+    @Transactional
     public void delete(UUID projectId, Key key) {
         em.createNativeQuery("delete from knowledge_item where project_id = ?1 and kind = ?2 and ref = ?3 and chunk = ?4")
                 .setParameter(1, projectId.toString()).setParameter(2, key.kind().name())
@@ -202,7 +215,7 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
     @Transactional
     @SuppressWarnings("unchecked")
     public Optional<KnowledgeItem> find(UUID projectId, Key key) {
-        List<Object[]> rows = em.createNativeQuery("select " + COLUMNS
+        List<Object[]> rows = em.createNativeQuery("select " + READ
                 + " from knowledge_item where project_id = ?1 and kind = ?2 and ref = ?3 and chunk = ?4")
                 .setParameter(1, projectId.toString()).setParameter(2, key.kind().name())
                 .setParameter(3, key.ref()).setParameter(4, key.chunk()).getResultList();
@@ -213,7 +226,7 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
     @Transactional
     @SuppressWarnings("unchecked")
     public List<KnowledgeItem> withoutVector(UUID projectId, String embeddingModel, int limit) {
-        List<Object[]> rows = em.createNativeQuery("select " + COLUMNS + " " + """
+        List<Object[]> rows = em.createNativeQuery("select " + READ + " " + """
                 from knowledge_item where project_id = ?1
                  and (embedding is null or embedding_model is null or embedding_model <> ?2)
                  order by kind, ref, chunk limit ?3""")
@@ -261,7 +274,7 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
     @Transactional
     @SuppressWarnings("unchecked")
     public List<KnowledgeItem> all(UUID projectId, KnowledgeKind kind) {
-        List<Object[]> rows = em.createNativeQuery("select " + COLUMNS
+        List<Object[]> rows = em.createNativeQuery("select " + READ
                 + " from knowledge_item where project_id = ?1 and kind = ?2 order by ref, chunk")
                 .setParameter(1, projectId.toString()).setParameter(2, kind.name()).getResultList();
         return rows.stream().map(SqliteKnowledgeIndex::item).toList();
@@ -271,23 +284,25 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
     @Transactional
     @SuppressWarnings("unchecked")
     public List<KnowledgeItem> withRole(UUID projectId) {
-        List<Object[]> rows = em.createNativeQuery("select " + COLUMNS
+        List<Object[]> rows = em.createNativeQuery("select " + READ
                 + " from knowledge_item where project_id = ?1 and role is not null order by role, ref, chunk")
                 .setParameter(1, projectId.toString()).getResultList();
         return rows.stream().map(SqliteKnowledgeIndex::item).toList();
     }
 
+    @Transactional
     @Override
     public List<KnowledgeItem> documentParts(UUID projectId, String documentRef) {
         String prefix = documentRef + "#";
         // l'ordre d'insertion (rowid) est celui du document ; une mise à jour garde le rowid
-        List<Object[]> rows = em.createNativeQuery("select " + COLUMNS + " from knowledge_item where project_id = ?1"
+        List<Object[]> rows = em.createNativeQuery("select " + READ + " from knowledge_item where project_id = ?1"
                 + " and kind = 'DOC_SECTION' and (ref = ?2 or substr(ref, 1, ?3) = ?4) order by rowid")
                 .setParameter(1, projectId.toString()).setParameter(2, documentRef).setParameter(3, prefix.length())
                 .setParameter(4, prefix).getResultList();
         return rows.stream().map(SqliteKnowledgeIndex::item).toList();
     }
 
+    @Transactional
     @Override
     public List<Mentionable> mentionables(UUID projectId) {
         // sans les corps : leur longueur seule, pour estimer la place (007, research.md R3)
@@ -434,7 +449,7 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
         for (int from = 0; from < ids.size(); from += 200) {
             List<String> part = ids.subList(from, Math.min(ids.size(), from + 200));
             String placeholders = part.stream().map(p -> "?").collect(Collectors.joining(","));
-            var query = em.createNativeQuery("select " + COLUMNS + " from knowledge_item where id in (" + placeholders + ")");
+            var query = em.createNativeQuery("select " + READ + " from knowledge_item where id in (" + placeholders + ")");
             for (int i = 0; i < part.size(); i++) {
                 query.setParameter(i + 1, part.get(i));
             }
@@ -467,7 +482,7 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
                 ((Number) r[4]).intValue(), (String) r[5], (String) r[6], (String) r[7], (String) r[8], (String) r[9],
                 (String) r[10], (String) r[11], r[12] == null ? null : ArchScope.valueOf((String) r[12]),
                 ((Number) r[13]).intValue() == 1, r[14] == null ? null : KnowledgeRole.valueOf((String) r[14]),
-                (String) r[15], instant(r[16]), instant(r[17]));
+                (String) r[15], instant(r[16]), instant(r[17]), r[18] == null ? null : UUID.fromString((String) r[18]));
     }
 
     private static String text(Instant instant) {

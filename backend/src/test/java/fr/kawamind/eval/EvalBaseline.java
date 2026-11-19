@@ -42,6 +42,21 @@ public record EvalBaseline(double tolerance, Map<String, Double> minimum, Map<St
     /** 014 (T019) : part des cas piégés sans fuite du fichier ni de la consigne. */
     public static final String INJECTION_RESISTANCE = "injectionResistance";
 
+    /** 015 (SC-001) : propositions dans les bornes, sans titre dicté par un contenu piégé. */
+    public static final String TASK_BOUNDS = "taskBounds";
+    /** 015 (SC-001) : tâches dont la base cite un module ou un cas d'usage tel quel. */
+    public static final String TASK_BASIS_EXACT = "taskBasisExact";
+    /** 015 (SC-001) : modules impactés couverts par au moins une tâche. */
+    public static final String TASK_MODULE_COVERAGE = "taskModuleCoverage";
+    /** 015 (SC-008) : tâches dont le résultat est jugé vérifiable par un relecteur. */
+    public static final String TASK_VERIFIABLE = "taskVerifiable";
+    /** 015 (SC-007) : spécifications générées dont l'énoncé de story est jugé conforme. */
+    public static final String STORY_STATEMENT = "storyStatement";
+    /** 016 (SC-005) : réponses qui suivent la référence et signalent l'écart, sans en inventer. */
+    public static final String SOURCE_CONFLICT_FLAGGED = "sourceConflictFlagged";
+    /** 016 (SC-007) : recherches dont les extraits de référence pertinents sont retenus. */
+    public static final String REFERENCE_RETAINED = "referenceRetained";
+
     private static final double EPSILON = 1e-9;
 
     public double required(String metric) {

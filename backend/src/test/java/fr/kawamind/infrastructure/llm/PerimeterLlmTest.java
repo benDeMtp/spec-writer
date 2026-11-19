@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
  * échappés, budget borné, injection dans un commentaire de code sans effet (OWASP LLM01, T033).
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class PerimeterLlmTest {
 
     @Inject

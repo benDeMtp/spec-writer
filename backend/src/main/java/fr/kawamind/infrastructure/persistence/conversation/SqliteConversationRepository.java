@@ -1,6 +1,9 @@
 package fr.kawamind.infrastructure.persistence.conversation;
 
 import fr.kawamind.domain.conversation.CitedSource;
+import fr.kawamind.domain.knowledge.Provenance;
+import fr.kawamind.domain.knowledge.Reliability;
+import fr.kawamind.domain.knowledge.SourceOrigin;
 import fr.kawamind.domain.conversation.Conversation;
 import fr.kawamind.domain.conversation.ConversationMemory;
 import fr.kawamind.domain.conversation.ConversationMessage;
@@ -132,10 +135,15 @@ public class SqliteConversationRepository implements ConversationRepository {
         em.createNativeQuery("delete from conversation_source where message_id = ?1")
                 .setParameter(1, messageId.toString()).executeUpdate();
         for (CitedSource s : sources) {
+            Provenance p = s.provenance();
             em.createNativeQuery(
-                    "insert into conversation_source (message_id, n, kind, ref, title) values (?1, ?2, ?3, ?4, ?5)")
+                    "insert into conversation_source (message_id, n, kind, ref, title, origin, updated_at, level)"
+                            + " values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
                     .setParameter(1, messageId.toString()).setParameter(2, s.n()).setParameter(3, s.kind().name())
-                    .setParameter(4, s.ref()).setParameter(5, s.title()).executeUpdate();
+                    .setParameter(4, s.ref()).setParameter(5, s.title())
+                    .setParameter(6, p == null ? null : p.origin().name())
+                    .setParameter(7, p == null || p.updatedAt() == null ? null : p.updatedAt().toString())
+                    .setParameter(8, p == null || p.level() == null ? null : p.level().name()).executeUpdate();
         }
     }
 
@@ -176,10 +184,21 @@ public class SqliteConversationRepository implements ConversationRepository {
     @SuppressWarnings("unchecked")
     public List<CitedSource> sources(UUID messageId) {
         List<Object[]> rows = em.createNativeQuery(
-                "select n, kind, ref, title from conversation_source where message_id = ?1 order by rowid")
+                "select n, kind, ref, title, origin, updated_at, level from conversation_source where message_id = ?1"
+                        + " order by rowid")
                 .setParameter(1, messageId.toString()).getResultList();
         return rows.stream().map(r -> new CitedSource(((Number) r[0]).intValue(), SourceKind.valueOf((String) r[1]),
-                (String) r[2], (String) r[3])).toList();
+                (String) r[2], (String) r[3], provenance(r))).toList();
+    }
+
+    /** Provenance enregistrée (016) ; {@code null} pour un message antérieur. */
+    private static Provenance provenance(Object[] r) {
+        if (r[4] == null) {
+            return null;
+        }
+        SourceOrigin origin = SourceOrigin.valueOf((String) r[4]);
+        return new Provenance(origin, r[5] == null ? null : Instant.parse((String) r[5]),
+                r[6] == null || !origin.adjustable() ? null : Reliability.valueOf((String) r[6]));
     }
 
     @Override

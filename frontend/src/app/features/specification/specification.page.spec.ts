@@ -178,6 +178,107 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     ).toBe(true);
   });
 
+  it('s’ouvre sur l’énoncé de story, l’hypothèse marquée, et le découpage proposé (015)', async () => {
+    fixture = TestBed.createComponent(SpecificationPage);
+    fixture.componentRef.setInput('id', 's1');
+    fixture.componentRef.setInput('n', '1');
+    el = fixture.nativeElement;
+    fixture.detectChanges();
+    ctrl.expectOne('/api/sessions/s1/versions/1').flush({
+      ...SPEC,
+      story: {
+        role: 'gestionnaire',
+        capability: 'saisir un avoir',
+        benefit: 'rembourser le client',
+        assumed: ['BENEFIT'],
+      },
+      splitProposal: ['Saisir un avoir', 'Annuler un avoir'],
+    });
+    ctrl.expectOne('/api/sessions/s1').flush(SESSION);
+    ctrl.expectOne('/api/sessions/s1/versions').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const story = el.querySelector('[data-testid="story"]')!;
+    expect(text(story).trim()).toBe(
+      'En tant que gestionnaire, je veux saisir un avoir, afin de rembourser le client (hypothèse).',
+    );
+    expect(story.compareDocumentPosition(section('summary')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const split = section('split');
+    expect(split.querySelector('h2')?.textContent).toBe('Découpage proposé');
+    expect(Array.from(split.querySelectorAll('li')).map((li) => li.textContent)).toEqual([
+      'Saisir un avoir',
+      'Annuler un avoir',
+    ]);
+  });
+
+  it('affiche les écarts entre sources après les écarts aux ADR, avec source, date et lien (016)', async () => {
+    fixture = TestBed.createComponent(SpecificationPage);
+    fixture.componentRef.setInput('id', 's1');
+    fixture.componentRef.setInput('n', '1');
+    el = fixture.nativeElement;
+    fixture.detectChanges();
+    ctrl.expectOne('/api/sessions/s1/versions/1').flush({
+      ...SPEC,
+      links: { ...(SPEC.links ?? {}), 'https://wiki/pages/viewpage.action?pageId=103': 'https://wiki/pages/viewpage.action?pageId=103' },
+      sourceDeviations: [
+        {
+          reference: { ref: 'docs:x/Demande.docx', origin: 'DOCUMENTS', title: 'Demande remboursement', updatedAt: '2026-09-12T08:00:00Z' },
+          interpretation: {
+            ref: 'https://wiki/pages/viewpage.action?pageId=103',
+            origin: 'CONFLUENCE',
+            title: 'Notes de frais',
+            updatedAt: null,
+          },
+          difference: 'La demande plafonne à 500 euros, la page à 1 000 euros.',
+        },
+      ],
+    });
+    ctrl.expectOne('/api/sessions/s1').flush(SESSION);
+    ctrl.expectOne('/api/sessions/s1/versions').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const deviations = section('source-deviations');
+    expect(deviations.querySelector('h2')?.textContent).toBe('Écarts entre sources');
+    expect(text(deviations)).toContain('Demande remboursement (SharePoint, 12 septembre 2026)');
+    expect(text(deviations)).toContain('(Confluence, date inconnue)');
+    expect(text(deviations)).toContain('La demande plafonne à 500 euros, la page à 1 000 euros.');
+    expect(deviations.querySelector<HTMLAnchorElement>('a')!.href).toBe('https://wiki/pages/viewpage.action?pageId=103');
+    expect(section('deviations').compareDocumentPosition(deviations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('sans écart entre sources, pas de rubrique (016)', async () => {
+    await open(SESSION, []);
+    expect(section('source-deviations')).toBeNull();
+  });
+
+  it('renomme la spécification depuis son écran', async () => {
+    await open(SESSION, []);
+    button('Renommer').click();
+    fixture.detectChanges();
+    const input = el.querySelector('form.rename input') as HTMLInputElement;
+    expect(input.value).toBe(SESSION.name);
+    input.value = 'Avoirs clients';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    (el.querySelector('form.rename button[type="submit"]') as HTMLButtonElement).click();
+    const req = ctrl.expectOne('/api/sessions/s1');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ name: 'Avoirs clients' });
+    req.flush({ ...SESSION, name: 'Avoirs clients' });
+    await settle();
+    expect(el.querySelector('form.rename')).toBeNull();
+    expect(text(el.querySelector('.meta')!)).toContain('Avoirs clients');
+  });
+
+  it('sans énoncé de story (versions antérieures), ni énoncé ni découpage', async () => {
+    await open(SESSION, []);
+    expect(el.querySelector('[data-testid="story"]')).toBeNull();
+    expect(section('split')).toBeNull();
+  });
+
   it('affiche les rubriques Architecture, Écarts aux ADR et Efforts supplémentaires', async () => {
     await open(SESSION, []);
     const architecture = section('architecture');

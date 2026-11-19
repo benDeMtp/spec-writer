@@ -50,6 +50,14 @@ public class ConversationResource {
     public record PointInput(String theme, String question, String answer, String basis, String sourceRef) {
     }
 
+    /** Source citée à ouvrir sur le poste. */
+    public record OpenInput(String ref) {
+    }
+
+    /** Où le document s'est ouvert : {@code BROWSER} ou {@code APPLICATION}. */
+    public record OpenView(fr.kawamind.application.knowledge.OpenSourceDocument.Opened opened) {
+    }
+
     public record DraftInput(String need, List<PointInput> points) {
     }
 
@@ -68,6 +76,9 @@ public class ConversationResource {
     @Inject
     TurnEvents events;
 
+    @Inject
+    fr.kawamind.application.knowledge.OpenSourceDocument openSource;
+
     @GET
     public ManageConversations.Detail detail(@PathParam("cid") String cid) {
         return manage.detail(id(cid));
@@ -83,6 +94,19 @@ public class ConversationResource {
     public Response delete(@PathParam("cid") String cid) {
         manage.delete(id(cid));
         return Response.noContent().build();
+    }
+
+    /**
+     * Ouvre sur le poste le document d'une source citée sans adresse web : page d'un site Antora en
+     * dossier dans le navigateur, document OneDrive dans son application ; seulement depuis les
+     * dossiers déclarés du projet de la conversation.
+     */
+    @POST
+    @Path("/sources/open")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public OpenView openSource(@PathParam("cid") String cid, OpenInput input) {
+        java.util.UUID projectId = manage.detail(id(cid)).projectId();
+        return new OpenView(openSource.run(projectId, input == null ? null : input.ref()));
     }
 
     @POST

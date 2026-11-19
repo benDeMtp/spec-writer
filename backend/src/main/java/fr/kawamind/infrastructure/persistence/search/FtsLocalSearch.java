@@ -106,7 +106,7 @@ public class FtsLocalSearch implements LocalSearch {
             return List.of();
         }
         List<Object[]> rows = em.createNativeQuery("""
-                        select s.id, s.name, v.number, substr(v.markdown, 1, ?4), s.implementation_status
+                        select s.id, s.name, v.number, substr(v.markdown, 1, ?4), s.implementation_status, v.created_at
                         from spec_search f join session s on s.id = f.session_id
                         join specification_version v on v.session_id = s.id
                              and v.number = (select max(x.number) from specification_version x where x.session_id = s.id)
@@ -116,7 +116,8 @@ public class FtsLocalSearch implements LocalSearch {
                 .setParameter(1, match).setParameter(2, projectId.toString()).setParameter(3, limit)
                 .setParameter(4, SPEC_TEXT).getResultList();
         return rows.stream().map(r -> new SpecHit(UUID.fromString((String) r[0]), ((Number) r[2]).intValue(),
-                (String) r[1], (String) r[3], "IMPLEMENTED".equals(r[4]))).toList();
+                (String) r[1], (String) r[3], "IMPLEMENTED".equals(r[4]),
+                r[5] == null ? null : java.time.Instant.parse((String) r[5]))).toList();
     }
 
     /** {@code "mot1"* OR "mot2"*} : un mot d'au moins 3 lettres suffit (question en langage naturel). */

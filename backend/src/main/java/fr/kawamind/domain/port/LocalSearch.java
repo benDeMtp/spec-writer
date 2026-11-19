@@ -11,7 +11,11 @@ public interface LocalSearch {
     }
 
     /** Spécification trouvée pour l'agent (010) : dernière version, son texte, feature implémentée ou non. */
-    record SpecHit(UUID sessionId, int version, String title, String text, boolean implemented) {
+    record SpecHit(UUID sessionId, int version, String title, String text, boolean implemented, Instant updatedAt) {
+
+        public SpecHit(UUID sessionId, int version, String title, String text, boolean implemented) {
+            this(sessionId, version, title, text, implemented, null);
+        }
 
         @Override
         public String toString() {

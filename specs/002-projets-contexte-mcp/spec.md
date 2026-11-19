@@ -634,7 +634,9 @@ correspond à ce que montre l'outil et le contenu est identique à l'export Mark
   annoncé n'est pas vérifié : il sert à la lecture du journal, pas au contrôle d'accès.
 - **FR-029**: Un agent NE DOIT avoir accès à aucun secret ni aucune configuration (jetons,
   adresse Jira, secret d'accès des agents), et NE DOIT pas pouvoir déclencher d'appel à GitHub Copilot ou à
-  Jira.
+  Jira. *Remplacé en partie par la 015 (research R12) : `start_task` et `complete_task` font
+  avancer la sous-tâche Jira ; c'est spec-writer qui appelle Jira, avec le compte de l'utilisateur,
+  jamais la passerelle, qui reste sans secret.*
 
 **Interface**
 

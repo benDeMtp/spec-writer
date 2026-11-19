@@ -1,3 +1,5 @@
+import type { Reliability, SourceOrigin } from '../knowledge/provenance';
+
 /** Projets, tels que renvoyés par /api/projects (contracts/openapi.yaml de 002). */
 export interface ProjectInput {
   name: string;
@@ -52,8 +54,11 @@ export interface SourceRootPreview {
 
 export type DeletionMode = 'MOVE' | 'DELETE';
 
-/** Lien Antora, dossier Antora, ou dossier de documents (Word, Excel, PDF, HTML, 006). */
-export type DocSourceKind = 'URL' | 'FOLDER' | 'DOCUMENTS';
+/**
+ * Lien Antora, dossier Antora, dossier de documents (Word, Excel, PDF, HTML, 006), ou page Confluence
+ * et toute sa descendance (016).
+ */
+export type DocSourceKind = 'URL' | 'FOLDER' | 'DOCUMENTS' | 'CONFLUENCE';
 export type UnreadReason =
   | 'UNREACHABLE'
   | 'NOT_ANTORA'
@@ -81,6 +86,33 @@ export interface DocSource {
   pagesInError: number | null;
   /** Motifs d'exclusion d'un dossier de documents (006) ; vide sinon. */
   exclusions: string[];
+  /** Racine Confluence (016) : titre de la page, identifiant, niveau propre (null : celui de Confluence). */
+  title?: string | null;
+  pageId?: string | null;
+  reliability?: Reliability | null;
+}
+
+/** Motif du refus d'une racine Confluence (016, contracts/rest-api.md). */
+export type ConfluenceProblem =
+  | 'CONFLUENCE_NOT_CONFIGURED'
+  | 'NOT_A_PAGE'
+  | 'OTHER_HOST'
+  | 'ACCESS_DENIED'
+  | 'UNREACHABLE'
+  | 'TOO_LARGE';
+
+/** Aperçu d'une racine Confluence, sans rien indexer (016, FR-004). */
+export interface ConfluencePreview {
+  pages: number;
+  title: string | null;
+  pageId: string | null;
+  problem: ConfluenceProblem | null;
+}
+
+/** Niveaux de fiabilité des sortes de source d'un projet, et leurs défauts (016). */
+export interface ReliabilityLevels {
+  levels: Partial<Record<SourceOrigin, Reliability>>;
+  defaults: Partial<Record<SourceOrigin, Reliability>>;
 }
 
 /** Effet des motifs sur un dossier de documents, sans rien lire (006). */
@@ -197,6 +229,10 @@ export interface KnowledgeHit {
   scope: 'PROJECT' | 'COMMON' | null;
   excerpt: string;
   url: string | null;
+  /** Source, date de mise à jour et niveau de fiabilité (016). */
+  origin?: SourceOrigin | null;
+  updatedAt?: string | null;
+  level?: Reliability | null;
 }
 
 /** Sorte d'un document mentionnable avec @ (007). */

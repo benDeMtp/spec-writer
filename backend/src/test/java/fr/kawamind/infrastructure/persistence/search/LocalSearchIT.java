@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 /** Recherche FTS5 (FR-040) et ticket lié. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class LocalSearchIT {
 
     static final Instant T0 = Instant.parse("2026-10-30T09:00:00Z");

@@ -280,7 +280,7 @@ describe('KnowledgePanelComponent', () => {
     expect(req.request.params.get('q')).toBe('annuler une facture');
     expect(req.request.params.getAll('kinds')).toBeNull();
     req.flush([
-      { kind: 'TICKET', ref: 'FACT-7', title: 'Annuler une facture', status: 'Terminé', scope: null, excerpt: 'Avoir total.', url: 'https://jira.example.com/browse/FACT-7' },
+      { kind: 'TICKET', ref: 'FACT-7', title: 'Annuler une facture', status: 'Terminé', scope: null, excerpt: 'Avoir total.', url: 'https://jira.example.com/browse/FACT-7', origin: 'JIRA', updatedAt: '2026-09-12T10:00:00Z', level: 'INTERPRETATION' },
       { kind: 'ARCH_ELEMENT', ref: 'Facturation/Service Avoirs', title: 'Service Avoirs', status: null, scope: 'PROJECT', excerpt: 'Émet les avoirs', url: null },
     ]);
     await settle(fixture);
@@ -288,6 +288,10 @@ describe('KnowledgePanelComponent', () => {
     expect(link.textContent).toBe('FACT-7');
     expect(el.textContent).toContain('· propre au projet');
     expect(el.textContent).toContain("Élément d'architecture");
+    // 016 : source, date et niveau de chaque résultat
+    expect(el.querySelector('[data-testid="hit-provenance"]')!.textContent!.trim()).toBe(
+      'Jira · 12 septembre 2026 · Interprétation',
+    );
   });
 });
 

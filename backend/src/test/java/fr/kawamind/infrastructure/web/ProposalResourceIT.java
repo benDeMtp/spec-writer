@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 /** 011, US2 : nouvelle version proposée d'après la discussion, relue, appliquée ou abandonnée. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ProposalResourceIT {
 
     static final Instant T0 = Instant.parse("2026-11-11T09:00:00Z");

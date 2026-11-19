@@ -4,6 +4,8 @@ import { baseURL, jiraURL, storageStatePath } from './support/env';
 
 /** US1 : connexion à GitHub Copilot et à Jira, sans jeton lisible hors du trousseau. */
 test.describe.serial('US1 configuration', () => {
+  /** Carte Jira : Configuration a aussi une carte Confluence aux mêmes libellés (016). */
+  const jira = () => page.locator('sw-jira-card');
   let context: BrowserContext;
   let page: Page;
 
@@ -71,16 +73,16 @@ test.describe.serial('US1 configuration', () => {
   });
 
   test("US1-4 : configuration Jira en http avec avertissement, consentement puis test réussi", async () => {
-    await page.getByLabel('Adresse du serveur').fill(jiraURL);
-    await expect(page.getByText("Cette adresse n'est pas chiffrée (http).")).toBeVisible();
-    await page.getByLabel('Clé Jira par défaut (facultatif)').fill('PROJ');
-    await page.getByLabel("Jeton d'accès personnel").fill('e2e-good-token');
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await jira().getByLabel('Adresse du serveur').fill(jiraURL);
+    await expect(jira().getByText("Cette adresse n'est pas chiffrée (http).")).toBeVisible();
+    await jira().getByLabel('Clé Jira par défaut (facultatif)').fill('PROJ');
+    await jira().getByLabel("Jeton d'accès personnel").fill('e2e-good-token');
+    await jira().getByRole('button', { name: 'Enregistrer' }).click();
     // Sans confirmation de l'avertissement, rien n'est enregistré
-    await expect(page.getByRole('button', { name: 'Tester la connexion' })).toHaveCount(0);
+    await expect(jira().getByRole('button', { name: 'Tester la connexion' })).toHaveCount(0);
 
-    await page.getByRole('checkbox', { name: 'Je comprends et je veux continuer en http' }).check();
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await jira().getByRole('checkbox', { name: 'Je comprends et je veux continuer en http' }).check();
+    await jira().getByRole('button', { name: 'Enregistrer' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Envoyer des données à Jira ?' });
     await expect(dialog).toBeVisible();
@@ -91,18 +93,18 @@ test.describe.serial('US1 configuration', () => {
     await dialog.getByRole('button', { name: 'Accepter' }).click();
     await expect(dialog).toBeHidden();
 
-    await page.getByRole('button', { name: 'Tester la connexion' }).click();
-    await expect(page.getByText('Connexion à Jira réussie.')).toBeVisible();
-    await expect(page.getByText('(Jira 9.12.3)')).toBeVisible();
+    await jira().getByRole('button', { name: 'Tester la connexion' }).click();
+    await expect(jira().getByText('Connexion à Jira réussie.')).toBeVisible();
+    await expect(jira().getByText('(Jira 9.12.3)')).toBeVisible();
     await expectNoA11yViolations(page);
   });
 
   test('US1-5 : le jeton est masqué et jamais renvoyé par l’API', async () => {
-    await expect(page.getByLabel("Jeton d'accès personnel")).toHaveCount(0);
-    await expect(page.getByText("Jeton d'accès personnel enregistré dans le trousseau.")).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Remplacer' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Supprimer' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Afficher' })).toHaveCount(0);
+    await expect(jira().getByLabel("Jeton d'accès personnel")).toHaveCount(0);
+    await expect(jira().getByText("Jeton d'accès personnel enregistré dans le trousseau.")).toBeVisible();
+    await expect(jira().getByRole('button', { name: 'Remplacer' })).toBeVisible();
+    await expect(jira().getByRole('button', { name: 'Supprimer' })).toBeVisible();
+    await expect(jira().getByRole('button', { name: 'Afficher' })).toHaveCount(0);
 
     const body = await (await page.request.get('/api/settings')).text();
     expect(body).not.toContain('e2e-good-token');
@@ -113,16 +115,16 @@ test.describe.serial('US1 configuration', () => {
   });
 
   test('US1-6 : un jeton refusé donne la cause et l’action', async () => {
-    await page.getByRole('button', { name: 'Remplacer' }).click();
-    const token = page.getByLabel("Jeton d'accès personnel");
+    await jira().getByRole('button', { name: 'Remplacer' }).click();
+    const token = jira().getByLabel("Jeton d'accès personnel");
     await expect(token).toHaveAttribute('type', 'password');
     await expect(token).toHaveValue('');
     await token.fill('jeton-perime');
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
-    await expect(page.getByText("Jeton d'accès personnel enregistré dans le trousseau.")).toBeVisible();
+    await jira().getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(jira().getByText("Jeton d'accès personnel enregistré dans le trousseau.")).toBeVisible();
 
-    await page.getByRole('button', { name: 'Tester la connexion' }).click();
-    const status = page.getByRole('status').filter({ hasText: 'Le jeton a été refusé.' });
+    await jira().getByRole('button', { name: 'Tester la connexion' }).click();
+    const status = jira().getByRole('status').filter({ hasText: 'Le jeton a été refusé.' });
     await expect(status).toContainText("Créez un nouveau jeton d'accès personnel dans Jira");
     await expectNoA11yViolations(page);
   });

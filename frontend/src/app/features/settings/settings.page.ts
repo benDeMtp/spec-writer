@@ -3,6 +3,7 @@ import { SettingsStore } from '../../core/settings/settings.store';
 import { AgentAccessCardComponent } from './agent-access-card.component';
 import { BrowserCardComponent } from './browser-card.component';
 import { CopilotCardComponent } from './copilot-card.component';
+import { ConfluenceCardComponent } from './confluence-card.component';
 import { EmbeddingCardComponent } from './embedding-card.component';
 import { JiraCardComponent } from './jira-card.component';
 
@@ -10,7 +11,14 @@ import { JiraCardComponent } from './jira-card.component';
 @Component({
   selector: 'sw-settings-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AgentAccessCardComponent, BrowserCardComponent, CopilotCardComponent, EmbeddingCardComponent, JiraCardComponent],
+  imports: [
+    AgentAccessCardComponent,
+    BrowserCardComponent,
+    ConfluenceCardComponent,
+    CopilotCardComponent,
+    EmbeddingCardComponent,
+    JiraCardComponent,
+  ],
   template: `
     <h1>Configuration</h1>
     @if (raison() === 'copilot' && !store.copilotConnected()) {
@@ -23,6 +31,7 @@ import { JiraCardComponent } from './jira-card.component';
         <div class="cards">
           <sw-copilot-card />
           <sw-jira-card />
+          <sw-confluence-card />
         </div>
       </section>
       <section aria-labelledby="advanced-title">

@@ -13,6 +13,7 @@ import fr.kawamind.application.attachment.ManageAttachments;
 import fr.kawamind.application.consent.UpdateConsent;
 import fr.kawamind.application.context.EditContext;
 import fr.kawamind.application.context.ManageDocSources;
+import fr.kawamind.application.context.ManageReliability;
 import fr.kawamind.application.sources.AnalyzePerimeter;
 import fr.kawamind.application.sources.ManageSourceRoots;
 import fr.kawamind.application.conversation.ConversationSearch;
@@ -47,6 +48,7 @@ import fr.kawamind.application.knowledge.MentionQueries;
 import fr.kawamind.application.knowledge.ReadDocFile;
 import fr.kawamind.application.knowledge.RelatedIssuesStore;
 import fr.kawamind.application.knowledge.ReportSubtasks;
+import fr.kawamind.application.knowledge.ProvenanceResolver;
 import fr.kawamind.application.knowledge.SelectKnowledge;
 import fr.kawamind.application.knowledge.SessionKnowledge;
 import fr.kawamind.application.knowledge.StoryFamily;
@@ -65,7 +67,12 @@ import fr.kawamind.application.session.EvolveSpecification;
 import fr.kawamind.application.session.ManageSessions;
 import fr.kawamind.application.session.ResolveRelatedIssue;
 import fr.kawamind.application.session.StartSession;
+import fr.kawamind.application.knowledge.ConfluenceIndexation;
+import fr.kawamind.application.settings.ConfluenceAccess;
+import fr.kawamind.application.settings.DeleteConfluenceSettings;
 import fr.kawamind.application.settings.DeleteJiraSettings;
+import fr.kawamind.application.settings.SaveConfluenceSettings;
+import fr.kawamind.application.settings.TestConfluenceConnection;
 import fr.kawamind.application.settings.DisconnectCopilot;
 import fr.kawamind.application.settings.PollCopilotConnection;
 import fr.kawamind.application.settings.RefreshModelCapacities;
@@ -91,7 +98,11 @@ import fr.kawamind.domain.port.ConversationAttachmentRepository;
 import fr.kawamind.domain.port.ConversationLlm;
 import fr.kawamind.domain.port.ConversationRepository;
 import fr.kawamind.domain.port.DocSourceRepository;
+import fr.kawamind.domain.port.ConfluenceClient;
+import fr.kawamind.domain.port.ConfluencePageStates;
+import fr.kawamind.domain.port.ConfluenceSettingsRepository;
 import fr.kawamind.domain.port.DocumentFileStates;
+import fr.kawamind.domain.port.ReliabilityRepository;
 import fr.kawamind.domain.port.DocumentFiles;
 import fr.kawamind.domain.port.DocumentFolder;
 import fr.kawamind.domain.port.DocumentationReader;
@@ -119,6 +130,20 @@ import fr.kawamind.domain.port.SpecificationRepository;
 import fr.kawamind.domain.port.TextDiff;
 import fr.kawamind.domain.port.TicketLinkRepository;
 import fr.kawamind.domain.port.WikiMarkup;
+import fr.kawamind.application.task.AgentTasks;
+import fr.kawamind.application.task.EditProposal;
+import fr.kawamind.application.task.TaskJira;
+import fr.kawamind.application.task.TaskSync;
+import fr.kawamind.application.task.TrackingActions;
+import fr.kawamind.application.task.EditTasks;
+import fr.kawamind.application.task.ProposeTasks;
+import fr.kawamind.application.task.ReadTasks;
+import fr.kawamind.application.task.TaskDesk;
+import fr.kawamind.application.task.TaskLocks;
+import fr.kawamind.application.task.ValidateTasks;
+import fr.kawamind.domain.port.AgentConnections;
+import fr.kawamind.domain.port.TaskLlm;
+import fr.kawamind.domain.port.TaskRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import java.time.Duration;
@@ -133,6 +158,78 @@ public class UseCaseProducer {
     @ApplicationScoped
     AttachmentDrafts attachmentDrafts(AttachmentReader reader, ClockPort clock, IdGenerator ids) {
         return new AttachmentDrafts(reader, clock, ids);
+    }
+
+    // Tâches d'une spécification (015)
+
+    @Produces
+    @ApplicationScoped
+    TaskLocks taskLocks() {
+        return new TaskLocks();
+    }
+
+    /** Singleton, sans proxy : les cas d'usage des tâches lisent ses champs. */
+    @Produces
+    @jakarta.inject.Singleton
+    TaskDesk taskDesk(SessionRepository sessions, TaskRepository tasks, LinkedTicketRepository tickets, JiraAccess jira,
+            IssueTracker tracker, WikiMarkup markup, ClockPort clock, IdGenerator ids, TaskLocks locks) {
+        return new TaskDesk(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ReadTasks readTasks(TaskDesk desk, AgentConnections connections, TaskSync sync) {
+        return new ReadTasks(desk, connections, sync);
+    }
+
+    @Produces
+    @ApplicationScoped
+    TaskJira taskJira(IssueTracker tracker) {
+        return new TaskJira(tracker);
+    }
+
+    @Produces
+    @ApplicationScoped
+    TaskSync taskSync(TaskDesk desk, TaskJira jira) {
+        return new TaskSync(desk, jira);
+    }
+
+    @Produces
+    @ApplicationScoped
+    TrackingActions trackingActions(TaskDesk desk, TaskSync sync, TaskJira jira, ReadTasks read, AgentJournal journal) {
+        return new TrackingActions(desk, sync, jira, read, journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AgentTasks agentTasks(TaskDesk desk, TaskSync sync, TaskJira jira, AgentConnections connections,
+            AgentJournal journal) {
+        return new AgentTasks(desk, sync, jira, connections, journal);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ProposeTasks proposeTasks(TaskDesk desk, SpecificationRepository versions, PerimeterRepository perimeters, TaskLlm llm,
+            ConsentPolicy consent) {
+        return new ProposeTasks(desk, versions, perimeters, llm, consent);
+    }
+
+    @Produces
+    @ApplicationScoped
+    EditProposal editProposal(TaskDesk desk) {
+        return new EditProposal(desk);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ValidateTasks validateTasks(TaskDesk desk, ReadTasks read) {
+        return new ValidateTasks(desk, read);
+    }
+
+    @Produces
+    @ApplicationScoped
+    EditTasks editTasks(TaskDesk desk, ReadTasks read) {
+        return new EditTasks(desk, read);
     }
 
     /** Événements des tours de l'agent, en mémoire (010, research.md R2). */
@@ -150,10 +247,11 @@ public class UseCaseProducer {
             ConsentPolicy consent, OperationRegistry operations, TurnEvents events, ClockPort clock, IdGenerator ids,
             AnalyzeArchitecture analyze, DocSourceRepository docSources, DocumentFolder folder,
             ConversationAttachmentRepository attachments, DiscussSpecification discussions, AnalyzePerimeter perimeter,
-            PerimeterRepository perimeters) {
+            PerimeterRepository perimeters, ProvenanceResolver provenance) {
         SelectKnowledge select = new SelectKnowledge(projects, index, embedding, analyze, StoryFamily.none(), docSources,
-                folder, capacities);
-        return new Converse(projects, conversations, llm, new ConversationSearch(index, embedding, specifications),
+                folder, capacities, null, provenance);
+        return new Converse(projects, conversations, llm,
+                new ConversationSearch(index, embedding, specifications, provenance),
                 new DesignatedDocuments(select, attachments), capacities, consent, operations, events, clock, ids,
                 task -> Thread.ofVirtual().name("conversation").start(task), discussions, perimeter, perimeters);
     }
@@ -318,9 +416,17 @@ public class UseCaseProducer {
     @ApplicationScoped
     SessionKnowledge sessionKnowledge(ProjectRepository projects, KnowledgeIndex index, EmbeddingPort embedding,
             AnalyzeArchitecture analyze, StoryFamily families, DocSourceRepository docSources, DocumentFolder folder,
-            ModelCapacities capacities, AttachmentRepository attachments) {
+            ModelCapacities capacities, AttachmentRepository attachments, ProvenanceResolver provenance) {
         return new SelectKnowledge(projects, index, embedding, analyze, families, docSources, folder, capacities,
-                attachments);
+                attachments, provenance);
+    }
+
+    /** Source, date et niveau de fiabilité des extraits transmis à l'IA (016, research.md R5). */
+    @Produces
+    @ApplicationScoped
+    ProvenanceResolver provenanceResolver(DocSourceRepository docSources, ReliabilityRepository reliability,
+            ConfluencePageStates pages) {
+        return new ProvenanceResolver(docSources, reliability, pages);
     }
 
     /** Mentions @ d'un document (007) : suggestions et état, avec la place calculée comme à la génération. */
@@ -542,8 +648,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     GetFeature getFeature(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
-            ProjectRepository projects, KnowledgeIndex index, AgentJournal journal) {
-        return new GetFeature(sessions, versions, tickets, new FeatureKnowledge(projects, index), journal);
+            ProjectRepository projects, KnowledgeIndex index, AgentJournal journal, AgentTasks agentTasks) {
+        return new GetFeature(sessions, versions, tickets, new FeatureKnowledge(projects, index), journal, agentTasks);
     }
 
     @Produces
@@ -554,14 +660,15 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    AgentChangeStatus agentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal) {
-        return new AgentChangeStatus(sessions, clock, journal);
+    AgentChangeStatus agentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal,
+            TaskRepository tasks) {
+        return new AgentChangeStatus(sessions, clock, journal, tasks);
     }
 
     @Produces
     @ApplicationScoped
-    ChangeStatus changeStatus(SessionRepository sessions, ClockPort clock) {
-        return new ChangeStatus(sessions, clock);
+    ChangeStatus changeStatus(SessionRepository sessions, ClockPort clock, TaskRepository tasks) {
+        return new ChangeStatus(sessions, clock, tasks);
     }
 
     @Produces
@@ -616,8 +723,49 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     ManageDocSources manageDocSources(ProjectRepository projects, DocSourceRepository docSources, IdGenerator ids,
-            KnowledgeIndex index, DocumentFolder folder) {
-        return new ManageDocSources(projects, docSources, ids, index, folder);
+            KnowledgeIndex index, DocumentFolder folder, ConfluenceAccess confluence, ConfluenceClient client,
+            ConfluencePageStates pages) {
+        return new ManageDocSources(projects, docSources, ids, index, folder, confluence, client, pages);
+    }
+
+    // ---------- Confluence (016) ----------
+
+    @Produces
+    @ApplicationScoped
+    ManageReliability manageReliability(ProjectRepository projects, ReliabilityRepository reliability) {
+        return new ManageReliability(projects, reliability);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConfluenceAccess confluenceAccess(ConfluenceSettingsRepository settings, SecretStore secrets) {
+        return new ConfluenceAccess(settings, secrets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    SaveConfluenceSettings saveConfluenceSettings(ConfluenceSettingsRepository settings, SecretStore secrets) {
+        return new SaveConfluenceSettings(settings, secrets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    DeleteConfluenceSettings deleteConfluenceSettings(ConfluenceSettingsRepository settings, SecretStore secrets) {
+        return new DeleteConfluenceSettings(settings, secrets);
+    }
+
+    @Produces
+    @ApplicationScoped
+    TestConfluenceConnection testConfluenceConnection(ConfluenceClient client, ConfluenceSettingsRepository settings,
+            SecretStore secrets, ClockPort clock) {
+        return new TestConfluenceConnection(client, settings, secrets, clock);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ConfluenceIndexation confluenceIndexation(ConfluenceAccess access, ConfluenceClient client,
+            ConfluencePageStates pages, DocSourceRepository docSources, KnowledgeIndex index, ClockPort clock) {
+        return new ConfluenceIndexation(access, client, pages, docSources, index, clock);
     }
 
     @Produces
@@ -632,9 +780,10 @@ public class UseCaseProducer {
     SynchronizeKnowledge synchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
             DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
             DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
-            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock) {
+            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock,
+            ConfluenceIndexation confluence) {
         return new SynchronizeKnowledge(projects, sources, docSources, reader, folder, fileStates, architecture, jira,
-                tracker, links, index, embedding, clock);
+                tracker, links, index, embedding, clock, confluence);
     }
 
     @Produces
@@ -659,6 +808,14 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
+    fr.kawamind.application.knowledge.OpenSourceDocument openSourceDocument(DocSourceRepository docSources,
+            ManageBrowser browser, BrowserPort browsers) {
+        return new fr.kawamind.application.knowledge.OpenSourceDocument(docSources,
+                new fr.kawamind.infrastructure.platform.LocalFileLocator(), browser, browsers);
+    }
+
+    @Produces
+    @ApplicationScoped
     ListAdrs listAdrs(ProjectRepository projects, KnowledgeIndex index, DocSourceRepository docSources,
             DocumentFiles files, Indexations indexations) {
         return new ListAdrs(projects, index, docSources, files, indexations);
@@ -673,8 +830,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     KnowledgeQueries knowledgeQueries(ProjectRepository projects, KnowledgeIndex index, KnowledgeSourceRepository sources,
-            EmbeddingPort embedding, Indexations indexations, JiraAccess jira) {
-        return new KnowledgeQueries(projects, index, sources, embedding, indexations, jira);
+            EmbeddingPort embedding, Indexations indexations, JiraAccess jira, ProvenanceResolver provenance) {
+        return new KnowledgeQueries(projects, index, sources, embedding, indexations, jira, provenance);
     }
 
     @Produces

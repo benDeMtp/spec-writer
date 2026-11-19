@@ -433,4 +433,13 @@ class AntoraReaderTest {
         assertThat(p.sections()).filteredOn(sec -> sec.ref().equals("regles.html")).singleElement()
                 .extracting(Section::title, Section::body).containsExactly("Règles", "Introduction.");
     }
+
+    /** T008 (016) : date de la page envoyée par le serveur ; absente ou illisible, inconnue. */
+    @Test
+    void dateDeLaPageEnvoyeeParLeServeur() {
+        assertThat(AntoraReader.lastModified("Tue, 03 Mar 2026 10:00:00 GMT"))
+                .isEqualTo(java.time.Instant.parse("2026-03-03T10:00:00Z"));
+        assertThat(AntoraReader.lastModified(null)).isNull();
+        assertThat(AntoraReader.lastModified("hier")).isNull();
+    }
 }

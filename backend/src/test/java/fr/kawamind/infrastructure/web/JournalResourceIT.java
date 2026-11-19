@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 /** T069 : {@code GET /api/journal}, alimenté par le journal des erreurs branché au démarrage (FR-031). */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class JournalResourceIT {
 
     static final Logger LOG = Logger.getLogger(JournalResourceIT.class);

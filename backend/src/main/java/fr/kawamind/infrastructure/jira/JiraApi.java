@@ -78,6 +78,20 @@ public interface JiraApi extends AutoCloseable {
     @Consumes(MediaType.APPLICATION_JSON)
     Map<String, Object> createIssue(Map<String, Object> body);
 
+    @GET
+    @Path("/issue/{key}/transitions")
+    Map<String, Object> transitions(@PathParam("key") String key);
+
+    @POST
+    @Path("/issue/{key}/transitions")
+    @Consumes(MediaType.APPLICATION_JSON)
+    void transition(@PathParam("key") String key, Map<String, Object> body);
+
+    @POST
+    @Path("/issue/{key}/comment")
+    @Consumes(MediaType.APPLICATION_JSON)
+    Map<String, Object> addComment(@PathParam("key") String key, Map<String, Object> body);
+
     @Override
     void close();
 }

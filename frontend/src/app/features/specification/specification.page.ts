@@ -1,4 +1,4 @@
-import { DOCUMENT, DatePipe } from '@angular/common';
+import { DOCUMENT, DatePipe, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,12 +14,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
 import { firstValueFrom } from 'rxjs';
+import { ORIGIN_LABELS, updatedLabel } from '../../core/knowledge/provenance';
 import { JiraApi, PushOutcome } from '../../core/jira/jira.api';
 import { ProjectsApi } from '../../core/projects/projects.api';
 import { ProjectsStore } from '../../core/projects/projects.store';
@@ -27,6 +29,7 @@ import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira.model';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import {
+  CitedExtract,
   IMPLEMENTATION_LABELS,
   ImplementationStatus,
   Language,
@@ -35,6 +38,7 @@ import {
   Specification,
   SyncState,
   UseCase,
+  UserStory,
   VersionSummary,
 } from '../../core/sessions/sessions.model';
 import { AttachmentsComponent } from '../../shared/ui/attachments.component';
@@ -56,6 +60,8 @@ import {
 } from '../projects/move-session-dialog.component';
 import { ExportService } from './export.service';
 import { SubtasksPanelComponent } from './subtasks-panel.component';
+import { TasksPanelComponent } from './tasks-panel.component';
+import { TasksView } from '../../core/tasks/tasks.model';
 import { VersionsPanelComponent } from './versions-panel.component';
 import { DiscussionPanelComponent } from './discussion-panel.component';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
@@ -109,6 +115,18 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
   return found ? { title: found[1], body: found[2].trim() } : null;
 }
 
+/** Parties de l'énoncé de story (015, FR-023), la partie supposée marquée « (hypothèse) ». */
+export function storyParts(
+  story: UserStory,
+): { lead: string; text: string; assumed: boolean; end: string }[] {
+  const assumed = new Set(story.assumed ?? []);
+  return [
+    { lead: 'En tant que', text: story.role, assumed: assumed.has('ROLE'), end: ',' },
+    { lead: 'je veux', text: story.capability, assumed: assumed.has('CAPABILITY'), end: ',' },
+    { lead: 'afin de', text: story.benefit, assumed: assumed.has('BENEFIT'), end: '.' },
+  ];
+}
+
 /** Version de spécification : résumé, use cases, scénarios, hypothèses et exigences (FR-010). */
 @Component({
   selector: 'sw-specification-page',
@@ -119,13 +137,16 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     DiscussionPanelComponent,
     AttachmentsComponent,
     DatePipe,
+    NgTemplateOutlet,
     MarkdownComponent,
     MatButtonModule,
+    MatInputModule,
     MatFormFieldModule,
     MatSelectModule,
     RouterLink,
     ScenarioComponent,
     SubtasksPanelComponent,
+    TasksPanelComponent,
     VersionsPanelComponent,
   ],
   template: `
@@ -139,12 +160,41 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
         <div class="main">
           <header class="head">
             <h1 id="introduction" tabindex="-1">{{ v.title }}</h1>
-            <p class="meta">
-              Version {{ v.number }} · {{ session()?.name }}
-              @if (v.contextUpdatedAt) {
-                · contexte du {{ v.contextUpdatedAt | date: 'd MMM y, HH:mm' }}
-              }
-            </p>
+            @if (renaming()) {
+              <form class="rename" (submit)="$event.preventDefault(); saveName()">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Nom de la spécification</mat-label>
+                  <input
+                    matInput
+                    name="name"
+                    maxlength="120"
+                    required
+                    [value]="draftName()"
+                    (input)="draftName.set($any($event.target).value)"
+                  />
+                </mat-form-field>
+                <button mat-flat-button type="submit" [disabled]="!draftName().trim()">Enregistrer</button>
+                <button mat-button type="button" (click)="renaming.set(false)">Annuler</button>
+              </form>
+            } @else {
+              <p class="meta">
+                Version {{ v.number }} · {{ session()?.name }}
+                @if (v.contextUpdatedAt) {
+                  · contexte du {{ v.contextUpdatedAt | date: 'd MMM y, HH:mm' }}
+                }
+                @if (session(); as s) {
+                  <button
+                    mat-button
+                    type="button"
+                    class="rename-action"
+                    (click)="startRename(s.name)"
+                    [attr.aria-label]="'Renommer la spécification ' + s.name"
+                  >
+                    Renommer
+                  </button>
+                }
+              </p>
+            }
             @if (session()?.linkedTicket; as t) {
               <p class="ticket">
                 Liée au ticket
@@ -171,10 +221,20 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                     (selectionChange)="changeStatus($event.value)"
                   >
                     @for (o of statusOptions; track o.value) {
-                      <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                      <mat-option
+                        [value]="o.value"
+                        [disabled]="followsTasks() && (o.value === 'IN_PROGRESS' || o.value === 'IMPLEMENTED')"
+                        >{{ o.label }}</mat-option
+                      >
                     }
                   </mat-select>
                 </mat-form-field>
+                @if (followsTasks()) {
+                  <p class="hint">
+                    « En cours » et « Implémentée » suivent l’avancement des tâches. Repasser en Brouillon
+                    ou en Prête suspend leur suivi par les agents.
+                  </p>
+                }
                 @if (locked()) {
                   <p id="locked-reason" class="hint">
                     Implémentée le {{ s.implementation.implementedAt | date: 'd MMMM y' }} : cette
@@ -289,6 +349,16 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
           </header>
           <div class="layout">
             <div class="sheet document">
+              @if (v.story; as story) {
+                <p class="story" data-testid="story">
+                  @for (part of storyParts(story); track part.lead) {
+                    {{ part.lead }} <strong>{{ part.text }}</strong
+                    >@if (part.assumed) {
+                      <span class="assumed"> (hypothèse)</span>
+                    }{{ part.end }}
+                  }
+                </p>
+              }
               <section aria-labelledby="summary">
                 <h2 id="summary">Résumé</h2>
                 <markdown class="rich" [data]="v.summary" />
@@ -298,6 +368,18 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                 <section aria-labelledby="details">
                   <h2 id="details">Détails</h2>
                   <markdown class="rich" [data]="v.details" />
+                </section>
+              }
+
+              @if (v.splitProposal?.length) {
+                <section aria-labelledby="split">
+                  <h2 id="split">Découpage proposé</h2>
+                  <p>Cette story est large : elle gagnerait à être découpée en plusieurs stories.</p>
+                  <ol>
+                    @for (title of v.splitProposal; track $index) {
+                      <li>{{ title }}</li>
+                    }
+                  </ol>
                 </section>
               }
 
@@ -484,6 +566,39 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                   </ul>
                 </section>
               }
+              @if (v.sourceDeviations?.length) {
+                <section aria-labelledby="source-deviations" data-testid="source-deviations">
+                  <h2 id="source-deviations">Écarts entre sources</h2>
+                  <ul class="deviations">
+                    @for (d of v.sourceDeviations; track $index) {
+                      <li>
+                        <dl>
+                          <dt>Référence</dt>
+                          <dd>
+                            <ng-container *ngTemplateOutlet="extract; context: { $implicit: d.reference, v: v }" />
+                          </dd>
+                          <dt>Interprétation</dt>
+                          <dd>
+                            <ng-container *ngTemplateOutlet="extract; context: { $implicit: d.interpretation, v: v }" />
+                          </dd>
+                          <dt>Écart</dt>
+                          <dd>{{ d.difference }}</dd>
+                        </dl>
+                      </li>
+                    }
+                  </ul>
+                  <ng-template #extract let-c let-v="v">
+                    @if (v.links?.[c.ref]; as href) {
+                      <a [href]="href" target="_blank" rel="noopener noreferrer"
+                        >{{ c.title ?? c.ref }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+                      >
+                    } @else {
+                      <strong>{{ c.title ?? c.ref }}</strong>
+                    }
+                    <span class="meta"> ({{ extractMeta(c) }})</span>
+                  </ng-template>
+                </section>
+              }
               @if (v.architecture?.deploymentFacts?.length) {
                 <section aria-labelledby="efforts">
                   <h2 id="efforts">Efforts supplémentaires (déploiement)</h2>
@@ -497,6 +612,7 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                   </ul>
                 </section>
               }
+              <sw-tasks-panel [sessionId]="id()" (changed)="tasksChanged($event)" />
               <sw-subtasks-panel [sessionId]="id()" [versionNumber]="v.number" />
             </div>
             @if (versions().length > 1) {
@@ -568,6 +684,16 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     .meta {
       margin: 0.25rem 0 0.75rem;
       color: var(--sw-ink-soft);
+    }
+    .rename {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.25rem 0 0.75rem;
+    }
+    .rename mat-form-field {
+      flex: 1 1 20rem;
     }
     .ticket {
       margin: 0 0 0.5rem;
@@ -706,6 +832,16 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     .document dd {
       white-space: pre-line;
     }
+    .story {
+      margin: 0 0 1.5rem;
+      padding-left: 1rem;
+      border-left: 3px solid var(--sw-rule);
+      font-size: 1.05rem;
+    }
+    .story .assumed {
+      color: var(--sw-ink-soft);
+      font-style: italic;
+    }
     .rich {
       display: block;
       font-family: var(--sw-font-doc);
@@ -777,6 +913,7 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
 })
 export class SpecificationPage {
   protected readonly perimeter = perimeterSection;
+  protected readonly storyParts = storyParts;
   private readonly api = inject(SessionsApi);
   private readonly jira = inject(JiraApi);
   private readonly dialog = inject(MatDialog);
@@ -824,6 +961,9 @@ export class SpecificationPage {
   protected readonly evolving = signal(false);
   protected readonly exporting = signal(false);
   protected readonly status = signal('');
+  /** Renommage depuis l'écran de la spécification (le nom de la liste). */
+  protected readonly renaming = signal(false);
+  protected readonly draftName = signal('');
   /** Avertissements transmis par la page précédente (description Jira tronquée à l'import). */
   protected readonly warnings = signal<string[]>(
     (this.router.currentNavigation()?.extras.state?.['warnings'] as string[] | undefined) ?? [],
@@ -1099,7 +1239,45 @@ export class SpecificationPage {
     this.status.set(`Spécification déplacée vers le projet « ${name} ».`);
   }
 
+  /** Des tâches sont suivies : le statut « En cours » ou « Implémentée » vient d'elles (015, FR-020a). */
+  protected readonly followsTasks = signal(false);
+
+  /** Après une lecture ou une action sur les tâches, le statut a pu suivre (015, R7). */
+  protected async tasksChanged(view: TasksView): Promise<void> {
+    this.followsTasks.set(view.progress.total > 0);
+    const session = this.session();
+    if (!session || view.progress.total === 0) {
+      return;
+    }
+    const fresh = await this.api.get(session.id).catch(() => null);
+    if (fresh && fresh.implementation.status !== session.implementation.status) {
+      this.session.set(fresh);
+      this.status.set(`Statut : ${IMPLEMENTATION_LABELS[fresh.implementation.status]}.`);
+    }
+  }
+
   /** Statut d'implémentation ; quitter « implémentée » se confirme, en rappelant sa date (FR-026b de 002). */
+  protected startRename(name: string): void {
+    this.draftName.set(name);
+    this.renaming.set(true);
+  }
+
+  protected async saveName(): Promise<void> {
+    const session = this.session();
+    const name = this.draftName().trim();
+    if (!session || !name) {
+      return;
+    }
+    try {
+      await this.api.rename(session.id, name);
+      this.session.set({ ...session, name });
+      this.renaming.set(false);
+      this.status.set(`Spécification renommée en « ${name} ».`);
+    } catch {
+      // Le bandeau affiche la cause.
+    }
+  }
+
   protected async changeStatus(target: ImplementationStatus): Promise<void> {
     const session = this.session();
     if (!session || target === session.implementation.status) {
@@ -1323,6 +1501,11 @@ export class SpecificationPage {
     this.session.set(session);
     this.versions.set(versions);
     this.spec.set(spec);
+    // une citation d'une section (#technical, #UC-01…) ouvre la version à cette section
+    const fragment = this.route.snapshot.fragment;
+    if (fragment) {
+      setTimeout(() => this.showSection(`/sessions/${id}/versions/${n}#${fragment}`));
+    }
     // 012 : une spécification d'un autre projet rend ce projet courant
     void this.follower.follow(session.projectId).catch(() => undefined);
   }
@@ -1377,6 +1560,12 @@ export class SpecificationPage {
   }
 
   /** Dernier segment d'une adresse de page, sans extension : « adr-005 » pour …/adr/adr-005.html. */
+  /** Source et date d'un extrait cité par un écart (016) : « SharePoint, 12 septembre 2026 ». */
+  protected extractMeta(c: CitedExtract): string {
+    const date = updatedLabel(c.updatedAt);
+    return c.origin ? `${ORIGIN_LABELS[c.origin]}, ${date}` : date;
+  }
+
   protected pageName(ref: string): string {
     const last =
       ref

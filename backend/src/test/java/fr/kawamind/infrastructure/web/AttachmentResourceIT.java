@@ -16,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** 009 : envoi d'un document joint (contracts/api.md), réponse sans le texte. */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class AttachmentResourceIT {
 
     @TempDir

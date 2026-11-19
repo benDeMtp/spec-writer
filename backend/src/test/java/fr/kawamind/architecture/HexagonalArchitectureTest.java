@@ -44,6 +44,16 @@ class HexagonalArchitectureTest {
             .orShould().callMethod(java.util.UUID.class, "randomUUID");
 
     /**
+     * 015 (T085) : l'identité d'une connexion d'agent (pid, démarrage du processus) ne se lit que dans
+     * la plateforme, et dans la passerelle pour son propre processus.
+     */
+    @ArchTest
+    static final ArchRule processusLusParLaPlateforme = noClasses()
+            .that().resideOutsideOfPackage("fr.kawamind.infrastructure.platform..")
+            .and().resideOutsideOfPackage("fr.kawamind.mcp..")
+            .should().dependOnClassesThat().areAssignableTo(ProcessHandle.class);
+
+    /**
      * 014 (FR-018) : seul l'adaptateur LLM déclare des AI Services et parle au modèle par le Copilot
      * SDK ; l'adaptateur du compte GitHub ({@code infrastructure.github}) n'en lit que l'état de
      * connexion.
@@ -58,6 +68,21 @@ class HexagonalArchitectureTest {
             .that().resideOutsideOfPackage("fr.kawamind.infrastructure.llm..")
             .and().resideOutsideOfPackage("fr.kawamind.infrastructure.github..")
             .should().dependOnClassesThat().resideInAnyPackage("com.github.copilot..");
+
+    /** 016 (T060) : le client REST Confluence ne vit que dans son adaptateur. */
+    @ArchTest
+    static final ArchRule clientConfluenceDansSonAdaptateur = noClasses()
+            .that().resideOutsideOfPackage("fr.kawamind.infrastructure.confluence..")
+            .and().doNotHaveFullyQualifiedName("fr.kawamind.infrastructure.config.UseCaseProducer")
+            .should().dependOnClassesThat().haveFullyQualifiedName("fr.kawamind.infrastructure.confluence.ConfluenceApi")
+            .orShould().dependOnClassesThat().haveFullyQualifiedName("fr.kawamind.infrastructure.confluence.ConfluenceThrottle");
+
+    /** 016 (T060) : niveaux et places réservées restent du domaine pur. */
+    @ArchTest
+    static final ArchRule fiabiliteSansInfrastructure = noClasses()
+            .that().haveSimpleNameStartingWith("Reliability").or().haveSimpleName("ReservedPlaces")
+            .and().resideInAPackage("fr.kawamind.domain..")
+            .should().dependOnClassesThat().resideInAnyPackage("fr.kawamind.infrastructure..", "fr.kawamind.application..");
 
     /** 014 (FR-017) : tout le code livré vit sous {@code fr.kawamind}, plus rien sous l'ancien nom. */
     @ArchTest

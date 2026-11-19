@@ -34,7 +34,15 @@ public final class McpBridge {
         this.in = in;
         this.rpc = new JsonRpc(out);
         this.err = err;
-        this.tools = new Tools(dataDir.resolve("agent-endpoint.json"), () -> agentName);
+        this.tools = new Tools(dataDir.resolve("agent-endpoint.json"), () -> agentName, connection(ProcessHandle.current()));
+    }
+
+    /**
+     * Identifiant de cette connexion (015, research R4) : pid et début du processus, à la
+     * milliseconde. spec-writer sait ainsi si la conversation qui tient une tâche est fermée.
+     */
+    static String connection(ProcessHandle process) {
+        return process.pid() + "-" + process.info().startInstant().map(java.time.Instant::toEpochMilli).orElse(0L);
     }
 
     public static void main(String[] args) {
@@ -101,7 +109,8 @@ public final class McpBridge {
         ObjectNode server = result.putObject("serverInfo");
         server.put("name", "spec-writer");
         server.put("version", version());
-        result.put("instructions", "Features à implémenter et connaissance du projet de spec-writer." + Tools.DATA_NOTICE);
+        result.put("instructions", "Features à implémenter, leurs tâches et la connaissance du projet de spec-writer. "
+                + "En reprenant le travail sur une feature, appelez next_task." + Tools.DATA_NOTICE);
         rpc.result(id, result);
     }
 

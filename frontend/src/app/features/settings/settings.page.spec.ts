@@ -76,6 +76,10 @@ describe('SettingsPage', () => {
     );
     // la carte du navigateur liste les navigateurs installés ; elle est testée à part
     ctrl.match('/api/settings/browser').forEach((r) => r.flush({ selected: null, missing: false, installed: [] }));
+    // la carte Confluence (016) lit le serveur déclaré ; elle est testée à part
+    ctrl.match('/api/settings/confluence').forEach((r) =>
+      r.flush({ enabled: false, serverUrl: null, caCertificatePath: null, insecureHttp: false, serverVersion: null, lastTest: null, tokenSet: false, secretPersistence: null }),
+    );
     // la carte des agents charge son état ; elle est testée à part
     ctrl.match('/api/settings/agent-access').forEach((r) =>
       r.flush({ enabled: false, command: 'spec-writer-mcp', mcpJson: '{}' }),
@@ -183,11 +187,11 @@ describe('SettingsPage', () => {
 
   it('jeton masqué, vide après enregistrement, avec Remplacer et Supprimer mais sans Afficher', async () => {
     await open({ ...connected, jira: null });
-    const token = el.querySelector<HTMLInputElement>('input[formcontrolname="token"]')!;
+    const token = el.querySelector('sw-jira-card')!.querySelector<HTMLInputElement>('input[formcontrolname="token"]')!;
     expect(token.type).toBe('password');
 
     const fill = (name: string, value: string) => {
-      const input = el.querySelector<HTMLInputElement>(`input[formcontrolname="${name}"]`)!;
+      const input = el.querySelector('sw-jira-card')!.querySelector<HTMLInputElement>(`input[formcontrolname="${name}"]`)!;
       input.value = value;
       input.dispatchEvent(new Event('input'));
     };
@@ -202,7 +206,7 @@ describe('SettingsPage', () => {
     ctrl.expectOne('/api/settings').flush(connected);
     await settle(fixture);
 
-    expect(el.querySelector('input[formcontrolname="token"]')).toBeNull();
+    expect(el.querySelector('sw-jira-card')!.querySelector('input[formcontrolname="token"]')).toBeNull();
     expect(el.textContent).not.toContain('PAT-SECRET');
     expect(button(el, 'Remplacer')).toBeTruthy();
     expect(button(el, 'Supprimer')).toBeTruthy();
@@ -257,7 +261,7 @@ describe('SettingsPage', () => {
     await open(connected);
     const sections = Array.from(el.querySelectorAll('section[aria-labelledby]')).filter((n) => n.querySelector(':scope > h2'));
     expect(sections.map((n) => n.querySelector(':scope > h2')?.textContent)).toEqual(['Connexions', 'Avancé']);
-    expect(Array.from(sections[0].querySelectorAll('h3')).map((h) => h.textContent)).toEqual(['GitHub Copilot', 'Jira']);
+    expect(Array.from(sections[0].querySelectorAll('h3')).map((h) => h.textContent)).toEqual(['GitHub Copilot', 'Jira', 'Confluence']);
     expect(Array.from(sections[1].querySelectorAll('h3')).map((h) => h.textContent)).toEqual([
       'Modèle de recherche',
       'Accès des agents',

@@ -31,7 +31,9 @@ public record KnowledgeItem(
         KnowledgeRole role,
         String contentHash,
         Instant sourceUpdatedAt,
-        Instant indexedAt) {
+        Instant indexedAt,
+        /** Source de documentation dont l'élément vient (V19), {@code null} sinon ; lue, jamais écrite par {@code save}. */
+        UUID sourceId) {
 
     public static final int MAX_TITLE = 500;
     public static final int MAX_BODY = 8_000;
@@ -59,6 +61,14 @@ public record KnowledgeItem(
         // l'empreinte est toujours celle du titre et du corps : une empreinte lue périmée est recalculée
         String computed = hash(title, body);
         contentHash = computed.equals(contentHash) ? contentHash : computed;
+    }
+
+    public KnowledgeItem(UUID projectId, KnowledgeKind kind, String ref, int chunk, String title, String body,
+            String status, String statusCategory, String supersededBy, String issueType, String elementType,
+            ArchScope scope, boolean transport, KnowledgeRole role, String contentHash, Instant sourceUpdatedAt,
+            Instant indexedAt) {
+        this(projectId, kind, ref, chunk, title, body, status, statusCategory, supersededBy, issueType, elementType,
+                scope, transport, role, contentHash, sourceUpdatedAt, indexedAt, null);
     }
 
     public static KnowledgeItem ticket(UUID projectId, String key, String title, String body, String status,
@@ -92,6 +102,12 @@ public record KnowledgeItem(
                 : element.shortName();
         return new KnowledgeItem(projectId, KnowledgeKind.ARCH_ELEMENT, element.name(), 0, title, text, null, null,
                 null, null, element.type().name(), element.scope(), element.transport(), null, null, updated, now);
+    }
+
+    /** Le même élément, rattaché à une source de documentation (lecture de l'index). */
+    public KnowledgeItem withSourceId(UUID source) {
+        return new KnowledgeItem(projectId, kind, ref, chunk, title, body, status, statusCategory, supersededBy,
+                issueType, elementType, scope, transport, role, contentHash, sourceUpdatedAt, indexedAt, source);
     }
 
     /** Ticket fermé : catégorie de statut Jira {@code done} (FR-035). */

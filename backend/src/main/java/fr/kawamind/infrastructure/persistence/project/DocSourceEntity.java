@@ -33,4 +33,14 @@ public class DocSourceEntity {
 
     /** Tableau JSON des motifs d'exclusion d'un dossier de documents (006), {@code null} sinon. */
     public String exclusions;
+
+    /** Niveau propre d'une racine Confluence (016), {@code null} sinon ou sans niveau propre. */
+    public String reliability;
+
+    /** Identifiant de la page racine Confluence (016). */
+    @Column(name = "page_id")
+    public String pageId;
+
+    /** Titre de la page racine Confluence (016). */
+    public String title;
 }

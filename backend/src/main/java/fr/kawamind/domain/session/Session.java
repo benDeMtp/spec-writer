@@ -41,6 +41,18 @@ public record Session(
                 LanguageDetector.detect(need.text()), SessionOrigin.JIRA_IMPORT, SessionState.GENERATED, now, now);
     }
 
+    /**
+     * Nom tiré du besoin remplacé par le titre proposé à la première génération ; un nom choisi par
+     * l'utilisateur est gardé.
+     */
+    public Session withProposedName(String title, Instant now) {
+        if (title == null || title.isBlank() || !name.equals(need.defaultName())) {
+            return this;
+        }
+        String proposed = title.strip();
+        return rename(proposed.length() > MAX_NAME ? proposed.substring(0, MAX_NAME) : proposed, now);
+    }
+
     public Session rename(String newName, Instant now) {
         return new Session(id, projectId, newName, need, language, origin, state, createdAt, now);
     }

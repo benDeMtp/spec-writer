@@ -55,6 +55,7 @@ import tools.jackson.databind.json.JsonMapper;
  * à relire avant de les committer.
  */
 @io.quarkus.test.junit.QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class GoldenSetIT {
 
     /** Port LLM de l'application, sur le modèle scripté du cas (014 : AI Services). */

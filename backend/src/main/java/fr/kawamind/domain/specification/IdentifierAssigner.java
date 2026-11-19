@@ -126,8 +126,16 @@ public final class IdentifierAssigner {
                 .map(d -> new SpecificationContent.AdrDeviation(strip(d.adrRef()), strip(d.decision()),
                         strip(d.deviation())))
                 .toList();
+        // écarts entre sources (016) : références telles que citées, complétées et filtrées à la validation
+        List<SourceDeviation> sourceDeviations = draft.sourceDeviations().stream()
+                .filter(d -> d != null && !blank(d.referenceRef()) && !blank(d.interpretationRef())
+                        && !blank(d.difference()) && strip(d.difference()).length() <= SourceDeviation.MAX_DIFFERENCE)
+                .limit(SourceDeviation.MAX_PER_VERSION)
+                .map(d -> new SourceDeviation(new SourceDeviation.Cited(strip(d.referenceRef()), null, null, null),
+                        new SourceDeviation.Cited(strip(d.interpretationRef()), null, null, null), d.difference()))
+                .toList();
         SpecificationContent content = new SpecificationContent(title, summary, details, useCases, scenarios,
-                assumptions, requirements, deviations);
+                assumptions, requirements, deviations, draft.story(), draft.splitProposal(), sourceDeviations);
         return new Assigned(content, new StructureViolations(violations));
     }
 

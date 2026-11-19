@@ -14,6 +14,10 @@ const OPERATIONS: Record<AgentOperation, string> = {
   GET_FEATURE: 'Lecture d’une feature',
   SET_STATUS: 'Changement de statut',
   SEARCH_KNOWLEDGE: 'Recherche dans la connaissance',
+  NEXT_TASK: 'Prochaine tâche demandée',
+  START_TASK: 'Tâche prise',
+  COMPLETE_TASK: 'Tâche terminée',
+  RELEASE_TASK: 'Tâche libérée par vous',
 };
 
 /**
@@ -151,7 +155,7 @@ export class AgentAccessCardComponent {
     if (e.oldStatus && e.newStatus) {
       return `${what} : ${IMPLEMENTATION_LABELS[e.oldStatus]} → ${IMPLEMENTATION_LABELS[e.newStatus]}`;
     }
-    return what;
+    return e.taskKey ? `${what} : ${e.taskKey}` : what;
   }
 
   protected async toggle(enabled: boolean): Promise<void> {

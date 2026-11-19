@@ -105,3 +105,36 @@ describe('AgentAccessCardComponent', () => {
     expect(el.textContent).toContain('Secret régénéré.');
   });
 });
+
+describe('AgentAccessCardComponent, opérations de tâches (015)', () => {
+  it('nomme les opérations de tâches avec la clé de la tâche', async () => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } }],
+    });
+    const ctrl = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AgentAccessCardComponent);
+    fixture.detectChanges();
+    ctrl.expectOne('/api/settings/agent-access').flush({ enabled: true, command: '/x', mcpJson: MCP });
+    await settle(fixture);
+    ctrl.expectOne((r) => r.url === '/api/settings/agent-access/log').flush({
+      startAt: 0,
+      total: 1,
+      entries: [
+        {
+          at: '2026-11-17T10:00:00Z',
+          agentName: 'Claude Code',
+          operation: 'START_TASK',
+          projectName: 'Facturation',
+          featureTitle: 'Rétractation',
+          oldStatus: null,
+          newStatus: null,
+          taskKey: 'FACT-124',
+        },
+      ],
+    });
+    await settle(fixture);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Tâche prise');
+    expect(text).toContain('Rétractation : FACT-124');
+  });
+});

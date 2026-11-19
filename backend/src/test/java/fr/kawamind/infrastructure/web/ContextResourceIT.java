@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
  * (contracts/openapi.yaml de 002, US2) ; les endpoints des fiches générées n'existent plus (R28).
  */
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class ContextResourceIT {
 
     String projectId;

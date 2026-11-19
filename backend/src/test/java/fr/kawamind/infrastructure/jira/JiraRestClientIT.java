@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@org.junit.jupiter.api.parallel.Isolated
 class JiraRestClientIT {
 
     static WireMockServer jira;
