@@ -33,7 +33,7 @@ le guide d'installation depuis les sources, que l'assistant ne peut pas remplace
 ### User Story 1 - Être mené jusqu'à un projet indexé (Priority: P1) 🎯 MVP
 
 Au premier lancement, l'outil ouvre un assistant qui enchaîne les étapes : connexion à Copilot,
-connexions à Jira et à Confluence, création du premier projet, ses premières sources de
+connexions à Jira et à Confluence, nom et clé Jira du projet, ses premières sources de
 documentation et son modèle d'architecture, puis l'indexation du projet, dont il suit la
 progression. À la fin, l'utilisateur arrive sur une conversation qui connaît son projet. Seule la
 connexion à Copilot est obligatoire ; toute autre étape se passe d'un clic et se fait plus tard
@@ -49,16 +49,16 @@ toutes les étapes facultatives : l'utilisateur arrive sur une conversation avec
 
 **Acceptance Scenarios**:
 
-1. **Given** une installation vierge (aucun projet, Copilot non connecté), **When** l'utilisateur ouvre l'outil, **Then** l'assistant s'ouvre sur un écran d'accueil qui annonce les étapes, celles qui sont facultatives et une durée indicative.
+1. **Given** une installation vierge (configuration initiale jamais faite), **When** l'utilisateur ouvre l'outil, **Then** l'assistant s'ouvre sur un écran d'accueil qui annonce les étapes, celles qui sont facultatives et une durée indicative.
 2. **Given** l'étape Copilot, **When** l'utilisateur n'est pas connecté, **Then** il ne peut pas aller plus loin ; une fois connecté (modèle choisi, accord d'envoi des données donné), l'étape est marquée faite et l'assistant passe à la suivante.
 3. **Given** l'étape Jira, **When** l'utilisateur saisit l'adresse et le jeton et teste la connexion avec succès, **Then** l'étape est marquée faite ; **When** il choisit « Passer », **Then** l'étape est marquée passée et l'assistant continue.
 4. **Given** l'étape Confluence, **When** l'utilisateur la remplit ou la passe, **Then** l'assistant continue de la même façon qu'à l'étape Jira.
-5. **Given** l'étape du premier projet, **When** l'utilisateur le nomme (clé Jira proposée seulement si Jira est connecté), **Then** le projet est créé et devient le projet courant.
+5. **Given** l'étape du projet, **When** l'utilisateur le nomme (clé Jira proposée seulement si Jira est connecté), **Then** le projet de l'installation (le « Projet par défaut » d'une installation vierge) prend ce nom et cette clé, et reste le projet courant : aucun second projet vide n'est créé.
 6. **Given** l'étape des sources, **When** l'utilisateur ajoute une ou plusieurs sources de documentation (selon les connexions faites : site Antora, dossier SharePoint, racine Confluence) et le modèle d'architecture, ou passe l'étape, **Then** l'assistant continue.
 7. **Given** l'étape d'indexation, **When** le projet a au moins une source ou une clé Jira, **Then** l'indexation part et sa progression s'affiche source par source ; à la fin, l'assistant indique ce qui a été indexé et propose d'ouvrir la conversation.
 8. **Given** l'étape d'indexation, **When** le projet n'a ni source ni clé Jira, **Then** l'assistant explique que l'agent ne connaîtra pas le projet et où ajouter des sources plus tard, puis propose d'ouvrir la conversation.
 9. **Given** l'assistant interrompu à une étape (onglet fermé ou outil arrêté), **When** l'utilisateur rouvre l'outil, **Then** l'assistant reprend à cette étape, avec les étapes précédentes marquées faites ou passées.
-10. **Given** une installation qui a déjà au moins un projet, **When** l'utilisateur ouvre l'outil, **Then** l'assistant ne s'ouvre pas ; il reste relançable depuis Configuration.
+10. **Given** une installation déjà utilisée (Copilot ou Jira déjà connecté, au moins une spécification, une conversation ou une source de documentation, ou plus d'un projet), **When** l'utilisateur ouvre l'outil, **Then** l'assistant ne s'ouvre pas ; il reste relançable depuis Configuration.
 11. **Given** l'assistant relancé depuis Configuration, **When** il s'ouvre, **Then** chaque étape montre l'état actuel (Copilot connecté, Jira connecté, projets existants) et l'utilisateur peut créer un nouveau projet ou reprendre les sources d'un projet existant.
 
 ---
@@ -86,7 +86,6 @@ quitter au milieu ramène l'utilisateur où il était, sans rien avoir modifié.
 4. **Given** la visite en cours, **When** l'utilisateur quitte (bouton ou touche Échap), **Then** la visite se ferme et l'utilisateur revient à l'écran où il l'avait lancée.
 5. **Given** la visite, **When** l'utilisateur la suit de bout en bout, **Then** aucune donnée n'est créée, modifiée ni envoyée à un service (Copilot, Jira, Confluence) du fait de la visite.
 6. **Given** le menu, **When** l'utilisateur choisit « Visite guidée », **Then** la visite démarre au premier arrêt, qu'il l'ait déjà faite ou non.
-7. **Given** aucun projet configuré, **When** l'utilisateur lance la visite, **Then** les arrêts qui demandent un projet expliquent l'écran sans l'ouvrir et invitent à configurer un projet.
 
 ---
 
@@ -117,14 +116,14 @@ guide, et chaque difficulté rencontrée est reportée dans le guide.
 - Copilot CLI absent ou trop ancien à l'étape Copilot : l'étape le dit avec la marche à suivre du guide d'installation, et l'utilisateur la retente sans quitter l'assistant.
 - Compte GitHub sans accès à Copilot : l'étape l'explique (abonnement, politique de l'organisation) et reste bloquante.
 - Test de connexion Jira ou Confluence en échec : l'utilisateur corrige, retente ou passe l'étape ; rien n'est enregistré tant que le test n'a pas réussi ou que l'utilisateur n'a pas choisi d'enregistrer quand même, comme dans les cartes de connexion existantes.
-- Projet créé depuis l'écran Projets pendant que l'assistant était interrompu : l'assistant ne s'ouvre plus de lui-même ; relancé, il propose de poursuivre avec ce projet.
+- Projet créé ou renommé depuis l'écran Projets pendant que l'assistant était interrompu : à la reprise, l'étape du projet propose le projet courant tel qu'il est.
 - Indexation en échec sur une source (site injoignable, jeton refusé) : l'assistant affiche l'erreur de la source, les autres sources continuent, et l'utilisateur peut quand même ouvrir la conversation.
 - Indexation longue : l'utilisateur peut ouvrir la conversation sans attendre la fin ; l'indexation continue et sa progression reste visible dans la connaissance du projet.
 - Plusieurs onglets ouverts pendant l'assistant : chaque onglet affiche l'étape courante et l'état des étapes ; une étape faite dans un onglet l'est dans l'autre.
 - Fenêtre trop étroite pour placer une bulle à côté de l'élément : la bulle se place au-dessus ou en dessous et reste lisible en entier.
 - Élément désigné hors de la zone visible : la visite le fait défiler à l'écran avant d'afficher la bulle.
 - Visite lancée pendant une conversation en cours de réponse : la visite n'interrompt ni ne relance la réponse.
-- Installation mise à jour depuis une version antérieure à la feature, avec des projets : ni l'assistant ni la visite ne s'ouvrent d'eux-mêmes.
+- Installation déjà utilisée, mise à jour depuis une version antérieure à la feature : ni l'assistant ni la visite ne s'ouvrent d'eux-mêmes.
 
 ## Requirements *(mandatory)*
 
@@ -132,16 +131,16 @@ guide, et chaque difficulté rencontrée est reportée dans le guide.
 
 **Assistant de premier lancement (US1)**
 
-- **FR-001**: L'outil DOIT ouvrir l'assistant de premier lancement à son ouverture tant que la configuration initiale n'est pas terminée, c'est-à-dire tant que l'assistant n'a pas été mené à son terme et qu'aucun projet n'existe.
-- **FR-002**: L'assistant DOIT enchaîner, dans cet ordre : accueil, connexion à Copilot, connexion à Jira, connexion à Confluence, premier projet, sources de documentation et modèle d'architecture, indexation, fin.
+- **FR-001**: L'outil DOIT ouvrir l'assistant de premier lancement à son ouverture tant que la configuration initiale n'est pas terminée, c'est-à-dire tant que l'assistant n'a pas été mené à son terme sur une installation vierge. Une installation déjà utilisée avant cette feature DOIT être réputée configurée.
+- **FR-002**: L'assistant DOIT enchaîner, dans cet ordre : accueil, connexion à Copilot, connexion à Jira, connexion à Confluence, projet (nom et clé Jira), sources de documentation et modèle d'architecture, indexation, fin.
 - **FR-003**: La connexion à Copilot (compte connecté, modèle choisi, accord d'envoi des données donné) DOIT être la seule étape obligatoire ; toutes les autres DOIVENT pouvoir être passées d'une seule action.
 - **FR-004**: Chaque étape DOIT afficher son état (à faire, faite, passée) et l'assistant DOIT permettre de revenir à une étape précédente pour la refaire.
 - **FR-005**: Les étapes DOIVENT reprendre le comportement, les contrôles et les messages des écrans existants (connexions de Configuration, création de projet, sources du projet), sans en diverger : une connexion ou une source faite dans l'assistant est la même que celle faite depuis ces écrans.
-- **FR-006**: L'étape du premier projet DOIT proposer la clé Jira seulement si Jira est connecté, et l'étape des sources DOIT proposer seulement les sortes de sources utilisables avec les connexions faites (racine Confluence seulement si Confluence est connecté).
+- **FR-006**: L'étape du projet DOIT proposer la clé Jira seulement si Jira est connecté, et l'étape des sources DOIT proposer seulement les sortes de sources utilisables avec les connexions faites (racine Confluence seulement si Confluence est connecté).
 - **FR-007**: L'étape d'indexation DOIT lancer l'indexation du projet quand il a au moins une source ou une clé Jira, afficher sa progression source par source et son résultat, et permettre d'ouvrir la conversation avant la fin.
 - **FR-008**: La progression de l'assistant (étape courante, étapes faites ou passées, projet créé) DOIT être conservée par l'outil, de sorte qu'un onglet fermé ou un outil arrêté reprenne à la même étape.
 - **FR-009**: L'assistant DOIT pouvoir être relancé depuis Configuration ; relancé, il DOIT montrer l'état actuel de chaque étape et permettre de créer un projet de plus ou de compléter les sources d'un projet existant.
-- **FR-010**: L'assistant DOIT se terminer sur une conversation du projet créé (ou du projet courant si aucune création), et proposer la visite guidée.
+- **FR-010**: L'assistant DOIT se terminer sur une conversation du projet configuré, et proposer la visite guidée.
 - **FR-011**: L'assistant DOIT être utilisable entièrement au clavier, annoncer chaque changement d'étape aux technologies d'assistance et respecter WCAG 2.1 AA.
 
 **Visite guidée (US2)**
@@ -149,7 +148,7 @@ guide, et chaque difficulté rencontrée est reportée dans le guide.
 - **FR-012**: La visite DOIT être proposée à la fin de l'assistant et pouvoir être lancée à tout moment depuis le menu (« Visite guidée »).
 - **FR-013**: La visite DOIT parcourir, dans cet ordre, la conversation, la spécification et sa discussion, les tâches et leur suivi par les agents, la vue Jira, la connaissance du projet, les réglages avancés et la passerelle MCP pour les agents de code.
 - **FR-014**: À chaque arrêt, la visite DOIT ouvrir l'écran concerné, mettre en valeur un élément de l'écran et afficher une bulle qui explique son rôle, avec la position dans la visite et les commandes Précédent, Suivant et Quitter.
-- **FR-015**: Quand l'élément d'un arrêt n'existe pas encore, la bulle DOIT désigner l'écran ou son état vide et expliquer ce qui y apparaîtra ; sans projet, les arrêts qui en demandent un DOIVENT l'expliquer et inviter à en configurer un.
+- **FR-015**: Quand l'élément d'un arrêt n'existe pas encore, la bulle DOIT désigner l'écran ou son état vide et expliquer ce qui y apparaîtra.
 - **FR-016**: La visite DOIT pouvoir être quittée à tout moment (commande ou touche Échap) et ramener l'utilisateur à l'écran d'où il l'avait lancée.
 - **FR-017**: La visite NE DOIT créer, modifier ni envoyer aucune donnée.
 - **FR-018**: La visite DOIT être utilisable entièrement au clavier, garder le focus dans la bulle tant qu'elle est ouverte, annoncer chaque arrêt aux technologies d'assistance et respecter WCAG 2.1 AA.
@@ -163,7 +162,7 @@ guide, et chaque difficulté rencontrée est reportée dans le guide.
 
 ### Key Entities
 
-- **Progression de l'assistant** : étape courante, état de chaque étape (à faire, faite, passée), projet créé par l'assistant, assistant terminé ou non. Une seule pour l'installation.
+- **Progression de l'assistant** : étape courante, état de chaque étape (à faire, faite, passée), assistant terminé ou non. Une seule pour l'installation.
 - **Étape de l'assistant** : nom, caractère obligatoire ou facultatif, état ; s'appuie sur les connexions, projets et sources existants plutôt que sur des données propres.
 - **Arrêt de la visite** : écran à ouvrir, élément désigné, texte de la bulle, texte de remplacement quand l'élément n'existe pas encore ou que l'arrêt demande un projet.
 
@@ -176,12 +175,12 @@ guide, et chaque difficulté rencontrée est reportée dans le guide.
 - **SC-003**: La visite guidée complète se suit en moins de 5 minutes et chaque arrêt désigne un élément visible à l'écran.
 - **SC-004**: Après une interruption à n'importe quelle étape, l'assistant reprend à la même étape dans 100 % des cas, outil redémarré ou non.
 - **SC-005**: Un collègue qui n'a jamais lancé l'outil l'installe depuis les sources en suivant le seul README et arrive à l'assistant sans aide extérieure.
-- **SC-006**: Une installation existante (au moins un projet) ne voit jamais l'assistant ni la visite s'ouvrir d'eux-mêmes après la mise à jour.
+- **SC-006**: Une installation déjà utilisée avant la mise à jour ne voit jamais l'assistant ni la visite s'ouvrir d'eux-mêmes après la mise à jour.
 
 ## Assumptions
 
 - L'outil reste local et mono-utilisateur : une seule progression d'assistant par installation.
-- La configuration initiale est réputée faite dès qu'un projet existe, ce qui couvre les installations antérieures à la feature.
+- Une installation contient toujours au moins un projet (« Projet par défaut » à l'installation ; le dernier projet ne peut pas être supprimé) : l'étape du projet configure ce projet plutôt que d'en créer un second. Une installation est réputée déjà utilisée si Copilot ou Jira y est connecté, si elle a une spécification, une conversation ou une source de documentation, ou plus d'un projet.
 - Les réglages avancés (modèle de recherche, accès des agents, navigateur, notifications, synchronisation automatique, racines de sources, fiabilité) gardent leurs valeurs par défaut pendant l'assistant ; la visite les montre.
 - Le modèle de recherche par défaut est disponible sans réglage, de sorte que l'indexation lancée par l'assistant fonctionne sans étape de plus.
 - Les accords d'envoi de données à Copilot et à Jira restent demandés comme aujourd'hui ; l'assistant les présente au moment où ils sont nécessaires.
