@@ -122,4 +122,19 @@ public class SettingsJpaRepository implements SettingsRepository {
         e.browser = browserId;
         em.merge(e);
     }
+
+    @Override
+    @Transactional
+    public boolean notificationsEnabled() {
+        AppSettingsEntity e = em.find(AppSettingsEntity.class, 1);
+        return e != null && e.notifySourceUpdates;
+    }
+
+    @Override
+    @Transactional
+    public void saveNotificationsEnabled(boolean enabled) {
+        AppSettingsEntity e = Optional.ofNullable(em.find(AppSettingsEntity.class, 1)).orElseGet(AppSettingsEntity::new);
+        e.notifySourceUpdates = enabled;
+        em.merge(e);
+    }
 }

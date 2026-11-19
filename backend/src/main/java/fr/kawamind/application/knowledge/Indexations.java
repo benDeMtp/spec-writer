@@ -5,10 +5,12 @@ import fr.kawamind.application.knowledge.SynchronizeKnowledge.Mode;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
 import fr.kawamind.domain.port.ClockPort;
+import fr.kawamind.domain.port.AppEvents;
 import fr.kawamind.domain.port.ProjectRepository;
 import fr.kawamind.domain.port.SourceSyncRepository;
 import fr.kawamind.domain.sync.SourceChange;
 import fr.kawamind.domain.sync.SourceSyncResult;
+import fr.kawamind.domain.sync.SourceUpdated;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -49,6 +51,8 @@ public class Indexations {
     private final boolean automatic;
     /** Bilans des sources (017) ; absent, ils ne sont pas gardés. */
     private final SourceSyncRepository syncs;
+    /** Sources mises à jour, vers les onglets ouverts (017, US3) ; absent, rien n'est publié. */
+    private final AppEvents events;
 
     public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock) {
         this(synchronize, projects, executor, clock, true);
@@ -62,6 +66,12 @@ public class Indexations {
 
     public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock,
             boolean automatic, SourceSyncRepository syncs) {
+        this(synchronize, projects, executor, clock, automatic, syncs, null);
+    }
+
+    public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock,
+            boolean automatic, SourceSyncRepository syncs, AppEvents events) {
+        this.events = events;
         this.synchronize = synchronize;
         this.projects = projects;
         this.executor = executor;
@@ -279,7 +289,31 @@ public class Indexations {
 
         @Override
         public void sourceDone(String sourceKey, SourceChange change) {
-            record(sourceKey, SourceSyncResult.success(clock.now(), change));
+            SourceSyncResult result = SourceSyncResult.success(clock.now(), change);
+            record(sourceKey, result);
+            if (change.changed()) {
+                publish(sourceKey, change, result.at());
+            }
+        }
+
+        /** Une notification par source changée (FR-014) : sa sorte, son nom, ses décomptes, sans contenu. */
+        private void publish(String sourceKey, SourceChange change, Instant at) {
+            if (events == null) {
+                return;
+            }
+            try {
+                IndexableSource source = synchronize.sources(projectId).stream().filter(s -> s.id().equals(sourceKey))
+                        .findFirst().orElse(null);
+                String project = projects.find(projectId).map(p -> p.name().value()).orElse("");
+                // identifiant stable de la mise à jour : projet, source et instant
+                UUID id = UUID.nameUUIDFromBytes((projectId + "/" + sourceKey + "/" + at).getBytes(
+                        java.nio.charset.StandardCharsets.UTF_8));
+                events.publish(new SourceUpdated(id, projectId, project, sourceKey,
+                        source == null ? null : source.kind().name(), source == null ? sourceKey : source.label(),
+                        change, at));
+            } catch (RuntimeException e) {
+                LOG.error("Mise à jour de la source " + sourceKey + " non publiée", e);
+            }
         }
 
         @Override

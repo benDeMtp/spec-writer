@@ -329,20 +329,20 @@ d'onglets, désactivable, qui mène à la connaissance du projet.
 
 ### Tests US3 (écrits d'abord)
 
-- [ ] T042 [P] [US3] Test unitaire dans `BT/application/knowledge/IndexationsTest.java` :
+- [X] T042 [P] [US3] Test unitaire dans `BT/application/knowledge/IndexationsTest.java` :
   - un bilan `CHANGED` appelle `AppEvents.publish` avec la sorte, le nom, le projet et les
     décomptes ;
   - `UNCHANGED` et `ERROR` ne publient rien (FR-015) ;
   - l'événement ne contient ni titre ni contenu.
-- [ ] T043 [P] [US3] IT `BT/infrastructure/web/EventsResourceIT.java` (`@QuarkusTest @Isolated`) :
+- [X] T043 [P] [US3] IT `BT/infrastructure/web/EventsResourceIT.java` (`@QuarkusTest @Isolated`) :
   - un événement publié arrive sur `GET /api/events` avec `id`, `event: source-updated` et le JSON
     de contracts/events.md ;
   - `Last-Event-ID` renvoie les événements suivants ;
   - 401 sans session ;
   - pas d'événement si la transaction échoue.
-- [ ] T044 [P] [US3] IT `BT/infrastructure/web/NotificationSettingsResourceIT.java` : `GET` vaut
+- [X] T044 [P] [US3] IT `BT/infrastructure/web/NotificationSettingsResourceIT.java` : `GET` vaut
   `false` par défaut ; `PUT true` puis `GET` ; `Origin` exigé.
-- [ ] T045 [P] [US3] Tests Vitest `FE/core/events/app-events.service.spec.ts`, avec `EventSource`,
+- [X] T045 [P] [US3] Tests Vitest `FE/core/events/app-events.service.spec.ts`, avec `EventSource`,
   `navigator.locks` et `Notification` simulés :
   - seul le détenteur du verrou `spec-writer-notifications` affiche ;
   - `tag` = identifiant de l'événement ;
@@ -351,7 +351,7 @@ d'onglets, désactivable, qui mène à la connaissance du projet.
   - rien si le réglage est faux ou la permission n'est pas `granted` ;
   - le clic fait `focus`, change le projet courant s'il le faut, puis navigue vers
     `/projet/connaissance`.
-- [ ] T046 [P] [US3] Tests Vitest `FE/features/settings/notifications-card.component.spec.ts` :
+- [X] T046 [P] [US3] Tests Vitest `FE/features/settings/notifications-card.component.spec.ts` :
   - l'activation appelle `requestPermission` ;
   - `granted` enregistre le réglage ;
   - `denied` ne l'enregistre pas et affiche comment accorder la permission ;
@@ -360,13 +360,13 @@ d'onglets, désactivable, qui mène à la connaissance du projet.
 
 ### Implémentation US3
 
-- [ ] T047 [P] [US3] Créer `BM/domain/sync/SourceUpdated.java` et le port `BM/domain/port/AppEvents.java`.
+- [X] T047 [P] [US3] Créer `BM/domain/sync/SourceUpdated.java` et le port `BM/domain/port/AppEvents.java`.
   Publier depuis `Indexations` sur un bilan `CHANGED` (T042 au vert).
-- [ ] T048 [US3] Créer `BM/infrastructure/events/CdiAppEvents.java` :
+- [X] T048 [US3] Créer `BM/infrastructure/events/CdiAppEvents.java` :
   - `Event<SourceUpdated>.fire` ;
   - les observateurs utilisent `@Observes(during = TransactionPhase.AFTER_SUCCESS)` ;
   - consulter `quarkus_searchDocs` « CDI events transactional observers ».
-- [ ] T049 [US3] Créer `BM/infrastructure/web/EventsResource.java` (T043 au vert) :
+- [X] T049 [US3] Créer `BM/infrastructure/web/EventsResource.java` (T043 au vert) :
   - observateur qui garde les 50 derniers événements ;
   - `BroadcastProcessor<SourceUpdated>` ;
   - `GET /api/events` en `Multi<OutboundSseEvent>`, construit avec le `Sse` injecté (`id`,
@@ -374,7 +374,7 @@ d'onglets, désactivable, qui mène à la connaissance du projet.
   - reprise par `@HeaderParam("Last-Event-ID")` ;
   - commentaire de maintien toutes les 25 s ;
   - consulter `quarkus_searchDocs` « SSE Multi OutboundSseEvent ».
-- [ ] T050 [US3] Ajouter `notificationsEnabled()` et `setNotificationsEnabled(boolean)` à
+- [X] T050 [US3] Ajouter `notificationsEnabled()` et `setNotificationsEnabled(boolean)` à
   `BM/domain/port/SettingsRepository.java` et à son adaptateur (colonne `notify_source_updates`).
   - Créer `BM/application/settings/ManageNotifications.java`.
   - Créer `BM/infrastructure/web/NotificationSettingsResource.java`, `GET` et `PUT`
@@ -382,15 +382,15 @@ d'onglets, désactivable, qui mène à la connaissance du projet.
   - Câbler dans `UseCaseProducer`.
 
   (T044 au vert)
-- [ ] T051 [US3] Créer `FE/core/events/app-events.service.ts`, démarré par le shell à l'ouverture
+- [X] T051 [US3] Créer `FE/core/events/app-events.service.ts`, démarré par le shell à l'ouverture
   de session (T045 au vert) :
   - `EventSource('/api/events')` ;
   - verrou Web Locks ;
   - `new Notification(title, { body, tag })`, puis `onclick`.
-- [ ] T052 [US3] Créer `FE/features/settings/notifications-card.component.ts` (carte
+- [X] T052 [US3] Créer `FE/features/settings/notifications-card.component.ts` (carte
   « Notifications », `data-testid="notifications-card"`). L'intégrer dans
   `FE/features/settings/settings.page.ts` (T046 au vert).
-- [ ] T053 [US3] E2E `e2e/tests/us17-synchro.spec.ts`, tests N1 à N3 :
+- [X] T053 [US3] E2E `e2e/tests/us17-synchro.spec.ts`, tests N1 à N3 :
   - contexte avec `permissions: ['notifications']` ;
   - `addInitScript` qui remplace `window.Notification` par un espion qui compte titre, corps et
     `tag` ;
@@ -399,7 +399,7 @@ d'onglets, désactivable, qui mène à la connaissance du projet.
   - N2 : deux pages ouvertes, une seule notification au total ; resynchronisation sans
     changement, aucune notification.
   - N3 : désactiver, aucune notification. `expectNoA11yViolations` sur Configuration.
-- [ ] T054 [US3] Lancer les gates, puis commiter
+- [X] T054 [US3] Lancer les gates, puis commiter
   `feat(notifications): notification du navigateur des sources mises à jour`.
 
 **Checkpoint** : les trois stories fonctionnent.

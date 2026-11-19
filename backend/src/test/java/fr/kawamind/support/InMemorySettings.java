@@ -56,4 +56,16 @@ public class InMemorySettings implements SettingsRepository {
     public void saveBrowser(String browserId) {
         browser = browserId;
     }
+
+    private boolean notifications;
+
+    @Override
+    public boolean notificationsEnabled() {
+        return notifications;
+    }
+
+    @Override
+    public void saveNotificationsEnabled(boolean enabled) {
+        notifications = enabled;
+    }
 }

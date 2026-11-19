@@ -4,6 +4,7 @@ import { filter } from 'rxjs';
 import { LaunchTokenService } from './core/launch/launch-token.service';
 import { MainNavComponent } from './features/shell/main-nav.component';
 import { ProjectNoticeComponent } from './features/shell/project-notice.component';
+import { AppEventsService } from './core/events/app-events.service';
 import { SessionLostComponent } from './features/shell/session-lost.component';
 import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 
@@ -91,6 +92,8 @@ export class App {
   private readonly main = viewChild<ElementRef<HTMLElement>>('main');
 
   constructor() {
+    // 017 : sources mises à jour, notifiées par un seul onglet
+    inject(AppEventsService).start();
     // Gestion du focus : après chaque navigation, le focus va au contenu principal.
     inject(Router)
       .events.pipe(filter((e) => e instanceof NavigationEnd))

@@ -32,6 +32,7 @@ class AutoSyncTest {
     final JiraWorld world = new JiraWorld();
     final InMemorySourceSync syncs = new InMemorySourceSync();
     final List<Runnable> tasks = new ArrayList<>();
+    final List<fr.kawamind.domain.sync.SourceUpdated> events = new ArrayList<>();
     UUID doc;
     Indexations indexations;
     AutoSync auto;
@@ -44,7 +45,7 @@ class AutoSyncTest {
         SynchronizeKnowledge sync = new SynchronizeKnowledge(world.projects, new InMemoryKnowledgeSources(),
                 world.docSources, world.docs, world.folder, world.fileStates, (w, o) -> null, world.jira, world.tracker,
                 world.ticketLinks, new InMemoryKnowledgeIndex(), new FakeEmbedding(), world.clock);
-        indexations = new Indexations(sync, world.projects, tasks::add, world.clock, true, syncs);
+        indexations = new Indexations(sync, world.projects, tasks::add, world.clock, true, syncs, events::add);
         auto = new AutoSync(syncs, indexations, world.clock, MINUTE);
     }
 
@@ -135,6 +136,34 @@ class AutoSyncTest {
                 .isEqualTo(SourceSyncResult.Outcome.ERROR);
         assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::sources)
                 .isEqualTo(List.of(doc.toString()));
+    }
+
+    /** T042 : une source changée publie un événement ; sans changement ou en échec, rien (FR-014, FR-015). */
+    @Test
+    void uneSourceChangeePublieUnEvenementSansContenu() {
+        world.docs.sites.put("https://doc.example.com/", new fr.kawamind.domain.port.DocumentationReader.Result(List.of(
+                new fr.kawamind.domain.port.DocumentationReader.Page("https://doc.example.com/a.html", "A", "texte",
+                        List.of(new fr.kawamind.domain.port.DocumentationReader.Section("https://doc.example.com/a.html", 0,
+                                "Congés", "Contenu secret du document.", fr.kawamind.domain.knowledge.KnowledgeKind.DOC_SECTION,
+                                null, null)))), List.of()));
+        indexations.start(P, Mode.INCREMENTAL, List.of(doc.toString()));
+        tasks.removeFirst().run();
+        assertThat(events).singleElement().satisfies(e -> {
+            assertThat(e.projectId()).isEqualTo(P);
+            assertThat(e.sourceKey()).isEqualTo(doc.toString());
+            assertThat(e.sourceKind()).isEqualTo("DOCUMENTATION");
+            assertThat(e.sourceLabel()).isEqualTo("https://doc.example.com/");
+            assertThat(e.change()).isEqualTo(new SourceChange(1, 0, 0));
+            assertThat(e.toString()).doesNotContain("secret").doesNotContain("Congés");
+        });
+        // relue sans changement : rien
+        indexations.start(P, Mode.INCREMENTAL, List.of(doc.toString()));
+        tasks.removeFirst().run();
+        assertThat(events).hasSize(1);
+        // en échec : rien
+        indexations.start(P, Mode.INCREMENTAL, List.of(doc.toString()));
+        indexations.cancel(P);
+        assertThat(events).hasSize(1);
     }
 
     @Test

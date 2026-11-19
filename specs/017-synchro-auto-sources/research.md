@@ -69,6 +69,12 @@ traite aussi les trois sortes de source de la même façon.
 
 ## R3. Décompte des changements par source
 
+> Mis à jour à l'implémentation : le décompte se fait par différence des empreintes de l'index
+> (`KnowledgeIndex.fingerprints`) relevées avant et après la lecture, par source (tickets, éléments
+> d'architecture, éléments rattachés à la source de documentation ou sous le préfixe du dossier).
+> Plus simple et exact pour toutes les sources ; une page dont seul le numéro de version change, à
+> contenu égal, ne compte pas comme modifiée.
+
 **Decision**: `SynchronizeKnowledge` remonte pour chaque source relue un
 `SourceChange(added, modified, removed)`, calculé là où l'index est écrit :
 

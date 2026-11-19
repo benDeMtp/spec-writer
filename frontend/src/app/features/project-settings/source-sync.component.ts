@@ -4,6 +4,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { KnowledgeApi } from '../../core/projects/knowledge.api';
 import { SourceSyncState, SyncInterval } from '../../core/projects/projects.model';
+import { changeLabel } from '../../core/projects/source-changes';
 
 /** Délais proposés, en minutes (FR-007) ; « Désactivée » par défaut. */
 export const INTERVALS: { value: SyncInterval; minutes: number | null; label: string }[] = [
@@ -21,19 +22,7 @@ const KINDS: Record<SourceSyncState['kind'], string> = {
   ARCHITECTURE: "Modèle d'architecture",
 };
 
-function plural(n: number, one: string, many: string): string {
-  return `${n} ${n > 1 ? many : one}`;
-}
-
-/** Bilan lisible : décomptes non nuls, ou « aucun changement » (FR-008). */
-export function changeLabel(change: { added: number; modified: number; removed: number }): string {
-  const parts = [
-    change.added ? plural(change.added, 'nouveau', 'nouveaux') : '',
-    change.modified ? plural(change.modified, 'modifié', 'modifiés') : '',
-    change.removed ? plural(change.removed, 'retiré', 'retirés') : '',
-  ].filter(Boolean);
-  return parts.length ? parts.join(', ') : 'aucun changement';
-}
+export { changeLabel };
 
 /**
  * Synchronisation automatique de chaque source du projet (017, US2) : délai réglable, dernière

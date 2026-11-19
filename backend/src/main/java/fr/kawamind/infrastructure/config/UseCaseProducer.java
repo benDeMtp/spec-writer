@@ -46,6 +46,7 @@ import fr.kawamind.application.knowledge.ListAdrs;
 import fr.kawamind.application.knowledge.ManageArchitectureSource;
 import fr.kawamind.application.knowledge.ManageEmbeddingSettings;
 import fr.kawamind.application.settings.ManageBrowser;
+import fr.kawamind.application.settings.ManageNotifications;
 import fr.kawamind.application.knowledge.MentionQueries;
 import fr.kawamind.application.knowledge.ReadDocFile;
 import fr.kawamind.application.knowledge.RelatedIssuesStore;
@@ -120,6 +121,7 @@ import fr.kawamind.domain.port.LlmClient;
 import fr.kawamind.domain.port.LocalSearch;
 import fr.kawamind.domain.port.ModelCapacities;
 import fr.kawamind.domain.port.PerimeterRepository;
+import fr.kawamind.domain.port.AppEvents;
 import fr.kawamind.domain.port.ListedIssues;
 import fr.kawamind.domain.port.ProjectRepository;
 import fr.kawamind.domain.port.SourceSyncRepository;
@@ -795,9 +797,15 @@ public class UseCaseProducer {
     @ApplicationScoped
     Indexations indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, ClockPort clock,
             @ConfigProperty(name = "specwriter.knowledge.auto-index", defaultValue = "true") boolean automatic,
-            SourceSyncRepository syncs) {
+            SourceSyncRepository syncs, AppEvents events) {
         return new Indexations(synchronize, projects, task -> Thread.ofVirtual().name("indexation").start(task), clock,
-                automatic, syncs);
+                automatic, syncs, events);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageNotifications manageNotifications(SettingsRepository settings) {
+        return new ManageNotifications(settings);
     }
 
     @Produces

@@ -1,9 +1,9 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expectNoA11yViolations } from './support/a11y';
-import { baseURL, storageStatePath } from './support/env';
+import { baseURL, stateDir, storageStatePath } from './support/env';
 
 const DEFAULT_PROJECT = '00000000-0000-0000-0000-000000000001';
 
@@ -115,5 +115,108 @@ test.describe.serial('017 Synchronisation automatique des sources', () => {
     const failedAt = (await state()).last!.at;
     await page.waitForTimeout(5_000);
     expect((await state()).last!.at).toBe(failedAt);
+  });
+
+  // ---------- US3 : notifications du navigateur ----------
+
+  /** Notification remplacée par un espion : titre, corps et tag de chaque notification affichée. */
+  const SPY = () => {
+    const shown: { title: string; body?: string; tag?: string }[] = [];
+    (window as unknown as { __notes: typeof shown }).__notes = shown;
+    class Spy {
+      static permission: NotificationPermission = 'granted';
+      static requestPermission(): Promise<NotificationPermission> {
+        return Promise.resolve('granted');
+      }
+      onclick: (() => void) | null = null;
+      constructor(title: string, options?: NotificationOptions) {
+        shown.push({ title, body: options?.body, tag: options?.tag });
+      }
+      close(): void {
+        // rien
+      }
+    }
+    (window as unknown as { Notification: unknown }).Notification = Spy;
+  };
+
+  let tabs: BrowserContext;
+
+  async function notes(pages: Page[]): Promise<{ title: string; body?: string; tag?: string }[]> {
+    const all = await Promise.all(pages.map((p) => p.evaluate(() => (window as unknown as { __notes: [] }).__notes ?? [])));
+    return all.flat();
+  }
+
+  async function resync(): Promise<void> {
+    await indexed();
+    const r = await page.request.post(`/api/projects/${projectId}/indexations`, {
+      headers,
+      data: { mode: 'INCREMENTAL', sources: [docId] },
+    });
+    expect(r.status()).toBe(202);
+    await indexed();
+  }
+
+  test('N1 : activée, une source changée donne une notification qui la nomme', async () => {
+    test.setTimeout(120_000);
+    // la synchronisation automatique est coupée : seules les synchronisations du test comptent
+    await page.request.put(`/api/projects/${projectId}/source-sync/${docId}`, { headers, data: { intervalMinutes: null } });
+    mkdirSync(folder, { recursive: true });
+    tabs = await page.context().browser()!.newContext({ baseURL, storageState: storageStatePath, permissions: ['notifications'] });
+    await tabs.addInitScript(SPY);
+    const first = await tabs.newPage();
+    await first.goto('/configuration');
+    const card = first.getByTestId('notifications-card');
+    const box = card.getByRole('checkbox', { name: 'Prévenir quand une source est mise à jour' });
+    await expect(box).not.toBeChecked();
+    await box.check();
+    await expect(card.getByRole('status')).toContainText('Notifications activées.');
+    await expectNoA11yViolations(first);
+
+    writeFileSync(join(folder, 'Nouveau.html'), html('Télétravail', 'Deux jours par semaine.'));
+    await resync();
+    await expect.poll(async () => (await notes([first])).length, { timeout: 10_000 }).toBe(1);
+    const [note] = await notes([first]);
+    expect(note.title).toContain('mise à jour');
+    expect(note.body).toContain('Synchro E2E');
+    expect(note.body).toContain('1 nouveau');
+    expect(note.body).not.toContain('Télétravail');
+  });
+
+  test('N2 : deux onglets, une seule notification ; rien sans changement', async () => {
+    test.setTimeout(120_000);
+    const [first] = tabs.pages();
+    const second = await tabs.newPage();
+    await second.goto('/');
+    await second.waitForTimeout(1_000);
+    writeFileSync(join(folder, 'Autre.html'), html('Astreintes', 'Une semaine par mois.'));
+    await resync();
+    await expect.poll(async () => (await notes([first, second])).length, { timeout: 10_000 }).toBe(2);
+    await second.waitForTimeout(2_000);
+    expect((await notes([first, second])).length).toBe(2);
+
+    await resync();
+    await second.waitForTimeout(3_000);
+    expect((await notes([first, second])).length).toBe(2);
+  });
+
+  test('N3 : désactivées, plus aucune notification ; ni contenu ni jeton au journal', async () => {
+    test.setTimeout(120_000);
+    const [first] = tabs.pages();
+    await first.goto('/configuration');
+    const before = (await notes(tabs.pages())).length;
+    await first.getByRole('checkbox', { name: 'Prévenir quand une source est mise à jour' }).uncheck();
+    await expect(first.getByTestId('notifications-card').getByRole('status')).toContainText('Notifications désactivées.');
+    writeFileSync(join(folder, 'Dernier.html'), html('Formation', 'Trois jours par an.'));
+    await resync();
+    await first.waitForTimeout(3_000);
+    expect((await notes(tabs.pages())).length).toBe(before);
+
+    const journal = JSON.stringify(await (await page.request.get('/api/journal')).json());
+    const log = readFileSync(join(stateDir, 'app.log'), 'utf8');
+    for (const text of [journal, log]) {
+      expect(text).not.toContain('Deux jours par semaine');
+      expect(text).not.toContain('Une semaine par mois');
+    }
+    await tabs.close();
   });
 });

@@ -19,7 +19,7 @@ Paramètres :
 ```json
 {
   "jiraProjectKey": "SW",
-  "lastSync": { "at": "2026-11-18T16:40:00Z", "result": "CHANGED" },
+  "lastSync": { "at": "2026-11-18T16:40:00Z", "outcome": "CHANGED", "change": { "added": 1, "modified": 0, "removed": 0 }, "errorCode": null },
   "total": 2000,
   "startAt": 0,
   "issues": [
@@ -29,7 +29,7 @@ Paramètres :
       "status": "En cours",
       "statusCategory": "indeterminate",
       "updatedAt": "2026-11-17T09:12:00Z",
-      "syncState": "CONFLICT",
+      "sync": "CONFLICT",
       "sessionId": "1b6a4894-…"
     }
   ]
@@ -38,18 +38,19 @@ Paramètres :
 
 Cas particuliers :
 - `lastSync` est `null` si Jira n'a jamais été synchronisé ; la vue invite alors à le faire.
-- `syncState` vaut `UNLINKED` quand le ticket n'est lié à aucune spécification, et `sessionId` est
+- `sync` vaut `UNLINKED` quand le ticket n'est lié à aucune spécification, et `sessionId` est
   alors absent.
 
 Erreurs :
-- 400 `INVALID_SORT` pour un tri, une direction ou une taille hors liste ;
+- 422 `VALIDATION_FAILED` pour un tri, une direction, une position ou une taille hors liste ;
 - 404 si le projet est inconnu ;
 - 409 `JIRA_NOT_CONFIGURED` si le projet n'a pas de clé Jira.
 
 Aucun appel à Jira n'est fait (SC-002).
 
 La resynchronisation de Jira seul reprend l'existant
-`POST /api/projects/{projectId}/indexations` avec `{ "mode": "INCREMENTAL", "sources": ["jira"] }`.
+`POST /api/projects/{projectId}/indexations` avec `{ "mode": "INCREMENTAL", "sources": ["JIRA"] }` : une
+liste de sources est désormais acceptée en incrémental.
 
 ### Retiré
 
@@ -64,11 +65,11 @@ La resynchronisation de Jira seul reprend l'existant
 ```json
 [
   {
-    "sourceKey": "jira",
+    "sourceKey": "JIRA",
     "kind": "JIRA",
     "label": "Jira SW",
-    "intervalMinutes": 60,
-    "last": { "at": "2026-11-18T16:40:00Z", "result": "CHANGED", "added": 2, "modified": 5, "removed": 0, "errorCode": null },
+    "interval": "H1",
+    "last": { "at": "2026-11-18T16:40:00Z", "outcome": "CHANGED", "change": { "added": 2, "modified": 5, "removed": 0 }, "errorCode": null },
     "lastSuccessAt": "2026-11-18T16:40:00Z",
     "nextRunAt": "2026-11-18T17:40:00Z"
   },
@@ -76,7 +77,7 @@ La resynchronisation de Jira seul reprend l'existant
     "sourceKey": "7f0c…",
     "kind": "DOCUMENTATION",
     "label": "Remboursements",
-    "intervalMinutes": null,
+    "interval": "OFF",
     "last": null,
     "lastSuccessAt": null,
     "nextRunAt": null
@@ -85,9 +86,9 @@ La resynchronisation de Jira seul reprend l'existant
 ```
 
 Les champs à `null` ont un sens précis :
-- `intervalMinutes` à `null` : délai désactivé ;
+- `interval` à `OFF` : délai désactivé (valeurs `OFF`, `M15`, `M30`, `H1`, `H4`, `D1`) ;
 - `last` à `null` : la source n'a jamais été synchronisée ;
-- `nextRunAt` à `null` : délai désactivé.
+- `nextRunAt` à `null` : délai désactivé, ou source jamais synchronisée (elle part au prochain réveil).
 
 ### `PUT /api/projects/{projectId}/source-sync/{sourceKey}`
 
@@ -96,8 +97,8 @@ Corps : `{ "intervalMinutes": 15 | 30 | 60 | 240 | 1440 | null }`.
 200 : l'entrée mise à jour, avec `nextRunAt` recalculé.
 
 Erreurs :
-- 400 `INVALID_SYNC_INTERVAL` ;
-- 404 si la source ou le projet est inconnu.
+- 422 `VALIDATION_FAILED` pour un délai hors liste ;
+- 404 `NOT_FOUND` si la source est inconnue, `PROJECT_NOT_FOUND` si le projet l'est.
 
 ### Point d'accès existant prolongé
 
