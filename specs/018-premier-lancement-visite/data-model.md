@@ -66,11 +66,11 @@ Pas de clé étrangère : le projet configuré est toujours le projet courant (`
 
 ## Application `application/onboarding/`
 
-### `ManageOnboarding(OnboardingRepository, SettingsRepository, ClockPort, boolean autoOpen)`
+### `ManageOnboarding(OnboardingRepository, SettingsRepository, ConsentRepository, ClockPort, boolean autoOpen)`
 
 - `state()` → `OnboardingView(onboarding, autoOpen && !completed)`.
 - `markDone(step)` : pour `COPILOT`, vérifie l'état réel (connecté, modèle, accord) par
-  `SettingsRepository` ; sinon `ONBOARDING_COPILOT_REQUIRED`. Avance `currentStep` à l'étape
+  `SettingsRepository` et `ConsentRepository` ; sinon `ONBOARDING_COPILOT_REQUIRED`. Avance `currentStep` à l'étape
   suivante.
 - `skip(step)`, `goTo(step)`, `complete()` : délèguent au domaine, enregistrent, avancent.
 
