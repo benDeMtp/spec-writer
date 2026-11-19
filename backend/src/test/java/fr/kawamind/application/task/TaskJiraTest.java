@@ -38,6 +38,43 @@ class TaskJiraTest {
         assertThat(tracker.calls).contains("transition FACT-124 5");
     }
 
+    /** Une annulation mène aussi à la catégorie « terminé » : elle n'est jamais prise pour terminer. */
+    @Test
+    void terminerNePrendJamaisUneAnnulation() {
+        tracker.workflows.put("FACT-124", List.of(new Transition("41", "Annuler", "done", "Annulé"),
+                new Transition("51", "Rejeter", "done", "Won't Do"), new Transition("31", "Clore", "done", "Terminé")));
+        assertThat(jira.moveTo(JIRA, "FACT-124", StatusCategory.DONE)).isEqualTo(Result.SENT);
+        assertThat(tracker.calls).contains("transition FACT-124 31").doesNotContain("transition FACT-124 41");
+    }
+
+    @Test
+    void uneTransitionNeutreVersUnStatutAnnuleEstEcartee() {
+        tracker.workflows.put("FACT-124", List.of(new Transition("41", "Clôturer", "done", "Cancelled"),
+                new Transition("61", "Fermer", "done", "Closed")));
+        jira.moveTo(JIRA, "FACT-124", StatusCategory.DONE);
+        assertThat(tracker.calls).contains("transition FACT-124 61");
+    }
+
+    @Test
+    void unStatutTermineEstPrefereAUnStatutQuelconque() {
+        tracker.workflows.put("FACT-124", List.of(new Transition("71", "Archiver", "done", "Archivé"),
+                new Transition("31", "Livrer", "done", "Resolved")));
+        jira.moveTo(JIRA, "FACT-124", StatusCategory.DONE);
+        assertThat(tracker.calls).contains("transition FACT-124 31");
+    }
+
+    @Test
+    void seulementDesAnnulationsLeRefusPlutotQuAnnuler() {
+        tracker.workflows.put("FACT-124", List.of(new Transition("41", "Annuler", "done", "Annulé"),
+                new Transition("81", "Marquer en doublon", "done", "Duplicate")));
+        assertThatThrownBy(() -> jira.moveTo(JIRA, "FACT-124", StatusCategory.DONE))
+                .isInstanceOfSatisfying(DomainException.class, e -> {
+                    assertThat(e.code()).isEqualTo(ErrorCode.NO_TRANSITION);
+                    assertThat(e.userMessage()).contains("annulation");
+                });
+        assertThat(tracker.calls).noneMatch(c -> c.startsWith("transition FACT-124"));
+    }
+
     @Test
     void dejaDansLaCategorieAucunAppel() {
         assertThat(jira.moveTo(JIRA, "FACT-124", StatusCategory.NEW)).isEqualTo(Result.ALREADY);

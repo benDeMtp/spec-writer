@@ -140,7 +140,7 @@ class JiraTasksIT {
                  {"id":"31","name":"Clore","to":{"name":"Fermé","statusCategory":{"key":"done"}}}]}""")));
         jira.stubFor(post("/rest/api/2/issue/FACT-124/transitions").willReturn(aResponse().withStatus(204)));
         assertThat(client.transitions(endpoint(), "FACT-124")).containsExactly(
-                new Transition("21", "Démarrer", "indeterminate"), new Transition("31", "Clore", "done"));
+                new Transition("21", "Démarrer", "indeterminate", "En cours"), new Transition("31", "Clore", "done", "Fermé"));
         client.transition(endpoint(), "FACT-124", "21");
         jira.verify(postRequestedFor(urlPathEqualTo("/rest/api/2/issue/FACT-124/transitions"))
                 .withRequestBody(matchingJsonPath("$.transition.id", equalTo("21"))));

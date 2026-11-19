@@ -414,7 +414,7 @@ public class JiraRestClient implements IssueTracker {
                 Map<?, ?> t = map(o);
                 Map<?, ?> to = map(t.get("to"));
                 out.add(new Transition(text(t.get("id")), text(t.get("name")),
-                        text(map(to.get("statusCategory")).get("key"))));
+                        text(map(to.get("statusCategory")).get("key")), text(to.get("name"))));
             }
         }
         return out;
