@@ -38,7 +38,9 @@ import fr.kawamind.application.jira.RetryRelatedLink;
 import fr.kawamind.application.knowledge.AnalyzeArchitecture;
 import fr.kawamind.application.knowledge.CompareWithIssue;
 import fr.kawamind.application.knowledge.FindRelatedIssues;
+import fr.kawamind.application.knowledge.AutoSync;
 import fr.kawamind.application.knowledge.Indexations;
+import fr.kawamind.application.knowledge.ManageSourceSync;
 import fr.kawamind.application.knowledge.KnowledgeQueries;
 import fr.kawamind.application.knowledge.ListAdrs;
 import fr.kawamind.application.knowledge.ManageArchitectureSource;
@@ -792,9 +794,24 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     Indexations indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, ClockPort clock,
-            @ConfigProperty(name = "specwriter.knowledge.auto-index", defaultValue = "true") boolean automatic) {
+            @ConfigProperty(name = "specwriter.knowledge.auto-index", defaultValue = "true") boolean automatic,
+            SourceSyncRepository syncs) {
         return new Indexations(synchronize, projects, task -> Thread.ofVirtual().name("indexation").start(task), clock,
-                automatic);
+                automatic, syncs);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AutoSync autoSync(SourceSyncRepository syncs, Indexations indexations, ClockPort clock,
+            @ConfigProperty(name = "specwriter.knowledge.auto-sync.minute") java.time.Duration minute) {
+        return new AutoSync(syncs, indexations, clock, minute);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageSourceSync manageSourceSync(SourceSyncRepository syncs, Indexations indexations,
+            @ConfigProperty(name = "specwriter.knowledge.auto-sync.minute") java.time.Duration minute) {
+        return new ManageSourceSync(syncs, indexations, minute);
     }
 
     @Produces

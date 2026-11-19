@@ -134,6 +134,7 @@ test.describe.serial('012 navigation par projet', () => {
       'Fiche générale',
       'Sources de documentation',
       'Fiabilité des sources',
+      'Synchronisation des sources',
       'Sources du code',
       "Modèle d'architecture",
     ]);

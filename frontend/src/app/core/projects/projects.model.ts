@@ -276,3 +276,22 @@ export interface BetterModel {
   name: string;
   multiplier: number | null;
 }
+
+/** Délai de synchronisation automatique d'une source (017, FR-007). */
+export type SyncInterval = 'OFF' | 'M15' | 'M30' | 'H1' | 'H4' | 'D1';
+
+/** Délai et dernier bilan d'une source du projet (017, contracts/rest-api.md). */
+export interface SourceSyncState {
+  sourceKey: string;
+  kind: 'JIRA' | 'DOCUMENTATION' | 'ARCHITECTURE';
+  label: string;
+  interval: SyncInterval;
+  last: {
+    at: string;
+    outcome: 'CHANGED' | 'UNCHANGED' | 'ERROR';
+    change: { added: number; modified: number; removed: number };
+    errorCode: string | null;
+  } | null;
+  lastSuccessAt: string | null;
+  nextRunAt: string | null;
+}

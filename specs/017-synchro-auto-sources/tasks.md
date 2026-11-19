@@ -81,12 +81,12 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement. N
 
 **But** : connaître, à la fin de toute indexation, le bilan exact de chaque source relue.
 
-- [ ] T003 [P] Tests unitaires de `SourceChange` dans `BT/domain/sync/SourceChangeTest.java` :
+- [X] T003 [P] Tests unitaires de `SourceChange` dans `BT/domain/sync/SourceChangeTest.java` :
   - refuse un nombre négatif ;
   - `changed()` est faux seulement si les trois nombres valent 0 ;
   - `NONE`.
-- [ ] T004 [P] Créer `BM/domain/sync/SourceChange.java` : `record (int added, int modified, int removed)`.
-- [ ] T005 Tests de décompte dans `BT/application/knowledge/SynchronizeKnowledgeChangesTest.java`.
+- [X] T004 [P] Créer `BM/domain/sync/SourceChange.java` : `record (int added, int modified, int removed)`.
+- [X] T005 Tests de décompte dans `BT/application/knowledge/SynchronizeKnowledgeChangesTest.java`.
   Ils passent par les doubles de connecteurs et d'index déjà utilisés par les tests de
   `SynchronizeKnowledge` :
   - documentation : 1 page nouvelle, 1 page dont l'empreinte change, 1 page disparue donnent
@@ -96,9 +96,9 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement. N
     ticket relu identique n'est pas compté ;
   - architecture : un élément ajouté, un élément modifié par empreinte, un élément retiré ;
   - une source en erreur ne rapporte aucun bilan de succès.
-- [ ] T006 Étendre `BM/application/knowledge/TicketSummary.java` avec `added` et `modified`,
+- [X] T006 Étendre `BM/application/knowledge/TicketSummary.java` avec `added` et `modified`,
   valeurs ≥ 0. Mettre à jour tous les appelants et leurs tests (`grep -rn "new TicketSummary"`).
-- [ ] T007 Ajouter `default void sourceDone(String sourceKey, SourceChange change)` et
+- [X] T007 Ajouter `default void sourceDone(String sourceKey, SourceChange change)` et
   `default void sourceFailed(String sourceKey, String errorCode)` à
   `BM/application/knowledge/IndexationProgress.java`.
   - `SynchronizeKnowledge` appelle l'un ou l'autre une fois par source relue (`jira`,
@@ -220,13 +220,13 @@ seule, en incrémental, sans chevaucher une autre indexation.
 
 ### Tests US2 (écrits d'abord)
 
-- [ ] T023 [P] [US2] Tests unitaires `BT/domain/sync/SyncIntervalTest.java` et
+- [X] T023 [P] [US2] Tests unitaires `BT/domain/sync/SyncIntervalTest.java` et
   `BT/domain/sync/SyncScheduleTest.java` :
   - `fromMinutes` n'accepte que `null`, 15, 30, 60, 240 et 1440 (sinon `INVALID_SYNC_INTERVAL`) ;
   - `duration(minute)` multiplie le nombre de minutes par la durée d'une minute ;
   - `dueAt()` est vide si `OFF`, et vaut `Instant.MIN` si la source n'a jamais tourné ;
   - l'échéance part de la dernière tentative, même en échec.
-- [ ] T024 [P] [US2] Tests unitaires `BT/application/knowledge/AutoSyncTest.java` (horloge simulée,
+- [X] T024 [P] [US2] Tests unitaires `BT/application/knowledge/AutoSyncTest.java` (horloge simulée,
   doubles de `Indexations` et `SourceSyncRepository`) :
   - la source échue la plus ancienne part en INCREMENTAL avec sa seule clé ;
   - si le projet est occupé, rien ne part et aucun double n'est mis en file (FR-010) ;
@@ -235,60 +235,60 @@ seule, en incrémental, sans chevaucher une autre indexation.
     `ERROR` avec son code, sans appel ;
   - aucune relance avant le délai suivant (FR-012) ;
   - une exception d'une source n'arrête pas le tick pour les autres projets.
-- [ ] T025 [P] [US2] Tests unitaires `BT/application/knowledge/ManageSourceSyncTest.java` :
+- [X] T025 [P] [US2] Tests unitaires `BT/application/knowledge/ManageSourceSyncTest.java` :
   - une entrée par source indexable, dans l'ordre de `Indexations.sources` ;
   - `setInterval` sur une source inconnue lève `SOURCE_NOT_FOUND` ;
   - `nextRunAt` est recalculé ;
   - `forget` est appelé au retrait d'une source de documentation.
-- [ ] T026 [P] [US2] Test unitaire de l'enregistrement des bilans par `Indexations` dans
+- [X] T026 [P] [US2] Test unitaire de l'enregistrement des bilans par `Indexations` dans
   `BT/application/knowledge/IndexationsTest.java` (FR-013) :
   - `sourceDone` donne `record(… Success …)` ;
   - `sourceFailed` donne `record(… Failure …)` ;
   - cela vaut aussi pour les indexations manuelles et « Tout réindexer ».
-- [ ] T027 [P] [US2] IT `BT/infrastructure/persistence/SourceSyncSqliteRepositoryIT.java`
+- [X] T027 [P] [US2] IT `BT/infrastructure/persistence/SourceSyncSqliteRepositoryIT.java`
   (`@QuarkusTest @Isolated`) :
   - aller-retour des colonnes ;
   - `due(now)` ;
   - cascade à la suppression du projet ;
   - `forget`.
-- [ ] T028 [P] [US2] IT de câblage `BT/infrastructure/scheduling/SourceSyncJobIT.java` :
+- [X] T028 [P] [US2] IT de câblage `BT/infrastructure/scheduling/SourceSyncJobIT.java` :
   - `@QuarkusTest @Isolated` avec un `QuarkusTestProfile` qui réactive le scheduler
     (`quarkus.scheduler.enabled=true`, `auto-sync.every=1s`) ;
   - une source échue reçoit un bilan ;
   - le `Scheduler` injecté liste la tâche `source-sync`.
-- [ ] T029 [P] [US2] IT web `BT/infrastructure/web/SourceSyncResourceIT.java` : `GET` et `PUT`
+- [X] T029 [P] [US2] IT web `BT/infrastructure/web/SourceSyncResourceIT.java` : `GET` et `PUT`
   (contracts/rest-api.md), 400 et 404, `Origin` exigé sur `PUT`.
 
 ### Implémentation US2
 
-- [ ] T030 [P] [US2] Créer le domaine dans `BM/domain/sync/` : `SyncInterval.java`,
+- [X] T030 [P] [US2] Créer le domaine dans `BM/domain/sync/` : `SyncInterval.java`,
   `SyncSchedule.java`, `SourceSyncResult.java` et `SourceSyncState.java` (data-model.md).
   - `SyncInterval` : `OFF(null)`, `M15(15)`, `M30(30)`, `H1(60)`, `H4(240)`, `D1(1440)`.
   - Ajouter les codes `INVALID_SYNC_INTERVAL` et `SOURCE_NOT_FOUND` à `ErrorCode` s'ils manquent.
 
   (T023 au vert)
-- [ ] T031 [US2] Compléter `SourceSyncSqliteRepository` : `schedules`, `due`, `setInterval`,
+- [X] T031 [US2] Compléter `SourceSyncSqliteRepository` : `schedules`, `due`, `setInterval`,
   `record`, `forget`, chacun `@Transactional` (T027 au vert).
-- [ ] T032 [US2] Enregistrer le bilan de chaque source dans `Indexations` : implémenter
+- [X] T032 [US2] Enregistrer le bilan de chaque source dans `Indexations` : implémenter
   `sourceDone` et `sourceFailed` dans `Indexation`, avec horodatage par `ClockPort`, puis
   `SourceSyncRepository.record`. Fichier : `BM/application/knowledge/Indexations.java` (T026 au
   vert).
-- [ ] T033 [US2] Créer `BM/application/knowledge/AutoSync.java`, qui reçoit en constructeur
+- [X] T033 [US2] Créer `BM/application/knowledge/AutoSync.java`, qui reçoit en constructeur
   `Duration minute` (T024 au vert). Il lit `IndexableSource` pour les prérequis.
-- [ ] T034 [US2] Créer `BM/application/knowledge/ManageSourceSync.java` et appeler
+- [X] T034 [US2] Créer `BM/application/knowledge/ManageSourceSync.java` et appeler
   `SourceSyncRepository.forget` dans `ManageDocSources.delete`
   (`BM/application/context/ManageDocSources.java`). (T025 au vert)
-- [ ] T035 [US2] Câbler `AutoSync` et `ManageSourceSync` dans `BM/infrastructure/config/UseCaseProducer.java` (`specwriter.knowledge.auto-sync.minute`).
-- [ ] T036 [US2] Créer `BM/infrastructure/scheduling/SourceSyncJob.java` :
+- [X] T035 [US2] Câbler `AutoSync` et `ManageSourceSync` dans `BM/infrastructure/config/UseCaseProducer.java` (`specwriter.knowledge.auto-sync.minute`).
+- [X] T036 [US2] Créer `BM/infrastructure/scheduling/SourceSyncJob.java` :
   - `@Scheduled(identity = "source-sync", every = "${specwriter.knowledge.auto-sync.every}", delayed = "${specwriter.knowledge.auto-sync.delayed}", concurrentExecution = SKIP)`
     plus `@RunOnVirtualThread`, qui appelle `autoSync.tick()` ;
   - consigner au journal chaque lancement et chaque échec, avec la clé de la source, sans contenu ;
   - vérifier la règle ArchUnit `HexagonalArchitectureTest` (paquet `infrastructure.scheduling`).
 
   (T028 au vert)
-- [ ] T037 [US2] Créer `BM/infrastructure/web/SourceSyncResource.java` :
+- [X] T037 [US2] Créer `BM/infrastructure/web/SourceSyncResource.java` :
   `GET /api/projects/{projectId}/source-sync` et `PUT …/source-sync/{sourceKey}` (T029 au vert).
-- [ ] T038 [P] [US2] Tests Vitest de `FE/features/project-settings/source-sync.component.spec.ts` :
+- [X] T038 [P] [US2] Tests Vitest de `FE/features/project-settings/source-sync.component.spec.ts` :
   - une ligne par source : sorte et nom, liste de délais (Désactivée, 15 min, 30 min, 1 h, 4 h,
     1 jour) ;
   - dernière synchronisation : date, puis « n nouveaux, n modifiés, n retirés » ou « Aucun
@@ -296,12 +296,12 @@ seule, en incrémental, sans chevaucher une autre indexation.
   - en échec : « Échec » avec la dernière réussite ;
   - prochaine synchronisation ;
   - annonce `role="status"` après un changement de délai.
-- [ ] T039 [US2] Écrire `FE/features/project-settings/source-sync.component.ts`, région
+- [X] T039 [US2] Écrire `FE/features/project-settings/source-sync.component.ts`, région
   « Synchronisation des sources ». L'intégrer dans `project-settings.page.ts`, après les sources de
   documentation. Utiliser `subscriptSizing="dynamic"` sur les `mat-form-field`, comme
   `reliability.component.ts`. Ajouter les appels d'API dans `FE/core/`, au même endroit que les
   appels de connaissance existants. (T038 au vert)
-- [ ] T040 [US2] E2E `e2e/tests/us17-synchro.spec.ts`, tests S1 à S3 (une minute vaut une seconde
+- [X] T040 [US2] E2E `e2e/tests/us17-synchro.spec.ts`, tests S1 à S3 (une minute vaut une seconde
   en `%e2e`) :
   - S1 : régler 15 min sur un dossier SharePoint ; ajouter un fichier ; dans les 30 s, la source
     affiche « 1 nouveau » et l'autre source n'a reçu aucune lecture (compteur WireMock Confluence
@@ -309,7 +309,7 @@ seule, en incrémental, sans chevaucher une autre indexation.
   - S2 : « Resynchroniser » met à jour la date de la source.
   - S3 : WireMock Jira en 500, la source Jira affiche « Échec » avec sa dernière réussite, et une
     entrée au journal.
-- [ ] T041 [US2] Lancer les gates, puis commiter
+- [X] T041 [US2] Lancer les gates, puis commiter
   `feat(connaissance): synchronisation automatique par source et dernier bilan`.
 
 **Checkpoint** : US1 et US2 fonctionnent indépendamment.

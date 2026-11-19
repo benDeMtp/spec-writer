@@ -29,8 +29,15 @@ public interface KnowledgeIndex {
     record Hit(KnowledgeItem item, double score) {
     }
 
+    /** Empreinte d'un élément et sa source de rattachement, s'il en a une (017). */
+    record Fingerprint(Key key, String hash, UUID sourceId) {
+    }
+
     /** Empreintes des éléments indexés d'une sorte, pour ne réécrire que ce qui change. */
     Map<Key, String> hashes(UUID projectId, KnowledgeKind kind);
+
+    /** Empreintes de tous les éléments du projet, pour le bilan de chaque source (017, FR-008). */
+    List<Fingerprint> fingerprints(UUID projectId);
 
     /**
      * Écrit l'élément s'il est nouveau ou si son empreinte change ; {@code vector} nul garde

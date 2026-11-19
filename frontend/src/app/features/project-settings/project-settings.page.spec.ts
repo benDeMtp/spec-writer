@@ -78,6 +78,7 @@ describe('ProjectSettingsPage', () => {
 
   afterEach(() => {
     ctrl.match((r) => r.url.endsWith('/reliability')).forEach((r) => r.flush(LEVELS));
+    ctrl.match((r) => r.url.endsWith('/source-sync')).forEach((r) => r.flush([]));
     ctrl.verify();
   });
 
@@ -90,6 +91,7 @@ describe('ProjectSettingsPage', () => {
       'Fiche générale',
       'Sources de documentation',
       'Fiabilité des sources',
+      'Synchronisation des sources',
       'Sources du code',
       "Modèle d'architecture",
     ]);

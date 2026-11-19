@@ -12,6 +12,7 @@ import {
   MentionState,
   MentionSuggestion,
   Project,
+  SourceSyncState,
 } from './projects.model';
 
 /** Connaissance d'un projet : workspace Structurizr, indexations, état et recherche (US2 de 002). */
@@ -56,6 +57,21 @@ export class KnowledgeApi {
       }
       throw e;
     }
+  }
+
+  /** Délai et dernier bilan de chaque source du projet (017, US2). */
+  sourceSync(projectId: string): Promise<SourceSyncState[]> {
+    return firstValueFrom(this.http.get<SourceSyncState[]>(`/api/projects/${encodeURIComponent(projectId)}/source-sync`));
+  }
+
+  /** Règle le délai d'une source, en minutes ; null le désactive. */
+  setSyncInterval(projectId: string, sourceKey: string, intervalMinutes: number | null): Promise<SourceSyncState> {
+    return firstValueFrom(
+      this.http.put<SourceSyncState>(
+        `/api/projects/${encodeURIComponent(projectId)}/source-sync/${encodeURIComponent(sourceKey)}`,
+        { intervalMinutes },
+      ),
+    );
   }
 
   cancel(projectId: string): Promise<void> {

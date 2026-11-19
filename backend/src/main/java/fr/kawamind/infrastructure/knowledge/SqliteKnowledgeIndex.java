@@ -83,6 +83,18 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
 
     @Override
     @Transactional
+    @SuppressWarnings("unchecked")
+    public List<Fingerprint> fingerprints(UUID projectId) {
+        List<Object[]> rows = em.createNativeQuery(
+                "select kind, ref, chunk, content_hash, source_id from knowledge_item where project_id = ?1")
+                .setParameter(1, projectId.toString()).getResultList();
+        return rows.stream().map(r -> new Fingerprint(new Key(KnowledgeKind.valueOf((String) r[0]), (String) r[1],
+                ((Number) r[2]).intValue()), (String) r[3], r[4] == null ? null : UUID.fromString((String) r[4])))
+                .toList();
+    }
+
+    @Override
+    @Transactional
     public Set<String> closedTickets(UUID projectId) {
         List<?> refs = em.createNativeQuery("""
                 select ref from knowledge_item

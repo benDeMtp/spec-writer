@@ -6,6 +6,9 @@ import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
 import fr.kawamind.domain.port.ClockPort;
 import fr.kawamind.domain.port.ProjectRepository;
+import fr.kawamind.domain.port.SourceSyncRepository;
+import fr.kawamind.domain.sync.SourceChange;
+import fr.kawamind.domain.sync.SourceSyncResult;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,6 +47,8 @@ public class Indexations {
     private final Executor executor;
     private final ClockPort clock;
     private final boolean automatic;
+    /** Bilans des sources (017) ; absent, ils ne sont pas gardés. */
+    private final SourceSyncRepository syncs;
 
     public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock) {
         this(synchronize, projects, executor, clock, true);
@@ -52,11 +57,17 @@ public class Indexations {
     /** {@code automatic} faux : les déclenchements automatiques sont ignorés (tests d'intégration). */
     public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock,
             boolean automatic) {
+        this(synchronize, projects, executor, clock, automatic, null);
+    }
+
+    public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock,
+            boolean automatic, SourceSyncRepository syncs) {
         this.synchronize = synchronize;
         this.projects = projects;
         this.executor = executor;
         this.clock = clock;
         this.automatic = automatic;
+        this.syncs = syncs;
     }
 
     /** Démarre une indexation demandée par l'utilisateur ; refusée si une autre est en cours. */
@@ -151,6 +162,8 @@ public class Indexations {
         private int total;
         private Instant finishedAt;
         private TicketSummary tickets;
+        /** Sources dont le bilan est déjà enregistré. */
+        private final Set<String> reported = ConcurrentHashMap.newKeySet();
 
         Indexation(UUID projectId, Mode mode, IndexationScope scope, List<String> sources, Instant startedAt) {
             this.projectId = projectId;
@@ -205,7 +218,20 @@ public class Indexations {
             return step == null ? "PREPARING" : step.name();
         }
 
-        private synchronized void finish(Status outcome) {
+        private void finish(Status outcome) {
+            boolean first;
+            synchronized (this) {
+                first = status == Status.RUNNING;
+                end(outcome);
+            }
+            // indexation interrompue ou en échec : les sources demandées sans bilan sont en échec, pour
+            // qu'une échéance ne reparte pas aussitôt (017, FR-012)
+            if (first && outcome != Status.SUCCEEDED && sources != null) {
+                sources.stream().filter(k -> !reported.contains(k)).forEach(k -> sourceFailed(k, outcome.name()));
+            }
+        }
+
+        private synchronized void end(Status outcome) {
             if (status != Status.RUNNING) {
                 return;
             }
@@ -249,6 +275,28 @@ public class Indexations {
             current = newCurrent;
             done = Math.max(done, newDone);
             total = Math.max(total, newTotal);
+        }
+
+        @Override
+        public void sourceDone(String sourceKey, SourceChange change) {
+            record(sourceKey, SourceSyncResult.success(clock.now(), change));
+        }
+
+        @Override
+        public void sourceFailed(String sourceKey, String errorCode) {
+            record(sourceKey, SourceSyncResult.failure(clock.now(), errorCode));
+        }
+
+        private void record(String sourceKey, SourceSyncResult result) {
+            reported.add(sourceKey);
+            if (syncs == null) {
+                return;
+            }
+            try {
+                syncs.record(projectId, sourceKey, result);
+            } catch (RuntimeException e) {
+                LOG.error("Bilan de la source " + sourceKey + " non enregistré", e);
+            }
         }
 
         @Override
