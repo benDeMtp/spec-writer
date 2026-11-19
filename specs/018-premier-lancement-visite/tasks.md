@@ -321,10 +321,10 @@ d'assistant, sans aucune écriture.
 - [X] T046 [US3] Réécrire la section « Premier lancement » de `README.md` pour l'assistant et la
   visite (FR-022). La section « Installation » renvoie désormais à « Installer depuis les
   sources » tant qu'il n'y a pas d'installeur.
-- [ ] T047 [US3] Vérifier le guide sur un clone neuf, dans un dossier temporaire, avec un dossier de
+- [X] T047 [US3] (Fait le 19/11 : clone neuf, construction et lancement par le script, assistant ouvert à l'accueil sur un dossier de données neuf ; ajout du cas `JAVA_TOOL_OPTIONS` aux difficultés. Reste la relecture par le collègue, SC-005.) Vérifier le guide sur un clone neuf, dans un dossier temporaire, avec un dossier de
   données neuf (Q6), et corriger chaque écart. Laisser au mainteneur la vérification par un
   collègue (SC-005), notée dans quickstart.md.
-- [ ] T048 [US3] Commit `docs(readme): installer depuis les sources, premier lancement guidé`.
+- [X] T048 [US3] Commit `docs(readme): installer depuis les sources, premier lancement guidé`.
 
 ---
 
@@ -339,7 +339,7 @@ d'assistant, sans aucune écriture.
   - `CONTRIBUTING.md` : comment ajouter un arrêt à la visite (`tour-stops.ts`, `data-tour`).
 - [X] T051 Parcourir `quickstart.md` (Q1 à Q5) sur le jar et noter les écarts dans le quickstart.
   (Couverts par les E2E us18-premiers-pas P1 à P4 et us18-visite V1 à V3 ; V5 est dans P2.)
-- [ ] T052 Gates complètes, `ci/check-eval.sh` inchangé, puis commit
+- [X] T052 Gates complètes, `ci/check-eval.sh` inchangé, puis commit
   `docs: guide et contexte de la feature 018`.
 
 ---

@@ -154,6 +154,15 @@ Dans tous les cas : un test sur le rejeu (`ScriptedChatModel` ou `ReplayChatMode
 `AgentToolsExtensionTest`), une fixture de rejeu pour les E2E
 (`e2e/fixtures/llm/README.md`), puis l'évaluation réelle, puisque l'empreinte change.
 
+### Visite guidée (018)
+
+Les arrêts sont déclarés dans `frontend/src/app/core/tour/tour-stops.ts`, dans l'ordre d'usage :
+route, cible, titre, texte, et texte de remplacement quand l'écran est encore vide. La cible est
+un attribut `data-tour="…"` posé sur l'élément à désigner, dans le gabarit de l'écran. Deux
+phrases au plus par bulle, sans donnée de l'utilisateur. Ajouter un arrêt : le déclarer, poser
+sa cible, puis l'ajouter à la liste attendue de `e2e/tests/us18-visite.spec.ts`. La visite ne
+fait que des lectures : `us18-visite` (V4) échoue si une requête d'écriture part pendant la visite.
+
 ### Sécurité
 
 - Aucun jeton dans le code, les journaux, la base ou les fixtures : les jetons vivent dans le

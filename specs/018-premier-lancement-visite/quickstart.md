@@ -50,7 +50,8 @@ montrant l'état réel.
 
 Sur un clone neuf, dans un compte sans JDK 25 ni Copilot CLI, suivre seulement la section
 « Installer depuis les sources » du README jusqu'à l'assistant. Noter chaque écart (commande,
-message, version) et corriger le guide.
+message, version) et corriger le guide. Vérifié le 19/11 sur un clone neuf par le mainteneur ;
+la relecture par un collègue qui n'a jamais lancé l'outil reste à faire (SC-005).
 
 ## Tests automatisés
 
