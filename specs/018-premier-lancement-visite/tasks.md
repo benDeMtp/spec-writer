@@ -80,24 +80,24 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement. N
 Trois composants sortent de leurs pages pour être partagés avec l'assistant (R3, R4). Les pages
 gardent exactement le même rendu : mêmes libellés, mêmes `data-testid`, mêmes classes CSS.
 
-- [ ] T003 [P] Extraire les sources de documentation de `FE/features/project-settings/project-settings.page.ts`
+- [X] T003 [P] Extraire les sources de documentation de `FE/features/project-settings/project-settings.page.ts`
   vers `FE/features/project-settings/doc-sources.component.ts` (`sw-doc-sources`) :
   - entrée `projectId` et `sources` ; sortie `changed` ;
   - liste, ajout (Antora en lien ou en dossier, SharePoint, racine Confluence si Confluence est
     configuré), retrait, aperçu, exclusions, niveau d'une racine Confluence ;
   - spec Vitest `doc-sources.component.spec.ts`, avec les cas repris de
     `project-settings.page.spec.ts`.
-- [ ] T004 [P] Extraire le modèle d'architecture de la même page vers
+- [X] T004 [P] Extraire le modèle d'architecture de la même page vers
   `FE/features/project-settings/architecture-model.component.ts` (`sw-architecture-model`) :
   - entrée `projectId` ; sortie `changed` ;
   - spec Vitest `architecture-model.component.spec.ts`.
-- [ ] T005 [P] Extraire la progression de l'indexation de `FE/features/project-knowledge/knowledge-panel.component.ts`
+- [X] T005 [P] Extraire la progression de l'indexation de `FE/features/project-knowledge/knowledge-panel.component.ts`
   vers `FE/features/project-knowledge/indexation-progress.component.ts` (`sw-indexation-progress`) :
   - entrée `projectId` ; sortie `finished` ;
   - l'interrogation périodique, les libellés d'étape, `<progress>` et la durée sont repris tels
     quels ;
   - spec Vitest `indexation-progress.component.spec.ts`.
-- [ ] T006 Brancher les trois composants dans `project-settings.page.ts` et `knowledge-panel.component.ts`,
+- [X] T006 Brancher les trois composants dans `project-settings.page.ts` et `knowledge-panel.component.ts`,
   puis retirer le code devenu inutile.
   - Les specs existantes des deux pages restent vertes sans retouche de leurs attentes.
   - Les E2E restent verts : `us15-navigation`, `us16-*`, `us17-synchro` et ceux de la
