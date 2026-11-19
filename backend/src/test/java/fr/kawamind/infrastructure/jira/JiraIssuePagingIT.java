@@ -49,18 +49,6 @@ class JiraIssuePagingIT {
     }
 
     @Test
-    void ticketsDuProjetDuPlusRecentAuPlusAncien() {
-        JiraSearchPage page = client.projectIssues(endpoint(), "FACT", 25, 25);
-        assertThat(page.total()).isEqualTo(120);
-        assertThat(page.startAt()).isEqualTo(25);
-        assertThat(page.issues()).extracting(JiraIssueSummary::key).containsExactly("FACT-95");
-        assertThat(page.issues().getFirst().updated()).isEqualTo(Instant.parse("2026-10-30T09:15:00Z"));
-        jira.verify(getRequestedFor(urlPathEqualTo("/rest/api/2/search"))
-                .withQueryParam("jql", equalTo("project = FACT ORDER BY updated DESC"))
-                .withQueryParam("startAt", equalTo("25")).withQueryParam("maxResults", equalTo("25")));
-    }
-
-    @Test
     void motCleEchappeDansLaJql() {
         client.searchText(endpoint(), "FACT", "relance \"urgente\" OR project != X", 50, 25);
         jira.verify(getRequestedFor(urlPathEqualTo("/rest/api/2/search"))

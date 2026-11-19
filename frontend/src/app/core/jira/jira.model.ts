@@ -57,18 +57,37 @@ export interface JiraConflict {
   jiraUpdated: string;
 }
 
-/** Ticket d'une page de la liste du projet Jira (FR-020 de 002). */
+/** État de synchronisation avec la spécification liée, du plus urgent au moins urgent (017). */
+export type IssueSync = 'CONFLICT' | 'LOCAL_AHEAD' | 'IN_SYNC' | 'UNLINKED';
+
+/** Ticket de la vue Jira, lu dans l'index local du projet (017, US1). */
 export interface ProjectIssue {
   key: string;
-  summary: string;
-  updated: string | null;
-  /** Session déjà liée à ce ticket, s'il y en a une. */
-  linkedSessionId: string | null;
+  title: string;
+  status: string | null;
+  statusCategory: string | null;
+  updatedAt: string | null;
+  sync: IssueSync;
+  /** Session liée à ce ticket, s'il y en a une. */
+  sessionId: string | null;
 }
 
-/** Page de 25 tickets au plus, les plus récemment modifiés d'abord. */
+/** Bilan de la dernière synchronisation d'une source (017). */
+export interface SourceSyncResult {
+  at: string;
+  outcome: 'CHANGED' | 'UNCHANGED' | 'ERROR';
+  change: { added: number; modified: number; removed: number };
+  errorCode: string | null;
+}
+
+export type IssueSortField = 'updated' | 'status' | 'sync';
+export type SortDirection = 'asc' | 'desc';
+
+/** Page de la vue Jira, triée sur toute la liste (017, contracts/rest-api.md). */
 export interface IssuePage {
-  startAt: number;
+  jiraProjectKey: string;
+  lastSync: SourceSyncResult | null;
   total: number;
+  startAt: number;
   issues: ProjectIssue[];
 }

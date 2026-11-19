@@ -4,7 +4,16 @@ import { firstValueFrom } from 'rxjs';
 import { ProblemStore } from '../http/problem.store';
 import { isProblem } from '../http/problem';
 import { LinkedTicket, SessionDetail, Specification } from '../sessions/sessions.model';
-import { ConflictResolution, IssuePage, JiraConflict, JiraIssueView, Proposal, PushPreview } from './jira.model';
+import {
+  ConflictResolution,
+  IssuePage,
+  IssueSortField,
+  JiraConflict,
+  JiraIssueView,
+  Proposal,
+  PushPreview,
+  SortDirection,
+} from './jira.model';
 
 /** Issue d'un envoi vers Jira. */
 export type PushOutcome =
@@ -22,11 +31,11 @@ export class JiraApi {
     return firstValueFrom(this.http.get<JiraIssueView>(`/api/jira/issues/${encodeURIComponent(key)}`));
   }
 
-  /** Page de tickets du projet Jira ; l'appelant traite lui-même une erreur, pour garder sa page. */
-  projectIssues(projectKey: string, startAt: number): Promise<IssuePage> {
+  /** Page de la vue Jira, lue dans l'index local (017) ; l'appelant traite lui-même une erreur. */
+  issues(projectId: string, sort: IssueSortField, dir: SortDirection, startAt: number, size: number): Promise<IssuePage> {
     return firstValueFrom(
-      this.http.get<IssuePage>(`/api/jira/projects/${encodeURIComponent(projectKey)}/issues`, {
-        params: { startAt },
+      this.http.get<IssuePage>(`/api/projects/${encodeURIComponent(projectId)}/jira-issues`, {
+        params: { sort, dir, startAt, size },
         headers: new HttpHeaders({ 'X-Sw-Silent': '1' }),
       }),
     );

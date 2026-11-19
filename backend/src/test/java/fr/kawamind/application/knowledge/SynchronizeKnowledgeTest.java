@@ -725,9 +725,6 @@ class SynchronizeKnowledgeTest {
             assertThatThrownBy(() -> indexations.start(P, Mode.FULL, refused)).isInstanceOfSatisfying(
                     DomainException.class, e -> assertThat(e.code().name()).isEqualTo("VALIDATION_FAILED"));
         }
-        assertThatThrownBy(() -> indexations.start(P, Mode.INCREMENTAL, List.of(IndexationScope.JIRA)))
-                .isInstanceOfSatisfying(DomainException.class,
-                        e -> assertThat(e.code().name()).isEqualTo("VALIDATION_FAILED"));
         assertThat(executor.tasks).isEmpty();
 
         Indexations.Snapshot started = indexations.start(P, Mode.FULL, List.of(IndexationScope.ARCHITECTURE));
@@ -933,6 +930,25 @@ class SynchronizeKnowledgeTest {
                     .contains(org.assertj.core.groups.Tuple.tuple(IndexationError.Kind.ARCHITECTURE, "UNEXPECTED"));
         });
         assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(2);
+    }
+
+    /** 017, T008 : une source choisie se relit en incrémental, seule (FR-009, SC-004). */
+    @Test
+    void uneSourceChoisieSeRelitEnIncrementalSeule() {
+        sync.run(P, Mode.FULL, progress);
+        world.tracker.calls.clear();
+        world.docs.reads.clear();
+        architectureReads.clear();
+        ManualExecutor executor = new ManualExecutor();
+        Indexations indexations = new Indexations(sync, world.projects, executor, world.clock);
+        assertThat(indexations.start(P, Mode.INCREMENTAL, List.of(IndexationScope.JIRA)).sources())
+                .containsExactly(IndexationScope.JIRA);
+        executor.runAll();
+        assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::status)
+                .isEqualTo(Indexations.Status.SUCCEEDED);
+        assertThat(world.tracker.calls).containsExactly("updatedSince PROJ 2026-10-28T08:30:00Z 0");
+        assertThat(world.docs.reads).isEmpty();
+        assertThat(architectureReads).isEmpty();
     }
 
     @Test

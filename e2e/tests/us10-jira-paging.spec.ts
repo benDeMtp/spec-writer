@@ -16,13 +16,21 @@ const FOUND = 60;
 const LOCAL = 10;
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-/** Ticket Jira au format de /rest/api/2/search. */
-function issue(key: string, summary: string, updated: string) {
+const CATEGORIES = [
+  { name: 'À faire', key: 'new' },
+  { name: 'En cours', key: 'indeterminate' },
+  { name: 'Terminé', key: 'done' },
+];
+
+/** Ticket Jira au format de /rest/api/2/search ; le statut tourne sur les trois catégories. */
+function issue(key: string, summary: string, updated: string, n = 0) {
+  const category = CATEGORIES[n % CATEGORIES.length];
   return {
     key,
     fields: {
       summary,
-      status: { name: 'À faire' },
+      description: `Description de ${summary}`,
+      status: { name: category.name, statusCategory: { key: category.key } },
       issuetype: { name: 'Story' },
       updated,
     },
@@ -122,7 +130,12 @@ test.describe.serial('US10 Jira paginé', () => {
         jsonBody: { key: 'PAGE' },
       },
     });
-    // l'index de connaissance du projet reste vide : la synchronisation ne trouve rien
+    // 017 : la vue Jira lit l'index local ; la synchronisation de Jira y range les 120 tickets
+    const now = Date.now();
+    const all = Array.from({ length: TOTAL_ISSUES }, (_, i) => {
+      const n = TOTAL_ISSUES - i;
+      return issue(`PAGE-${n}`, `Ticket ${n}`, at(now, -i), n);
+    });
     await stub({
       request: {
         method: 'GET',
@@ -136,17 +149,9 @@ test.describe.serial('US10 Jira paginé', () => {
       response: {
         status: 200,
         headers: JSON_HEADERS,
-        jsonBody: { startAt: 0, maxResults: 50, total: 0, issues: [] },
+        jsonBody: { startAt: 0, maxResults: 200, total: TOTAL_ISSUES, issues: all },
       },
     });
-    const now = Date.now();
-    for (let startAt = 0; startAt < TOTAL_ISSUES; startAt += 25) {
-      const issues = Array.from({ length: 25 }, (_, i) => {
-        const n = TOTAL_ISSUES - startAt - i;
-        return issue(`PAGE-${n}`, `Ticket ${n}`, at(now, -(startAt + i)));
-      });
-      await stub(search('project = PAGE ORDER BY updated DESC', startAt, issues, TOTAL_ISSUES));
-    }
     // 30 tickets plus récents que les spécifications locales, puis 30 plus anciens
     const found = Array.from({ length: FOUND }, (_, i) =>
       issue(
@@ -202,27 +207,64 @@ test.describe.serial('US10 Jira paginé', () => {
     await context.close();
   });
 
-  test('P10 : tickets du projet, page suivante puis précédente ; Jira coupé, la page reste', async () => {
+  /** Attend la fin de l'indexation en cours, s'il y en a une. */
+  async function indexed(): Promise<void> {
+    await expect
+      .poll(
+        async () => {
+          const r = await page.request.get(`/api/projects/${projectId}/indexations/current`);
+          return r.status() === 404 ? 'NONE' : (await r.json()).status;
+        },
+        { timeout: 120_000 },
+      )
+      .not.toBe('RUNNING');
+  }
+
+  test('P10, 017 J1 : la vue Jira lit l’index, triée sur toute la liste, tri gardé', async () => {
+    test.setTimeout(180_000);
+    await indexed();
     await page.goto('/');
     await page.getByRole('link', { name: 'Tickets Jira' }).click();
     await expect(page.getByRole('heading', { name: 'Tickets Jira' })).toBeVisible();
+    // la liste vient de l'index, rempli par la synchronisation de Jira seul ; sa date est vérifiée par us17
+    await page.getByRole('button', { name: 'Resynchroniser Jira' }).click();
+    await expect(page.getByRole('button', { name: 'Resynchroniser Jira' })).toBeEnabled({ timeout: 120_000 });
     const pager = page.getByRole('navigation', { name: 'Pages de tickets' });
-    await expect(pager).toContainText('1 à 25 sur 120');
-    await expect(page.locator('tbody tr')).toHaveCount(25);
+    await expect(pager).toContainText('1 à 50 sur 120');
+    await expect(page.locator('tbody tr')).toHaveCount(50);
     await expect(page.locator('tbody tr').first()).toContainText('PAGE-120');
     await expectNoA11yViolations(page);
 
+    // tri par statut : les « À faire » d'abord, sur toute la liste
+    await page.getByRole('button', { name: /^Statut/ }).click();
+    await expect(page).toHaveURL(/tri=status&ordre=asc/);
+    await expect(page.getByRole('columnheader', { name: /Statut/ })).toHaveAttribute('aria-sort', 'ascending');
+    await expect(page.locator('tbody tr').first()).toContainText('À faire');
     await pager.getByRole('button', { name: 'Page suivante' }).click();
-    await expect(pager).toContainText('26 à 50 sur 120');
-    await expect(page.locator('tbody tr').first()).toContainText('PAGE-95');
-    await pager.getByRole('button', { name: 'Page précédente' }).click();
-    await expect(pager).toContainText('1 à 25 sur 120');
+    await expect(pager).toContainText('51 à 100 sur 120');
+    await expect(page.locator('tbody tr').first()).toContainText('En cours');
+    await expect(page.locator('tbody tr').last()).toContainText('Terminé');
+    // retour à la vue : le tri et la page sont gardés
+    await page.goto('/');
+    await page.goBack();
+    await expect(pager).toContainText('51 à 100 sur 120');
+    await expect(page.getByRole('columnheader', { name: /Statut/ })).toHaveAttribute('aria-sort', 'ascending');
+    await expectNoA11yViolations(page);
+  });
 
-    const down = await cut('project = PAGE ORDER BY updated DESC');
+  test('017 J2 : trier et paginer n’appelle pas Jira, même coupé', async () => {
+    await jira.delete('/__admin/requests');
+    const down = await cut('project = PAGE ORDER BY updated ASC');
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Tickets Jira' }).click();
+    const pager = page.getByRole('navigation', { name: 'Pages de tickets' });
+    await expect(pager).toContainText('sur 120');
+    await page.getByRole('button', { name: /^Synchro/ }).click();
+    await expect(pager).toContainText('1 à 50 sur 120');
     await pager.getByRole('button', { name: 'Page suivante' }).click();
-    await expect(page.getByRole('alert')).toContainText('La page affichée est conservée.');
-    await expect(pager).toContainText('1 à 25 sur 120');
-    await expect(page.locator('tbody tr').first()).toContainText('PAGE-120');
+    await expect(pager).toContainText('51 à 100 sur 120');
+    const calls = await jira.post('/__admin/requests/count', { data: { urlPath: '/rest/api/2/search' } });
+    expect((await calls.json()).count).toBe(0);
     await jira.delete(`/__admin/mappings/${down}`);
   });
 

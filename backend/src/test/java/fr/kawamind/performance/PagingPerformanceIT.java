@@ -72,7 +72,9 @@ class PagingPerformanceIT {
         List<Long> issues = new ArrayList<>();
         for (int startAt = 0; startAt < 20 * 25; startAt += 25) {
             long start = System.nanoTime();
-            api().queryParam("startAt", startAt).get("/api/jira/projects/PROJ/issues").then().statusCode(200);
+            // 017 : la vue lit l'index local (le tri sur 2 000 tickets est mesuré par SqliteListedIssuesIT)
+            api().queryParam("startAt", startAt).queryParam("sort", startAt % 50 == 0 ? "status" : "sync")
+                    .get("/api/projects/00000000-0000-0000-0000-000000000001/jira-issues").then().statusCode(200);
             issues.add((System.nanoTime() - start) / 1_000_000);
         }
         assertThat(p95(issues)).as("95e centile des pages de tickets, en ms (%s)", issues).isLessThan(LIMIT_MS);

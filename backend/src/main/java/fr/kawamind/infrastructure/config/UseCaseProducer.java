@@ -118,7 +118,9 @@ import fr.kawamind.domain.port.LlmClient;
 import fr.kawamind.domain.port.LocalSearch;
 import fr.kawamind.domain.port.ModelCapacities;
 import fr.kawamind.domain.port.PerimeterRepository;
+import fr.kawamind.domain.port.ListedIssues;
 import fr.kawamind.domain.port.ProjectRepository;
+import fr.kawamind.domain.port.SourceSyncRepository;
 import fr.kawamind.domain.port.SourceRootRepository;
 import fr.kawamind.domain.port.SourceTree;
 import fr.kawamind.domain.port.SecretStore;
@@ -680,8 +682,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    ListProjectIssues listProjectIssues(IssueTracker tracker, JiraAccess jira, LinkedTicketRepository tickets) {
-        return new ListProjectIssues(tracker, jira, tickets);
+    ListProjectIssues listProjectIssues(ProjectRepository projects, JiraAccess jira, ListedIssues listed,
+            SourceSyncRepository syncs) {
+        return new ListProjectIssues(projects, jira, listed, syncs);
     }
 
     @Produces

@@ -33,7 +33,6 @@ public class FakeIssueTracker implements IssueTracker {
     /** Pages demandées à la recherche, {@code startAt+maxResults}. */
     public final List<String> searchPages = new ArrayList<>();
     /** Tickets du projet, du plus récent au plus ancien. */
-    public final List<JiraIssueSummary> projectResults = new ArrayList<>();
     public final List<String> calls = new ArrayList<>();
     public final List<String> writes = new ArrayList<>();
     public Kind failure;
@@ -117,15 +116,6 @@ public class FakeIssueTracker implements IssueTracker {
         searchPages.add(startAt + "+" + maxResults);
         return new JiraSearchPage(searchResults.stream().skip(startAt).limit(maxResults).toList(), startAt,
                 searchResults.size());
-    }
-
-    /** Les tickets de {@link #projectResults}, page par page. */
-    @Override
-    public JiraSearchPage projectIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults) {
-        calls.add("project " + projectKey + " " + startAt + " " + maxResults);
-        fail();
-        return new JiraSearchPage(projectResults.stream().skip(startAt).limit(maxResults).toList(), startAt,
-                projectResults.size());
     }
 
     @Override

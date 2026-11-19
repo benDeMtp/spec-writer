@@ -57,13 +57,13 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement. N
 
 ## Phase 1: Setup
 
-- [ ] T001 Ajouter `io.quarkus:quarkus-scheduler` sans version (BOM) dans `backend/pom.xml`.
+- [X] T001 Ajouter `io.quarkus:quarkus-scheduler` sans version (BOM) dans `backend/pom.xml`.
   - Fixer `%test.quarkus.scheduler.enabled=false` dans `BR/application.properties`.
   - Fixer la configuration du profil `%e2e` : `specwriter.knowledge.auto-sync.every=2s`,
     `specwriter.knowledge.auto-sync.delayed=1s` et `specwriter.knowledge.auto-sync.minute=1s`.
   - Défauts : `every=30s`, `delayed=10s`, `minute=1m`.
   - `quarkus_restart` si le dev mode tourne.
-- [ ] T002 Écrire la migration `BR/db/migration/V28__source_sync.sql` (data-model.md) :
+- [X] T002 Écrire la migration `BR/db/migration/V28__source_sync.sql` (data-model.md) :
   - table `source_sync`, clé primaire `(project_id, source_key)` ;
   - `project_id` : FK `project(id)` ON DELETE CASCADE ;
   - `interval_minutes` : NULL ou ∈ {15, 30, 60, 240, 1440} par `CHECK` ;
@@ -106,7 +106,7 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement. N
   - Les décomptes viennent des écritures dans l'index : `retain` et `replaceSource` pour la
     documentation, `TicketSummary` pour Jira, empreintes pour l'architecture.
   - Fichier : `BM/application/knowledge/SynchronizeKnowledge.java` (T005 au vert).
-- [ ] T008 Accepter une liste de sources en mode INCREMENTAL dans `Indexations.start(projectId, mode, sources)` :
+- [X] T008 Accepter une liste de sources en mode INCREMENTAL dans `Indexations.start(projectId, mode, sources)` :
   - retirer le refus `mode != FULL` ;
   - l'incrémental se limite à la portée choisie ;
   - test dans `BT/application/knowledge/IndexationsTest.java` : une liste en INCREMENTAL ne relit
@@ -130,19 +130,19 @@ incrémental source par source est possible.
 
 ### Tests US1 (écrits d'abord)
 
-- [ ] T009 [P] [US1] Tests unitaires de `IssueSort` dans `BT/domain/jira/IssueSortTest.java` :
+- [X] T009 [P] [US1] Tests unitaires de `IssueSort` dans `BT/domain/jira/IssueSortTest.java` :
   - défaut `UPDATED DESC` ;
   - analyse de `sort` ∈ {updated, status, sync} et de `dir` ∈ {asc, desc}, toute autre valeur
     rejetée (`INVALID_SORT`) ;
   - rangs de statut : `new` 0, `indeterminate` 1, `done` 2, autre 3 ;
   - rangs de synchro : `CONFLICT` 0, `LOCAL_AHEAD` 1, `IN_SYNC` 2, `UNLINKED` 3.
-- [ ] T010 [P] [US1] Tests unitaires de `ListProjectIssues` (nouvelle version) dans
+- [X] T010 [P] [US1] Tests unitaires de `ListProjectIssues` (nouvelle version) dans
   `BT/application/jira/ListProjectIssuesTest.java`, avec des doubles de `ListedIssues` et de
   `SourceSyncRepository` :
   - 409 `JIRA_NOT_CONFIGURED` si le projet n'a pas de clé Jira ;
   - `lastSync` vide tant que Jira n'a jamais été synchronisé ;
   - `size` hors de 1 à 100 rejetée.
-- [ ] T011 [P] [US1] IT de persistance `BT/infrastructure/knowledge/SqliteListedIssuesIT.java`
+- [X] T011 [P] [US1] IT de persistance `BT/infrastructure/knowledge/SqliteListedIssuesIT.java`
   (`@QuarkusTest @Isolated`) :
   - 2 000 tickets générés, chaque tri dans les deux sens ;
   - critères secondaires stables : nom du statut, puis clé ;
@@ -150,7 +150,7 @@ incrémental source par source est possible.
   - tickets d'un autre projet exclus ;
   - durée de chaque page sous 1 s (SC-001) ;
   - nettoyer le projet créé.
-- [ ] T012 [P] [US1] IT web `BT/infrastructure/web/ProjectIssuesResourceIT.java` :
+- [X] T012 [P] [US1] IT web `BT/infrastructure/web/ProjectIssuesResourceIT.java` :
   - forme de la réponse (contracts/rest-api.md) ;
   - 400 sur tri invalide ;
   - 404 sur projet inconnu ;
@@ -159,26 +159,26 @@ incrémental source par source est possible.
 
 ### Implémentation US1
 
-- [ ] T013 [P] [US1] Créer `BM/domain/jira/IssueSort.java` et `BM/domain/jira/ListedIssue.java` (data-model.md).
-- [ ] T014 [P] [US1] Créer le port `BM/domain/port/ListedIssues.java` : `page(projectId, jiraKey, IssueSort, offset, limit)` et `count(projectId, jiraKey)`.
-- [ ] T015 [US1] Écrire l'adaptateur `BM/infrastructure/knowledge/SqliteListedIssues.java`, une
+- [X] T013 [P] [US1] Créer `BM/domain/jira/IssueSort.java` et `BM/domain/jira/ListedIssue.java` (data-model.md).
+- [X] T014 [P] [US1] Créer le port `BM/domain/port/ListedIssues.java` : `page(projectId, jiraKey, IssueSort, offset, limit)` et `count(projectId, jiraKey)`.
+- [X] T015 [US1] Écrire l'adaptateur `BM/infrastructure/knowledge/SqliteListedIssues.java`, une
   requête native SQLite (research.md R1) :
   - tickets `kind = TICKET`, morceau 0, joints à gauche à `linked_jira_ticket` ;
   - `ORDER BY` construit à partir des seuls rangs de `IssueSort`, sans texte venu de l'URL ;
   - lecture `@Transactional`.
-- [ ] T016 [US1] Créer le port `BM/domain/port/SourceSyncRepository.java` (data-model.md) et son
+- [X] T016 [US1] Créer le port `BM/domain/port/SourceSyncRepository.java` (data-model.md) et son
   adaptateur `BM/infrastructure/persistence/SourceSyncSqliteRepository.java`. US1 n'en lit que le
   dernier bilan de `jira` ; US2 le complète.
-- [ ] T017 [US1] Réécrire `BM/application/jira/ListProjectIssues.java` sur `ListedIssues` et
+- [X] T017 [US1] Réécrire `BM/application/jira/ListProjectIssues.java` sur `ListedIssues` et
   `SourceSyncRepository` (T010 au vert).
   - Le câbler dans `BM/infrastructure/config/UseCaseProducer.java`.
   - Retirer la lecture de Jira en direct et le code devenu mort du client Jira, après vérification
     par `grep` qu'aucun outil MCP ne l'appelle.
-- [ ] T018 [US1] Remplacer le point d'accès :
+- [X] T018 [US1] Remplacer le point d'accès :
   - créer `BM/infrastructure/web/ProjectIssuesResource.java`, `GET /api/projects/{projectId}/jira-issues`
     (T012 au vert) ;
   - supprimer `BM/infrastructure/web/JiraProjectIssuesResource.java` et ses tests.
-- [ ] T019 [P] [US1] Tests Vitest dans `FE/features/jira-issues/jira-issues.page.spec.ts` :
+- [X] T019 [P] [US1] Tests Vitest dans `FE/features/jira-issues/jira-issues.page.spec.ts` :
   - colonnes Ticket, Titre, Statut, Modifié le, Synchro, Spécification ;
   - un clic sur un en-tête met `tri`, `ordre` et `page=1` dans l'URL ;
   - `aria-sort` sur la colonne active seulement ;
@@ -187,7 +187,7 @@ incrémental source par source est possible.
   - invitation à synchroniser si `lastSync` est `null` ;
   - le bouton « Resynchroniser Jira » appelle `POST indexations` avec
     `{ mode: 'INCREMENTAL', sources: ['jira'] }`.
-- [ ] T020 [US1] Front :
+- [X] T020 [US1] Front :
   - `FE/core/jira/jira.api.ts` : remplacer `projectIssues(key, startAt)` par
     `issues(projectId, sort, dir, startAt)`.
   - `FE/features/jira-issues/jira-issues.page.ts` :
@@ -197,12 +197,12 @@ incrémental source par source est possible.
     - après la resynchronisation, suivi de `indexations/current` puis rechargement.
 
   (T019 au vert)
-- [ ] T021 [US1] E2E `e2e/tests/us17-synchro.spec.ts`, tests J1 et J2 :
+- [X] T021 [US1] E2E `e2e/tests/us17-synchro.spec.ts`, tests J1 et J2 :
   - J1 : tri par Statut puis Synchro sur les tickets WireMock ; le tri est conservé après un
     changement de page et un retour ; `aria-sort` ; `expectNoA11yViolations`.
   - J2 : compteur WireMock de `/rest/api/2/search.*` inchangé pendant les tris.
   - Adapter les E2E existants qui visitent la vue (`grep -rn "Tickets Jira" e2e/tests`).
-- [ ] T022 [US1] Lancer les gates, puis commiter `feat(jira): vue des tickets triée depuis l'index local`.
+- [X] T022 [US1] Lancer les gates, puis commiter `feat(jira): vue des tickets triée depuis l'index local`.
 
 **Checkpoint** : US1 livrable seule.
 

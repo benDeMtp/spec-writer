@@ -65,21 +65,14 @@ public class Indexations {
     }
 
     /**
-     * Réindexation des seules sources choisies (005, US2) ; {@code null} pour toutes. Une liste n'est
-     * acceptée qu'en indexation complète : forcer la relecture d'une source, c'est la relire entière.
+     * Indexation des seules sources choisies ; {@code null} pour toutes. En mode complet, c'est la
+     * réindexation par source de la 005 ; en incrémental, la synchronisation d'une source (017, FR-009).
      */
     public Snapshot start(UUID projectId, Mode mode, List<String> sources) {
         if (projects.find(projectId).isEmpty()) {
             throw new DomainException(ErrorCode.PROJECT_NOT_FOUND);
         }
-        IndexationScope scope = IndexationScope.ALL;
-        if (sources != null) {
-            if (mode != Mode.FULL) {
-                throw new DomainException(ErrorCode.VALIDATION_FAILED,
-                        "Des sources choisies se réindexent entièrement : mode FULL.");
-            }
-            scope = synchronize.scope(projectId, sources);
-        }
+        IndexationScope scope = sources == null ? IndexationScope.ALL : synchronize.scope(projectId, sources);
         purge();
         Indexation indexation = new Indexation(projectId, mode, scope, sources == null ? null : List.copyOf(sources),
                 clock.now());

@@ -49,13 +49,6 @@ public interface IssueTracker {
      */
     JiraSearchPage searchText(JiraEndpoint endpoint, String projectKey, String terms, int startAt, int maxResults);
 
-    /**
-     * Une page des tickets d'un projet, du plus récemment modifié au plus ancien ({@code search}, JQL
-     * {@code project = X ORDER BY updated DESC}, champs {@code summary,status,issuetype,updated}),
-     * avec le total annoncé par Jira (FR-020, FR-021 de 002).
-     */
-    JiraSearchPage projectIssues(JiraEndpoint endpoint, String projectKey, int startAt, int maxResults);
-
     /** Lecture d'un ticket ({@code issue/{key}}, champs {@code summary,description,updated}). */
     JiraIssue getIssue(JiraEndpoint endpoint, String issueKey);
 
