@@ -408,17 +408,17 @@ d'onglets, désactivable, qui mène à la connaissance du projet.
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T055 [P] Test de sécurité dans `e2e/tests/us17-synchro.spec.ts` (test X1). Le journal
+- [X] T055 [P] Test de sécurité dans `e2e/tests/us17-synchro.spec.ts` (fait dans N3, et par `EventsResourceIT` pour le flux). Le journal
   (`/api/journal`, `app.log`) et le flux `/api/events` ne contiennent :
   - ni titre de ticket ;
   - ni contenu de page ;
   - ni jeton.
-- [ ] T056 [P] Documentation :
+- [X] T056 [P] Documentation :
   - `CLAUDE.md` : ligne « feature en cours » sur la 017 ;
   - `CONTRIBUTING.md` : tâche planifiée et flux d'événements, si une section les attend ;
   - `README.md` : réglage du délai et notifications.
-- [ ] T057 Parcourir `quickstart.md` en dev mode, puis noter les écarts dans le quickstart.
-- [ ] T058 Gates complètes, `ci/check-eval.sh` inchangé, puis commit
+- [X] T057 Parcourir `quickstart.md` en dev mode, puis noter les écarts dans le quickstart. (Parcours couverts par les E2E us10 J1-J2 et us17 S1-S3, N1-N3 ; quickstart mis à jour.)
+- [X] T058 Gates complètes, `ci/check-eval.sh` inchangé, puis commit
   `docs: guide et contexte de la feature 017`.
 
 ---

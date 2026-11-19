@@ -25,7 +25,7 @@ Attendu :
 4. Changer de page, quitter la vue, y revenir : le tri est conservé.
 
 5. Contrôle SC-002 : avec WireMock, `POST /__admin/requests/count` sur `/rest/api/2/search.*`
-   reste inchangé pendant les tris et les changements de page.
+   reste inchangé pendant les tris et les changements de page (E2E `us10` J2).
 
 ## 2. Synchronisation automatique par source (US2)
 
@@ -71,6 +71,9 @@ Attendu, en moins de 10 s : une notification « Jira « SW » mise à jour », �
 5. Resynchroniser sans changement : aucune notification. Désactiver : plus aucune notification.
 6. Refuser la permission (réglages du site) puis réactiver : message expliquant comment l'accorder,
    réglage non enregistré.
+
+Ces parcours sont automatisés : `e2e/tests/us10-jira-paging.spec.ts` (J1, J2) et
+`e2e/tests/us17-synchro.spec.ts` (S1 à S3, N1 à N3).
 
 ## 4. Gates
 

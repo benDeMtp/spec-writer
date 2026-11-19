@@ -1,7 +1,11 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/016-confluence-fiabilite-sources/` (Confluence Server / Data
+La feature en cours est `specs/017-synchro-auto-sources/` (vue Jira lue dans l'index et triée par
+date, statut ou état de synchro ; délai de synchronisation automatique par source, réveil par
+quarkus-scheduler, bilan de chaque source par différence d'empreintes ; notification du navigateur
+des sources mises à jour, flux SSE `/api/events`, un seul onglet), après
+`specs/016-confluence-fiabilite-sources/` (Confluence Server / Data
 Center comme source de documentation : racines et toute leur descendance, réindexation par numéro
 de version ; source, date et fiabilité de chaque extrait transmis au modèle ; niveaux référence,
 interprétation, à confirmer ; places réservées aux références ; rubrique « Écarts entre
@@ -89,6 +93,8 @@ dev mode ne remplace aucune gate. Le jar de `backend/target/quarkus-app` est rec
   qui précède un commit, et couvrir `domain` et `application` par des tests unitaires.
 - E2E : `JAVA_HOME` 25 doit aussi être en tête du `PATH` (`export PATH=$JAVA_HOME/bin:$PATH`),
   sinon le jar s'arrête au démarrage.
+- Synchronisation automatique (017) : coupée en `%test` (`quarkus.scheduler.enabled=false`) ; en
+  `%e2e`, une minute de délai vaut une seconde et le réveil passe toutes les 2 s.
 - Profil `live` (`-Dquarkus.profile=dev,live`) : vrai Copilot et vrai trousseau. Il est réservé
   aux essais manuels du mainteneur.
 
