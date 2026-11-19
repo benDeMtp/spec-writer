@@ -27,22 +27,23 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   }
 
   const java = process.env.JAVA_HOME ? join(process.env.JAVA_HOME, 'bin', 'java') : 'java';
-  const wiremock = spawn(java, ['-jar', wiremockJar, '--bind-address', '127.0.0.1', '--port', String(jiraPort),
-    '--root-dir', join(process.cwd(), 'fixtures', 'jira'), '--disable-banner', '--verbose'], { stdio: ['ignore', 'pipe', 'pipe'] });
-  const wiremockLog = createWriteStream(join(stateDir, 'wiremock.log'));
-  wiremock.stdout!.pipe(wiremockLog);
-  wiremock.stderr!.pipe(wiremockLog);
-
+  let wiremock: ReturnType<typeof spawn> | null = null;
   const teardown = async () => {
     await stopApp();
-    wiremock.kill('SIGTERM');
+    wiremock?.kill('SIGTERM');
   };
 
   try {
     const started = Date.now();
     const launchUrl = await startApp();
-    // durée du lancement jusqu'à /q/health/ready, vérifiée par startup.spec.ts (SC-007)
+    // durée du lancement jusqu'à /q/health/ready, vérifiée par startup.spec.ts (SC-007) ; WireMock
+    // démarre ensuite, pour que sa JVM ne dispute pas le processeur à celle mesurée (CI à 2 cœurs)
     writeFileSync(join(stateDir, 'startup-ms'), String(Date.now() - started));
+    wiremock = spawn(java, ['-jar', wiremockJar, '--bind-address', '127.0.0.1', '--port', String(jiraPort),
+      '--root-dir', join(process.cwd(), 'fixtures', 'jira'), '--disable-banner', '--verbose'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const wiremockLog = createWriteStream(join(stateDir, 'wiremock.log'));
+    wiremock.stdout!.pipe(wiremockLog);
+    wiremock.stderr!.pipe(wiremockLog);
     await waitFor(`${jiraURL}/__admin/health`);
     await exchange(launchUrl);
     writeFileSync(join(stateDir, 'ready'), new Date().toISOString());
