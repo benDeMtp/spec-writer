@@ -137,5 +137,41 @@ test.describe.serial('021 interview d’une spécification', () => {
     await page.locator('section[aria-labelledby="interviews-title"]').getByRole('link', { name: 'Compte rendu' }).click();
     await expect(page.getByText('Version 2 appliquée.')).toBeVisible();
   });
+
+  test('V4 : une hypothèse rattachée se relit sur son élément', async () => {
+    let session = await (
+      await page.request.post('/api/sessions', {
+        headers,
+        data: { need: 'E2E-ANCRES Les employés doivent pouvoir réserver une salle de réunion depuis leur poste.' },
+      })
+    ).json();
+    const id = session.id;
+    while (session.currentBatch.length) {
+      const q = session.currentBatch[0];
+      session = await (
+        await page.request.put(`/api/sessions/${id}/questions/${q.id}/answer`, {
+          headers,
+          data: { value: q.defaultValue ?? q.suggestions[0] ?? 'Oui' },
+        })
+      ).json();
+    }
+    expect((await page.request.post(`/api/sessions/${id}/versions`, { headers })).status()).toBe(201);
+
+    // la spécification affiche l'élément de l'hypothèse, avec un lien qui y mène
+    await page.goto(`/sessions/${id}/versions/1`);
+    const element = page.locator('section[aria-labelledby="assumptions"] a.element');
+    await expect(element).toHaveText('UC-01, étape 1');
+    await element.click();
+    await expect(page.locator('#UC-01-etape-1')).toBeFocused();
+
+    // la séance la présente sur l'étape, pas dans « Non rattachés »
+    await page.getByRole('button', { name: /^Faire le point/ }).click();
+    await expect(page).toHaveURL(/\/seances\/[0-9a-f-]+$/);
+    await page.keyboard.press('n');
+    const current = page.locator('[aria-current="step"]');
+    await expect(current.locator('.label')).toHaveText('UC-01, étape 1');
+    await expect(current).toContainText('Hypothèse H-01');
+    await expect(page.getByText('Non rattachés')).toHaveCount(0);
+  });
 });
 

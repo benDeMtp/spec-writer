@@ -77,8 +77,9 @@ public final class EvalRuns {
     }
 
     /** Résultat d'un besoin pour une exécution. */
+    /** {@code points} et {@code anchored} : hypothèses du modèle et écarts, et ceux qui sont rattachés (021). */
     public record CaseRun(String caseName, int run, List<Asked> questions, int scenarios, List<String> violations,
-            String error, StoryJudge.Verdict story) {
+            String error, StoryJudge.Verdict story, int points, int anchored) {
 
         /** 015 (SC-007) : énoncé présent et jugé conforme ; une génération en échec n'en a pas. */
         boolean storyConform() {
@@ -215,6 +216,7 @@ public final class EvalRuns {
             conversation.put(metric, round(TaskRuns.score(tasks, metric, runs)));
         }
         conversation.put(EvalBaseline.STORY_STATEMENT, round(storyScore(all, runs)));
+        conversation.put(EvalBaseline.ANCHORED_RATE, round(anchoredRate(all)));
         conversation.put(EvalBaseline.SOURCE_CONFLICT_FLAGGED, round(SourceRuns.conflictScore(sources, runs)));
         conversation.put(EvalBaseline.REFERENCE_RETAINED, round(SourceRuns.retainedScore(sources, runs)));
         Result out = new Result(relevance, structure, readBaseline(), all, conversation, conversations, discussions,
@@ -252,6 +254,8 @@ public final class EvalRuns {
         List<String> violations = List.of();
         String error = null;
         UserStory story = null;
+        int points = 0;
+        int anchored = 0;
         try {
             SessionSnapshot s = new StartSession(sessions, new InMemoryProjects(), llm, policy, clock, ids)
                     .run(need, null);
@@ -271,6 +275,12 @@ public final class EvalRuns {
             scenarios = content.scenarios().size();
             story = content.story();
             violations = ScenarioStructureValidator.validate(content).messages();
+            // 021 (R1) : les hypothèses ajoutées d'office pour une question passée n'ont pas d'élément
+            var inferred = content.assumptions().stream()
+                    .filter(a -> a.origin() == fr.kawamind.domain.specification.Assumption.Origin.TOOL_INFERENCE).toList();
+            points = inferred.size() + content.sourceDeviations().size();
+            anchored = (int) (inferred.stream().filter(a -> a.anchor() != null).count()
+                    + content.sourceDeviations().stream().filter(d -> d.anchor() != null).count());
         } catch (DomainException e) {
             // une sortie inexploitable compte contre la qualité ; un compte non connecté, un quota
             // épuisé ou un CLI absent arrêtent l'évaluation, sans écrire de résultat
@@ -282,7 +292,14 @@ public final class EvalRuns {
         List<Asked> judged = asked.isEmpty() ? asked : new QuestionJudge(gateway, model.orElse(null)).judge(need, asked);
         StoryJudge.Verdict verdict = error != null ? null
                 : new StoryJudge(gateway, model.orElse(null)).judge(need, asked, story);
-        return new CaseRun(name, run, judged, scenarios, violations, error, verdict);
+        return new CaseRun(name, run, judged, scenarios, violations, error, verdict, points, anchored);
+    }
+
+    /** 021 (US4) : part des hypothèses et écarts rattachés à un élément ; 1 sans aucun point. */
+    static double anchoredRate(List<CaseRun> all) {
+        int points = all.stream().mapToInt(CaseRun::points).sum();
+        int anchored = all.stream().mapToInt(CaseRun::anchored).sum();
+        return points == 0 ? 1.0 : (double) anchored / points;
     }
 
     static List<Path> cases() {

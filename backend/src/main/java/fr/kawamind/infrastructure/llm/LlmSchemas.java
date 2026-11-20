@@ -129,6 +129,7 @@ final class LlmSchemas {
                     .addStringProperty("referenceRef")
                     .addStringProperty("interpretationRef")
                     .addStringProperty("difference")
+                    .addStringProperty("anchor")
                     .build()));
         }
         if (revision) {
@@ -137,6 +138,7 @@ final class LlmSchemas {
                     .addStringProperty("question")
                     .addStringProperty("owner")
                     .addStringProperty("fromCode")
+                    .addStringProperty("anchor")
                     .build()));
         }
         return out.build();
@@ -150,6 +152,8 @@ final class LlmSchemas {
         if (revision) {
             out.addStringProperty("fromCode");
         }
+        // 021 (R1) : l'élément concerné, en chaîne courte (USE_CASE:1:4) pour ménager la grammaire
+        out.addStringProperty("anchor");
         return out.build();
     }
 

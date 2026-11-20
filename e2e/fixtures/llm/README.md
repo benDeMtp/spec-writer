@@ -72,6 +72,9 @@ l'entrée la plus proche, les fragments manquants. Le journal du jar E2E
 
 ## Fixtures de la 021
 
+- `00b-ancres-questions.json` et `00c-ancres-specification.json` : besoin marqué `E2E-ANCRES` ; la
+  génération rend une hypothèse rattachée à l'étape 1 du premier use case (`"anchor":
+  "USE_CASE:0:1"`), que la séance place sur son élément (`us21-interview.spec.ts`, V4).
 - `47c-revise-seance.json` : révision d'après une séance (`us21-interview.spec.ts`, V3), reconnue
   au message de séance (« Décisions à intégrer »). La version garde l'étape modifiée, cite la
   séance (`__DISCUSSION_1__`) et ne reprend pas l'hypothèse confirmée ; la question reportée est

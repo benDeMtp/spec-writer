@@ -58,6 +58,8 @@ public record EvalBaseline(double tolerance, Map<String, Double> minimum, Map<St
     public static final String REFERENCE_RETAINED = "referenceRetained";
     /** 021 (FR-015) : révisions de séance dont les points tranchés sont retirés et les reportés ajoutés. */
     public static final String DECIDED_REMOVED = "decidedRemoved";
+    /** 021 (US4) : hypothèses et écarts générés rattachés à un élément de la spécification. */
+    public static final String ANCHORED_RATE = "anchoredRate";
 
     private static final double EPSILON = 1e-9;
 

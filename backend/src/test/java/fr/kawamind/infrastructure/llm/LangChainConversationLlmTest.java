@@ -283,7 +283,7 @@ class LangChainConversationLlmTest {
         assertThat(model.received().getFirst().system()).doesNotContain(trap);
         assertThat(revision.draft().assumptions().getFirst().fromCode()).isEqualTo("H-03");
         assertThat(revision.draft().openQuestions()).containsExactly(
-                new fr.kawamind.domain.llm.DraftSpecification.DraftOpenQuestion("Qui valide ?", "Paul D.", ""));
+                new fr.kawamind.domain.llm.DraftSpecification.DraftOpenQuestion("Qui valide ?", "Paul D.", "", null));
     }
 
     @Test

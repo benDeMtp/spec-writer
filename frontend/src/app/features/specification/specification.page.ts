@@ -37,6 +37,7 @@ import {
   Language,
   LinkedTicket,
   SessionDetail,
+  SpecAnchor,
   Specification,
   SyncState,
   UseCase,
@@ -427,7 +428,7 @@ export function storyParts(
                       <dd>
                         <ol>
                           @for (step of uc.nominalFlow; track $index) {
-                            <li>{{ step }}</li>
+                            <li [id]="uc.code + '-etape-' + ($index + 1)">{{ step }}</li>
                           }
                         </ol>
                       </dd>
@@ -436,7 +437,7 @@ export function storyParts(
                         <dd>
                           <ul>
                             @for (a of uc.alternatives; track $index) {
-                              <li>{{ a }}</li>
+                              <li [id]="uc.code + '-alternative-' + ($index + 1)">{{ a }}</li>
                             }
                           </ul>
                         </dd>
@@ -482,7 +483,13 @@ export function storyParts(
                   <ul class="assumptions">
                     @for (h of v.assumptions; track h.code) {
                       <li>
-                        <span class="code">{{ h.code }}</span> {{ h.statement }}
+                        <span class="code">{{ h.code }}</span>
+                        @if (h.anchor; as a) {
+                          <a class="element" [href]="'#' + anchorTarget(a)" (click)="goToAnchor($event, a)"
+                            >{{ anchorLabel(a) }}</a
+                          >
+                        }
+                        {{ h.statement }}
                       </li>
                     }
                   </ul>
@@ -497,7 +504,13 @@ export function storyParts(
                   <ul class="assumptions">
                     @for (q of v.openQuestions; track q.code) {
                       <li>
-                        <span class="code">{{ q.code }}</span> {{ q.question }}
+                        <span class="code">{{ q.code }}</span>
+                        @if (q.anchor; as a) {
+                          <a class="element" [href]="'#' + anchorTarget(a)" (click)="goToAnchor($event, a)"
+                            >{{ anchorLabel(a) }}</a
+                          >
+                        }
+                        {{ q.question }}
                         @if (q.owner || q.due) {
                           <span class="who"
                             >({{ q.owner ? 'responsable : ' + q.owner : ''
@@ -514,7 +527,7 @@ export function storyParts(
                 <h2 id="functional">Exigences fonctionnelles</h2>
                 <ul>
                   @for (r of functional(); track r.code) {
-                    <li>
+                    <li [id]="r.code">
                       <span class="code">{{ r.code }}</span> {{ r.statement }}
                     </li>
                   } @empty {
@@ -526,7 +539,7 @@ export function storyParts(
                 <h2 id="technical">Exigences techniques</h2>
                 <ul>
                   @for (r of technical(); track r.code) {
-                    <li>
+                    <li [id]="r.code">
                       <span class="code">{{ r.code }}</span> {{ r.statement }}
                     </li>
                   } @empty {
@@ -957,6 +970,10 @@ export function storyParts(
     .who {
       color: var(--sw-ink-soft);
     }
+    .element {
+      margin-right: 0.25rem;
+      font-size: 0.875em;
+    }
     .implementation {
       display: flex;
       flex-wrap: wrap;
@@ -1198,6 +1215,35 @@ export class SpecificationPage {
   /** Petit écran : le panneau est sous le document ; le focus revient à sa saisie. */
   protected backToDiscussion(): void {
     this.discussionPanel()?.focus();
+  }
+
+  /** « UC-02, étape 4 », « UC-02, alternative 1 », « Résumé », « EF-03 » (021, R1). */
+  protected anchorLabel(a: SpecAnchor): string {
+    if (a.element === 'SUMMARY') {
+      return 'Résumé';
+    }
+    return a.step == null ? a.element : `${a.element}, ${a.alternative ? 'alternative' : 'étape'} ${a.step}`;
+  }
+
+  /** Identifiant HTML de l'élément d'un point : l'étape, le scénario, l'exigence ou le résumé. */
+  protected anchorTarget(a: SpecAnchor): string {
+    if (a.element === 'SUMMARY') {
+      return 'summary';
+    }
+    if (a.element.startsWith('SC-')) {
+      return `sc-${a.element}`;
+    }
+    if (a.step != null) {
+      return `${a.element}-${a.alternative ? 'alternative' : 'etape'}-${a.step}`;
+    }
+    return a.element;
+  }
+
+  /** Mène à l'élément du point, dans la page, focus compris. */
+  protected goToAnchor(event: Event, a: SpecAnchor): void {
+    if (this.showSection(`/sessions/${this.id()}/versions/${this.n()}#${this.anchorTarget(a)}`)) {
+      event.preventDefault();
+    }
   }
 
   /** « 2026-11-27 » devient « 27/11/2026 ». */

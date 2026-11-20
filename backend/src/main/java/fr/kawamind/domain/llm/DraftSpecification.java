@@ -106,7 +106,11 @@ public record DraftSpecification(
      * Écart entre une source de référence et une interprétation (016, R8) : les deux références
      * citées, telles que transmises, et ce qui diffère.
      */
-    public record DraftSourceDeviation(String referenceRef, String interpretationRef, String difference) {
+    public record DraftSourceDeviation(String referenceRef, String interpretationRef, String difference, String anchor) {
+
+        public DraftSourceDeviation(String referenceRef, String interpretationRef, String difference) {
+            this(referenceRef, interpretationRef, difference, "");
+        }
     }
 
     /** {@code kind} : NOMINAL, ERROR ou EDGE. */
@@ -128,13 +132,22 @@ public record DraftSpecification(
     }
 
     /**
+     * Ancre d'un point (021, contracts/llm-output.md), en chaîne courte pour ménager la grammaire du
+     * schéma strict : {@code SUMMARY}, {@code USE_CASE:i}, {@code USE_CASE:i:n} (étape n du
+     * déroulement), {@code USE_CASE:i:An} (alternative n), {@code SCENARIO:i}, {@code REQUIREMENT:i} ;
+     * {@code i} : position dans cette sortie, à partir de 0 ; vide sans rattachement.
+     *
      * {@code origin} : SKIPPED_QUESTION ou TOOL_INFERENCE ; {@code questionId} vide si sans objet ;
      * {@code fromCode} (révision, 021) : code de l'hypothèse dans la version de base, vide si nouvelle.
      */
-    public record DraftAssumption(String statement, String origin, String questionId, String fromCode) {
+    public record DraftAssumption(String statement, String origin, String questionId, String fromCode, String anchor) {
 
         public DraftAssumption(String statement, String origin, String questionId) {
-            this(statement, origin, questionId, "");
+            this(statement, origin, questionId, "", "");
+        }
+
+        public DraftAssumption(String statement, String origin, String questionId, String fromCode) {
+            this(statement, origin, questionId, fromCode, "");
         }
     }
 
@@ -142,7 +155,11 @@ public record DraftSpecification(
      * Point ouvert (révision, 021, contracts/llm-output.md) : une question que la révision laisse en
      * suspens ; {@code fromCode} : son code dans la version de base, vide si nouvelle.
      */
-    public record DraftOpenQuestion(String question, String owner, String fromCode) {
+    public record DraftOpenQuestion(String question, String owner, String fromCode, String anchor) {
+
+        public DraftOpenQuestion(String question, String owner, String fromCode) {
+            this(question, owner, fromCode, "");
+        }
     }
 
     /** {@code category} : FUNCTIONAL ou TECHNICAL. */

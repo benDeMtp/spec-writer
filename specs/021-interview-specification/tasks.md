@@ -373,31 +373,33 @@ une ancre pour chaque hypothèse, écart et point ouvert. Chaque point s'affiche
 
 ### Tests US4
 
-- [ ] T061 [P] [US4] Ajouter à `BT/domain/specification/IdentifierAssignerTest.java` :
+- [X] T061 [P] [US4] Ajouter à `BT/domain/specification/IdentifierAssignerTest.java` :
   - `DraftAnchor(USE_CASE, 1, 4, false)` devient `Anchor("UC-02", 4, false)` ;
   - le scénario par position devient `SC-…`, l'exigence par position `EF-…` ou `ET-…`, `SUMMARY`
     reste `SUMMARY` ;
   - une position ou une étape hors limites donne une ancre nulle, sans violation.
-- [ ] T062 [P] [US4] Ajouter à `BT/domain/specification/MarkdownRendererTest.java` : chaque
+- [X] T062 [P] [US4] Ajouter à `BT/domain/specification/MarkdownRendererTest.java` : chaque
   hypothèse, écart et point ouvert rattaché affiche son élément (« UC-02, étape 4 »).
-- [ ] T063 [P] [US4] Ajouter à `F/features/specification/specification.page.spec.ts` : chaque point
+- [X] T063 [P] [US4] Ajouter à `F/features/specification/specification.page.spec.ts` : chaque point
   affiche son élément avec un lien qui y mène (ancre HTML de l'étape).
 
 ### Implémentation US4
 
-- [ ] T064 [US4] Ajouter `DraftAnchor` à `DraftSpecification`, puis la traduction dans
+- [X] T064 [US4] Ajouter `DraftAnchor` à `DraftSpecification`, puis la traduction dans
   `IdentifierAssigner`, le retrait des ancres invalides et le schéma `LlmSchemas` (anchor sur les
   hypothèses, les écarts et les points ouverts). Faire passer T061.
-- [ ] T065 [US4] Décrire l'ancre dans `R/prompts/generate-specification.txt`,
+- [X] T065 [US4] Décrire l'ancre dans `R/prompts/generate-specification.txt`,
   `revise-specification.txt`, `edit-specification.txt`, `structure-imported-text.txt` et
   `merge-conflict.txt`, avec un exemple court par consigne, sans toucher au reste du format.
-- [ ] T066 [US4] Afficher l'élément de chaque point dans `MarkdownRenderer` et sur la page de la
+- [X] T066 [US4] Afficher l'élément de chaque point dans `MarkdownRenderer` et sur la page de la
   spécification, avec des ancres HTML sur les étapes. Faire passer T062 et T063.
-- [ ] T067 [US4] Mettre à jour les rejeux LLM existants qui produisent des hypothèses
+- [X] T067 [US4] Mettre à jour les rejeux LLM existants qui produisent des hypothèses
   (`e2e/fixtures/llm/*-specification.json`, révisions et éditions), avec leurs ancres. Ajouter le
   critère `anchoredRate` ≥ 0,90 à `BT/eval/SpecificationStructureEval.java`, puis mettre à jour
   `backend/src/test/resources/eval/baseline.json`.
-- [ ] T068 [US4] E2E `us21-interview.spec.ts` (V4) :
+  *Aucun rejeu existant ne rend d'hypothèse du modèle : rien à mettre à jour ; les rejeux
+  `00b-` et `00c-ancres-` servent V4.*
+- [X] T068 [US4] E2E `us21-interview.spec.ts` (V4) :
   - une spécification générée affiche ses hypothèses rattachées, que la séance place sur leur
     élément ;
   - une spécification sans ancres présente ses points dans « Non rattachés ».

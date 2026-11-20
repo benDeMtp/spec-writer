@@ -192,8 +192,8 @@ public final class MarkdownRenderer {
         if (spec.assumptions().isEmpty()) {
             md.append(l.none()).append("\n\n");
         } else {
-            spec.assumptions().forEach(a -> md.append("- **").append(a.code()).append("**" + l.colon())
-                    .append(escape(a.statement())).append('\n'));
+            spec.assumptions().forEach(a -> md.append("- **").append(a.code()).append("**")
+                    .append(element(a.anchor(), language)).append(l.colon()).append(escape(a.statement())).append('\n'));
             md.append('\n');
         }
         openQuestions(md, spec.openQuestions(), language, l);
@@ -210,6 +210,11 @@ public final class MarkdownRenderer {
         return md.toString().stripTrailing() + "\n";
     }
 
+    /** « (UC-02, étape 4) » après le code d'un point rattaché (021, R1) ; rien sans ancre. */
+    private static String element(Anchor anchor, Language language) {
+        return anchor == null ? "" : " (" + anchor.label(language) + ")";
+    }
+
     /**
      * Points ouverts (021, FR-015) : questions laissées en suspens, avec leur responsable et leur
      * échéance ; omise sans point ouvert.
@@ -221,7 +226,8 @@ public final class MarkdownRenderer {
         boolean en = language == Language.EN;
         md.append("## ").append(en ? OPEN_EN : OPEN_FR).append("\n\n");
         for (OpenQuestion q : questions) {
-            md.append("- **").append(q.code()).append("**" + l.colon()).append(escape(q.question()));
+            md.append("- **").append(q.code()).append("**").append(element(q.anchor(), language)).append(l.colon())
+                    .append(escape(q.question()));
             List<String> who = new java.util.ArrayList<>();
             if (q.owner() != null && !q.owner().isBlank()) {
                 who.add((en ? "owner: " : "responsable : ") + escape(q.owner()));
@@ -367,6 +373,10 @@ public final class MarkdownRenderer {
                     .append(cited(d.interpretation(), sl)).append('\n');
             md.append("  - ").append(sl.difference()).append(l.colon()).append(escape(d.difference(), "    "))
                     .append('\n');
+            if (d.anchor() != null) {
+                md.append("  - ").append(l == EN ? "Element" : "Élément").append(l.colon())
+                        .append(d.anchor().label(l == EN ? Language.EN : Language.FR)).append('\n');
+            }
         }
         md.append('\n');
     }

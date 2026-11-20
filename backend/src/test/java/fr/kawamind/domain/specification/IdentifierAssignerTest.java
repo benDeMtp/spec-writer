@@ -43,6 +43,35 @@ class IdentifierAssignerTest {
     }
 
     @Test
+    void ancresTraduitesEnCodesEtAncresInvalidesRetireesSansViolation() {
+        DraftSource need = new DraftSource("NEED_EXCERPT", "", "payer");
+        DraftUseCase second = new DraftUseCase("Rembourser", "client", "rembourser", List.of(),
+                List.of("demander", "vérifier", "valider", "rembourser"), List.of("refus"), need);
+        DraftSpecification draft = new DraftSpecification("Paiement", "Résumé", "",
+                List.of(uc("Payer", need), second), List.of(sc(0, "NOMINAL"), sc(1, "NOMINAL")),
+                List.of(new DraftAssumption("a", "TOOL_INFERENCE", "", "", "USE_CASE:1:4"),
+                        new DraftAssumption("b", "TOOL_INFERENCE", "", "", "use_case:1:a1"),
+                        new DraftAssumption("c", "TOOL_INFERENCE", "", "", "SCENARIO:1"),
+                        new DraftAssumption("d", "TOOL_INFERENCE", "", "", "REQUIREMENT:1"),
+                        new DraftAssumption("e", "TOOL_INFERENCE", "", "", "SUMMARY"),
+                        new DraftAssumption("f", "TOOL_INFERENCE", "", "", "USE_CASE:1:5"),
+                        new DraftAssumption("g", "TOOL_INFERENCE", "", "", "USE_CASE:7"),
+                        new DraftAssumption("h", "TOOL_INFERENCE", "", "", "USE_CASE:0:0"),
+                        new DraftAssumption("i", "TOOL_INFERENCE", "", "", "n'importe quoi"),
+                        new DraftAssumption("j", "TOOL_INFERENCE", "", "", "")),
+                List.of(new DraftRequirement("TECHNICAL", "TLS"), new DraftRequirement("FUNCTIONAL", "Reçu")),
+                List.of(), null, List.of(), List.of(), List.of(new DraftSpecification.DraftOpenQuestion("Qui ?", "", "",
+                        "USE_CASE:0:1")));
+        IdentifierAssigner.Assigned a = IdentifierAssigner.assign(draft, List.of(), Language.FR);
+
+        assertThat(a.violations().isEmpty()).isTrue();
+        assertThat(a.content().assumptions()).extracting(Assumption::anchor).containsExactly(
+                new Anchor("UC-02", 4, false), new Anchor("UC-02", 1, true), new Anchor("SC-02-01", null, false),
+                new Anchor("EF-01", null, false), new Anchor(Anchor.SUMMARY, null, false), null, null, null, null, null);
+        assertThat(a.content().openQuestions().getFirst().anchor()).isEqualTo(new Anchor("UC-01", 1, false));
+    }
+
+    @Test
     void codesAttribuesDansLOrdreQuelleQueSoitLaSortie() {
         DraftSource need = new DraftSource("NEED_EXCERPT", "", "payer");
         DraftSpecification draft = new DraftSpecification(" Paiement ", "Résumé",

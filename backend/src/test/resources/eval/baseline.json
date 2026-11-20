@@ -25,7 +25,8 @@
     "storyStatement": 0.9,
     "sourceConflictFlagged": 0.9,
     "referenceRetained": 1.0,
-    "decidedRemoved": 1.0
+    "decidedRemoved": 1.0,
+    "anchoredRate": 0.9
   },
   "scores": {
     "questionRelevance": 0.9,

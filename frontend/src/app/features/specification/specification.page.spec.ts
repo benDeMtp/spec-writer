@@ -332,6 +332,42 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(section('assumptions').compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('chaque point affiche son élément, avec un lien qui y mène (021, US4)', async () => {
+    fixture = TestBed.createComponent(SpecificationPage);
+    fixture.componentRef.setInput('id', 's1');
+    fixture.componentRef.setInput('n', '1');
+    el = fixture.nativeElement;
+    document.body.appendChild(el);
+    fixture.detectChanges();
+    ctrl.expectOne('/api/sessions/s1/versions/1').flush({
+      ...SPEC,
+      assumptions: [
+        {
+          code: 'H-01',
+          statement: 'Le montant est TTC.',
+          origin: 'TOOL_INFERENCE',
+          questionId: null,
+          anchor: { element: SPEC.useCases[0].code, step: 1, alternative: false },
+        },
+        { code: 'H-02', statement: 'Sans rattachement.', origin: 'TOOL_INFERENCE', questionId: null, anchor: null },
+      ],
+    });
+    ctrl.expectOne('/api/sessions/s1').flush(SESSION);
+    ctrl.expectOne('/api/sessions/s1/versions').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const items = section('assumptions').querySelectorAll('li');
+    const link = items[0].querySelector<HTMLAnchorElement>('a.element')!;
+    expect(link.textContent?.trim()).toBe(`${SPEC.useCases[0].code}, étape 1`);
+    expect(link.getAttribute('href')).toBe(`#${SPEC.useCases[0].code}-etape-1`);
+    expect(items[1].querySelector('a.element')).toBeNull();
+    link.click();
+    expect(document.activeElement?.id).toBe(`${SPEC.useCases[0].code}-etape-1`);
+    el.remove();
+  });
+
   it('sans point ouvert, pas de rubrique (021)', async () => {
     await open(SESSION, []);
     expect(section('open-questions')).toBeNull();

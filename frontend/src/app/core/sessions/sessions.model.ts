@@ -127,6 +127,8 @@ export interface Assumption {
   statement: string;
   origin: 'SKIPPED_QUESTION' | 'TOOL_INFERENCE';
   questionId: string | null;
+  /** Élément concerné (021) ; nul pour une hypothèse non rattachée. */
+  anchor?: SpecAnchor | null;
 }
 
 export interface Requirement {

@@ -18,6 +18,11 @@ facultatifs : une sortie sans eux reste valide (versions et rejeux existants).
 }
 ```
 
+- **Forme retenue à l'implémentation** : `anchor` est une chaîne courte, et non un objet. Le schéma
+  strict de Copilot rend toutes les propriétés obligatoires, et sa grammaire compilée a déjà atteint
+  sa limite en 016 ; un objet de quatre champs sur trois listes la grossissait d'autant. Formes :
+  `SUMMARY`, `USE_CASE:1`, `USE_CASE:1:4` (étape 4), `USE_CASE:1:A2` (alternative 2), `SCENARIO:0`,
+  `REQUIREMENT:2`, ou chaîne vide. L'exemple objet ci-dessus garde la même sémantique.
 - `target` : `USE_CASE`, `SCENARIO`, `REQUIREMENT` (position dans `requirements`, toutes
   catégories), `SUMMARY` ; `index` : position (à partir de 0) dans la liste de **cette sortie**.
 - `step` : à partir de 1, dans `nominalFlow`, ou dans `alternatives` si `alternative`.
@@ -31,7 +36,7 @@ facultatifs : une sortie sans eux reste valide (versions et rejeux existants).
 |---|---|---|---|
 | `generate-specification` | oui | non | non |
 | `revise-specification` | oui | oui | oui |
-| `edit-specification` | oui | oui | non |
+| `edit-specification` | oui | non (schéma de la génération, voir tasks.md T054) | non |
 | `structure-imported-text` | oui | non | non |
 | `merge-conflict` | oui | non | non |
 
