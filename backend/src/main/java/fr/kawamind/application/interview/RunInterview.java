@@ -38,7 +38,14 @@ public class RunInterview {
 
     /** Ce qui est saisi pour un point ; {@code originCode} : code de l'hypothèse, de l'écart ou du point ouvert. */
     public record PointInput(UUID sessionId, Anchor anchor, InterviewPoint.Origin origin, String originCode, String text,
-            InterviewPoint.Outcome outcome, String owner, LocalDate due, InterviewPoint.DesignatedSource source) {
+            InterviewPoint.Outcome outcome, String owner, LocalDate due, InterviewPoint.DesignatedSource source,
+            String quote) {
+
+        /** Sans passage cité. */
+        public PointInput(UUID sessionId, Anchor anchor, InterviewPoint.Origin origin, String originCode, String text,
+                InterviewPoint.Outcome outcome, String owner, LocalDate due, InterviewPoint.DesignatedSource source) {
+            this(sessionId, anchor, origin, originCode, text, outcome, owner, due, source, null);
+        }
     }
 
     /** Une spécification de la séance : sa session, sa version relue, sa dernière version. */
@@ -151,7 +158,8 @@ public class RunInterview {
         InterviewPoint point = new InterviewPoint(existing.map(InterviewPoint::id).orElseGet(ids::next), interviewId,
                 input.sessionId(), input.anchor(), existing.map(InterviewPoint::origin).orElse(input.origin()),
                 existing.map(InterviewPoint::originCode).orElse(input.originCode()), input.text(), input.outcome(),
-                input.owner(), input.due(), input.source(), existing.map(InterviewPoint::createdAt).orElse(now), now);
+                input.owner(), input.due(), input.source(), existing.map(InterviewPoint::createdAt).orElse(now), now,
+                input.quote());
         interviews.savePoint(point);
         return point;
     }

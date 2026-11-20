@@ -41,7 +41,6 @@ import {
   Specification,
   SyncState,
   UseCase,
-  UserStory,
   VersionSummary,
 } from '../../core/sessions/sessions.model';
 import { AttachmentsComponent } from '../../shared/ui/attachments.component';
@@ -69,6 +68,9 @@ import { VersionsPanelComponent } from './versions-panel.component';
 import { DiscussionPanelComponent } from './discussion-panel.component';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 import { ProjectFollower } from '../../core/projects/project-follower';
+import { storyParts } from '../../shared/ui/story-parts';
+
+export { storyParts };
 
 const EFFORTS: Record<DeploymentFact['kind'], string> = {
   NOT_DEPLOYED: 'aucune instance en production, à déployer',
@@ -116,18 +118,6 @@ const PERIMETER = /^## (Modules touchés|Affected modules)\n([\s\S]*?)(?=^## |(?
 export function perimeterSection(markdown: string | null | undefined): { title: string; body: string } | null {
   const found = markdown ? PERIMETER.exec(markdown) : null;
   return found ? { title: found[1], body: found[2].trim() } : null;
-}
-
-/** Parties de l'énoncé de story (015, FR-023), la partie supposée marquée « (hypothèse) ». */
-export function storyParts(
-  story: UserStory,
-): { lead: string; text: string; assumed: boolean; end: string }[] {
-  const assumed = new Set(story.assumed ?? []);
-  return [
-    { lead: 'En tant que', text: story.role, assumed: assumed.has('ROLE'), end: ',' },
-    { lead: 'je veux', text: story.capability, assumed: assumed.has('CAPABILITY'), end: ',' },
-    { lead: 'afin de', text: story.benefit, assumed: assumed.has('BENEFIT'), end: '.' },
-  ];
 }
 
 /** Version de spécification : résumé, use cases, scénarios, hypothèses et exigences (FR-010). */

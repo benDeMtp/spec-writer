@@ -42,7 +42,7 @@ public class SqliteInterviewRepository implements InterviewRepository {
             + "finished_at, cursor_session_id, cursor_element, cursor_step, cursor_alternative";
     private static final String POINT_COLUMNS = "id, interview_id, session_id, anchor_element, anchor_step, "
             + "anchor_alternative, origin, origin_code, text, outcome, owner, due, source_kind, source_ref, created_at, "
-            + "updated_at";
+            + "updated_at, quote";
 
     @Inject
     EntityManager em;
@@ -193,12 +193,12 @@ public class SqliteInterviewRepository implements InterviewRepository {
     public void savePoint(InterviewPoint p) {
         work(c -> {
             try (PreparedStatement s = c.prepareStatement("insert into interview_point (" + POINT_COLUMNS + ") "
-                    + "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) on conflict (id) do update set "
+                    + "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) on conflict (id) do update set "
                     + "anchor_element = excluded.anchor_element, anchor_step = excluded.anchor_step, "
                     + "anchor_alternative = excluded.anchor_alternative, text = excluded.text, "
                     + "outcome = excluded.outcome, owner = excluded.owner, due = excluded.due, "
                     + "source_kind = excluded.source_kind, source_ref = excluded.source_ref, "
-                    + "updated_at = excluded.updated_at")) {
+                    + "updated_at = excluded.updated_at, quote = excluded.quote")) {
                 s.setString(1, p.id().toString());
                 s.setString(2, p.interviewId().toString());
                 s.setString(3, p.sessionId().toString());
@@ -215,6 +215,7 @@ public class SqliteInterviewRepository implements InterviewRepository {
                 text(s, 14, p.source() == null ? null : p.source().ref());
                 s.setString(15, p.createdAt().toString());
                 s.setString(16, p.updatedAt().toString());
+                text(s, 17, p.quote());
                 s.executeUpdate();
             }
         });
@@ -290,7 +291,7 @@ public class SqliteInterviewRepository implements InterviewRepository {
                 rs.getString(10) == null ? null : InterviewPoint.Outcome.valueOf(rs.getString(10)), rs.getString(11),
                 rs.getString(12) == null ? null : LocalDate.parse(rs.getString(12)),
                 sourceKind == null ? null : new InterviewPoint.DesignatedSource(sourceKind, rs.getString(14)),
-                Instant.parse(rs.getString(15)), Instant.parse(rs.getString(16)));
+                Instant.parse(rs.getString(15)), Instant.parse(rs.getString(16)), rs.getString(17));
     }
 
     @FunctionalInterface

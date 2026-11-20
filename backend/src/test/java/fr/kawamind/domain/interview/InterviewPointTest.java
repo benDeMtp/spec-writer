@@ -37,6 +37,20 @@ class InterviewPointTest {
     }
 
     @Test
+    void passageCite() {
+        InterviewPoint p = new InterviewPoint(new UUID(0, 1), new UUID(0, 2), new UUID(0, 3), new Anchor("UC-01", 2, false),
+                InterviewPoint.Origin.REMARK, null, "", InterviewPoint.Outcome.REMOVE, null, null, null, T0, T0,
+                "  et envoyé au client  ");
+        assertThat(p.quote()).isEqualTo("et envoyé au client");
+        assertThat(point(InterviewPoint.Origin.REMARK, null, "x", InterviewPoint.Outcome.CHANGE, null).quote()).isNull();
+        assertThat(new InterviewPoint(new UUID(0, 1), new UUID(0, 2), new UUID(0, 3), null, InterviewPoint.Origin.REMARK,
+                null, "x", InterviewPoint.Outcome.CHANGE, null, null, null, T0, T0, "  ").quote()).isNull();
+        assertThatThrownBy(() -> new InterviewPoint(new UUID(0, 1), new UUID(0, 2), new UUID(0, 3), null,
+                InterviewPoint.Origin.REMARK, null, "x", InterviewPoint.Outcome.CHANGE, null, null, null, T0, T0,
+                "x".repeat(InterviewPoint.MAX_QUOTE + 1))).isInstanceOf(DomainException.class);
+    }
+
+    @Test
     void questionToujoursReportee() {
         InterviewPoint q = point(InterviewPoint.Origin.QUESTION, null, "Qui valide ?", null, "Paul D.");
         assertThat(q.outcome()).isEqualTo(InterviewPoint.Outcome.DEFERRED);

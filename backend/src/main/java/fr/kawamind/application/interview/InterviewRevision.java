@@ -190,7 +190,7 @@ public class InterviewRevision {
 
     private static String head(InterviewPoint p, SpecificationContent latest, Language language) {
         Anchor anchor = Anchor.orNull(p.anchor(), latest);
-        String label = anchor == null ? "" : anchor.label(language);
+        String label = InterviewPoint.cited(anchor == null ? "" : anchor.label(language), p.quote(), language);
         if (p.originCode() == null) {
             return label;
         }

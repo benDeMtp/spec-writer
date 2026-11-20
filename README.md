@@ -303,12 +303,16 @@ participants (ceux de la dernière séance sont proposés) et les points à éca
 séance, qui attend en tête de la page avec **Démarrer**, **Modifier** et **Supprimer**. Sur une
 spécification seule, **Faire le point** démarre directement.
 
-**La séance** s'affiche en plein écran, sans menu ni notification. Elle parcourt la spécification
-élément par élément, chaque point sur l'élément qu'il concerne (« UC-02, étape 4 »), ceux sans
-élément à la fin. Au clavier : ↑ ↓ d'un élément à l'autre, **N** le prochain point à traiter,
-**Entrée** pour y répondre (confirmé, à modifier, à retirer, reporté avec un responsable et une
-échéance), **R** une remarque, **Q** une question. Tout est enregistré au fil de l'eau : une séance
-interrompue reprend où elle en était. Rien n'est envoyé au modèle pendant la séance.
+**La séance** s'affiche en plein écran, sans menu ni notification. La spécification s'y déroule
+comme un document, de haut en bas, chaque point en carte sous l'élément qu'il concerne (« UC-02,
+étape 4 »), ceux sans élément à la fin. Une hypothèse est sa propre réponse proposée :
+**Confirmer** d'un clic, **Réécrire** à partir de son texte, **Retirer** ou **Reporter** (avec un
+responsable et une échéance). Pour corriger un passage, sélectionnez-le : **Commenter**,
+**Remplacer** ou **Supprimer** ; le passage cité reste surligné. **Noter** ouvre les mêmes actions
+sur un élément entier, et **Question…** note une question avec la personne qui doit y répondre.
+↑ ↓ passent d'un point à l'autre, **Prochain point à traiter** mène au suivant. Tout est enregistré
+au fil de l'eau : une séance interrompue reprend au dernier point consulté. Rien n'est envoyé au
+modèle pendant la séance.
 
 **Terminer** mène au récapitulatif : le compte rendu (décisions, points à vérifier, sources à
 mettre à jour) se copie d'un clic, mis en forme pour un mail ou Teams. Les séances passées et

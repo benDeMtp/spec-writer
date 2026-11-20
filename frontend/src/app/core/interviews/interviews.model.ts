@@ -27,6 +27,8 @@ export interface PointView {
   owner: string | null;
   due: string | null;
   source: DesignatedSource | null;
+  /** Passage cité d'une remarque sur une sélection (conception du 20/11/2026). */
+  quote: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,6 +43,7 @@ export interface PointInput {
   owner: string | null;
   due: string | null;
   source: DesignatedSource | null;
+  quote: string | null;
 }
 
 /** Un point à un arrêt : point de la spécification (code), ou point créé en séance. */

@@ -106,10 +106,15 @@ class InterviewPersistenceIT {
         InterviewPoint question = new InterviewPoint(UUID.randomUUID(), i.id(), s1.id(), null,
                 InterviewPoint.Origin.QUESTION, null, "Qui valide ?", null, "Paul D.", LocalDate.of(2026, 11, 27),
                 new InterviewPoint.DesignatedSource("DOC_PAGE", "https://wiki/4512"), T0.plusSeconds(1), T0.plusSeconds(1));
+        InterviewPoint cited = new InterviewPoint(UUID.randomUUID(), i.id(), s1.id(), new Anchor("UC-01", 1, false),
+                InterviewPoint.Origin.REMARK, null, "", InterviewPoint.Outcome.REMOVE, null, null, null,
+                T0.plusSeconds(2), T0.plusSeconds(2), "et envoyé au client");
         interviews.savePoint(answer);
         interviews.savePoint(question);
-        assertThat(interviews.points(i.id())).containsExactly(answer, question);
-        assertThat(interviews.countPoints(i.id(), s1.id())).isEqualTo(2);
+        interviews.savePoint(cited);
+        assertThat(interviews.points(i.id())).containsExactly(answer, question, cited);
+        assertThat(interviews.points(i.id()).getLast().quote()).isEqualTo("et envoyé au client");
+        assertThat(interviews.countPoints(i.id(), s1.id())).isEqualTo(3);
         assertThat(interviews.countPoints(i.id(), s2.id())).isZero();
 
         interviews.deletePoint(question.id());

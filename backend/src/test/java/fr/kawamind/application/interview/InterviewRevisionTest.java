@@ -149,6 +149,23 @@ class InterviewRevisionTest {
     }
 
     @Test
+    void lePassageCiteEstDansLeMessage() {
+        run.savePoint(interview, null, new RunInterview.PointInput(session.id(), new Anchor("UC-01", 1, false),
+                InterviewPoint.Origin.REMARK, null, "", InterviewPoint.Outcome.REMOVE, null, null, null, "le panier"));
+        run.savePoint(interview, null, new RunInterview.PointInput(session.id(), new Anchor("UC-01", 2, false),
+                InterviewPoint.Origin.REMARK, null, "montant HT", InterviewPoint.Outcome.CHANGE, null, null, null,
+                "montant TTC"));
+        run.finish(interview);
+        llm.revisions.add(new Revision(true, "Intègre la séance.", draft("discussion:x#1")));
+
+        InterviewRevision.Started started = revision.propose(interview, session.id());
+
+        assertThat(conversations.messages(started.conversationId()).getFirst().text())
+                .contains("\n- UC-01, étape 1, « le panier » — à retirer")
+                .contains("\n- UC-01, étape 2, « montant TTC » — à modifier : montant HT");
+    }
+
+    @Test
     void laPropositionAppliqueLIssueDeLaSeanceEtCiteLaSeance() {
         decided();
         UUID cid = discussions.open(session.id()).conversationId();

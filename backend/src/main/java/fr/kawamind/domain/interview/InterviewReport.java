@@ -141,7 +141,7 @@ public final class InterviewReport {
     }
 
     private static String prefix(InterviewPoint p, Language language) {
-        String anchor = p.anchor() == null ? "" : p.anchor().label(language);
+        String anchor = InterviewPoint.cited(p.anchor() == null ? "" : p.anchor().label(language), p.quote(), language);
         if (p.originCode() == null) {
             return anchor;
         }

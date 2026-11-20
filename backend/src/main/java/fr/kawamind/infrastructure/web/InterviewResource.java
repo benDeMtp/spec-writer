@@ -46,17 +46,18 @@ public class InterviewResource {
     }
 
     public record PointView(UUID id, UUID sessionId, AnchorView anchor, String origin, String originCode, String text,
-            String outcome, String owner, LocalDate due, SourceView source, Instant createdAt, Instant updatedAt) {
+            String outcome, String owner, LocalDate due, SourceView source, String quote, Instant createdAt,
+            Instant updatedAt) {
         static PointView of(InterviewPoint p) {
             return new PointView(p.id(), p.sessionId(), AnchorView.of(p.anchor()), p.origin().name(), p.originCode(),
                     p.text(), p.outcome() == null ? null : p.outcome().name(), p.owner(), p.due(),
-                    p.source() == null ? null : new SourceView(p.source().kind(), p.source().ref()), p.createdAt(),
+                    p.source() == null ? null : new SourceView(p.source().kind(), p.source().ref()), p.quote(), p.createdAt(),
                     p.updatedAt());
         }
     }
 
     public record PointInput(UUID sessionId, AnchorView anchor, String origin, String originCode, String text,
-            String outcome, String owner, String due, SourceView source) {
+            String outcome, String owner, String due, SourceView source, String quote) {
     }
 
     public record ItemView(String origin, String code, String statement, PointView point, boolean pending) {
@@ -244,7 +245,8 @@ public class InterviewResource {
                 parse(InterviewPoint.Origin.class, in.origin()), in.originCode(), in.text(),
                 in.outcome() == null ? null : parse(InterviewPoint.Outcome.class, in.outcome()), in.owner(), date(in.due()),
                 in.source() == null || in.source().ref() == null ? null
-                        : new InterviewPoint.DesignatedSource(in.source().kind(), in.source().ref()));
+                        : new InterviewPoint.DesignatedSource(in.source().kind(), in.source().ref()),
+                in.quote());
     }
 
     private static <E extends Enum<E>> E parse(Class<E> type, String raw) {

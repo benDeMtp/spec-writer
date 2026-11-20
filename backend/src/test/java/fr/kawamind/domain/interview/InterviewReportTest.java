@@ -56,6 +56,16 @@ class InterviewReportTest {
     }
 
     @Test
+    void passageCite() {
+        InterviewPoint cited = new InterviewPoint(UUID.randomUUID(), new UUID(0, 9), S1, new Anchor("UC-01", 1, false),
+                InterviewPoint.Origin.REMARK, null, "", InterviewPoint.Outcome.REMOVE, null, null, null, T0, T0,
+                "et envoyé au client");
+        InterviewReport.Report r = InterviewReport.render(LocalDate.of(2026, 11, 20), List.of(),
+                List.of(new InterviewReport.Section("Émission des avoirs", content(), List.of(cited))), Language.FR);
+        assertThat(r.text()).contains("• UC-01, étape 1, « et envoyé au client » — à retirer\n");
+    }
+
+    @Test
     void html() {
         InterviewReport.Report r = InterviewReport.render(LocalDate.of(2026, 11, 20), List.of(),
                 List.of(new InterviewReport.Section("Émission des avoirs", content(), POINTS)), Language.FR);

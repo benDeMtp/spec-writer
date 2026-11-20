@@ -9,13 +9,15 @@ case qui cite une page Confluence. Les rejeux de 021 (`e2e/fixtures/llm`, marque
 ## V1. Séance d'une spécification (US1)
 
 1. Page de la spécification : « Faire le point (n) » affiche le bon nombre.
-2. Démarrer : menu masqué, grand texte, élément courant annoncé.
-3. ↓ jusqu'à l'étape qui porte `H-…` : l'hypothèse y est affichée. Répondre « Confirmé ».
-4. Sur une étape sans point, `R` : « validation du manager au-delà de 500 € », « À modifier ».
-5. `Q` : « Qui valide en l'absence du manager ? », responsable « Paul D. ».
-6. Fermer l'onglet, rouvrir l'outil : « Reprendre la séance » ramène à l'élément courant, trois
-   points présents.
-7. Pendant la séance, déclencher une synchronisation (« Synchroniser » d'une source depuis un
+2. Démarrer : menu masqué, grand texte, la spécification entière en document.
+3. « Prochain point à traiter » : la carte de `H-…` sous son étape prend le focus. « Confirmer ».
+4. Sur une étape sans point, « Noter », « Commenter » : « validation du manager au-delà de 500 € ».
+5. « Noter », « Question… » : « Qui valide en l'absence du manager ? », responsable « Paul D. ».
+6. Sélectionner un passage d'une autre étape, « Remplacer » par un autre texte : la remarque cite
+   le passage, surligné dans le document.
+7. Fermer l'onglet, rouvrir l'outil : « Reprendre la séance » ramène au dernier point consulté,
+   quatre points présents.
+8. Pendant la séance, déclencher une synchronisation (« Synchroniser » d'une source depuis un
    autre onglet) : aucune notification sur l'écran de séance.
 
 ## V2. Compte rendu (US2)

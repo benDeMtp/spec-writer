@@ -39,11 +39,11 @@ L'écran `/seances/:id` (menu et notifications toujours masqués) affiche la ver
 détails, chaque use case (acteur, objectif, préconditions, étapes, alternatives) suivi de ses
 scénarios (Soit / Quand / Alors), puis les exigences, et en fin « Non rattachés » s'il y a lieu.
 
-Le rendu est extrait de la page de la spécification dans un composant partagé
-`sw-spec-document`, qui expose un emplacement par élément (`ng-template` reçu en entrée, avec
-l'ancre de l'élément). La page de la spécification l'utilise sans emplacement ; l'écran de séance y
-insère les cartes de points. Un seul rendu à maintenir, et les ancres restent les codes de la
-spécification (`UC-2`, étape 3, `SA-2.1`…).
+Le rendu est propre à la séance (`sw-interview-document`) : la page de la spécification range les
+scénarios, les hypothèses et les points ouverts dans des rubriques à part, la séance les place sous
+chaque élément. Les deux partagent l'énoncé de story (`storyParts`) et les scénarios
+(`sw-scenario`). Chaque élément porte son ancre (`data-anchor="UC-01:2"`), et reçoit ses points
+par un emplacement (`ng-template`). Les ancres restent les codes de la spécification.
 
 En-tête fixe : « Spéc. 1 sur 2 · Émission des avoirs », compteurs (« 2 décidés · 1 remarque ·
 3 à traiter »), « Prochain point à traiter », « Terminer ». Une séance de plusieurs
@@ -79,7 +79,8 @@ Ctrl+Entrée).
 On sélectionne un passage dans n'importe quel élément du document ; une barre flottante propose :
 
 - **Commenter** : une remarque libre (origine `REMARK`) ;
-- **Remplacer** : le texte qui doit remplacer le passage (`REMARK`, issue `À MODIFIER`) ;
+- **Remplacer** : le texte qui doit remplacer le passage, prérempli avec le passage à réécrire
+  (`REMARK`, issue `À MODIFIER`) ;
 - **Supprimer** : le passage est à retirer (`REMARK`, issue `À RETIRER`).
 
 Le point est ancré sur l'élément qui contient la sélection et **garde le passage cité**. Une
@@ -89,8 +90,8 @@ surligné dans le document, avec la carte de la remarque sous l'élément.
 « Question… » reste disponible sur chaque élément (bouton au survol et au focus) pour une question
 nouvelle, avec son responsable.
 
-Au clavier : la barre s'ouvre aussi par Maj+flèches puis Entrée sur la sélection ; chaque élément
-a un bouton « Noter » focalisable, qui ouvre les mêmes trois actions sur l'élément entier.
+Au clavier : chaque élément a un bouton « Noter » focalisable, discret hors survol, qui ouvre les
+mêmes actions sur l'élément entier.
 
 ### Navigation
 
@@ -104,9 +105,9 @@ a un bouton « Noter » focalisable, qui ouvre les mêmes trois actions sur l'é
 ### Données
 
 Migration **V31** : colonne `quote` (texte, 1 000 caractères au plus, facultative) sur
-`interview_point`. Elle passe dans `PointInput` et `PointView`, dans le compte rendu (« Sur
-« passage » : … ») et dans le message de séance transmis à la révision (« remplacer « passage » par
-… », « supprimer « passage » »). Le format de la sortie du modèle ne change pas : l'évaluation n'est
+`interview_point`. Elle passe dans `PointInput` et `PointView`, et suit le libellé de l'élément
+dans le compte rendu et dans le message de séance transmis à la révision (« UC-01, étape 1,
+« passage » — à retirer », « … — à modifier : nouveau texte »). Le format de la sortie du modèle ne change pas : l'évaluation n'est
 pas à refaire pour cette partie.
 
 ### Accessibilité et écran partagé
@@ -120,7 +121,7 @@ Contrastes du surlignage vérifiés en clair et en sombre.
 - `spec.md` de la 021 : FR-002, FR-003, FR-005, FR-006 réécrits (document vertical, réponse
   proposée, sélection d'un passage) ; scénarios d'acceptation de US1 et US4 ajustés.
 - `tasks.md` : une phase « US7 — séance en lecture du document » ; T094 (évaluation) inchangée.
-- Front : `sw-spec-document` extrait de `specification.page.ts` ; `interview.page.ts` réécrite ;
+- Front : `sw-interview-document`, `sw-point-card`, sélection d'un passage ; `interview.page.ts` réécrite ;
   `walkthrough.ts` supprimé ; tests Vitest et E2E de séance (V1 à V6) repris.
 - Back : V31, `InterviewPoint.quote`, compte rendu, message de séance ; tests associés.
 - Visite guidée : l'arrêt « Faire le point avec les sachants » décrit le nouvel écran.

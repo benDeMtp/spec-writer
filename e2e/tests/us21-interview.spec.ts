@@ -8,8 +8,8 @@ const NEED =
   'Les assistantes doivent pouvoir réserver une salle de réunion pour un comité, et voir les salles libres du jour.';
 
 /**
- * 021 : séance de relecture avec les sachants (quickstart V1). La première question est passée :
- * son hypothèse, sans rattachement avant US4, est relue dans « Non rattachés ».
+ * 021 : séance de relecture avec les sachants (quickstart V1), en lecture du document. La première
+ * question est passée : son hypothèse se confirme d'un clic.
  */
 test.describe.serial('021 interview d’une spécification', () => {
   let context: BrowserContext;
@@ -53,34 +53,46 @@ test.describe.serial('021 interview d’une spécification', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await expectNoA11yViolations(page);
 
-    // N : prochain point à traiter, l'hypothèse de la question passée
-    await page.keyboard.press('n');
-    const current = page.locator('[aria-current="step"]');
-    await expect(current).toContainText('Hypothèse H-01');
-    await page.keyboard.press('Enter');
-    await page.getByRole('radio', { name: 'Confirmé' }).check();
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    // la spécification se déroule en document ; le prochain point à traiter est l'hypothèse de la
+    // question passée, que « Confirmer » valide d'un clic
+    await page.getByRole('button', { name: 'Prochain point à traiter' }).click();
+    const card = page.locator('sw-point-card:focus');
+    await expect(card).toContainText('Hypothèse H-01');
+    await card.getByRole('button', { name: 'Confirmer' }).click();
     await expect(page.locator('.progress')).toContainText('1 traité');
+    await expect(page.getByRole('region', { name: 'Hypothèse H-01' })).toContainText('Confirmé');
 
-    // R : une remarque sur l'élément courant ; Q : une question avec son responsable
-    await page.keyboard.press('ArrowUp');
-    await page.keyboard.press('r');
+    // « Noter » sur le résumé : une remarque, puis une question avec son responsable
+    const summary = page.locator('[data-anchor="SUMMARY"]');
+    await summary.getByRole('button', { name: /^Noter/ }).click();
+    await summary.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
     await page.getByRole('textbox', { name: 'Ce qui a été dit' }).fill('Validation du manager au-delà de 500 €');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.locator('.progress')).toContainText('1 note');
-    await page.keyboard.press('q');
+    await summary.getByRole('button', { name: /^Noter/ }).click();
+    await summary.getByRole('toolbar').getByRole('button', { name: 'Question…' }).click();
     await page.getByRole('textbox', { name: 'Question' }).fill('Qui valide en l’absence du manager ?');
     await page.getByLabel('Responsable').fill('Paul D.');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.locator('.progress')).toContainText('2 notes');
-    const label = (await current.locator('.label').textContent())?.trim() ?? '';
 
-    // reprise après rechargement : même élément, rien de perdu
+    // un passage sélectionné se supprime d'un clic, et la remarque le cite
+    const step = page.locator('[data-anchor="UC-01:1"]');
+    const line = step.locator('.line');
+    const passage = ((await line.textContent()) ?? '').trim();
+    await line.selectText();
+    await line.dispatchEvent('mouseup');
+    await step.getByRole('toolbar').getByRole('button', { name: 'Supprimer' }).click();
+    await expect(page.locator('.progress')).toContainText('3 notes');
+    await expect(step.getByRole('region', { name: 'Remarque' })).toContainText(`« ${passage} »`);
+    await expectNoA11yViolations(page);
+
+    // reprise après rechargement : rien de perdu, le focus revient au dernier point
     await page.reload();
-    await expect(page.locator('[aria-current="step"] .label')).toHaveText(label);
     await expect(page.locator('.progress')).toContainText('1 traité');
-    await expect(page.locator('.progress')).toContainText('2 notes');
+    await expect(page.locator('.progress')).toContainText('3 notes');
     await expect(page.getByText('Qui valide en l’absence du manager ?')).toBeVisible();
+    await expect(page.locator('sw-point-card:focus')).toHaveCount(1);
 
     // depuis la page de la spécification, la séance se reprend
     await page.goto(`/sessions/${sessionId}/versions/1`);
@@ -102,6 +114,7 @@ test.describe.serial('021 interview d’une spécification', () => {
     expect(copied).toContain('H-01');
     expect(copied).toContain('à modifier : Validation du manager au-delà de 500 €');
     expect(copied).toContain('Qui valide en l’absence du manager ? (Paul D.)');
+    expect(copied).toMatch(/étape 1, « .+ » — à retirer/);
 
     // le compte rendu reste consultable depuis la spécification (FR-012)
     await page.goto(`/sessions/${sessionId}/versions/1`);
@@ -167,10 +180,9 @@ test.describe.serial('021 interview d’une spécification', () => {
     // la séance la présente sur l'étape, pas dans « Non rattachés »
     await page.getByRole('button', { name: /^Faire le point/ }).click();
     await expect(page).toHaveURL(/\/seances\/[0-9a-f-]+$/);
-    await page.keyboard.press('n');
-    const current = page.locator('[aria-current="step"]');
-    await expect(current.locator('.label')).toHaveText('UC-01, étape 1');
-    await expect(current).toContainText('Hypothèse H-01');
+    await page.getByRole('button', { name: 'Prochain point à traiter' }).click();
+    const card = page.locator('[data-anchor="UC-01:1"] sw-point-card:focus');
+    await expect(card).toContainText('Hypothèse H-01');
     await expect(page.getByText('Non rattachés')).toHaveCount(0);
   });
 
