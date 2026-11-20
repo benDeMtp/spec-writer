@@ -1,10 +1,20 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatRadioModule } from '@angular/material/radio';
 import { Outcome } from '../../core/interviews/interviews.model';
+import { KnowledgeApi } from '../../core/projects/knowledge.api';
+import { KnowledgeHit } from '../../core/projects/projects.model';
+import { ProjectsStore } from '../../core/projects/projects.store';
+
+/** Source de vérité désignée en séance (US6) : une page, un ticket ou un élément d'architecture. */
+export interface DesignatedSource {
+  kind: 'DOC_PAGE' | 'JIRA_ISSUE' | 'ARCH_ELEMENT';
+  ref: string;
+  title?: string;
+}
 
 /** Ce qu'on note : la réponse à un point de la spécification, une remarque, ou une question. */
 export type EditorKind = 'SPEC' | 'REMARK' | 'QUESTION';
@@ -14,6 +24,7 @@ export interface EditorValue {
   outcome: Outcome | null;
   owner: string | null;
   due: string | null;
+  source?: DesignatedSource | null;
 }
 
 const LABELS: Record<Outcome, string> = {
@@ -64,6 +75,31 @@ const LABELS: Record<Outcome, string> = {
           </mat-form-field>
         </div>
       }
+      <div class="source">
+        @if (source(); as src) {
+          <p>
+            Source à mettre à jour : <strong>{{ src.title || src.ref }}</strong>
+            <button mat-button type="button" (click)="source.set(null)">Retirer la source</button>
+          </p>
+        } @else if (searching()) {
+          <mat-form-field appearance="outline" class="text">
+            <mat-label>Chercher dans la connaissance du projet</mat-label>
+            <input matInput name="sourceQuery" [(ngModel)]="query" (keydown.enter)="search(); $event.preventDefault()" />
+          </mat-form-field>
+          <button mat-stroked-button type="button" (click)="search()">Chercher</button>
+          @if (hits().length) {
+            <ul class="hits" aria-label="Sources trouvées">
+              @for (h of hits(); track h.kind + h.ref) {
+                <li><button mat-button type="button" (click)="choose(h)">{{ h.title || h.ref }}</button></li>
+              }
+            </ul>
+          } @else if (searched()) {
+            <p class="hint">Aucune source trouvée.</p>
+          }
+        } @else {
+          <button mat-button type="button" (click)="searching.set(true)">Source à mettre à jour…</button>
+        }
+      </div>
       @if (error()) {
         <p id="point-error" class="error" role="alert">{{ error() }}</p>
       }
@@ -99,6 +135,14 @@ const LABELS: Record<Outcome, string> = {
       flex-wrap: wrap;
       gap: 0 1rem;
     }
+    .hits {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .hint {
+      color: var(--sw-ink-soft);
+    }
     .error {
       margin: 0;
       color: var(--sw-danger, #b3261e);
@@ -121,6 +165,13 @@ export class PointEditorComponent {
   protected readonly owner = signal('');
   protected readonly due = signal('');
   protected readonly error = signal<string | null>(null);
+  protected readonly source = signal<DesignatedSource | null>(null);
+  protected readonly searching = signal(false);
+  protected readonly searched = signal(false);
+  protected readonly query = signal('');
+  protected readonly hits = signal<KnowledgeHit[]>([]);
+  private readonly knowledge = inject(KnowledgeApi);
+  private readonly projects = inject(ProjectsStore);
   private readonly textarea = viewChild<ElementRef<HTMLTextAreaElement>>('textarea');
 
   protected readonly outcomes = computed<Outcome[]>(() =>
@@ -135,8 +186,29 @@ export class PointEditorComponent {
       this.outcome.set(v?.outcome ?? (this.kind() === 'REMARK' ? 'CHANGE' : null));
       this.owner.set(v?.owner ?? '');
       this.due.set(v?.due ?? '');
+      this.source.set(v?.source ?? null);
       this.textarea()?.nativeElement.focus();
     });
+  }
+
+  /** Pages, tickets et éléments d'architecture de la connaissance du projet (FR-028). */
+  protected async search(): Promise<void> {
+    const projectId = this.projects.currentId();
+    const q = this.query().trim();
+    if (!projectId || !q) {
+      return;
+    }
+    const found = await this.knowledge.search(projectId, q, ['DOC_SECTION', 'ADR', 'TICKET', 'ARCH_ELEMENT']).catch(() => []);
+    this.hits.set(found.slice(0, 8));
+    this.searched.set(true);
+  }
+
+  protected choose(h: KnowledgeHit): void {
+    const kind = h.kind === 'TICKET' ? 'JIRA_ISSUE' : h.kind === 'ARCH_ELEMENT' ? 'ARCH_ELEMENT' : 'DOC_PAGE';
+    this.source.set({ kind, ref: h.ref, title: h.title });
+    this.searching.set(false);
+    this.hits.set([]);
+    this.searched.set(false);
   }
 
   protected label(o: Outcome): string {
@@ -162,6 +234,7 @@ export class PointEditorComponent {
       outcome: this.kind() === 'QUESTION' ? null : outcome,
       owner: deferred && this.owner().trim() ? this.owner().trim() : null,
       due: deferred && this.due() ? this.due() : null,
+      source: this.source(),
     });
   }
 }

@@ -103,6 +103,9 @@ public class InterviewResource {
     PrepareInterview prepare;
 
     @Inject
+    fr.kawamind.application.interview.SourceUpdates sourceUpdates;
+
+    @Inject
     ProjectRepository projects;
 
     /** Une spécification de la séance préparée, avec ses points écartés. */
@@ -180,7 +183,7 @@ public class InterviewResource {
     @Path("/{id}/points")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response addPoint(@PathParam("id") String id, PointInput input) {
-        InterviewPoint p = run.savePoint(Ids.parse(id), null, input(input));
+        InterviewPoint p = run.savePoint(Ids.parse(id), null, known(input(input)));
         return Response.status(Response.Status.CREATED).entity(PointView.of(p)).build();
     }
 
@@ -188,7 +191,7 @@ public class InterviewResource {
     @Path("/{id}/points/{pid}")
     @Consumes(MediaType.APPLICATION_JSON)
     public PointView updatePoint(@PathParam("id") String id, @PathParam("pid") String pid, PointInput input) {
-        return PointView.of(run.savePoint(Ids.parse(id), Ids.parse(pid), input(input)));
+        return PointView.of(run.savePoint(Ids.parse(id), Ids.parse(pid), known(input(input))));
     }
 
     @DELETE
@@ -223,6 +226,14 @@ public class InterviewResource {
     public Response revise(@PathParam("id") String id, @PathParam("sid") String sid) {
         InterviewRevision.Started started = revision.propose(Ids.parse(id), Ids.parse(sid));
         return Response.accepted(new RevisionStarted(started.conversationId(), started.turnId())).build();
+    }
+
+    /** Une source désignée en séance est dans la connaissance du projet (US6, FR-028). */
+    private RunInterview.PointInput known(RunInterview.PointInput in) {
+        if (in.source() != null) {
+            sourceUpdates.requireKnown(in.sessionId(), in.source());
+        }
+        return in;
     }
 
     static RunInterview.PointInput input(PointInput in) {

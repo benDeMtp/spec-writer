@@ -28,7 +28,7 @@ import { ProjectsStore } from '../../core/projects/projects.store';
 import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira.model';
 import { InterviewsApi } from '../../core/interviews/interviews.api';
-import { InterviewSummary } from '../../core/interviews/interviews.model';
+import { InterviewSummary, SourceUpdate } from '../../core/interviews/interviews.model';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import {
   CitedExtract,
@@ -634,6 +634,9 @@ export function storyParts(
                           <dt>Écart</dt>
                           <dd>{{ d.difference }}</dd>
                         </dl>
+                        @if (pendingUpdate(d.reference.ref) || pendingUpdate(d.interpretation.ref)) {
+                          <p class="to-report">Décision prise en séance, à reporter dans la source.</p>
+                        }
                       </li>
                     }
                   </ul>
@@ -657,6 +660,37 @@ export function storyParts(
                       <li>
                         {{ f.element }}{{ f.other ? ' → ' + f.other : '' }} :
                         {{ effortLabel(f.kind) }}
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
+              @if (sourceUpdates().length) {
+                <!-- 021, US6 : décisions à reporter à la main dans les sources de vérité -->
+                <section aria-labelledby="source-updates-title">
+                  <h2 id="source-updates-title">Sources à mettre à jour</h2>
+                  <ul class="source-updates">
+                    @for (u of sourceUpdates(); track u.id) {
+                      <li>
+                        @if (u.source.link) {
+                          <a [href]="u.source.link" target="_blank" rel="noopener noreferrer"
+                            >{{ u.source.title || u.source.ref }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+                          >
+                        } @else {
+                          <strong>{{ u.source.title || u.source.ref }}</strong>
+                        }
+                        @if (u.state === 'SOURCE_CHANGED') {
+                          <span class="changed">Source modifiée, à vérifier</span>
+                        }
+                        <p>{{ u.text }}</p>
+                        <button
+                          mat-button
+                          type="button"
+                          [attr.aria-label]="'Marquer comme reporté dans « ' + (u.source.title || u.source.ref) + ' »'"
+                          (click)="closeUpdate(u)"
+                        >
+                          Marquer comme reporté
+                        </button>
                       </li>
                     }
                   </ul>
@@ -970,6 +1004,23 @@ export function storyParts(
     .who {
       color: var(--sw-ink-soft);
     }
+    .source-updates {
+      list-style: none;
+      padding: 0;
+    }
+    .source-updates li {
+      border-left: 3px solid var(--sw-outcome);
+      padding-left: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .changed,
+    .to-report {
+      color: var(--sw-outcome);
+      font-weight: 600;
+    }
+    .changed {
+      margin-left: 0.5rem;
+    }
     .element {
       margin-right: 0.25rem;
       font-size: 0.875em;
@@ -1029,6 +1080,8 @@ export class SpecificationPage {
   /** 021 : séance en cours sur cette spécification, à reprendre ; séances passées. */
   protected readonly activeInterview = signal<string | null>(null);
   protected readonly interviews = signal<InterviewSummary[]>([]);
+  /** « À reporter » ouverts (021, US6). */
+  protected readonly sourceUpdates = signal<SourceUpdate[]>([]);
   protected readonly startingInterview = signal(false);
   private readonly interviewsApi = inject(InterviewsApi);
   /** Hypothèses, écarts entre sources et points ouverts de la version affichée. */
@@ -1655,6 +1708,23 @@ export class SpecificationPage {
       this.activeInterview.set(list.find((i) => i.state === 'IN_PROGRESS')?.id ?? null);
     } catch {
       // sans la liste, « Faire le point » démarre une séance ; le serveur refuse un doublon
+    }
+    this.sourceUpdates.set(await this.interviewsApi.sourceUpdates(id).catch(() => []));
+  }
+
+  /** Une décision de séance attend d'être reportée dans cette source (US6). */
+  protected pendingUpdate(ref: string): boolean {
+    return this.sourceUpdates().some((u) => u.source.ref === ref);
+  }
+
+  /** « Marquer comme reporté » : la décision est reportée à la main dans la source (FR-029). */
+  protected async closeUpdate(u: SourceUpdate): Promise<void> {
+    try {
+      await this.interviewsApi.closeSourceUpdate(this.id(), u.id);
+      this.sourceUpdates.update((all) => all.filter((x) => x.id !== u.id));
+      this.status.set(`« ${u.source.title || u.source.ref} » : décision marquée comme reportée.`);
+    } catch {
+      // le bandeau affiche la cause
     }
   }
 

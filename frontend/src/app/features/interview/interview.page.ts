@@ -410,7 +410,15 @@ export class InterviewPage {
 
   protected initial(e: Editing): EditorValue | null {
     const p = e.item?.point;
-    return p ? { text: p.text, outcome: p.outcome, owner: p.owner, due: p.due } : null;
+    return p
+      ? {
+          text: p.text,
+          outcome: p.outcome,
+          owner: p.owner,
+          due: p.due,
+          source: p.source ? { kind: p.source.kind as 'DOC_PAGE', ref: p.source.ref } : null,
+        }
+      : null;
   }
 
   protected async save(e: Editing, value: EditorValue): Promise<void> {
@@ -426,7 +434,7 @@ export class InterviewPage {
       outcome: value.outcome,
       owner: value.owner,
       due: value.due,
-      source: e.item?.point?.source ?? null,
+      source: value.source ? { kind: value.source.kind, ref: value.source.ref } : null,
     };
     try {
       const pointId = e.item?.point?.id;

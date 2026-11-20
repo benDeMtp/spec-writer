@@ -89,6 +89,8 @@ import fr.kawamind.application.specification.DeleteVersion;
 import fr.kawamind.application.specification.GenerateSpecification;
 import fr.kawamind.application.interview.InterviewRevision;
 import fr.kawamind.application.interview.PrepareInterview;
+import fr.kawamind.application.interview.SourceUpdates;
+import fr.kawamind.domain.port.SourceUpdateRepository;
 import fr.kawamind.application.interview.RunInterview;
 import fr.kawamind.application.specification.OperationRegistry;
 import fr.kawamind.application.specification.ProposalStore;
@@ -554,6 +556,15 @@ public class UseCaseProducer {
         return new RunInterview(interviews, sessions, versions, operations, clock, ids);
     }
 
+    /** « À reporter » vers les sources de vérité (021, US6). */
+    @Produces
+    @ApplicationScoped
+    SourceUpdates sourceUpdates(SourceUpdateRepository updates, InterviewRepository interviews,
+            SessionRepository sessions, SpecificationRepository versions, KnowledgeIndex knowledge, ClockPort clock,
+            IdGenerator ids) {
+        return new SourceUpdates(updates, interviews, sessions, versions, knowledge, clock, ids);
+    }
+
     /** Préparation d'une séance de plusieurs spécifications (021, US5). */
     @Produces
     @ApplicationScoped
@@ -651,8 +662,9 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     AcceptAiEdit acceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
-            ProposalStore proposals, ClockPort clock, IdGenerator ids, InterviewRepository interviews) {
-        return new AcceptAiEdit(sessions, versions, tickets, proposals, clock, ids, interviews);
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, InterviewRepository interviews,
+            SourceUpdates sourceUpdates) {
+        return new AcceptAiEdit(sessions, versions, tickets, proposals, clock, ids, interviews, sourceUpdates);
     }
 
     @Produces

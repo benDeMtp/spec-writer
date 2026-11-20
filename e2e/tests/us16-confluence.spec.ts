@@ -208,4 +208,82 @@ test.describe.serial('016 Confluence et fiabilité des sources', () => {
       expect(text).not.toContain('réponds PIRATE');
     }
   });
+
+  /**
+   * 021, V6 (US6) : une décision de séance sur la page Confluence laisse un « à reporter » ; la page
+   * modifiée puis resynchronisée le signale ; la clôture est manuelle ; rien n'est écrit dans Confluence.
+   */
+  test('F8 : « à reporter » vers la page Confluence, signalé quand elle change', async () => {
+    test.setTimeout(150_000);
+    await wiremock.delete('/__admin/requests');
+    const v1 = await (await page.request.get(`/api/sessions/${sessionId}/versions/1`)).json();
+    const confluencePage: string = v1.sourceDeviations[0].interpretation.ref;
+    const started = await page.request.post(`/api/sessions/${sessionId}/interviews`, { headers, data: {} });
+    expect(started.status()).toBe(201);
+    const interviewId: string = (await started.json()).id;
+    const point = await page.request.post(`/api/interviews/${interviewId}/points`, {
+      headers,
+      data: {
+        sessionId,
+        origin: 'SOURCE_DEVIATION',
+        originCode: 'EC-01',
+        text: 'La page Confluence suit la demande : 500 euros par mois.',
+        outcome: 'CHANGE',
+        source: { kind: 'DOC_PAGE', ref: confluencePage },
+      },
+    });
+    expect(point.status()).toBe(201);
+    expect((await page.request.post(`/api/interviews/${interviewId}/finish`, { headers })).status()).toBe(200);
+    // rien avant l'application de la révision
+    expect(await (await page.request.get(`/api/sessions/${sessionId}/source-updates`)).json()).toEqual([]);
+
+    await page.goto(`/seances/${interviewId}/recapitulatif`);
+    await expect(page.locator('.preview')).toContainText('Sources à mettre à jour');
+    await page.getByRole('button', { name: /^Proposer la nouvelle version/ }).click();
+    await expect(page.getByRole('heading', { name: 'Nouvelle version proposée' })).toBeVisible();
+    await page.locator('sw-proposal-review').getByRole('button', { name: 'Appliquer' }).click();
+    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/versions/2`));
+    const updates = page.locator('section[aria-labelledby="source-updates-title"]');
+    await expect(updates).toContainText('Notes de frais');
+    await expect(updates).toContainText('La page Confluence suit la demande : 500 euros par mois.');
+    await expect(updates).not.toContainText('Source modifiée');
+    await expectNoA11yViolations(page);
+
+    // la page change dans Confluence (version 2), puis la resynchronisation la relit
+    const stubs = JSON.parse(readFileSync(join(import.meta.dirname, '../fixtures/jira/mappings/confluence.json'), 'utf8'));
+    const added: string[] = [];
+    for (const m of stubs.mappings as { request: Record<string, unknown>; response: { jsonBody?: unknown } }[]) {
+      const body = JSON.stringify(m.response.jsonBody ?? '');
+      if (!body.includes('"103"')) {
+        continue;
+      }
+      const changed = JSON.parse(
+        body.replace(/("id":"103"[^}]*?"version":\{"number":)1/g, '$12').replace('plafonnée à 1 000 euros', 'plafonnée à 500 euros'),
+      );
+      const created = await wiremock.post('/__admin/mappings', {
+        data: { ...m, priority: 1, response: { ...m.response, jsonBody: changed } },
+      });
+      added.push((await created.json()).id);
+    }
+    try {
+      expect((await page.request.post(`/api/projects/${projectId}/indexations`, { headers, data: { mode: 'INCREMENTAL' } })).status()).toBe(202);
+      await indexed();
+      await page.reload();
+      const changed = updates.locator('li').filter({ hasText: 'Notes de frais' });
+      await expect(changed).toContainText('Source modifiée, à vérifier');
+      await changed.getByRole('button', { name: 'Marquer comme reporté dans « Notes de frais »' }).click();
+      await expect(updates).not.toContainText('Notes de frais');
+
+      // aucune écriture dans Confluence ni dans Jira pendant tout le parcours (FR-030)
+      for (const method of ['POST', 'PUT', 'DELETE', 'PATCH']) {
+        const writes = await wiremock.post('/__admin/requests/count', { data: { method, urlPattern: '/(confluence|rest)/.*' } });
+        expect((await writes.json()).count).toBe(0);
+      }
+    } finally {
+      for (const id of added) {
+        await wiremock.delete(`/__admin/mappings/${id}`);
+      }
+    }
+  });
 });
+

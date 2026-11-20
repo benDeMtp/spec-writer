@@ -181,6 +181,59 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(block.querySelector('a')?.getAttribute('href')).toBe('/seances/i2/recapitulatif');
   });
 
+  it('sources à mettre à jour : état, surimpression dans les écarts, « Marquer comme reporté » (021, US6)', async () => {
+    fixture = TestBed.createComponent(SpecificationPage);
+    fixture.componentRef.setInput('id', 's1');
+    fixture.componentRef.setInput('n', '1');
+    el = fixture.nativeElement;
+    fixture.detectChanges();
+    const page = 'https://wiki/pages/viewpage.action?pageId=103';
+    ctrl.expectOne('/api/sessions/s1/versions/1').flush({
+      ...SPEC,
+      sourceDeviations: [
+        {
+          code: 'EC-01',
+          reference: { ref: page, origin: 'CONFLUENCE', title: 'Notes de frais', updatedAt: null },
+          interpretation: { ref: 'docs:x/Demande.docx', origin: 'DOCUMENTS', title: 'Demande', updatedAt: null },
+          difference: '500 contre 1 000 euros.',
+        },
+      ],
+    });
+    ctrl.expectOne('/api/sessions/s1').flush(SESSION);
+    ctrl.expectOne('/api/sessions/s1/versions').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    ctrl.expectOne('/api/sessions/s1/interviews').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    ctrl.expectOne('/api/sessions/s1/source-updates').flush([
+      {
+        id: 'u1',
+        source: { kind: 'DOC_PAGE', ref: page, title: 'Notes de frais', link: page },
+        text: 'Plafond à 1 000 euros.',
+        state: 'SOURCE_CHANGED',
+        interviewId: 'i1',
+        decidedAt: '2026-11-20T10:00:00Z',
+      },
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const block = section('source-updates-title');
+    expect(text(block)).toContain('Notes de frais');
+    expect(text(block)).toContain('Source modifiée, à vérifier');
+    expect(text(block)).toContain('Plafond à 1 000 euros.');
+    expect(text(section('source-deviations'))).toContain('Décision prise en séance, à reporter dans la source.');
+    const close = Array.from(block.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Marquer comme reporté',
+    )!;
+    expect(close.getAttribute('aria-label')).toBe('Marquer comme reporté dans « Notes de frais »');
+    close.click();
+    ctrl.expectOne({ method: 'POST', url: '/api/sessions/s1/source-updates/u1/close' }).flush(null);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    expect(section('source-updates-title')).toBeNull();
+  });
+
   it('une séance en cours : « Reprendre la séance » (021)', async () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     await open(SESSION, [{ number: 1 }]);

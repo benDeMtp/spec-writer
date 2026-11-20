@@ -119,3 +119,14 @@ export interface PrepareInput {
   specs: { sessionId: string; excluded: string[] }[];
   participants: string[];
 }
+
+/** « À reporter » : une décision à reporter à la main dans une source de vérité (US6). */
+export interface SourceUpdate {
+  id: string;
+  source: { kind: string; ref: string; title: string | null; link: string | null };
+  text: string;
+  /** `SOURCE_CHANGED` : la source a changé depuis la décision, ou n'est plus indexée. */
+  state: 'OPEN' | 'SOURCE_CHANGED';
+  interviewId: string | null;
+  decidedAt: string;
+}

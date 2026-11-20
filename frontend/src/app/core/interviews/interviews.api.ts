@@ -10,6 +10,7 @@ import {
   PointView,
   PrepareInput,
   RevisionStarted,
+  SourceUpdate,
 } from './interviews.model';
 
 const id = encodeURIComponent;
@@ -82,6 +83,17 @@ export class InterviewsApi {
   start(interviewId: string, participants?: string[]): Promise<InterviewDetail> {
     return firstValueFrom(
       this.http.post<InterviewDetail>(`/api/interviews/${id(interviewId)}/start`, participants ? { participants } : {}),
+    );
+  }
+
+  /** « À reporter » ouverts de la spécification (US6). */
+  sourceUpdates(sessionId: string): Promise<SourceUpdate[]> {
+    return firstValueFrom(this.http.get<SourceUpdate[]>(`/api/sessions/${id(sessionId)}/source-updates`));
+  }
+
+  closeSourceUpdate(sessionId: string, updateId: string): Promise<void> {
+    return firstValueFrom(
+      this.http.post<void>(`/api/sessions/${id(sessionId)}/source-updates/${id(updateId)}/close`, {}),
     );
   }
 }

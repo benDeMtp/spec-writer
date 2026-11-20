@@ -184,8 +184,14 @@ public class RunInterview {
         Instant at = v.interview().startedAt() == null ? v.interview().createdAt() : v.interview().startedAt();
         LocalDate date = at.atZone(ZoneId.systemDefault()).toLocalDate();
         List<InterviewReport.Section> sections = v.specs().stream()
-                .map(s -> new InterviewReport.Section(s.session().name(), s.read().content(),
-                        v.points().stream().filter(p -> p.sessionId().equals(s.spec().sessionId())).toList()))
+                .map(s -> {
+                    List<InterviewPoint> points = v.points().stream()
+                            .filter(p -> p.sessionId().equals(s.spec().sessionId())).toList();
+                    // sources désignées en séance (US6) : à mettre à jour à la main
+                    List<InterviewReport.SourceLine> sources = points.stream().filter(p -> p.source() != null)
+                            .map(p -> new InterviewReport.SourceLine(p.source().ref(), p.text())).toList();
+                    return new InterviewReport.Section(s.session().name(), s.read().content(), points, sources);
+                })
                 .toList();
         Language language = v.specs().isEmpty() ? Language.FR : v.specs().getFirst().session().language();
         return InterviewReport.render(date, v.interview().participants(), sections, language);

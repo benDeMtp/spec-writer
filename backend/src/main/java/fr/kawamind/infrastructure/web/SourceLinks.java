@@ -64,6 +64,14 @@ public class SourceLinks {
         return out;
     }
 
+    /** Lien d'une source de vérité à mettre à jour (021, US6) : le ticket dans Jira, la page sur le web. */
+    public String link(SourceRef.Kind kind, String ref) {
+        if (kind == SourceRef.Kind.JIRA_ISSUE) {
+            return jira.target().map(t -> t.issueUrl(ref)).orElse(null);
+        }
+        return kind == SourceRef.Kind.DOC_PAGE && web(ref) ? ref : null;
+    }
+
     private static boolean web(String ref) {
         String lower = ref.toLowerCase(Locale.ROOT);
         return lower.startsWith("https://") || lower.startsWith("http://");

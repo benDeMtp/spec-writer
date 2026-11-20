@@ -475,7 +475,7 @@ sources.
 
 ### Tests US6
 
-- [ ] T079 [P] [US6] Test `BT/application/interview/SourceUpdatesTest.java` :
+- [X] T079 [P] [US6] Test `BT/application/interview/SourceUpdatesTest.java` :
   - à l'application d'une révision de séance, un « à reporter » est créé pour chaque point `CHANGE`
     ou `REMOVE` dont le use case cite un `DOC_PAGE`, un `JIRA_ISSUE` ou un `ARCH_ELEMENT` (pas un
     document joint), pour chaque écart tranché, et pour chaque source désignée à la main ;
@@ -483,15 +483,15 @@ sources.
   - l'état est `SOURCE_CHANGED` quand l'empreinte diffère ou que la source n'est plus indexée ;
   - la clôture fonctionne ;
   - rien n'est créé pour une proposition rejetée.
-- [ ] T080 [P] [US6] Test `BT/infrastructure/knowledge/KnowledgeFingerprintIT.java` :
+- [X] T080 [P] [US6] Test `BT/infrastructure/knowledge/KnowledgeFingerprintIT.java` :
   `fingerprint(projectId, kind, ref)` est stable pour les mêmes extraits, change quand un extrait
   change, et est vide pour une référence absente.
-- [ ] T081 [P] [US6] Test `BT/infrastructure/web/SourceUpdateResourceIT.java` (`@Isolated`) :
+- [X] T081 [P] [US6] Test `BT/infrastructure/web/SourceUpdateResourceIT.java` (`@Isolated`) :
   - `GET /api/sessions/{sid}/source-updates` et `POST …/close` ;
   - 422 pour une source désignée absente de la connaissance du projet ;
   - aucune écriture : les clients Jira et Confluence (WireMock) ne reçoivent aucune requête autre
     que `GET` pendant un parcours complet (FR-030).
-- [ ] T082 [P] [US6] Tests front :
+- [X] T082 [P] [US6] Tests front :
   - `F/features/specification/specification.page.spec.ts` : bloc « Sources à mettre à jour »,
     « Marquer comme reporté », état « Source modifiée, à vérifier », surimpression dans « Écarts
     entre sources » ;
@@ -500,22 +500,25 @@ sources.
 
 ### Implémentation US6
 
-- [ ] T083 [US6] Ajouter `fingerprint` au port `B/domain/port/KnowledgeIndex.java` et
+- [X] T083 [US6] Ajouter `fingerprint` au port `B/domain/port/KnowledgeIndex.java` et
   l'implémenter dans `B/infrastructure/knowledge/SqliteKnowledgeIndex.java` : empreinte des
-  `contentHash` triés des extraits de la référence. Faire passer T080.
-- [ ] T084 [US6] Implémenter `B/domain/interview/SourceUpdate.java`,
-  `B/application/interview/SourceUpdates.java` et le dépôt JPA. Brancher la création à
+  `contentHash` triés des extraits de la référence. Faire passer T080. *Méthode par défaut du
+  port, sur `fingerprints` : une seule implémentation pour SQLite et la mémoire.*
+- [X] T084 [US6] Implémenter `B/domain/interview/SourceUpdate.java`,
+  `B/application/interview/SourceUpdates.java` et le dépôt JPA (*en JDBC, comme les séances*). Brancher la création à
   l'application d'une proposition de séance (T055). Faire passer T079.
-- [ ] T085 [US6] Implémenter `B/infrastructure/web/SourceUpdateResource.java` et la source désignée
+- [X] T085 [US6] Implémenter `B/infrastructure/web/SourceUpdateResource.java` et la source désignée
   dans `PointInput` (validée contre la connaissance du projet). Faire passer T081.
-- [ ] T086 [US6] Côté front :
+- [X] T086 [US6] Côté front :
   - bloc « Sources à mettre à jour » de la page de la spécification ;
   - surimpression dans « Écarts entre sources » ;
   - « Source à mettre à jour… » dans `point-editor` ;
   - bloc « Sources à mettre à jour » du récapitulatif et section du compte rendu (`InterviewReport`).
 
   Faire passer T082.
-- [ ] T087 [US6] E2E `us21-interview.spec.ts`, partie « sources » (V6) :
+- [X] T087 [US6] E2E `us21-interview.spec.ts`, partie « sources » (V6) : *écrite comme F8 de
+  `us16-confluence.spec.ts`, qui a déjà Confluence configuré, indexé, et une spécification citant la
+  page 103 :*
   - la page Confluence (WireMock) à mettre à jour s'affiche après la révision ;
   - après modification de la page et resynchronisation : « Source modifiée, à vérifier », puis
     clôture ;

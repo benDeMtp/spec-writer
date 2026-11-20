@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input
 import { MatButtonModule } from '@angular/material/button';
 import { Router, RouterLink } from '@angular/router';
 import { InterviewsApi } from '../../core/interviews/interviews.api';
-import { InterviewDetail, InterviewReport, InterviewSpecView } from '../../core/interviews/interviews.model';
+import { InterviewDetail, InterviewReport, InterviewSpecView, SourceUpdate } from '../../core/interviews/interviews.model';
 import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { reason } from '../conversation/conversation-thread.component';
 
@@ -64,6 +64,27 @@ import { reason } from '../conversation/conversation-thread.component';
               <a mat-button [routerLink]="['/sessions', s.sessionId, 'versions', s.appliedVersion ?? s.latestVersion]"
                 >Ouvrir la spécification</a
               >
+              @if (updatesOf(s.sessionId); as list) {
+                @if (list.length) {
+                  <div class="updates">
+                    <h3>Sources à mettre à jour</h3>
+                    <ul>
+                      @for (u of list; track u.id) {
+                        <li>
+                          @if (u.source.link) {
+                            <a [href]="u.source.link" target="_blank" rel="noopener noreferrer"
+                              >{{ u.source.title || u.source.ref }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+                            >
+                          } @else {
+                            <strong>{{ u.source.title || u.source.ref }}</strong>
+                          }
+                          : {{ u.text }}
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              }
             </li>
           }
         </ul>
@@ -123,6 +144,13 @@ import { reason } from '../conversation/conversation-thread.component';
     .reason {
       color: var(--sw-ink-soft);
     }
+    .updates {
+      flex-basis: 100%;
+    }
+    .updates h3 {
+      margin: 0.25rem 0;
+      font-size: 1rem;
+    }
   `,
 })
 export class InterviewRecapPage {
@@ -141,6 +169,8 @@ export class InterviewRecapPage {
   /** Spécification dont la révision démarre ; nulle sinon. */
   protected readonly revising = signal<string | null>(null);
   protected readonly revisionProblem = signal('');
+  /** « À reporter » créés par cette séance, par spécification révisée (US6). */
+  protected readonly updates = signal<Record<string, SourceUpdate[]>>({});
   private readonly fallbackText = viewChild<ElementRef<HTMLTextAreaElement>>('fallbackText');
   protected readonly finished = computed(() => this.detail()?.state === 'FINISHED');
 
@@ -153,9 +183,17 @@ export class InterviewRecapPage {
       const [detail, report] = await Promise.all([this.api.get(this.id()), this.api.report(this.id())]);
       this.detail.set(detail);
       this.report.set(report);
+      for (const spec of detail.specs.filter((x) => x.appliedVersion)) {
+        const found = await this.api.sourceUpdates(spec.sessionId).catch(() => []);
+        this.updates.update((all) => ({ ...all, [spec.sessionId]: found.filter((u) => u.interviewId === this.id()) }));
+      }
     } catch {
       this.failed.set('Le récapitulatif n’a pas pu être chargé. Rechargez la page.');
     }
+  }
+
+  protected updatesOf(sessionId: string): SourceUpdate[] {
+    return this.updates()[sessionId] ?? [];
   }
 
   /**

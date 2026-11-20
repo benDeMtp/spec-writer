@@ -40,6 +40,27 @@ public interface KnowledgeIndex {
     List<Fingerprint> fingerprints(UUID projectId);
 
     /**
+     * Empreinte d'une source citée (021, R8) : celle des empreintes triées de ses extraits (la
+     * référence elle-même ou ses sections {@code ref#…}) ; vide si la source n'est pas indexée.
+     */
+    default Optional<String> fingerprint(UUID projectId, Set<KnowledgeKind> kinds, String ref) {
+        List<String> hashes = fingerprints(projectId).stream()
+                .filter(f -> kinds.contains(f.key().kind())
+                        && (f.key().ref().equals(ref) || f.key().ref().startsWith(ref + "#")))
+                .map(Fingerprint::hash).sorted().toList();
+        if (hashes.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(String.join("\n", hashes).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return Optional.of(java.util.HexFormat.of().formatHex(digest));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
      * Écrit l'élément s'il est nouveau ou si son empreinte change ; {@code vector} nul garde
      * l'élément sans vecteur (modèle absent).
      */

@@ -29,6 +29,8 @@ public class AcceptAiEdit {
     private final IdGenerator ids;
     /** Séances (021) : la version appliquée d'une révision de séance y est notée ; nul sans séance. */
     private final InterviewRepository interviews;
+    /** « À reporter » de la séance (021, US6), créés à l'application ; nul sans séance. */
+    private final fr.kawamind.application.interview.SourceUpdates sourceUpdates;
 
     public AcceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             ProposalStore proposals, ClockPort clock, IdGenerator ids) {
@@ -37,6 +39,13 @@ public class AcceptAiEdit {
 
     public AcceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             ProposalStore proposals, ClockPort clock, IdGenerator ids, InterviewRepository interviews) {
+        this(sessions, versions, tickets, proposals, clock, ids, interviews, null);
+    }
+
+    public AcceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, InterviewRepository interviews,
+            fr.kawamind.application.interview.SourceUpdates sourceUpdates) {
+        this.sourceUpdates = sourceUpdates;
         this.interviews = interviews;
         this.sessions = sessions;
         this.versions = versions;
@@ -64,6 +73,9 @@ public class AcceptAiEdit {
             // la révision de la séance est faite : elle ne se repropose plus (FR-014)
             interviews.specs(p.interviewId()).stream().filter(s -> s.sessionId().equals(sessionId)).findFirst()
                     .ifPresent(s -> interviews.saveSpec(s.withApplied(version.number())));
+            if (sourceUpdates != null) {
+                sourceUpdates.recordFor(p.interviewId(), sessionId);
+            }
         }
         Questionnaire questionnaire = sessions.questionnaire(sessionId).orElseGet(Questionnaire::empty);
         sessions.save(session.generated(clock.now()), questionnaire);
