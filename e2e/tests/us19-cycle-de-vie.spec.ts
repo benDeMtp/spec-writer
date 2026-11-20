@@ -1,6 +1,9 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './support/a11y';
-import { startFreshInstance, type FreshInstance } from './support/fresh-instance';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { launchAgain, spawnInstance, startFreshInstance, type FreshInstance } from './support/fresh-instance';
 
 /**
  * 019 : cycle de vie de l'outil. Chaque parcours tourne sur une seconde instance, sur son propre
@@ -84,6 +87,60 @@ test.describe.serial('019 Cycle de vie de l’outil', () => {
     } finally {
       await opened.context.close();
       await fresh.stop();
+    }
+  });
+  test('Q3 : un second lancement rouvre l’instance en marche, sans en démarrer une autre', async ({ browser }) => {
+    const fresh = await startFreshInstance(undefined, NO_WIZARD);
+    const { context } = await open(browser, fresh);
+    try {
+      const again = await launchAgain(fresh.dataDir, NO_WIZARD);
+      expect(again.code).toBe(0);
+      expect(again.ms).toBeLessThan(5_000 + 3_000); // démarrage de la JVM compris
+      expect(again.stdout).toContain('spec-writer est déjà lancé');
+      const url = /(http:\/\/127\.0\.0\.1:\d+\/\?launch=[\w-]+)/.exec(again.stdout)![1];
+      expect(url.startsWith(fresh.baseURL)).toBe(true);
+
+      // l'adresse ouvre une session dans un navigateur neuf
+      const other = await browser.newContext({ baseURL: fresh.baseURL, storageState: undefined });
+      const page = await other.newPage();
+      await page.goto(url);
+      await expect(page.getByRole('button', { name: 'Quitter spec-writer' })).toBeVisible();
+      await other.close();
+
+      // l'instance d'origine tourne toujours, seule
+      expect((await context.request.get(`${fresh.baseURL}/q/health/ready`)).ok()).toBe(true);
+    } finally {
+      await context.close();
+      await fresh.stop();
+    }
+  });
+
+  test('Q3 : deux lancements simultanés, une seule instance', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'spec-writer-e2e-fresh-'));
+    const a = spawnInstance(dataDir, NO_WIZARD);
+    const b = spawnInstance(dataDir, NO_WIZARD);
+    try {
+      // le premier à finir est le second lancement : il a rouvert l'instance, puis rendu la main
+      const [first, code] = await Promise.race([a.exited.then((c) => [a, c] as const), b.exited.then((c) => [b, c] as const)]);
+      expect(code).toBe(0);
+      expect(first.stdout()).toContain('spec-writer est déjà lancé');
+      const instance = first === a ? b : a;
+      expect(await Promise.race([instance.exited.then(() => 'arrêtée'), new Promise((r) => setTimeout(() => r('tourne'), 2_000))])).toBe(
+        'tourne',
+      );
+    } finally {
+      await Promise.all([a.terminate(), b.terminate()]);
+    }
+  });
+
+  test('Q4 : après un arrêt brutal, la relance démarre normalement', async () => {
+    const fresh = await startFreshInstance(undefined, NO_WIZARD);
+    await fresh.kill();
+    const again = await startFreshInstance(fresh.dataDir, NO_WIZARD);
+    try {
+      expect((await fetch(`${again.baseURL}/q/health/ready`)).ok).toBe(true);
+    } finally {
+      await again.stop();
     }
   });
 });
