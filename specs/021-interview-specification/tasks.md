@@ -290,7 +290,7 @@ reportés y deviennent des points ouverts, de façon garantie.
 
 ### Tests US3
 
-- [ ] T045 [P] [US3] Test `BT/domain/interview/InterviewOutcomeTest.java` (research.md R3) :
+- [X] T045 [P] [US3] Test `BT/domain/interview/InterviewOutcomeTest.java` (research.md R3) :
   - une hypothèse et un point ouvert dont le `fromCode` est tranché sont retirés ;
   - un écart tranché est retiré ;
   - un point `DEFERRED` est ajouté comme `OpenQuestion`, avec son responsable et son échéance, et
@@ -298,11 +298,11 @@ reportés y deviennent des points ouverts, de façon garantie.
   - pas de doublon quand il est déjà repris par `fromCode` ;
   - les codes `H-` et `Q-` sont renumérotés ;
   - une hypothèse sans `fromCode` est gardée.
-- [ ] T046 [P] [US3] Test `BT/domain/specification/MarkdownRendererTest.java` (ajouts) :
+- [X] T046 [P] [US3] Test `BT/domain/specification/MarkdownRendererTest.java` (ajouts) :
   - la rubrique « Points ouverts » / « Open questions » suit « Hypothèses », avec le code, la
     question, le responsable et l'échéance ;
   - elle est omise quand la liste est vide.
-- [ ] T047 [P] [US3] Test `BT/application/interview/InterviewRevisionTest.java` :
+- [X] T047 [P] [US3] Test `BT/application/interview/InterviewRevisionTest.java` :
   - la discussion de la spécification est créée si elle n'existe pas ;
   - un seul message de séance est ajouté, au format de contracts/llm-output.md, et marqué de
     `interview_id` ;
@@ -311,51 +311,51 @@ reportés y deviennent des points ouverts, de façon garantie.
   - la proposition porte l'`interviewId` ;
   - Copilot non consenti : refus avec la raison (R12) ;
   - la révision part de la dernière version (R11).
-- [ ] T048 [P] [US3] Ajouter à `BT/application/conversation/ProposeRevisionTest.java` :
+- [X] T048 [P] [US3] Ajouter à `BT/application/conversation/ProposeRevisionTest.java` :
   - l'`outcome` est appliqué avant le dépôt de la proposition ;
   - `title(...)` d'un message de séance donne « Séance du 20/11/2026 (Julie M., Paul D.) ».
-- [ ] T049 [P] [US3] Test `BT/application/interview/ApplyInterviewRevisionTest.java` :
+- [X] T049 [P] [US3] Test `BT/application/interview/ApplyInterviewRevisionTest.java` :
   l'application d'une proposition qui porte un `interviewId` enregistre `applied_version` sur
   `interview_spec`, et la révision se relance tant qu'elle n'est pas appliquée (FR-014).
-- [ ] T050 [P] [US3] Test d'injection
+- [X] T050 [P] [US3] Test d'injection
   `BT/infrastructure/llm/InterviewMessageInjectionTest.java` : un texte de point qui imite une
   consigne (« Ignore les instructions… ») reste dans le message utilisateur, jamais dans les
   consignes système (constitution V).
 
 ### Implémentation US3
 
-- [ ] T051 [US3] Implémenter `B/domain/interview/InterviewOutcome.java`. Faire passer T045.
-- [ ] T052 [US3] Rendre la rubrique « Points ouverts » dans
+- [X] T051 [US3] Implémenter `B/domain/interview/InterviewOutcome.java`. Faire passer T045.
+- [X] T052 [US3] Rendre la rubrique « Points ouverts » dans
   `B/domain/specification/MarkdownRenderer.java`, ce qui l'ajoute aussi à l'export Jira, qui passe
   par le Markdown. Faire passer T046.
-- [ ] T053 [US3] Côté modèle (contracts/llm-output.md) :
+- [X] T053 [US3] Côté modèle (contracts/llm-output.md) :
   - ajouter `fromCode` et `DraftOpenQuestion` à `B/domain/llm/DraftSpecification.java` ;
   - les reprendre dans `B/domain/specification/IdentifierAssigner.java` : codes `Q-nn`, `fromCode`
     inconnu de la base ignoré ;
   - étendre le schéma de `B/infrastructure/llm/LlmSchemas.java`.
-- [ ] T054 [US3] Ajouter la consigne `fromCode` et `openQuestions` à
+- [X] T054 [US3] Ajouter la consigne `fromCode` et `openQuestions` à
   `R/prompts/revise-specification.txt` : reprise des codes de base, nouvelles questions en suspens,
   questions reportées à ne pas répéter. Ajouter `fromCode` à `R/prompts/edit-specification.txt`.
-- [ ] T055 [US3] Ajouter l'`outcome` (facultatif) et le titre de séance à
+- [X] T055 [US3] Ajouter l'`outcome` (facultatif) et le titre de séance à
   `B/application/conversation/ProposeRevision.java`. Ajouter `interviewId` à
   `B/application/specification/ProposalStore.java`, puis enregistrer `applied_version` à
   l'application (`DiscussionProposalResource` → cas d'usage). Faire passer T048 et T049.
-- [ ] T056 [US3] Implémenter `B/application/interview/InterviewRevision.java` et la route
+- [X] T056 [US3] Implémenter `B/application/interview/InterviewRevision.java` et la route
   `POST /api/interviews/{id}/specs/{sid}/revision`. Ajouter `revisionAvailable` et sa raison à la
   vue. Faire passer T047 et T050.
-- [ ] T057 [US3] Rejeux LLM `e2e/fixtures/llm` (marqueur `IT-INTERVIEW`) pour la révision de séance :
+- [X] T057 [US3] Rejeux LLM `e2e/fixtures/llm` (marqueur `IT-INTERVIEW`) pour la révision de séance :
   hypothèse confirmée retirée, étape modifiée, nouvelle question en suspens. Suivre
   `e2e/fixtures/llm/README.md`.
-- [ ] T058 [US3] Côté front :
+- [X] T058 [US3] Côté front :
   - bloc « Révision » du récapitulatif : « Proposer la nouvelle version » mène à la page de la
     spécification, discussion ouverte et tour en cours ; le bloc affiche la raison quand la
     révision est indisponible, et « Version n appliquée » une fois faite ;
   - rubrique « Points ouverts » sur `F/features/specification/specification.page.ts`, avec leurs
     tests.
-- [ ] T059 [US3] Golden set : ajouter un cas de révision de séance dans
+- [X] T059 [US3] Golden set : ajouter un cas de révision de séance dans
   `backend/src/test/resources/eval/discussion/` et le critère `decidedRemoved` dans
   `BT/eval/DiscussionEval.java` (valeur attendue 1,0).
-- [ ] T060 [US3] E2E `us21-interview.spec.ts`, partie « révision » (V3) :
+- [X] T060 [US3] E2E `us21-interview.spec.ts`, partie « révision » (V3) :
   - proposer, relire le diff, appliquer ;
   - vérifier que l'hypothèse a disparu, que `Q-01` porte « Paul D. », et que la source est
     « Séance du … ».

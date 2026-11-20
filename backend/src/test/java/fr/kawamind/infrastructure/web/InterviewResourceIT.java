@@ -116,7 +116,12 @@ class InterviewResourceIT {
         api().body(Map.of("sessionId", s.id().toString(), "element", "UC-01", "step", 2, "alternative", false))
                 .put("/api/interviews/" + id + "/cursor").then().statusCode(204);
         api().get("/api/interviews/" + id).then().statusCode(200).body("cursor.anchor.element", equalTo("UC-01"))
-                .body("counts.handled", equalTo(1)).body("counts.pending", equalTo(0));
+                .body("counts.handled", equalTo(1)).body("counts.pending", equalTo(0))
+                .body("specs[0].revisionAvailable", equalTo(false))
+                .body("specs[0].revisionUnavailableReason", equalTo("La révision se propose une fois la séance terminée."));
+        // la révision attend la fin de la séance
+        api().post("/api/interviews/" + id + "/specs/" + s.id() + "/revision").then().statusCode(409)
+                .body("code", equalTo("INTERVIEW_NOT_FINISHED"));
 
         api().get("/api/sessions/" + s.id() + "/interviews").then().statusCode(200).body("$", hasSize(1))
                 .body("[0].specifications[0].name", equalTo("Avoirs")).body("[0].points", equalTo(1));

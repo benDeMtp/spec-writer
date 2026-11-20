@@ -56,6 +56,8 @@ public record EvalBaseline(double tolerance, Map<String, Double> minimum, Map<St
     public static final String SOURCE_CONFLICT_FLAGGED = "sourceConflictFlagged";
     /** 016 (SC-007) : recherches dont les extraits de référence pertinents sont retenus. */
     public static final String REFERENCE_RETAINED = "referenceRetained";
+    /** 021 (FR-015) : révisions de séance dont les points tranchés sont retirés et les reportés ajoutés. */
+    public static final String DECIDED_REMOVED = "decidedRemoved";
 
     private static final double EPSILON = 1e-9;
 

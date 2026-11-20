@@ -109,5 +109,33 @@ test.describe.serial('021 interview d’une spécification', () => {
     await expect(seances.getByRole('link', { name: 'Compte rendu' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Faire le point/ })).toBeVisible();
   });
+
+  test('V3 : proposer la nouvelle version, relire le diff, appliquer', async () => {
+    await page.goto(`/sessions/${sessionId}/versions/1`);
+    await page.locator('section[aria-labelledby="interviews-title"]').getByRole('link', { name: 'Compte rendu' }).click();
+    await expect(page).toHaveURL(/\/seances\/[0-9a-f-]+\/recapitulatif$/);
+    await page.getByRole('button', { name: /^Proposer la nouvelle version/ }).click();
+
+    // la page de la spécification suit la rédaction, puis la proposition se relit à côté du document
+    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/versions/1\\?discussion=1`));
+    const review = page.locator('sw-proposal-review');
+    await expect(page.getByRole('heading', { name: 'Nouvelle version proposée' })).toBeVisible();
+    await expect(page.locator('sw-discussion-panel [role="log"]')).toContainText('Décisions à intégrer');
+    await expectNoA11yViolations(page);
+    await review.getByRole('button', { name: 'Appliquer' }).click();
+    await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/versions/2`));
+
+    // l'hypothèse confirmée a disparu, la question reportée est un point ouvert, la séance est la source
+    await expect(page.locator('section[aria-labelledby="assumptions"]')).not.toContainText('H-01');
+    const open = page.locator('section[aria-labelledby="open-questions"]');
+    await expect(open).toContainText('Q-01');
+    await expect(open).toContainText('Qui valide en l’absence du manager ? (responsable : Paul D.)');
+    await expect(page.locator('#UC-01')).toContainText('Séance du ');
+
+    // la séance le sait : sa révision ne se propose plus
+    await page.goto(`/sessions/${sessionId}/versions/2`);
+    await page.locator('section[aria-labelledby="interviews-title"]').getByRole('link', { name: 'Compte rendu' }).click();
+    await expect(page.getByText('Version 2 appliquée.')).toBeVisible();
+  });
 });
 

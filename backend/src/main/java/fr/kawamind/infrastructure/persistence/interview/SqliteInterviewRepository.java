@@ -252,6 +252,25 @@ public class SqliteInterviewRepository implements InterviewRepository {
         });
     }
 
+    @Override
+    @Transactional
+    public void tagMessage(UUID messageId, UUID interviewId) {
+        work(c -> {
+            try (PreparedStatement s = c.prepareStatement("update conversation_message set interview_id = ? where id = ?")) {
+                s.setString(1, interviewId.toString());
+                s.setString(2, messageId.toString());
+                s.executeUpdate();
+            }
+        });
+    }
+
+    @Override
+    @Transactional
+    public Optional<UUID> interviewOfMessage(UUID messageId) {
+        return query("select interview_id from conversation_message where id = ? and interview_id is not null",
+                List.of(messageId.toString()), rs -> UUID.fromString(rs.getString(1))).stream().findFirst();
+    }
+
     private static Interview interview(ResultSet rs) throws SQLException {
         String cursorSession = rs.getString(8);
         Interview.Cursor cursor = cursorSession == null ? null

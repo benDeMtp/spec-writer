@@ -277,6 +277,27 @@ describe('DiscussionPanelComponent', () => {
     await settle(fixture);
   }
 
+  it('suit la rédaction lancée par la révision d’une séance (021)', async () => {
+    fixture.componentRef.setInput('turn', 't9');
+    const drafting: boolean[] = [];
+    fixture.componentInstance.drafting.subscribe((d) => drafting.push(d));
+    const proposed: unknown[] = [];
+    fixture.componentInstance.proposed.subscribe((p) => proposed.push(p));
+    fixture.detectChanges();
+    await answer('c1', 3, [message('m1', 1, 'USER')]);
+    expect(opened).toContain('/api/conversations/c1/turns/t9/events');
+    expect(drafting).toEqual([true]);
+    expect(el.querySelector('.thinking')).not.toBeNull();
+    listeners.at(-1)!({ type: 'done', state: 'COMPLETE', historyTruncated: false, durationMs: 20, proposalId: 'p9' });
+    await settle(fixture);
+    ctrl
+      .expectOne('/api/sessions/s1/proposals/p9')
+      .flush({ proposalId: 'p9', baseVersion: 3, proposed: { title: 'Avoirs' }, unifiedDiff: '' });
+    await settle(fixture);
+    expect(proposed).toHaveLength(1);
+    expect(drafting).toEqual([true, false]);
+  });
+
   it('sans changement relevé, seul le champ libre est proposé ; Échap annule', async () => {
     await settle(fixture);
     await answer('c1', 3, [message('u1', 1, 'USER'), message('a1', 2, 'AGENT')]);

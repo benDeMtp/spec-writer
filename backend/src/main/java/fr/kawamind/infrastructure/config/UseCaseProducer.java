@@ -87,6 +87,7 @@ import fr.kawamind.application.settings.TestJiraConnection;
 import fr.kawamind.application.specification.AcceptAiEdit;
 import fr.kawamind.application.specification.DeleteVersion;
 import fr.kawamind.application.specification.GenerateSpecification;
+import fr.kawamind.application.interview.InterviewRevision;
 import fr.kawamind.application.interview.RunInterview;
 import fr.kawamind.application.specification.OperationRegistry;
 import fr.kawamind.application.specification.ProposalStore;
@@ -280,10 +281,11 @@ public class UseCaseProducer {
     ProposeRevision proposeRevision(SessionRepository sessions, SpecificationRepository versions,
             ConversationRepository conversations, DiscussSpecification discussions, SessionKnowledge knowledge,
             ConversationLlm llm, ModelCapacities capacities, ConsentPolicy consent, OperationRegistry operations,
-            TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids, PerimeterRepository perimeters) {
+            TurnEvents events, ProposalStore proposals, ClockPort clock, IdGenerator ids, PerimeterRepository perimeters,
+            InterviewRepository interviews) {
         return new ProposeRevision(sessions, versions, conversations, discussions, knowledge, llm, capacities, consent,
                 operations, events, proposals, clock, ids, task -> Thread.ofVirtual().name("proposition").start(task),
-                perimeters);
+                perimeters, interviews);
     }
 
     /** Discussions des spécifications (011). */
@@ -551,6 +553,16 @@ public class UseCaseProducer {
         return new RunInterview(interviews, sessions, versions, operations, clock, ids);
     }
 
+    /** Révision d'une spécification d'après la séance (021, US3) : la rédaction de la 011. */
+    @Produces
+    @ApplicationScoped
+    InterviewRevision interviewRevision(InterviewRepository interviews, SessionRepository sessions,
+            SpecificationRepository versions, ConversationRepository conversations, DiscussSpecification discussions,
+            ProposeRevision propose, ConsentPolicy consent, ClockPort clock, IdGenerator ids) {
+        return new InterviewRevision(interviews, sessions, versions, conversations, discussions, propose, consent, clock,
+                ids);
+    }
+
     // ---------- Projets (feature 002, User Story 1) ----------
 
     @Produces
@@ -629,8 +641,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     AcceptAiEdit acceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
-            ProposalStore proposals, ClockPort clock, IdGenerator ids) {
-        return new AcceptAiEdit(sessions, versions, tickets, proposals, clock, ids);
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, InterviewRepository interviews) {
+        return new AcceptAiEdit(sessions, versions, tickets, proposals, clock, ids, interviews);
     }
 
     @Produces

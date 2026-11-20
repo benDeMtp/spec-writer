@@ -47,4 +47,10 @@ public interface InterviewRepository {
     int countPoints(UUID interviewId, UUID sessionId);
 
     void deletePoint(UUID id);
+
+    /** Rattache le message de discussion qui porte les décisions de la séance (research.md R4). */
+    void tagMessage(UUID messageId, UUID interviewId);
+
+    /** Séance dont ce message de discussion porte les décisions ; vide pour un message ordinaire. */
+    Optional<UUID> interviewOfMessage(UUID messageId);
 }

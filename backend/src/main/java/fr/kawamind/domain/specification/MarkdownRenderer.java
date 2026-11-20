@@ -94,6 +94,11 @@ public final class MarkdownRenderer {
     private static final StoryLabels STORY_EN = new StoryLabels("As a", "I want", "so that", "(assumption)",
             "Proposed split", "This story is broad: it would be better split into several stories.");
 
+    private static final String OPEN_FR = "Points ouverts";
+    private static final String OPEN_EN = "Open questions";
+    private static final java.time.format.DateTimeFormatter DUE_FR =
+            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     private MarkdownRenderer() {
     }
 
@@ -110,6 +115,7 @@ public final class MarkdownRenderer {
             out.put(l.useCases(), "use-cases");
             out.put(l.scenarios(), "scenarios");
             out.put(l.assumptions(), "assumptions");
+            out.put(l == FR ? OPEN_FR : OPEN_EN, "open-questions");
             out.put(l.functional(), "functional");
             out.put(l.technical(), "technical");
             out.put(l.architecture(), "architecture");
@@ -190,6 +196,7 @@ public final class MarkdownRenderer {
                     .append(escape(a.statement())).append('\n'));
             md.append('\n');
         }
+        openQuestions(md, spec.openQuestions(), language, l);
         requirements(md, l.functional(), spec.requirements(), Requirement.Category.FUNCTIONAL, l);
         requirements(md, l.technical(), spec.requirements(), Requirement.Category.TECHNICAL, l);
         KnowledgeSelection k = knowledge == null ? KnowledgeSelection.EMPTY : knowledge;
@@ -201,6 +208,33 @@ public final class MarkdownRenderer {
         sourceDeviations(md, spec.sourceDeviations(), language == Language.EN ? SOURCES_EN : SOURCES_FR, l);
         efforts(md, k.deploymentFacts(), l);
         return md.toString().stripTrailing() + "\n";
+    }
+
+    /**
+     * Points ouverts (021, FR-015) : questions laissées en suspens, avec leur responsable et leur
+     * échéance ; omise sans point ouvert.
+     */
+    private static void openQuestions(StringBuilder md, List<OpenQuestion> questions, Language language, Labels l) {
+        if (questions.isEmpty()) {
+            return;
+        }
+        boolean en = language == Language.EN;
+        md.append("## ").append(en ? OPEN_EN : OPEN_FR).append("\n\n");
+        for (OpenQuestion q : questions) {
+            md.append("- **").append(q.code()).append("**" + l.colon()).append(escape(q.question()));
+            List<String> who = new java.util.ArrayList<>();
+            if (q.owner() != null && !q.owner().isBlank()) {
+                who.add((en ? "owner: " : "responsable : ") + escape(q.owner()));
+            }
+            if (q.due() != null) {
+                who.add((en ? "due " + q.due() : "échéance : " + DUE_FR.format(q.due())));
+            }
+            if (!who.isEmpty()) {
+                md.append(" (").append(String.join(", ", who)).append(')');
+            }
+            md.append('\n');
+        }
+        md.append('\n');
     }
 
     /** « En tant que rôle, je veux capacité, afin de bénéfice. », en tête (FR-023, FR-025). */

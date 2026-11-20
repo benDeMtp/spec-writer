@@ -200,7 +200,8 @@ public final class EvalRuns {
                 round(ConversationRuns.score(conversations, ConversationRuns.Kind.INCONSISTENCY, runs)));
         for (String metric : List.of(EvalBaseline.DISCUSSION_CITATION, EvalBaseline.DISCUSSION_INCONSISTENCY,
                 EvalBaseline.REVISION_COMPLETENESS, EvalBaseline.REVISION_PRESERVATION, EvalBaseline.REVISION_STRUCTURE,
-                EvalBaseline.UNCHANGED_RECALL, EvalBaseline.CHANGES_RECALL, EvalBaseline.CHANGES_PRECISION)) {
+                EvalBaseline.UNCHANGED_RECALL, EvalBaseline.CHANGES_RECALL, EvalBaseline.CHANGES_PRECISION,
+                EvalBaseline.DECIDED_REMOVED)) {
             conversation.put(metric, round(DiscussionRuns.score(discussions, metric, runs)));
         }
         for (String metric : List.of(EvalBaseline.PERIMETER_TERM_RECALL, EvalBaseline.PERIMETER_QUALIFICATION)) {

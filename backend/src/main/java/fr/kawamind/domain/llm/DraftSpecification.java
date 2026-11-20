@@ -20,7 +20,8 @@ public record DraftSpecification(
         List<DraftAdrDeviation> adrDeviations,
         UserStory story,
         List<String> splitProposal,
-        List<DraftSourceDeviation> sourceDeviations) {
+        List<DraftSourceDeviation> sourceDeviations,
+        List<DraftOpenQuestion> openQuestions) {
 
     public DraftSpecification {
         details = details == null ? "" : details;
@@ -31,6 +32,16 @@ public record DraftSpecification(
         adrDeviations = adrDeviations == null ? List.of() : List.copyOf(adrDeviations);
         splitProposal = UserStory.split(splitProposal);
         sourceDeviations = sourceDeviations == null ? List.of() : List.copyOf(sourceDeviations);
+        openQuestions = openQuestions == null ? List.of() : List.copyOf(openQuestions);
+    }
+
+    /** Sans point ouvert : toute sortie hors révision, et réponses antérieures à 021. */
+    public DraftSpecification(String title, String summary, String details, List<DraftUseCase> useCases,
+            List<DraftScenario> scenarios, List<DraftAssumption> assumptions, List<DraftRequirement> requirements,
+            List<DraftAdrDeviation> adrDeviations, UserStory story, List<String> splitProposal,
+            List<DraftSourceDeviation> sourceDeviations) {
+        this(title, summary, details, useCases, scenarios, assumptions, requirements, adrDeviations, story,
+                splitProposal, sourceDeviations, List.of());
     }
 
     /** Sans écart entre sources : réponses antérieures à 016 (fixtures rejouées), R8. */
@@ -116,8 +127,22 @@ public record DraftSpecification(
         }
     }
 
-    /** {@code origin} : SKIPPED_QUESTION ou TOOL_INFERENCE ; {@code questionId} vide si sans objet. */
-    public record DraftAssumption(String statement, String origin, String questionId) {
+    /**
+     * {@code origin} : SKIPPED_QUESTION ou TOOL_INFERENCE ; {@code questionId} vide si sans objet ;
+     * {@code fromCode} (révision, 021) : code de l'hypothèse dans la version de base, vide si nouvelle.
+     */
+    public record DraftAssumption(String statement, String origin, String questionId, String fromCode) {
+
+        public DraftAssumption(String statement, String origin, String questionId) {
+            this(statement, origin, questionId, "");
+        }
+    }
+
+    /**
+     * Point ouvert (révision, 021, contracts/llm-output.md) : une question que la révision laisse en
+     * suspens ; {@code fromCode} : son code dans la version de base, vide si nouvelle.
+     */
+    public record DraftOpenQuestion(String question, String owner, String fromCode) {
     }
 
     /** {@code category} : FUNCTIONAL ou TECHNICAL. */

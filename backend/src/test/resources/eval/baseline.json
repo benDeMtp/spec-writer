@@ -24,7 +24,8 @@
     "taskVerifiable": 0.9,
     "storyStatement": 0.9,
     "sourceConflictFlagged": 0.9,
-    "referenceRetained": 1.0
+    "referenceRetained": 1.0,
+    "decidedRemoved": 1.0
   },
   "scores": {
     "questionRelevance": 0.9,

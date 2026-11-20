@@ -333,4 +333,14 @@ class ProposeRevisionTest {
         assertThat(ProposeRevision.origin(e)).isEqualTo("SelectKnowledge.forEdit:42");
         assertThat(ProposeRevision.origin(new IllegalStateException())).isNotBlank();
     }
+
+    @Test
+    void unMessageDeSeanceSeCiteParLaSeance() {
+        var interview = fr.kawamind.domain.interview.Interview.startNow(w.ids.next(), session.projectId(),
+                List.of("Julie M.", "Paul D."), Instant.parse("2026-11-20T09:00:00Z"));
+        assertThat(ProposeRevision.title(interview, fr.kawamind.domain.session.Language.FR))
+                .isEqualTo("Séance du 20/11/2026 (Julie M., Paul D.)");
+        assertThat(ProposeRevision.title(interview.withParticipants(List.of()), fr.kawamind.domain.session.Language.EN))
+                .isEqualTo("Session of 2026-11-20");
+    }
 }

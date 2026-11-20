@@ -81,7 +81,7 @@ public final class IdentifierAssigner {
             if (!blank(d.statement())) {
                 assumptions.add(new Assumption("H-%02d".formatted(assumptions.size() + 1), strip(d.statement()),
                         skipped ? Assumption.Origin.SKIPPED_QUESTION : Assumption.Origin.TOOL_INFERENCE,
-                        skipped ? questionId : null));
+                        skipped ? questionId : null, null, d.fromCode()));
             }
         }
         for (Question q : treated) {
@@ -135,8 +135,26 @@ public final class IdentifierAssigner {
                         new SourceDeviation.Cited(strip(d.interpretationRef()), null, null, null), d.difference()))
                 .toList();
         SpecificationContent content = new SpecificationContent(title, summary, details, useCases, scenarios,
-                assumptions, requirements, deviations, draft.story(), draft.splitProposal(), sourceDeviations);
+                assumptions, requirements, deviations, draft.story(), draft.splitProposal(), sourceDeviations,
+                openQuestions(draft.openQuestions()));
         return new Assigned(content, new StructureViolations(violations));
+    }
+
+    /**
+     * Points ouverts d'une révision (021), codés {@code Q-nn} dans l'ordre : une question vide ou trop
+     * longue est écartée, un responsable trop long oublié ; 50 au plus.
+     */
+    private static List<OpenQuestion> openQuestions(List<DraftSpecification.DraftOpenQuestion> drafts) {
+        List<OpenQuestion> out = new ArrayList<>();
+        for (DraftSpecification.DraftOpenQuestion d : drafts) {
+            if (d == null || blank(d.question()) || strip(d.question()).length() > OpenQuestion.MAX_QUESTION
+                    || out.size() == SpecificationContent.MAX_OPEN_QUESTIONS) {
+                continue;
+            }
+            String owner = strip(d.owner()).length() > OpenQuestion.MAX_OWNER ? null : d.owner();
+            out.add(new OpenQuestion("Q-%02d".formatted(out.size() + 1), d.question(), owner, null, null, d.fromCode()));
+        }
+        return out;
     }
 
     private static SourceRef source(DraftUseCase d, String code, Map<String, UUID> known, List<String> violations) {

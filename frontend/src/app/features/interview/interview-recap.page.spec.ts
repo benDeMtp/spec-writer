@@ -2,7 +2,8 @@ import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
+import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { InterviewRecapPage } from './interview-recap.page';
 
 async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
@@ -23,10 +24,16 @@ describe('InterviewRecapPage (021, US2)', () => {
   let el: HTMLElement;
   let announced: string[];
   let written: ClipboardItem[][];
+  let ctrl: HttpTestingController;
 
-  async function open(clipboard: Partial<Clipboard>): Promise<void> {
+  const SPEC = { sessionId: 's1', name: 'Avoirs', latestVersion: 1, appliedVersion: null as number | null };
+
+  async function open(
+    clipboard: Partial<Clipboard>,
+    specs: object[] = [{ ...SPEC, revisionAvailable: false, revisionUnavailableReason: null }],
+  ): Promise<void> {
     TestBed.configureTestingModule({ providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] });
-    const ctrl = TestBed.inject(HttpTestingController);
+    ctrl = TestBed.inject(HttpTestingController);
     announced = [];
     vi.spyOn(TestBed.inject(LiveAnnouncer), 'announce').mockImplementation(async (m) => {
       announced.push(String(m));
@@ -40,7 +47,7 @@ describe('InterviewRecapPage (021, US2)', () => {
       id: 'i1',
       state: 'FINISHED',
       participants: [],
-      specs: [{ sessionId: 's1', name: 'Avoirs', latestVersion: 1, appliedVersion: null }],
+      specs,
       stops: [],
       counts: { handled: 1, notes: 0, pending: 0 },
     });
@@ -88,4 +95,27 @@ describe('InterviewRecapPage (021, US2)', () => {
     expect(el.querySelector('#copy-hint')?.textContent).toContain('Ctrl+C');
     vi.unstubAllGlobals();
   });
+
+  it('révision : la rédaction démarre, puis la spécification s’ouvre, discussion ouverte et rédaction suivie', async () => {
+    await open({}, [{ ...SPEC, revisionAvailable: true, revisionUnavailableReason: null }]);
+    vi.spyOn(TestBed.inject(ConsentGate), 'ensure').mockResolvedValue(true);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const button = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Proposer la nouvelle version'));
+    expect(button?.getAttribute('aria-label')).toBe('Proposer la nouvelle version de « Avoirs »');
+    button!.click();
+    await settle(fixture);
+    ctrl.expectOne({ method: 'POST', url: '/api/interviews/i1/specs/s1/revision' }).flush({ conversationId: 'c1', turnId: 't1' });
+    await settle(fixture);
+    expect(navigate).toHaveBeenCalledWith(['/sessions', 's1', 'versions', 1], {
+      queryParams: { discussion: 1, tour: 't1' },
+    });
+  });
+
+  it('révision indisponible : la raison est dite, sans bouton', async () => {
+    await open({}, [{ ...SPEC, appliedVersion: 2, revisionAvailable: false, revisionUnavailableReason: 'Version 2 appliquée.' }]);
+    expect(el.querySelector('.reason')?.textContent).toContain('Version 2 appliquée.');
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Proposer'))).toBe(false);
+    expect(el.querySelector('a[href="/sessions/s1/versions/2"]')).not.toBeNull();
+  });
 });
+

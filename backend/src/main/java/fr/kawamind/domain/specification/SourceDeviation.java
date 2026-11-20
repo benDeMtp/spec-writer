@@ -50,6 +50,11 @@ public record SourceDeviation(String code, Cited reference, Cited interpretation
         return new SourceDeviation(newCode, reference, interpretation, difference, anchor, fromCode);
     }
 
+    /** Code de l'élément repris de la version de base (021, R3) ; nul pour un élément nouveau. */
+    public SourceDeviation withFromCode(String newFromCode) {
+        return new SourceDeviation(code, reference, interpretation, difference, anchor, newFromCode);
+    }
+
     public SourceDeviation withAnchor(Anchor newAnchor) {
         return new SourceDeviation(code, reference, interpretation, difference, newAnchor, fromCode);
     }

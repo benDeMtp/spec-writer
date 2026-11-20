@@ -21,6 +21,11 @@ public record Assumption(String code, String statement, Origin origin, UUID ques
         return new Assumption(newCode, statement, origin, questionId, anchor, fromCode);
     }
 
+    /** Code de l'élément repris de la version de base (021, R3) ; nul pour un élément nouveau. */
+    public Assumption withFromCode(String newFromCode) {
+        return new Assumption(code, statement, origin, questionId, anchor, newFromCode);
+    }
+
     public Assumption withAnchor(Anchor newAnchor) {
         return new Assumption(code, statement, origin, questionId, newAnchor, fromCode);
     }

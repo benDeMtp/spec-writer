@@ -1,9 +1,11 @@
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, signal, viewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { InterviewsApi } from '../../core/interviews/interviews.api';
-import { InterviewDetail, InterviewReport } from '../../core/interviews/interviews.model';
+import { InterviewDetail, InterviewReport, InterviewSpecView } from '../../core/interviews/interviews.model';
+import { ConsentGate } from '../../shared/ui/consent-gate.service';
+import { reason } from '../conversation/conversation-thread.component';
 
 /**
  * Récapitulatif d'une séance (021, US2, contracts/ui.md) : le compte rendu à copier dans un mail ou
@@ -46,13 +48,28 @@ import { InterviewDetail, InterviewReport } from '../../core/interviews/intervie
           @for (s of d.specs; track s.sessionId) {
             <li>
               <span class="name">« {{ s.name }} »</span>
-              @if (s.appliedVersion) {
-                <span>Version {{ s.appliedVersion }} appliquée.</span>
+              @if (s.revisionAvailable) {
+                <button
+                  mat-flat-button
+                  type="button"
+                  [disabled]="revising() !== null"
+                  [attr.aria-label]="'Proposer la nouvelle version de « ' + s.name + ' »'"
+                  (click)="revise(s)"
+                >
+                  {{ revising() === s.sessionId ? 'Rédaction…' : 'Proposer la nouvelle version' }}
+                </button>
+              } @else if (s.revisionUnavailableReason) {
+                <span class="reason">{{ s.revisionUnavailableReason }}</span>
               }
-              <a mat-button [routerLink]="['/sessions', s.sessionId, 'versions', s.latestVersion]">Ouvrir la spécification</a>
+              <a mat-button [routerLink]="['/sessions', s.sessionId, 'versions', s.appliedVersion ?? s.latestVersion]"
+                >Ouvrir la spécification</a
+              >
             </li>
           }
         </ul>
+        @if (revisionProblem()) {
+          <p role="alert">{{ revisionProblem() }}</p>
+        }
       </section>
     } @else if (failed()) {
       <p role="alert">{{ failed() }}</p>
@@ -103,6 +120,9 @@ import { InterviewDetail, InterviewReport } from '../../core/interviews/intervie
     .name {
       font-weight: 600;
     }
+    .reason {
+      color: var(--sw-ink-soft);
+    }
   `,
 })
 export class InterviewRecapPage {
@@ -110,12 +130,17 @@ export class InterviewRecapPage {
 
   private readonly api = inject(InterviewsApi);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly router = inject(Router);
+  private readonly consent = inject(ConsentGate);
 
   protected readonly detail = signal<InterviewDetail | null>(null);
   protected readonly report = signal<InterviewReport | null>(null);
   protected readonly failed = signal<string | null>(null);
   protected readonly fallback = signal(false);
   protected readonly copied = signal(false);
+  /** Spécification dont la révision démarre ; nulle sinon. */
+  protected readonly revising = signal<string | null>(null);
+  protected readonly revisionProblem = signal('');
   private readonly fallbackText = viewChild<ElementRef<HTMLTextAreaElement>>('fallbackText');
   protected readonly finished = computed(() => this.detail()?.state === 'FINISHED');
 
@@ -130,6 +155,28 @@ export class InterviewRecapPage {
       this.report.set(report);
     } catch {
       this.failed.set('Le récapitulatif n’a pas pu être chargé. Rechargez la page.');
+    }
+  }
+
+  /**
+   * « Proposer la nouvelle version » (FR-013) : la rédaction démarre, puis la page de la
+   * spécification s'ouvre, discussion ouverte et rédaction suivie, pour relire le diff et appliquer.
+   */
+  protected async revise(spec: InterviewSpecView): Promise<void> {
+    if (this.revising() || !(await this.consent.ensure('COPILOT'))) {
+      return;
+    }
+    this.revisionProblem.set('');
+    this.revising.set(spec.sessionId);
+    try {
+      const started = await this.api.proposeRevision(this.id(), spec.sessionId);
+      await this.router.navigate(['/sessions', spec.sessionId, 'versions', spec.latestVersion], {
+        queryParams: { discussion: 1, tour: started.turnId },
+      });
+    } catch (e) {
+      this.revisionProblem.set(reason(e, 'La révision n’a pas pu démarrer. Réessayez.'));
+    } finally {
+      this.revising.set(null);
     }
   }
 

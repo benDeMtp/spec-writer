@@ -70,6 +70,13 @@ l'entrée la plus proche, les fragments manquants. Le journal du jar E2E
   référence du document de ce titre dans le message (sa référence contient l'identifiant, aléatoire,
   de sa source).
 
+## Fixtures de la 021
+
+- `47c-revise-seance.json` : révision d'après une séance (`us21-interview.spec.ts`, V3), reconnue
+  au message de séance (« Décisions à intégrer »). La version garde l'étape modifiée, cite la
+  séance (`__DISCUSSION_1__`) et ne reprend pas l'hypothèse confirmée ; la question reportée est
+  ajoutée par le code comme point ouvert.
+
 ## Réenregistrer un échange
 
 1. Lancer le dev mode sur le vrai Copilot (profil `live`, réservé au poste du mainteneur) :

@@ -1,5 +1,6 @@
 package fr.kawamind.infrastructure.web;
 
+import fr.kawamind.application.interview.InterviewRevision;
 import fr.kawamind.application.interview.RunInterview;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
@@ -91,6 +92,9 @@ public class InterviewResource {
     @Inject
     InterviewViews views;
 
+    @Inject
+    InterviewRevision revision;
+
     @GET
     @Path("/{id}")
     public InterviewDetail get(@PathParam("id") String id) {
@@ -143,6 +147,18 @@ public class InterviewResource {
     public ReportView report(@PathParam("id") String id) {
         var report = run.report(Ids.parse(id));
         return new ReportView(report.html(), report.text());
+    }
+
+    /** La rédaction lancée : le tour se suit sur la discussion de la spécification. */
+    public record RevisionStarted(UUID conversationId, UUID turnId) {
+    }
+
+    /** « Proposer la nouvelle version » (FR-013) : 202, la rédaction de la 011 est en cours. */
+    @POST
+    @Path("/{id}/specs/{sid}/revision")
+    public Response revise(@PathParam("id") String id, @PathParam("sid") String sid) {
+        InterviewRevision.Started started = revision.propose(Ids.parse(id), Ids.parse(sid));
+        return Response.accepted(new RevisionStarted(started.conversationId(), started.turnId())).build();
     }
 
     static RunInterview.PointInput input(PointInput in) {

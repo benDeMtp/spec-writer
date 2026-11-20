@@ -491,6 +491,25 @@ export function storyParts(
                 }
               </section>
 
+              @if (v.openQuestions?.length) {
+                <section aria-labelledby="open-questions">
+                  <h2 id="open-questions">Points ouverts</h2>
+                  <ul class="assumptions">
+                    @for (q of v.openQuestions; track q.code) {
+                      <li>
+                        <span class="code">{{ q.code }}</span> {{ q.question }}
+                        @if (q.owner || q.due) {
+                          <span class="who"
+                            >({{ q.owner ? 'responsable : ' + q.owner : ''
+                            }}{{ q.owner && q.due ? ', ' : '' }}{{ q.due ? 'échéance : ' + dueLabel(q.due) : '' }})</span
+                          >
+                        }
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
+
               <section aria-labelledby="functional">
                 <h2 id="functional">Exigences fonctionnelles</h2>
                 <ul>
@@ -704,8 +723,9 @@ export function storyParts(
               [displayedVersion]="v.number"
               [internalLink]="showSection"
               [reviewing]="!!discussionProposal()"
+              [turn]="tour() ?? null"
               (proposed)="onProposed($event)"
-              (drafting)="drafting.set($event)"
+              (drafting)="onDrafting($event)"
               (closed)="closeDiscussion()"
             />
           </div>
@@ -934,6 +954,9 @@ export function storyParts(
     .assumptions {
       padding-left: 0;
     }
+    .who {
+      color: var(--sw-ink-soft);
+    }
     .implementation {
       display: flex;
       flex-wrap: wrap;
@@ -973,6 +996,8 @@ export class SpecificationPage {
   readonly edit = input<string | undefined>();
   /** `?discussion=1` : ouvre la discussion avec l'IA, par exemple après l'import d'un ticket (011). */
   readonly discussion = input<string | undefined>();
+  /** `?tour=<id>` : rédaction lancée par la révision d'une séance (021), suivie par la discussion. */
+  readonly tour = input<string | undefined>();
   private readonly discussButton = viewChild('discussButton', {
     read: ElementRef<HTMLButtonElement>,
   });
@@ -1175,11 +1200,25 @@ export class SpecificationPage {
     this.discussionPanel()?.focus();
   }
 
+  /** « 2026-11-27 » devient « 27/11/2026 ». */
+  protected dueLabel(due: string): string {
+    const [y, m, d] = due.split('-');
+    return d && m && y ? `${d}/${m}/${y}` : due;
+  }
+
+  /** Rédaction en cours ; une rédaction suivie depuis l'adresse ne se suit qu'une fois (021). */
+  protected onDrafting(active: boolean): void {
+    this.drafting.set(active);
+    if (active && this.tour()) {
+      void this.syncDiscussionUrl();
+    }
+  }
+
   /** `?discussion=1` suit le panneau : un rechargement ou un lien le rouvre. */
   private syncDiscussionUrl(): Promise<boolean> {
     return this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { discussion: this.discussing() ? 1 : null, edit: null },
+      queryParams: { discussion: this.discussing() ? 1 : null, edit: null, tour: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });

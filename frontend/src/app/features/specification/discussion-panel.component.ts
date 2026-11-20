@@ -234,6 +234,8 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   readonly proposed = output<Proposal>();
   /** Rédaction en cours : la page ne ferme pas le panneau et prévient avant de quitter. */
   readonly drafting = output<boolean>();
+  /** Rédaction lancée ailleurs, par la révision d'une séance (021) : le panneau la suit à l'ouverture. */
+  readonly turn = input<string | null>(null);
 
   private readonly api = inject(ConversationsApi);
   private readonly consent = inject(ConsentGate);
@@ -357,11 +359,27 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
         ]);
         this.thread().scrollToEnd();
       }
-      this.stream = this.api.follow(view.conversationId, turnId, (e) => void this.onProposal(e));
+      this.follow(view.conversationId, turnId);
     } catch (e) {
       this.endProposal();
       this.problem.set(reason(e, 'La proposition n’a pas pu démarrer. Réessayez.'));
     }
+  }
+
+  private follow(conversationId: string, turnId: string): void {
+    this.stream = this.api.follow(conversationId, turnId, (e) => void this.onProposal(e));
+  }
+
+  /** Suit la rédaction lancée par la révision d'une séance, comme une proposition faite ici. */
+  private followStarted(conversationId: string, turnId: string): void {
+    this.problem.set('');
+    this.unchanged.set(null);
+    this.proposingReasoning.set('');
+    this.proposingSince.set(Date.now());
+    this.proposing.set(true);
+    this.drafting.emit(true);
+    this.thread().say('L’agent rédige la nouvelle version d’après la séance.');
+    this.follow(conversationId, turnId);
   }
 
   private async onProposal(event: TurnEvent): Promise<void> {
@@ -417,7 +435,13 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
+    // lue avant l'ouverture : la page retire le paramètre de l'adresse dès que la rédaction est suivie
+    const turn = this.turn();
     await this.open(false);
+    const view = this.view();
+    if (turn && view) {
+      this.followStarted(view.conversationId, turn);
+    }
   }
 
   ngOnDestroy(): void {

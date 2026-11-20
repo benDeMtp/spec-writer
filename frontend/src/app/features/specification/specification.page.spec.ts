@@ -305,6 +305,38 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(section('deviations').compareDocumentPosition(deviations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('affiche les points ouverts après les hypothèses, avec responsable et échéance (021)', async () => {
+    fixture = TestBed.createComponent(SpecificationPage);
+    fixture.componentRef.setInput('id', 's1');
+    fixture.componentRef.setInput('n', '1');
+    el = fixture.nativeElement;
+    fixture.detectChanges();
+    ctrl.expectOne('/api/sessions/s1/versions/1').flush({
+      ...SPEC,
+      openQuestions: [
+        { code: 'Q-01', question: 'Qui valide en l’absence du manager ?', owner: 'Paul D.', due: '2026-11-27', anchor: null },
+        { code: 'Q-02', question: 'Quel plafond ?', owner: null, due: null, anchor: null },
+      ],
+    });
+    ctrl.expectOne('/api/sessions/s1').flush(SESSION);
+    ctrl.expectOne('/api/sessions/s1/versions').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const open = section('open-questions');
+    expect(open.querySelector('h2')?.textContent).toBe('Points ouverts');
+    const items = [...open.querySelectorAll('li')].map(text);
+    expect(items[0]).toContain('Q-01 Qui valide en l’absence du manager ? (responsable : Paul D., échéance : 27/11/2026)');
+    expect(items[1]).not.toContain('(');
+    expect(section('assumptions').compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('sans point ouvert, pas de rubrique (021)', async () => {
+    await open(SESSION, []);
+    expect(section('open-questions')).toBeNull();
+  });
+
   it('sans écart entre sources, pas de rubrique (016)', async () => {
     await open(SESSION, []);
     expect(section('source-deviations')).toBeNull();
@@ -394,7 +426,7 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     discuss.click();
     await settle();
     // le panneau ouvert est dans l'adresse : un rechargement le rouvre
-    expect(navigateTo.mock.calls[0][1]?.queryParams).toEqual({ discussion: 1, edit: null });
+    expect(navigateTo.mock.calls[0][1]?.queryParams).toEqual({ discussion: 1, edit: null, tour: null });
 
     ctrl
       .expectOne({ method: 'POST', url: '/api/sessions/s1/discussion' })
@@ -488,7 +520,7 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     await settle();
     expect(el.querySelector('sw-discussion-panel')).toBeNull();
     expect(document.activeElement).toBe(discuss);
-    expect(navigateTo.mock.calls.at(-1)![1]?.queryParams).toEqual({ discussion: null, edit: null });
+    expect(navigateTo.mock.calls.at(-1)![1]?.queryParams).toEqual({ discussion: null, edit: null, tour: null });
     el.remove();
   });
 

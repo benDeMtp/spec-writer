@@ -31,11 +31,12 @@ public class ProposalStore {
      * qui devient la référence à l'acceptation ; nuls pour une modification simple. La connaissance
      * utilisée est retenue sur la version acceptée (FR-013d, research.md R24 de 002).
      * {@code conversationId} : discussion d'où vient une proposition {@code DISCUSSION} (011) ; nul
+     * sinon. {@code interviewId} : séance dont la proposition intègre les décisions (021, R4) ; nul
      * sinon.
      */
     public record Proposal(UUID id, UUID sessionId, int baseVersion, SpecificationContent content, String markdown,
             String unifiedDiff, VersionOrigin origin, Instant createdAt, Instant jiraUpdated, String jiraDescriptionHash,
-            ProjectKnowledge knowledge, UUID conversationId, PerimeterSnapshot perimeter) {
+            ProjectKnowledge knowledge, UUID conversationId, PerimeterSnapshot perimeter, UUID interviewId) {
 
         public Instant contextUpdatedAt() {
             return knowledge.sheetUpdatedAt();
@@ -79,6 +80,14 @@ public class ProposalStore {
     public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
             Instant jiraUpdated, String jiraDescriptionHash, ProjectKnowledge knowledge, UUID conversationId,
             PerimeterSnapshot discussed) {
+        return propose(session, base, content, origin, jiraUpdated, jiraDescriptionHash, knowledge, conversationId,
+                discussed, null);
+    }
+
+    /** Proposition qui intègre les décisions de la séance {@code interviewId} (021). */
+    public Proposal propose(Session session, SpecificationVersion base, SpecificationContent content, VersionOrigin origin,
+            Instant jiraUpdated, String jiraDescriptionHash, ProjectKnowledge knowledge, UUID conversationId,
+            PerimeterSnapshot discussed, UUID interviewId) {
         purge();
         PerimeterSnapshot perimeter = discussed != null ? discussed
                 : perimeters == null ? null : perimeters.snapshot(session.id()).orElse(null);
@@ -88,7 +97,7 @@ public class ProposalStore {
         String markdown = MarkdownRenderer.render(content, session.language(), knowledge.selection(), perimeter);
         String unified = diff.unified(base.markdown(), markdown, "v" + base.number(), "proposition");
         Proposal p = new Proposal(ids.next(), session.id(), base.number(), content, markdown, unified, origin, clock.now(),
-                jiraUpdated, jiraDescriptionHash, knowledge, conversationId, discussed);
+                jiraUpdated, jiraDescriptionHash, knowledge, conversationId, discussed, interviewId);
         proposals.put(p.id(), p);
         return p;
     }

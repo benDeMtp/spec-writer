@@ -47,7 +47,7 @@ final class LlmSchemas {
             .addProperty("newQuestions", array(QUESTION))
             .build());
 
-    static final ResponseFormat SPECIFICATION = format("specification", specification(List.of(), true));
+    static final ResponseFormat SPECIFICATION = format("specification", specification(List.of(), true, false));
 
     /**
      * 011 : nouvelle version d'après la discussion, ou aucun changement établi et sa raison. Sans
@@ -57,7 +57,7 @@ final class LlmSchemas {
     static final ResponseFormat REVISION = format("revision", JsonObjectSchema.builder()
             .addProperty("changed", JsonBooleanSchema.builder().build())
             .addStringProperty("reason")
-            .addProperty("specification", specification(List.of("DISCUSSION"), false))
+            .addProperty("specification", specification(List.of("DISCUSSION"), false, true))
             .addProperty("perimeter", array(JsonObjectSchema.builder()
                     .addStringProperty("module")
                     .addProperty("qualification", JsonEnumSchema.builder()
@@ -69,8 +69,10 @@ final class LlmSchemas {
     /**
      * @param extraKinds sortes de source propres à l'opération (DISCUSSION pour une proposition)
      * @param sourceDeviations demander les écarts entre sources (016)
+     * @param revision révision (021) : {@code fromCode} des hypothèses reprises, et points ouverts
      */
-    private static JsonObjectSchema specification(List<String> extraKinds, boolean sourceDeviations) {
+    private static JsonObjectSchema specification(List<String> extraKinds, boolean sourceDeviations,
+            boolean revision) {
         List<String> kinds = new java.util.ArrayList<>(List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION",
                 "PROJECT_CONTEXT", "JIRA_ISSUE", "DOC_PAGE", "ARCH_ELEMENT"));
         kinds.addAll(extraKinds);
@@ -102,11 +104,7 @@ final class LlmSchemas {
                     .addProperty("then", array(string()))
                     .addProperty("assumption", JsonBooleanSchema.builder().build())
                     .build()))
-            .addProperty("assumptions", array(JsonObjectSchema.builder()
-                    .addStringProperty("statement")
-                    .addEnumProperty("origin", List.of("SKIPPED_QUESTION", "TOOL_INFERENCE"))
-                    .addStringProperty("questionId")
-                    .build()))
+            .addProperty("assumptions", array(assumption(revision)))
             .addProperty("requirements", array(JsonObjectSchema.builder()
                     .addEnumProperty("category", List.of("FUNCTIONAL", "TECHNICAL"))
                     .addStringProperty("statement")
@@ -132,6 +130,25 @@ final class LlmSchemas {
                     .addStringProperty("interpretationRef")
                     .addStringProperty("difference")
                     .build()));
+        }
+        if (revision) {
+            // 021 (contracts/llm-output.md) : questions laissées en suspens, reprises par leur code de base
+            out.addProperty("openQuestions", array(JsonObjectSchema.builder()
+                    .addStringProperty("question")
+                    .addStringProperty("owner")
+                    .addStringProperty("fromCode")
+                    .build()));
+        }
+        return out.build();
+    }
+
+    private static JsonObjectSchema assumption(boolean revision) {
+        JsonObjectSchema.Builder out = JsonObjectSchema.builder()
+                .addStringProperty("statement")
+                .addEnumProperty("origin", List.of("SKIPPED_QUESTION", "TOOL_INFERENCE"))
+                .addStringProperty("questionId");
+        if (revision) {
+            out.addStringProperty("fromCode");
         }
         return out.build();
     }

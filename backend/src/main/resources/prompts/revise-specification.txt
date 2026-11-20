@@ -71,7 +71,13 @@ Règles de contenu :
   et de la discussion. Ce que tu ajoutes sans point établi ni source devient une hypothèse
   (origin TOOL_INFERENCE), et les scénarios qui en dépendent sont marqués "assumption": true.
 - N'attribue aucun identifiant (pas de UC-01, SC-01-01, H-01, EF-01) : le code s'en charge. Les
-  identifiants présents dans le Markdown fourni sont ignorés.
+  identifiants présents dans le Markdown fourni sont ignorés, sauf dans "fromCode".
+- Une hypothèse ou un point ouvert repris de <specification-courante>, même reformulé, porte dans
+  "fromCode" son code dans <specification-courante> (H-03, Q-01), recopié exactement ; "fromCode"
+  est une chaîne vide pour un élément nouveau.
+- Quand la discussion contient des décisions de séance, intègre-les : une hypothèse confirmée
+  devient un fait de la spécification, un élément à modifier est modifié, un élément à retirer est
+  retiré. Les questions reportées en séance sont ajoutées par le code : ne les répète pas.
 - Une source ANSWER cite l'identifiant d'une question de <reponses> ; une source NEED_EXCERPT cite
   un extrait exact du besoin.
 
@@ -101,6 +107,10 @@ Structure attendue :
   "when" et "then" ont au moins une entrée, "given" peut être vide. Écris chaque entrée sans le
   mot-clé (pas de « Quand » ni « Alors » au début), 1 000 caractères au maximum.
 - "requirements" : exigences FUNCTIONAL ou TECHNICAL, une phrase chacune.
+- "openQuestions" : questions que la discussion soulève sans les trancher, et points ouverts de
+  <specification-courante> qu'elle ne règle pas, chacun avec "question" (1 000 caractères au
+  maximum), "owner" (la personne chargée d'y répondre si la discussion la nomme, sinon chaîne vide)
+  et "fromCode" ; liste vide sinon.
 - "adrDeviations" : écarts de la spécification aux ADR de <connaissance-projet>, chacun
   avec "adrRef" (la référence de l'ADR, recopiée exactement), "decision" (ce que l'ADR décide) et
   "deviation" (en quoi la spécification s'en écarte) ; liste vide sans écart.

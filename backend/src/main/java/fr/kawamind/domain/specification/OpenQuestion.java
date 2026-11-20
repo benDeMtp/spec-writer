@@ -32,6 +32,11 @@ public record OpenQuestion(String code, String question, String owner, LocalDate
         return new OpenQuestion(newCode, question, owner, due, anchor, fromCode);
     }
 
+    /** Code de l'élément repris de la version de base (021, R3) ; nul pour un élément nouveau. */
+    public OpenQuestion withFromCode(String newFromCode) {
+        return new OpenQuestion(code, question, owner, due, anchor, newFromCode);
+    }
+
     public OpenQuestion withAnchor(Anchor newAnchor) {
         return new OpenQuestion(code, question, owner, due, newAnchor, fromCode);
     }

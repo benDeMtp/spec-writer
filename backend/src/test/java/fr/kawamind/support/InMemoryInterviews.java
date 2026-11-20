@@ -20,6 +20,7 @@ public class InMemoryInterviews implements InterviewRepository {
     private final Map<UUID, Interview> interviews = new LinkedHashMap<>();
     private final Map<UUID, List<InterviewSpec>> specs = new LinkedHashMap<>();
     private final Map<UUID, InterviewPoint> points = new LinkedHashMap<>();
+    private final Map<UUID, UUID> messages = new LinkedHashMap<>();
 
     @Override
     public void save(Interview interview, List<InterviewSpec> list) {
@@ -109,5 +110,15 @@ public class InMemoryInterviews implements InterviewRepository {
     @Override
     public void deletePoint(UUID id) {
         points.remove(id);
+    }
+
+    @Override
+    public void tagMessage(UUID messageId, UUID interviewId) {
+        messages.put(messageId, interviewId);
+    }
+
+    @Override
+    public Optional<UUID> interviewOfMessage(UUID messageId) {
+        return Optional.ofNullable(messages.get(messageId));
     }
 }

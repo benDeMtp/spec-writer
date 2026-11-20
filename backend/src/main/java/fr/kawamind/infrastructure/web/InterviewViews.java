@@ -1,5 +1,6 @@
 package fr.kawamind.infrastructure.web;
 
+import fr.kawamind.application.interview.InterviewRevision;
 import fr.kawamind.application.interview.RunInterview;
 import fr.kawamind.domain.interview.Interview;
 import fr.kawamind.domain.interview.Walkthrough;
@@ -29,11 +30,18 @@ public class InterviewViews {
     @Inject
     SessionRepository sessions;
 
+    @Inject
+    InterviewRevision revision;
+
     InterviewDetail detail(RunInterview.View v) {
         Interview i = v.interview();
-        List<SpecView> specs = v.specs().stream().map(s -> new SpecView(s.spec().sessionId(), s.session().name(),
-                s.spec().rank(), s.spec().version(), s.latestVersion(), s.spec().excluded().stream().sorted().toList(),
-                s.spec().appliedVersion(), false, null)).toList();
+        List<SpecView> specs = v.specs().stream().map(s -> {
+            String unavailable = revision.unavailable(i, s.spec().sessionId(), v.points(), s.spec().appliedVersion())
+                    .orElse(null);
+            return new SpecView(s.spec().sessionId(), s.session().name(), s.spec().rank(), s.spec().version(),
+                    s.latestVersion(), s.spec().excluded().stream().sorted().toList(), s.spec().appliedVersion(),
+                    unavailable == null, unavailable);
+        }).toList();
         List<StopView> stops = v.walkthrough().stops().stream().map(InterviewViews::stop).toList();
         CursorView cursor = i.cursor() == null ? null
                 : new CursorView(i.cursor().sessionId(), AnchorView.of(i.cursor().anchor()));
