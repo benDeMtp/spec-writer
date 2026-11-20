@@ -42,6 +42,50 @@ class TurnEventsTest {
         assertThat(events.subscribe(UUID.randomUUID(), late::add)).isEmpty();
     }
 
+    /** Un écran dont le flux casse (onglet fermé, réponse déjà terminée) ne casse pas le tour. */
+    @Test
+    void abonneEnPanneNeCassePasLeTour() {
+        events.open(turn, TurnEvents.Kind.AGENT_REPLY, UUID.randomUUID());
+        List<Event> broken = new ArrayList<>();
+        events.subscribe(turn, e -> {
+            broken.add(e);
+            throw new IllegalStateException("Response has already been written");
+        });
+        List<Event> healthy = new ArrayList<>();
+        events.subscribe(turn, healthy::add);
+
+        events.publish(turn, new Event.Delta("Les avoirs "));
+        events.publish(turn, new Event.Done(MessageState.COMPLETE, false, 0));
+
+        assertThat(healthy).hasSize(2);
+        // l'abonné en panne est retiré dès sa première erreur
+        assertThat(broken).hasSize(1);
+    }
+
+    /** Un événement publié pendant le rejeu passe après les événements rejoués, jamais au milieu. */
+    @Test
+    void rejeuPuisDirectDansLOrdre() throws InterruptedException {
+        events.open(turn, TurnEvents.Kind.AGENT_REPLY, UUID.randomUUID());
+        events.publish(turn, new Event.Delta("1"));
+        events.publish(turn, new Event.Delta("2"));
+        List<Event> seen = java.util.Collections.synchronizedList(new ArrayList<>());
+        Thread[] live = new Thread[1];
+        events.subscribe(turn, e -> {
+            seen.add(e);
+            if (live[0] == null) {
+                live[0] = Thread.ofPlatform().start(() -> events.publish(turn, new Event.Delta("3")));
+                try {
+                    live[0].join(200);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+        live[0].join(5_000);
+
+        assertThat(seen).containsExactly(new Event.Delta("1"), new Event.Delta("2"), new Event.Delta("3"));
+    }
+
     @Test
     void arretEtOubli() {
         events.open(turn, TurnEvents.Kind.AGENT_REPLY, UUID.randomUUID());

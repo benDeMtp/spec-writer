@@ -163,15 +163,26 @@ public class TurnEvents {
         if (turn == null) {
             return;
         }
-        List<Consumer<Event>> listeners;
+        // sous le verrou du tour : un abonné reçoit le rejeu puis le direct, dans l'ordre
         synchronized (turn) {
             turn.events.add(event);
             if (event.last()) {
                 turn.finishedAt = clock.now();
             }
-            listeners = List.copyOf(turn.listeners);
+            turn.listeners.forEach(l -> deliver(turn, l, event));
         }
-        listeners.forEach(l -> l.accept(event));
+    }
+
+    /**
+     * Un écran dont le flux casse (onglet fermé, réponse déjà terminée) est retiré : son erreur ne
+     * doit jamais interrompre le tour qui publie.
+     */
+    private static void deliver(Turn turn, Consumer<Event> listener, Event event) {
+        try {
+            listener.accept(event);
+        } catch (RuntimeException e) {
+            turn.listeners.remove(listener);
+        }
     }
 
     /** Rejoue les événements déjà produits puis transmet la suite ; vide si le tour est inconnu ou oublié. */
@@ -180,12 +191,12 @@ public class TurnEvents {
         if (turn == null) {
             return Optional.empty();
         }
-        List<Event> past;
         synchronized (turn) {
-            past = List.copyOf(turn.events);
             turn.listeners.add(listener);
+            for (Event past : List.copyOf(turn.events)) {
+                deliver(turn, listener, past);
+            }
         }
-        past.forEach(listener);
         return Optional.of(new Subscription() {
             @Override
             public boolean finished() {

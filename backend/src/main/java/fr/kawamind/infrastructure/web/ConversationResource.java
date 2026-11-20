@@ -198,10 +198,10 @@ public class ConversationResource {
             closeQuietly(sink);
             return;
         }
+        // Pas de fermeture ici quand le tour est fini : le rejeu contient alors l'événement final,
+        // qui ferme le flux. Fermer depuis ce fil perdait « done » quand le tour finissait pendant
+        // l'abonnement.
         subscription.set(found.get());
-        if (found.get().finished() && !sink.isClosed()) {
-            closeQuietly(sink);
-        }
     }
 
     private static void closeQuietly(SseEventSink sink) {
