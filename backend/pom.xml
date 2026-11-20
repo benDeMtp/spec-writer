@@ -574,6 +574,9 @@
         <!-- Pas de runtime Copilot dans les installeurs : des composants ne sont pas redistribuables
              (research.md R15). L'application utilise le Copilot CLI de l'utilisateur. -->
         <quarkus.class-loading.removed-artifacts>com.github:copilot-sdk-java-runtime:${copilot-runtime.classifier}</quarkus.class-loading.removed-artifacts>
+        <!-- Symboles de débogage Windows d'ONNX Runtime (300 Mo) : au-delà de la limite d'une
+             entrée de l'uber-jar, et inutiles à l'exécution (feature 019, research.md R3) -->
+        <quarkus.package.jar.user-configured-ignored-entries>ai/onnxruntime/native/win-x64/onnxruntime.pdb</quarkus.package.jar.user-configured-ignored-entries>
       </properties>
       <build>
         <plugins>
