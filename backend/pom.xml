@@ -38,6 +38,7 @@
     <pmd-plugin.version>3.28.0</pmd-plugin.version>
     <dependency-check.version>12.2.2</dependency-check.version>
     <jreleaser.version>1.16.0</jreleaser.version>
+    <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
 
     <!-- Les tests taggés spike, eval et reference sont exclus du build par défaut -->
     <surefire.excludedGroups>spike,eval,reference,perf</surefire.excludedGroups>
@@ -585,7 +586,7 @@
             <artifactId>jreleaser-maven-plugin</artifactId>
             <version>${jreleaser.version}</version>
             <configuration>
-              <configFile>${maven.multiModuleProjectDirectory}/jreleaser.yml</configFile>
+              <configFile>${project.build.directory}/jreleaser.yml</configFile>
               <outputDirectory>${project.build.directory}/jreleaser</outputDirectory>
               <selectCurrentPlatform>true</selectCurrentPlatform>
               <gitRootSearch>true</gitRootSearch>
@@ -597,6 +598,71 @@
                 <goals>
                   <goal>assemble</goal>
                 </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <!-- Version des installeurs : -Dspecwriter.app.version (la release, depuis le tag), sinon
+               celle du pom sans -SNAPSHOT. jpackage refuse une version qui commence par 0 sous macOS :
+               il y reçoit 1.0.0, la version réelle va dans l'Info.plist et le nom du .dmg.
+               Déclaré après JReleaser : le renommage du .dmg (phase package) passe après l'assemblage. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>${maven-antrun-plugin.version}</version>
+            <executions>
+              <execution>
+                <id>version-installeur</id>
+                <phase>prepare-package</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <target>
+                    <loadresource property="specwriter.app.version">
+                      <propertyresource name="project.version"/>
+                      <filterchain>
+                        <replaceregex pattern="-SNAPSHOT$" replace=""/>
+                      </filterchain>
+                    </loadresource>
+                    <condition property="specwriter.jpackage.version" value="1.0.0">
+                      <os family="mac"/>
+                    </condition>
+                    <property name="specwriter.jpackage.version" value="${specwriter.app.version}"/>
+                    <echo message="Version de l'installeur : ${specwriter.app.version} (jpackage : ${specwriter.jpackage.version})"/>
+                    <copy file="${maven.multiModuleProjectDirectory}/jreleaser.yml"
+                          tofile="${project.build.directory}/jreleaser.yml" overwrite="true">
+                      <filterset>
+                        <filter token="JPACKAGE_VERSION" value="${specwriter.jpackage.version}"/>
+                      </filterset>
+                    </copy>
+                    <copy file="${maven.multiModuleProjectDirectory}/dist/macos/Info.plist"
+                          tofile="${project.build.directory}/jpackage-resources/osx/Info.plist" overwrite="true">
+                      <filterset>
+                        <filter token="APP_VERSION" value="${specwriter.app.version}"/>
+                      </filterset>
+                    </copy>
+                  </target>
+                </configuration>
+              </execution>
+              <execution>
+                <id>nom-du-dmg</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <target>
+                    <loadresource property="specwriter.app.version">
+                      <propertyresource name="project.version"/>
+                      <filterchain>
+                        <replaceregex pattern="-SNAPSHOT$" replace=""/>
+                      </filterchain>
+                    </loadresource>
+                    <move file="${project.build.directory}/jreleaser/assemble/spec-writer/jpackage/spec-writer-1.0.0.dmg"
+                          tofile="${project.build.directory}/jreleaser/assemble/spec-writer/jpackage/spec-writer-${specwriter.app.version}.dmg"
+                          failonerror="false" quiet="true"/>
+                  </target>
+                </configuration>
               </execution>
             </executions>
           </plugin>

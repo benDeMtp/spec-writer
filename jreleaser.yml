@@ -1,5 +1,6 @@
 # Installeurs de spec-writer (research.md R15, T140) : runtime jlink Java 25 puis jpackage.
 # Lancé par ./mvnw -Pdist package, sur chaque OS cible (jpackage ne produit que pour l'OS courant).
+# Ne pas lancer JReleaser directement sur ce fichier : le profil dist en écrit d'abord la version.
 # Le jar est un uber-jar : JReleaser copie les jars à plat, ce que la disposition fast-jar de
 # Quarkus (lib/, quarkus/) ne supporte pas.
 project:
@@ -18,8 +19,9 @@ project:
       groupId: fr.kawamind
       artifactId: spec-writer-backend
       version: '25'
-      # classe principale de l'uber-jar de Quarkus
-      mainClass: io.quarkus.runner.GeneratedMain
+      # classe principale de l'uber-jar (Main-Class du manifeste) : le @QuarkusMain de la 019
+      # remplace io.quarkus.runner.GeneratedMain, que Quarkus ne génère plus
+      mainClass: fr.kawamind.infrastructure.platform.SpecWriterMain
 
 assemble:
   jlink:
@@ -30,15 +32,20 @@ assemble:
       copyJars: false
       jdeps:
         enabled: false
-      # Relevés au spike T011 (research.md R15) : jdeps, plus les modules chargés dynamiquement
+      # Relevés au spike T011 (research.md R15) : jdeps, plus les modules chargés dynamiquement.
+      # À revoir à chaque dépendance ajoutée :
+      #   jdeps --multi-release 25 --ignore-missing-deps --print-module-deps backend/target/spec-writer-runner.jar
       moduleNames:
         - java.base
+        - java.compiler
         - java.datatransfer
         - java.desktop
         - java.logging
         - java.management
         - java.naming
+        - java.net.http
         - java.rmi
+        - java.scripting
         - java.security.jgss
         - java.sql
         - java.transaction.xa
@@ -47,6 +54,7 @@ assemble:
         - jdk.jfr
         - jdk.localedata
         - jdk.management
+        - jdk.net
         - jdk.security.auth
         - jdk.unsupported
         - jdk.zipfs
@@ -78,23 +86,34 @@ assemble:
         path: 'backend/target/spec-writer-runner.jar'
       applicationPackage:
         appName: spec-writer
-        # macOS refuse une version qui commence par 0 : SPECWRITER_APP_VERSION (fixée par la release
-        # depuis le tag), sinon 1.0.0 pour un build local
-        appVersion: '{{#Env.SPECWRITER_APP_VERSION}}{{Env.SPECWRITER_APP_VERSION}}{{/Env.SPECWRITER_APP_VERSION}}{{^Env.SPECWRITER_APP_VERSION}}1.0.0{{/Env.SPECWRITER_APP_VERSION}}'
+        # Écrit par le profil dist du backend, qui lit ce fichier depuis backend/target : la version du
+        # pom sans -SNAPSHOT (ou -Dspecwriter.app.version, fixée par la release depuis le tag). Sous
+        # macOS, jpackage refuse une version qui commence par 0 : il reçoit 1.0.0, la version réelle
+        # est dans dist/macos/Info.plist et dans le nom du .dmg.
+        appVersion: '@JPACKAGE_VERSION@'
         vendor: spec-writer
         copyright: '2026 Benjamin Raimondi'
         licenseFile: 'LICENSE'
       launcher:
+        # Le lanceur passe par le classpath, pas par -jar : Java n'applique donc pas les Add-Opens et
+        # Enable-Native-Access du manifeste de Quarkus. Ils sont repris ici.
         javaOptions:
           - '-Xshare:auto'
+          - '--add-opens=java.base/java.lang=ALL-UNNAMED'
+          - '--add-opens=java.base/java.nio=ALL-UNNAMED'
+          - '--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED'
+          - '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED'
+          - '--enable-native-access=ALL-UNNAMED'
         # passerelle MCP pour les agents de code : lanceur spec-writer-mcp à côté de l'application
         launchers:
           - 'spec-writer-mcp=dist/launchers/spec-writer-mcp.properties'
       osx:
         types: [dmg]
         icon: 'dist/assets/spec-writer.icns'
+        # Info.plist de dist/macos, version réelle écrite par le profil dist
+        resourceDir: 'backend/target/jpackage-resources/osx'
         packageName: spec-writer
-        packageIdentifier: dev.specwriter.app
+        packageIdentifier: fr.kawamind.spec-writer
       windows:
         types: [msi]
         icon: 'dist/assets/spec-writer.ico'

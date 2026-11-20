@@ -111,6 +111,14 @@ dev mode ne remplace aucune gate. Le jar de `backend/target/quarkus-app` est rec
   besoin de son propre dossier de données. Le Dock de macOS n'est relié que si l'outil ouvre le
   navigateur (pas en E2E). Un `@QuarkusTest` qui appelle `POST /api/application/quit` remplace
   `GracefulStop` par `QuarkusMock`, sinon il arrête la JVM des tests.
+- Installeurs (`./mvnw -Pdist package`) : le lanceur jpackage passe par le classpath, pas par
+  `-jar`. Les `Add-Opens` du manifeste sont donc repris dans `jreleaser.yml`, et la classe
+  principale doit y suivre le `Main-Class` du jar. Le runtime jlink n'a que les modules listés :
+  relancer `jdeps` (commande dans `jreleaser.yml`) après l'ajout d'une dépendance. La version vient
+  du pom sans `-SNAPSHOT` ; sous macOS, jpackage refuse 0.x et reçoit 1.0.0, la version réelle
+  étant dans `dist/macos/Info.plist`. Ne pas lancer JReleaser directement sur `jreleaser.yml` : le
+  profil `dist` en écrit la version dans `backend/target/`. Tester le `.dmg` sur un dossier de
+  données temporaire (`-Dspecwriter.data-dir`), pas sur celui de l'utilisateur.
 - Profil `live` (`-Dquarkus.profile=dev,live`) : vrai Copilot et vrai trousseau. Il est réservé
   aux essais manuels du mainteneur.
 

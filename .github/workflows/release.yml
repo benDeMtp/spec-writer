@@ -60,7 +60,15 @@ jobs:
       # Les quality gates ont déjà tourné sur la PR (ci.yml) : ici, seulement l'installeur
       - name: Installeur
         shell: bash
-        run: ./mvnw -B -Pdist package -DskipTests -DskipDependencyCheck
+        run: ./mvnw -B -Pdist package -DskipTests -DskipDependencyCheck "-Dspecwriter.app.version=$SPECWRITER_APP_VERSION"
+
+      # Les deux jobs macOS (arm64, x64) produisent le même nom de .dmg : la cible le distingue
+      - name: Nom du .dmg
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cd backend/target/jreleaser/assemble/spec-writer/jpackage
+          for f in *.dmg; do mv "$f" "${f%.dmg}-${{ matrix.target }}.dmg"; done
 
       - name: Publication dans la release
         shell: bash
