@@ -269,4 +269,113 @@ describe('InterviewPage (021, séance en lecture du document)', () => {
     await settle(fixture);
     expect(TestBed.inject(Router).url).toBe('/seances/i1/recapitulatif');
   });
+
+  it('« Supprimer la remarque » retire une remarque notée en séance', async () => {
+    const d = detail();
+    d.stops[0].items = [
+      {
+        origin: 'REMARK',
+        code: null,
+        statement: null,
+        pending: false,
+        point: {
+          id: 'p9',
+          sessionId: 's1',
+          anchor: { element: 'SUMMARY', step: null, alternative: false },
+          origin: 'REMARK',
+          originCode: null,
+          text: 'À revoir',
+          outcome: 'CHANGE',
+          owner: null,
+          due: null,
+          source: null,
+          quote: null,
+          createdAt: '2026-11-20T09:00:00Z',
+          updatedAt: '2026-11-20T09:00:00Z',
+        },
+      },
+    ];
+    await open(d);
+    button('Supprimer la remarque').click();
+    await settle(fixture);
+    ctrl.expectOne((r) => r.method === 'DELETE' && r.url === '/api/interviews/i1/points/p9').flush(null);
+    await settle(fixture);
+    expect(announced).toContain('Remarque supprimée.');
+    ctrl.expectOne('/api/interviews/i1').flush(detail());
+    await settle(fixture);
+    cursorRequests();
+    expect(el.querySelector('[data-anchor="SUMMARY"] sw-point-card')).toBeNull();
+  });
+
+  it('après une première remarque, on en note une autre à la suite', async () => {
+    await open(detail());
+    const summary = () => el.querySelector('[data-anchor="SUMMARY"]')!;
+    async function remark(text: string): Promise<void> {
+      button('Noter', summary()).click();
+      await settle(fixture);
+      button('Commenter', summary().querySelector('[role="toolbar"]')!).click();
+      await settle(fixture);
+      const area = el.querySelector<HTMLTextAreaElement>('sw-point-editor textarea')!;
+      area.value = text;
+      area.dispatchEvent(new Event('input'));
+      await settle(fixture);
+      el.querySelector<HTMLButtonElement>('sw-point-editor button[type="submit"]')!.click();
+      await settle(fixture);
+    }
+    await remark('Première');
+    ctrl.expectOne('/api/interviews/i1/points').flush({});
+    await settle(fixture);
+    const after = detail();
+    after.stops[0].items = [
+      {
+        origin: 'REMARK',
+        code: null,
+        statement: null,
+        pending: false,
+        point: {
+          id: 'p1', sessionId: 's1', anchor: { element: 'SUMMARY', step: null, alternative: false }, origin: 'REMARK',
+          originCode: null, text: 'Première', outcome: 'CHANGE', owner: null, due: null, source: null, quote: null,
+          createdAt: '2026-11-20T09:00:00Z', updatedAt: '2026-11-20T09:00:00Z',
+        },
+      },
+    ];
+    ctrl.expectOne('/api/interviews/i1').flush(after);
+    await settle(fixture);
+    cursorRequests();
+    expect(el.querySelector('sw-point-editor')).toBeNull();
+    await remark('Seconde');
+    expect(ctrl.expectOne('/api/interviews/i1/points').request.body).toMatchObject({ origin: 'REMARK', text: 'Seconde' });
+  });
+
+  it('une sélection relâchée sur la carte d’une remarque ouvre quand même la barre', async () => {
+    const d = detail();
+    d.stops[2].items = [
+      {
+        origin: 'REMARK',
+        code: null,
+        statement: null,
+        pending: false,
+        point: {
+          id: 'p1', sessionId: 's1', anchor: { element: 'UC-01', step: 1, alternative: false }, origin: 'REMARK',
+          originCode: null, text: 'Première', outcome: 'CHANGE', owner: null, due: null, source: null, quote: null,
+          createdAt: '2026-11-20T09:00:00Z', updatedAt: '2026-11-20T09:00:00Z',
+        },
+      },
+    ];
+    await open(d);
+    const step = el.querySelector('[data-anchor="UC-01:1"]')!;
+    const line = step.querySelector('.line')!;
+    const card = step.querySelector('sw-point-card .head')!;
+    const range = document.createRange();
+    range.setStart(line.firstChild!, 0);
+    range.setEnd(card.firstChild!.firstChild ?? card.firstChild!, 3);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    card.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    await settle(fixture);
+    expect(step.querySelector('[role="toolbar"]')?.getAttribute('aria-label')).toBe('Noter sur « Ouvrir la facture »');
+    button('Commenter', step.querySelector('[role="toolbar"]')!).click();
+    await settle(fixture);
+    expect(window.getSelection()!.toString()).toBe('');
+  });
 });

@@ -309,7 +309,8 @@ comme un document, de haut en bas, chaque point en carte sous l'élément qu'il 
 **Confirmer** d'un clic, **Réécrire** à partir de son texte, **Retirer** ou **Reporter** (avec un
 responsable et une échéance). Pour corriger un passage, sélectionnez-le : **Commenter**,
 **Remplacer** ou **Supprimer** ; le passage cité reste surligné. **Noter** ouvre les mêmes actions
-sur un élément entier, et **Question…** note une question avec la personne qui doit y répondre.
+sur un élément entier, et **Question…** note une question avec la personne qui doit y répondre ; une remarque ou une
+question notée en séance se modifie ou se supprime depuis sa carte.
 ↑ ↓ passent d'un point à l'autre, **Prochain point à traiter** mène au suivant. Tout est enregistré
 au fil de l'eau : une séance interrompue reprend au dernier point consulté. Rien n'est envoyé au
 modèle pendant la séance.

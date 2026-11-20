@@ -85,14 +85,37 @@ test.describe.serial('021 interview d’une spécification', () => {
     await step.getByRole('toolbar').getByRole('button', { name: 'Supprimer' }).click();
     await expect(page.locator('.progress')).toContainText('3 notes');
     await expect(step.getByRole('region', { name: 'Remarque' })).toContainText(`« ${passage} »`);
+
+    // une seconde remarque à la suite, par une sélection tirée à la souris jusque sur la première
+    const from = (await line.boundingBox())!;
+    const to = (await step.locator('sw-point-card').first().boundingBox())!;
+    await page.mouse.move(from.x + 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + 40, to.y + to.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await step.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
+    await page.getByRole('textbox', { name: 'Ce qui a été dit' }).fill('Seconde remarque sur l’étape');
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.locator('.progress')).toContainText('4 notes');
+    await expect(step.getByRole('region', { name: 'Remarque' })).toHaveCount(2);
     await expectNoA11yViolations(page);
 
     // reprise après rechargement : rien de perdu, le focus revient au dernier point
     await page.reload();
     await expect(page.locator('.progress')).toContainText('1 traité');
-    await expect(page.locator('.progress')).toContainText('3 notes');
+    await expect(page.locator('.progress')).toContainText('4 notes');
     await expect(page.getByText('Qui valide en l’absence du manager ?')).toBeVisible();
     await expect(page.locator('sw-point-card:focus')).toHaveCount(1);
+
+    // une remarque notée par erreur se supprime
+    await summary.getByRole('button', { name: /^Noter/ }).click();
+    await summary.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
+    await page.getByRole('textbox', { name: 'Ce qui a été dit' }).fill('Notée par erreur');
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.locator('.progress')).toContainText('5 notes');
+    await page.locator('sw-point-card', { hasText: 'Notée par erreur' }).getByRole('button', { name: 'Supprimer la remarque' }).click();
+    await expect(page.locator('.progress')).toContainText('4 notes');
+    await expect(page.getByText('Notée par erreur')).toHaveCount(0);
 
     // depuis la page de la spécification, la séance se reprend
     await page.goto(`/sessions/${sessionId}/versions/1`);

@@ -89,7 +89,12 @@ interface Note extends Target {
         <ng-template #slot let-stop>
           @let key = keyOf(stop);
           @for (item of stop.items; track item.code ?? item.point?.id) {
-            <sw-point-card [item]="item" (saved)="save(stop, item, $event)" (focusin)="track(stop)" />
+            <sw-point-card
+              [item]="item"
+              (saved)="save(stop, item, $event)"
+              (deleted)="deletePoint(stop, item)"
+              (focusin)="track(stop)"
+            />
           }
           @if (note(); as n) {
             @if (n.key === key) {
@@ -402,9 +407,13 @@ export class InterviewPage {
     return Array.from(this.paper()?.nativeElement.querySelectorAll<HTMLElement>('sw-point-card') ?? []);
   }
 
-  private focusCard(card: HTMLElement): void {
-    card.focus();
-    card.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  /**
+   * Navigation (↑ ↓, prochain point) : la carte vient au centre. Après un enregistrement ou à la
+   * reprise, elle reste où elle est si elle est visible : le texte ne bouge pas sous la souris.
+   */
+  private focusCard(card: HTMLElement, navigation = true): void {
+    card.focus({ preventScroll: true });
+    card.scrollIntoView?.(navigation ? { block: 'center', behavior: 'smooth' } : { block: 'nearest' });
   }
 
   private focusPending(): void {
@@ -419,7 +428,7 @@ export class InterviewPage {
         ? root.querySelector<HTMLElement>('sw-point-card.pending')
         : root.querySelector<HTMLElement>(`[data-anchor="${cssEscape(key)}"] sw-point-card`);
     if (card) {
-      this.focusCard(card);
+      this.focusCard(card, key === '*pending');
     }
   }
 
@@ -430,7 +439,9 @@ export class InterviewPage {
   protected pickSelection(event: Event): void {
     const target = event.target instanceof HTMLElement ? event.target : null;
     const root = this.paper()?.nativeElement;
-    if (!root || !target || !root.contains(target) || target.closest('[data-note], [data-card]')) {
+    // une sélection tirée à la souris finit souvent sur la carte d'une remarque déjà notée : c'est la
+    // sélection qui compte, pas l'endroit où le bouton est relâché ; un clic sur une commande ne sélectionne rien
+    if (!root || !target || !root.contains(target) || target.closest('[data-note], button, textarea, input')) {
       return;
     }
     const passage = passageOf(root, root.ownerDocument.getSelection());
@@ -450,6 +461,7 @@ export class InterviewPage {
     if (p) {
       this.note.set({ ...p, action });
       this.picked.set(null);
+      this.clearSelection();
     }
   }
 
@@ -483,7 +495,13 @@ export class InterviewPage {
     const p = this.picked();
     if (await this.persist(stop, null, 'REMARK', { text: '', outcome: 'REMOVE', owner: null, due: null }, p?.quote ?? null)) {
       this.picked.set(null);
+      this.clearSelection();
     }
+  }
+
+  /** Une sélection qui a servi ne rouvre pas la barre au clic suivant. */
+  private clearSelection(): void {
+    this.paper()?.nativeElement.ownerDocument.getSelection()?.removeAllRanges();
   }
 
   // --- Enregistrement -------------------------------------------------------------------------
@@ -494,6 +512,22 @@ export class InterviewPage {
 
   protected async save(stop: Stop, item: StopItem, value: EditorValue): Promise<void> {
     await this.persist(stop, item, item.origin, value, item.point?.quote ?? null);
+  }
+
+  protected async deletePoint(stop: Stop, item: StopItem): Promise<void> {
+    const d = this.detail()!;
+    const pointId = item.point?.id;
+    if (!pointId) {
+      return;
+    }
+    try {
+      await this.api.deletePoint(d.id, pointId);
+      this.announcer.announce(`${item.origin === 'QUESTION' ? 'Question supprimée' : 'Remarque supprimée'}.`, 'polite');
+      this.focusKey = this.keyOf(stop);
+      await this.load(false);
+    } catch {
+      this.announcer.announce('Le point n’a pas été supprimé. Réessayez.', 'assertive');
+    }
   }
 
   private async persist(

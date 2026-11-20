@@ -69,6 +69,8 @@ Sous l'élément qu'elle concerne, une carte par point, dans le flux du texte :
 - **Point ouvert** : pas de réponse proposée ; « Répondre » (texte, `À MODIFIER`) ou « Reporter ».
 - Une fois traitée, la carte se replie en une ligne (« ✓ Confirmé », « ✎ Réécrit : … »,
   « ⏳ Reporté à Paul D. ») avec « Modifier » pour revenir dessus.
+- Une remarque ou une question notée en séance a aussi « Supprimer » ; la réponse à un point de
+  la spécification se modifie, elle ne se supprime pas.
 - « Source à mettre à jour… » (US6) reste dans le formulaire déplié.
 
 Le formulaire déplié reprend `PointEditor` (issues, responsable, échéance, source désignée,

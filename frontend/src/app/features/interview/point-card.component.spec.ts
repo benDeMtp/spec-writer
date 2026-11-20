@@ -39,6 +39,7 @@ describe('PointCardComponent (021, réponse proposée)', () => {
   let fixture: ComponentFixture<PointCardComponent>;
   let el: HTMLElement;
   let saved: EditorValue[];
+  let deleted: number;
 
   async function open(item: StopItem): Promise<void> {
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
@@ -46,6 +47,8 @@ describe('PointCardComponent (021, réponse proposée)', () => {
     fixture.componentRef.setInput('item', item);
     saved = [];
     fixture.componentInstance.saved.subscribe((v) => saved.push(v));
+    deleted = 0;
+    fixture.componentInstance.deleted.subscribe(() => deleted++);
     fixture.detectChanges();
     await settle(fixture);
     el = fixture.nativeElement;
@@ -124,5 +127,22 @@ describe('PointCardComponent (021, réponse proposée)', () => {
     });
     expect(el.textContent).toContain('« et envoyé au client »');
     expect(el.textContent).toContain('À retirer');
+  });
+
+  it('une remarque ou une question notée en séance se supprime', async () => {
+    await open({
+      origin: 'REMARK',
+      code: null,
+      statement: null,
+      pending: false,
+      point: point({ origin: 'REMARK', originCode: null, outcome: 'CHANGE', text: 'Validation du manager' }),
+    });
+    button('Supprimer la remarque')!.click();
+    expect(deleted).toBe(1);
+  });
+
+  it('un point de la spécification ne se supprime pas', async () => {
+    await open({ ...H1, pending: false, point: point({ outcome: 'CONFIRMED' }) });
+    expect(button('Supprimer')).toBeUndefined();
   });
 });

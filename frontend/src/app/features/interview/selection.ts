@@ -21,7 +21,8 @@ export function passageOf(root: HTMLElement, selection: Selection | null): Passa
   if (!root.contains(range.commonAncestorContainer)) {
     return null;
   }
-  if (inPoint(range.startContainer) || inPoint(range.endContainer)) {
+  // commencée dans une carte ou une saisie : ce n'est pas un passage de la spécification
+  if (pointOf(range.startContainer)) {
     return null;
   }
   const element = anchored(range.startContainer, root) ?? firstAnchoredIn(range, root);
@@ -32,7 +33,11 @@ export function passageOf(root: HTMLElement, selection: Selection | null): Passa
   if (!element.contains(range.startContainer)) {
     clipped.setStart(element, 0);
   }
-  if (!element.contains(range.endContainer)) {
+  // une sélection tirée au-delà de la ligne déborde sur les cartes de l'élément : elle s'arrête avant
+  const endPoint = pointOf(range.endContainer);
+  if (endPoint && element.contains(endPoint)) {
+    clipped.setEndBefore(endPoint);
+  } else if (!element.contains(range.endContainer)) {
     clipped.setEnd(element, element.childNodes.length);
   }
   // le texte des points insérés sous l'élément ne fait pas partie du passage
@@ -42,10 +47,10 @@ export function passageOf(root: HTMLElement, selection: Selection | null): Passa
   return quote ? { key: element.getAttribute('data-anchor')!, quote } : null;
 }
 
-/** Le texte des cartes et des saisies n'est pas un passage de la spécification. */
-function inPoint(node: Node): boolean {
+/** Carte ou saisie qui contient le nœud : leur texte n'est pas un passage de la spécification. */
+function pointOf(node: Node): HTMLElement | null {
   const e = node instanceof HTMLElement ? node : node.parentElement;
-  return !!e?.closest('[data-card], [data-note]');
+  return e?.closest<HTMLElement>('[data-card], [data-note]') ?? null;
 }
 
 function anchored(node: Node, root: HTMLElement): HTMLElement | null {

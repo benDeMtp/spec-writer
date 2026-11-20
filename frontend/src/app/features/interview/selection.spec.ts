@@ -32,6 +32,10 @@ describe('passageOf (021, sélection d’un passage)', () => {
     expect(passageOf(root, select('a', 7, 'b', 6))).toEqual({ key: 'UC-01:1', quote: 'la facture' });
   });
 
+  it('une sélection tirée jusque dans la carte de l’élément s’arrête avant elle', () => {
+    expect(passageOf(root, select('a', 7, 'card', 5))).toEqual({ key: 'UC-01:1', quote: 'la facture' });
+  });
+
   it('une sélection commencée hors élément vise le premier élément touché', () => {
     expect(passageOf(root, select('titre', 0, 'b', 6))).toEqual({ key: 'UC-01:1', quote: 'Ouvrir la facture' });
   });

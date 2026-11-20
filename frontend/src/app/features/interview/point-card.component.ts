@@ -62,6 +62,11 @@ const DONE: Record<Outcome, string> = {
             ({{ it.point?.owner }})
           }
           <button mat-button type="button" (click)="reopen()">Modifier<span class="sr-only"> {{ title() }}</span></button>
+          @if (removable()) {
+            <button mat-button type="button" (click)="deleted.emit()">
+              Supprimer la {{ it.origin === 'QUESTION' ? 'question' : 'remarque' }}
+            </button>
+          }
         </p>
       } @else if (proposed()) {
         <div class="actions">
@@ -134,6 +139,8 @@ const DONE: Record<Outcome, string> = {
 export class PointCardComponent {
   readonly item = input.required<StopItem>();
   readonly saved = output<EditorValue>();
+  /** « Supprimer » : seulement une remarque ou une question notée en séance. */
+  readonly deleted = output<void>();
 
   /** Saisie ouverte, avec sa valeur initiale ; nulle quand la carte est fermée. */
   protected readonly editing = signal<EditorValue | null>(null);
@@ -146,6 +153,11 @@ export class PointCardComponent {
   protected readonly kind = computed<EditorKind>(() => {
     const o = this.item().origin;
     return o === 'REMARK' ? 'REMARK' : o === 'QUESTION' ? 'QUESTION' : 'SPEC';
+  });
+
+  protected readonly removable = computed(() => {
+    const it = this.item();
+    return !!it.point && (it.origin === 'REMARK' || it.origin === 'QUESTION');
   });
 
   /** Une hypothèse ou un écart porte sa réponse proposée : le texte de la spécification. */
