@@ -7,7 +7,7 @@ Spécifications, parcours élément par élément, points rattachés, compte ren
 en une fois par la discussion de la 011, « à reporter » vers les sources de vérité ; tables V30),
 après `specs/018-premier-lancement-visite/` (assistant de premier lancement
 `/premiers-pas/:etape` jusqu'à l'indexation du projet, progression en base V29, installation déjà
-utilisée réputée configurée ; visite guidée de 11 arrêts sur le CDK, cibles `data-tour` ; guide
+utilisée réputée configurée ; visite guidée de 12 arrêts sur le CDK, cibles `data-tour` ; guide
 « Installer depuis les sources » du README), après `specs/017-synchro-auto-sources/` (vue Jira lue dans l'index et triée par
 date, statut ou état de synchro ; délai de synchronisation automatique par source, réveil par
 quarkus-scheduler, bilan de chaque source par différence d'empreintes ; notification du navigateur
@@ -106,6 +106,13 @@ dev mode ne remplace aucune gate. Le jar de `backend/target/quarkus-app` est rec
   `%e2e` (`specwriter.onboarding.auto-open=false`) ; `us18-premiers-pas` démarre une seconde
   instance sur une base neuve, port 47697. Une installation compte toujours au moins un projet
   (« Projet par défaut ») : l'assistant le renomme au lieu d'en créer un.
+- Séances (021) : les ancres du modèle sont des chaînes courtes par position (`USE_CASE:1:4`),
+  traduites en codes par `IdentifierAssigner` (schéma strict de Copilot, grammaire déjà à sa
+  limite) ; la révision de séance garantit les points tranchés retirés et les reportés ajoutés par
+  `InterviewOutcome` (`fromCode`), jamais par le modèle ; le message de séance passe par la
+  discussion de la 011 (`conversation_message.interview_id`) ; la route `data.presentation`
+  masque le menu et les notifications. Une page Confluence n'est indexée que par sections
+  (`ref#…`) : l'empreinte d'une source les agrège.
 - Profil `live` (`-Dquarkus.profile=dev,live`) : vrai Copilot et vrai trousseau. Il est réservé
   aux essais manuels du mainteneur.
 

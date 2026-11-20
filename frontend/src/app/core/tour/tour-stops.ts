@@ -58,6 +58,14 @@ export const TOUR_STOPS: TourStop[] = [
     fallback: 'Sur une spécification, « Discuter avec l’IA » propose une nouvelle version relue par différences.',
   },
   {
+    id: 'interview',
+    route: SPECIFICATION,
+    target: 'interview',
+    title: 'Faire le point avec les sachants',
+    text: 'Une séance sur écran partagé : hypothèses, écarts et points ouverts tranchés un à un, puis un compte rendu.',
+    fallback: 'Sur une spécification, « Faire le point » ouvre une séance de relecture avec les sachants.',
+  },
+  {
     id: 'tasks',
     route: SPECIFICATION,
     target: 'tasks-panel',

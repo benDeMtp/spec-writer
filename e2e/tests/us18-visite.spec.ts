@@ -10,6 +10,7 @@ const TITLES = [
   'Vos spécifications',
   'Une spécification',
   'Discuter avec l’IA',
+  'Faire le point avec les sachants',
   'Tâches et suivi par les agents',
   'Tickets Jira',
   'Connaissance du projet',
@@ -22,10 +23,10 @@ const TITLES = [
 const ALWAYS = new Map([
   [0, 'composer'],
   [2, 'sessions-list'],
-  [7, 'knowledge-state'],
-  [8, 'doc-sources'],
-  [9, 'advanced'],
-  [10, 'agent-access'],
+  [8, 'knowledge-state'],
+  [9, 'doc-sources'],
+  [10, 'advanced'],
+  [11, 'agent-access'],
 ]);
 
 /** Lectures envoyées en POST pour leur corps : l'état des mentions d'une spécification (007). */
@@ -46,7 +47,7 @@ test.describe.serial('018 Visite guidée', () => {
     await page.goto('/journal');
     await page.getByRole('button', { name: 'Visite guidée' }).click();
     for (let i = 0; i < TITLES.length; i++) {
-      await expect(bubble(page)).toContainText(`Arrêt ${i + 1} sur 11`);
+      await expect(bubble(page)).toContainText(`Arrêt ${i + 1} sur 12`);
       await expect(page.getByRole('dialog', { name: TITLES[i] })).toBeVisible();
       const target = ALWAYS.get(i);
       if (target) {
@@ -71,15 +72,16 @@ test.describe.serial('018 Visite guidée', () => {
       await page.goto('/');
       await page.getByRole('button', { name: 'Visite guidée' }).click();
       for (let i = 0; i < 3; i++) {
-        await expect(bubble(page)).toContainText(`Arrêt ${i + 1} sur 11`);
+        await expect(bubble(page)).toContainText(`Arrêt ${i + 1} sur 12`);
         await bubble(page).getByRole('button', { name: 'Suivant' }).click();
       }
       for (const [i, text] of [
         [4, 'Une spécification s’ouvre depuis cette liste'],
         [5, '« Discuter avec l’IA » propose une nouvelle version'],
-        [6, 'Une spécification se découpe en tâches'],
+        [6, '« Faire le point » ouvre une séance de relecture'],
+        [7, 'Une spécification se découpe en tâches'],
       ] as const) {
-        await expect(bubble(page)).toContainText(`Arrêt ${i} sur 11`);
+        await expect(bubble(page)).toContainText(`Arrêt ${i} sur 12`);
         await expect(page).toHaveURL(/\/sessions$/);
         await expect(bubble(page)).toContainText(text);
         await bubble(page).getByRole('button', { name: 'Suivant' }).click();
@@ -91,14 +93,14 @@ test.describe.serial('018 Visite guidée', () => {
     }
   });
 
-  test("V3 : Échap à l'arrêt 7 ramène à l'écran de départ", async ({ page }) => {
+  test("V3 : Échap à l'arrêt 8 ramène à l'écran de départ", async ({ page }) => {
     await page.goto('/projets');
     await page.getByRole('button', { name: 'Visite guidée' }).click();
-    for (let i = 0; i < 6; i++) {
-      await expect(bubble(page)).toContainText(`Arrêt ${i + 1} sur 11`);
+    for (let i = 0; i < 7; i++) {
+      await expect(bubble(page)).toContainText(`Arrêt ${i + 1} sur 12`);
       await bubble(page).getByRole('button', { name: 'Suivant' }).click();
     }
-    await expect(bubble(page)).toContainText('Arrêt 7 sur 11');
+    await expect(bubble(page)).toContainText('Arrêt 8 sur 12');
     await expect(page).toHaveURL(/\/jira$/);
     await page.keyboard.press('Escape');
     await expect(bubble(page)).toHaveCount(0);

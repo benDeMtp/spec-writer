@@ -291,6 +291,43 @@ Supprimer une spécification qui a des discussions propose la case **Supprimer a
 discussions**, cochée par défaut ; décochée, elles restent dans la liste, marquées « spécification
 supprimée », et se poursuivent comme des conversations ordinaires.
 
+## Faire le point avec les sachants
+
+Une spécification s'écrit souvent avec des hypothèses, des écarts entre sources et des points
+ouverts. **Faire le point** les tranche avec les sachants, en séance sur écran partagé.
+
+**Préparer.** La page **Spécifications** montre sous chacune ses points à traiter (« 3 hypothèses ·
+2 points ouverts · 1 écart entre sources ») ; la case **Avec des points à traiter** filtre la liste.
+Cochez une ou plusieurs spécifications, puis **Préparer une séance** : l'ordre de passage, les
+participants (ceux de la dernière séance sont proposés) et les points à écarter se règlent avant la
+séance, qui attend en tête de la page avec **Démarrer**, **Modifier** et **Supprimer**. Sur une
+spécification seule, **Faire le point** démarre directement.
+
+**La séance** s'affiche en plein écran, sans menu ni notification. Elle parcourt la spécification
+élément par élément, chaque point sur l'élément qu'il concerne (« UC-02, étape 4 »), ceux sans
+élément à la fin. Au clavier : ↑ ↓ d'un élément à l'autre, **N** le prochain point à traiter,
+**Entrée** pour y répondre (confirmé, à modifier, à retirer, reporté avec un responsable et une
+échéance), **R** une remarque, **Q** une question. Tout est enregistré au fil de l'eau : une séance
+interrompue reprend où elle en était. Rien n'est envoyé au modèle pendant la séance.
+
+**Terminer** mène au récapitulatif : le compte rendu (décisions, points à vérifier, sources à
+mettre à jour) se copie d'un clic, mis en forme pour un mail ou Teams. Les séances passées et
+leur compte rendu restent sur la page de la spécification.
+
+**Réviser.** **Proposer la nouvelle version** fait entrer les décisions dans la discussion de la
+spécification, en un seul message, puis l'agent rédige la version suivante, relue par différences
+comme toute proposition. Les points tranchés en disparaissent, les points reportés y deviennent des
+**Points ouverts**, et la séance est citée comme source (« Séance du 20/11/2026 (Julie M., Paul
+D.) »). La révision exige l'accord pour GitHub Copilot ; elle se relance tant qu'elle n'est pas
+appliquée.
+
+**Sources de vérité.** Une décision qui touche une page Confluence, une page de documentation, un
+ticket ou un élément d'architecture cité laisse, une fois la révision appliquée, une entrée dans
+**Sources à mettre à jour** sur la page de la spécification ; en séance, **Source à mettre à
+jour…** en désigne une à la main dans la connaissance du projet. L'outil n'écrit jamais dans ces
+sources : il signale « Source modifiée, à vérifier » quand la source change après la décision, et
+**Marquer comme reporté** clôt l'entrée une fois la mise à jour faite.
+
 ## Projets et connaissance du projet
 
 Chaque spécification appartient à un projet ; le projet courant se choisit en tête du menu. La

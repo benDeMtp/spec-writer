@@ -131,7 +131,7 @@ test.describe.serial('018 Assistant de premier lancement, installation vierge', 
       // V5 : la visite guidée est proposée en fin d'assistant
       await page.getByRole('button', { name: 'Faire la visite guidée' }).click();
       const bubble = page.getByRole('dialog', { name: 'Converser avec l’agent' });
-      await expect(bubble).toContainText('Arrêt 1 sur 11');
+      await expect(bubble).toContainText('Arrêt 1 sur 12');
       await expect(page).toHaveURL(/\/$/);
       expect((await (await page.request.get('/api/onboarding')).json()).completed).toBe(true);
       await page.keyboard.press('Escape');

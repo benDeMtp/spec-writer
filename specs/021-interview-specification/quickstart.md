@@ -69,3 +69,20 @@ case qui cite une page Confluence. Les rejeux de 021 (`e2e/fixtures/llm`, marque
 `./mvnw -B verify -DskipDependencyCheck`, E2E sur le jar (`us21-interview` avec axe), évaluation
 (`ci/check-eval.sh` ; empreinte nouvelle : évaluation `live` relancée par le mainteneur, critères
 `anchoredRate` ≥ 0,90 et `decidedRemoved` = 1,0).
+
+## Résultats (20/11/2026, jar construit par `verify`)
+
+| Scénario | Résultat | Preuve |
+|---|---|---|
+| V1 séance d'une spécification | OK | `us21-interview.spec.ts` V1 |
+| V2 compte rendu copié | OK | `us21-interview.spec.ts` V2 |
+| V3 révision d'après la séance | OK sur les rejeux (`47c-revise-seance.json`) | `us21-interview.spec.ts` V3 |
+| V4 points rattachés à leur élément | OK sur les rejeux (`00b-`, `00c-ancres-`) | `us21-interview.spec.ts` V4 |
+| V5 préparation de plusieurs spécifications | OK ; la relance de l'instance est remplacée par un rechargement | `us21-interview.spec.ts` V5 |
+| V6 sources à mettre à jour | OK, aucune écriture dans Confluence ni Jira | `us16-confluence.spec.ts` F8 |
+
+- Bundle initial : 499,62 kB (129,50 kB transférés), sous le seuil de 500 kB ; la séance, sa
+  préparation et son récapitulatif sont chargés à la demande. La marge est quasi nulle.
+- Évaluation : à relancer sur le vrai Copilot par le mainteneur (T094) ; `ci/check-eval.sh` échoue
+  tant que `last-run.json` n'a pas la nouvelle empreinte (consignes de révision et de génération,
+  schéma de sortie, golden set).

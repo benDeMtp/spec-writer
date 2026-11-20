@@ -530,19 +530,19 @@ sources.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T088 [P] README : nouvelle section « Faire le point avec les sachants », qui couvre la
+- [X] T088 [P] README : nouvelle section « Faire le point avec les sachants », qui couvre la
   préparation, la séance, le compte rendu, la révision et les sources à mettre à jour. Mettre à jour
   la description de la page « Spécifications » et de la page d'une spécification.
-- [ ] T089 [P] `CLAUDE.md` : ajouter les pièges de la 021, à savoir les ancres par position, le
+- [X] T089 [P] `CLAUDE.md` : ajouter les pièges de la 021, à savoir les ancres par position, le
   post-traitement `InterviewOutcome`, le mode présentation, et le fait que le message de séance
   passe par la discussion.
-- [ ] T090 [P] Visite guidée (018) : ajouter un arrêt « Faire le point » sur la page d'une
+- [X] T090 [P] Visite guidée (018) : ajouter un arrêt « Faire le point » sur la page d'une
   spécification (cible `data-tour`), si la visite couvre cette page.
-- [ ] T091 Mesurer le bundle initial : il doit rester sous 500 kB, avec les écrans de séance
+- [X] T091 Mesurer le bundle initial : il doit rester sous 500 kB, avec les écrans de séance
   chargés à la demande.
-- [ ] T092 Dérouler quickstart.md (V1 à V6) sur le jar, puis consigner les résultats datés dans
+- [X] T092 Dérouler quickstart.md (V1 à V6) sur le jar, puis consigner les résultats datés dans
   quickstart.md.
-- [ ] T093 Avant le commit final, lancer les gates : `./mvnw -B verify -DskipDependencyCheck` (après
+- [X] T093 Avant le commit final, lancer les gates : `./mvnw -B verify -DskipDependencyCheck` (après
   suppression de `jacoco.exec`), les E2E sur le jar et `ci/check-eval.sh`.
 - [ ] T094 Évaluation `live` par le mainteneur (nouvelle empreinte) : `anchoredRate` ≥ 0,90,
   `decidedRemoved` = 1,0 et aucun recul ailleurs. Mettre ensuite à jour `last-run.json` et la

@@ -81,6 +81,7 @@ describe('TourService', () => {
       'sessions',
       'specification',
       'discussion',
+      'interview',
       'tasks',
       'jira',
       'knowledge',
@@ -91,17 +92,17 @@ describe('TourService', () => {
     await tour.start();
     await settle();
     expect(router.url).toBe('/');
-    expect(bubble()?.textContent).toContain('Arrêt 1 sur 11');
+    expect(bubble()?.textContent).toContain('Arrêt 1 sur 12');
     expect(bubble()?.textContent).toContain('Converser avec l’agent');
     expect(document.querySelector('[data-tour="composer"]')?.classList).toContain('sw-tour-target');
-    expect(announced).toContain('Arrêt 1 sur 11 : Converser avec l’agent');
+    expect(announced).toContain('Arrêt 1 sur 12 : Converser avec l’agent');
     click('Suivant');
     await settle();
-    expect(bubble()?.textContent).toContain('Arrêt 2 sur 11');
+    expect(bubble()?.textContent).toContain('Arrêt 2 sur 12');
     expect(document.querySelector('[data-tour="composer"]')?.classList).not.toContain('sw-tour-target');
     click('Précédent');
     await settle();
-    expect(bubble()?.textContent).toContain('Arrêt 1 sur 11');
+    expect(bubble()?.textContent).toContain('Arrêt 1 sur 12');
   });
 
   it("sans spécification, les arrêts de la spécification restent sur la liste avec leur texte de remplacement", async () => {
