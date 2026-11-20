@@ -38,12 +38,15 @@ import fr.kawamind.application.jira.RetryRelatedLink;
 import fr.kawamind.application.knowledge.AnalyzeArchitecture;
 import fr.kawamind.application.knowledge.CompareWithIssue;
 import fr.kawamind.application.knowledge.FindRelatedIssues;
+import fr.kawamind.application.knowledge.AutoSync;
 import fr.kawamind.application.knowledge.Indexations;
+import fr.kawamind.application.knowledge.ManageSourceSync;
 import fr.kawamind.application.knowledge.KnowledgeQueries;
 import fr.kawamind.application.knowledge.ListAdrs;
 import fr.kawamind.application.knowledge.ManageArchitectureSource;
 import fr.kawamind.application.knowledge.ManageEmbeddingSettings;
 import fr.kawamind.application.settings.ManageBrowser;
+import fr.kawamind.application.settings.ManageNotifications;
 import fr.kawamind.application.knowledge.MentionQueries;
 import fr.kawamind.application.knowledge.ReadDocFile;
 import fr.kawamind.application.knowledge.RelatedIssuesStore;
@@ -118,7 +121,10 @@ import fr.kawamind.domain.port.LlmClient;
 import fr.kawamind.domain.port.LocalSearch;
 import fr.kawamind.domain.port.ModelCapacities;
 import fr.kawamind.domain.port.PerimeterRepository;
+import fr.kawamind.domain.port.AppEvents;
+import fr.kawamind.domain.port.ListedIssues;
 import fr.kawamind.domain.port.ProjectRepository;
+import fr.kawamind.domain.port.SourceSyncRepository;
 import fr.kawamind.domain.port.SourceRootRepository;
 import fr.kawamind.domain.port.SourceTree;
 import fr.kawamind.domain.port.SecretStore;
@@ -680,8 +686,9 @@ public class UseCaseProducer {
 
     @Produces
     @ApplicationScoped
-    ListProjectIssues listProjectIssues(IssueTracker tracker, JiraAccess jira, LinkedTicketRepository tickets) {
-        return new ListProjectIssues(tracker, jira, tickets);
+    ListProjectIssues listProjectIssues(ProjectRepository projects, JiraAccess jira, ListedIssues listed,
+            SourceSyncRepository syncs) {
+        return new ListProjectIssues(projects, jira, listed, syncs);
     }
 
     @Produces
@@ -789,9 +796,30 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     Indexations indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, ClockPort clock,
-            @ConfigProperty(name = "specwriter.knowledge.auto-index", defaultValue = "true") boolean automatic) {
+            @ConfigProperty(name = "specwriter.knowledge.auto-index", defaultValue = "true") boolean automatic,
+            SourceSyncRepository syncs, AppEvents events) {
         return new Indexations(synchronize, projects, task -> Thread.ofVirtual().name("indexation").start(task), clock,
-                automatic);
+                automatic, syncs, events);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageNotifications manageNotifications(SettingsRepository settings) {
+        return new ManageNotifications(settings);
+    }
+
+    @Produces
+    @ApplicationScoped
+    AutoSync autoSync(SourceSyncRepository syncs, Indexations indexations, ClockPort clock,
+            @ConfigProperty(name = "specwriter.knowledge.auto-sync.minute") java.time.Duration minute) {
+        return new AutoSync(syncs, indexations, clock, minute);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageSourceSync manageSourceSync(SourceSyncRepository syncs, Indexations indexations,
+            @ConfigProperty(name = "specwriter.knowledge.auto-sync.minute") java.time.Duration minute) {
+        return new ManageSourceSync(syncs, indexations, minute);
     }
 
     @Produces

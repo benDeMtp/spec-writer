@@ -3,71 +3,89 @@ package fr.kawamind.application.jira;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import fr.kawamind.domain.consent.ConsentService;
+import fr.kawamind.application.knowledge.IndexationScope;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
-import fr.kawamind.domain.jira.IssueTrackerException.Kind;
-import fr.kawamind.domain.jira.JiraIssueSummary;
-import fr.kawamind.domain.session.Session;
+import fr.kawamind.domain.jira.IssueSort;
+import fr.kawamind.domain.jira.ListedIssue;
+import fr.kawamind.domain.port.ListedIssues;
+import fr.kawamind.domain.project.Project;
+import fr.kawamind.domain.sync.SourceChange;
+import fr.kawamind.domain.sync.SourceSyncResult;
+import fr.kawamind.support.InMemorySourceSync;
 import fr.kawamind.support.JiraWorld;
-import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** T045 : tickets du projet Jira par pages de 25, les plus récents d'abord (FR-020 à FR-022 de 002). */
+/** T010 : vue Jira servie par l'index local, sans appel à Jira (017, US1). */
 class ListProjectIssuesTest {
 
-    static final Instant T0 = Instant.parse("2026-10-01T00:00:00Z");
+    static final UUID P = Project.DEFAULT_ID;
+    static final Instant T = Instant.parse("2026-11-19T10:00:00Z");
 
     final JiraWorld w = new JiraWorld();
+    final InMemorySourceSync syncs = new InMemorySourceSync();
+    final List<String> calls = new ArrayList<>();
+    final ListedIssues listed = new ListedIssues() {
+        @Override
+        public List<ListedIssue> page(UUID projectId, IssueSort sort, int offset, int limit) {
+            calls.add(sort + " " + offset + " " + limit);
+            return List.of(new ListedIssue("PROJ-1", "Avoir", "En cours", "indeterminate", T, ListedIssue.Sync.CONFLICT,
+                    UUID.randomUUID()));
+        }
+
+        @Override
+        public int count(UUID projectId) {
+            return 120;
+        }
+    };
     ListProjectIssues list;
 
     @BeforeEach
     void setUp() {
-        list = new ListProjectIssues(w.tracker, w.jira, w.tickets);
-        for (int i = 59; i >= 0; i--) {
-            w.tracker.projectResults.add(new JiraIssueSummary("PROJ-" + i, "Ticket " + i, "À faire", "Story",
-                    T0.plus(Duration.ofHours(i))));
-        }
+        list = new ListProjectIssues(w.projects, w.jira, listed, syncs);
     }
 
     @Test
-    void pageDe25AvecLeTotalEtLaSessionLiee() {
-        w.configureJira().grant(ConsentService.JIRA);
-        Session linked = w.generatedSession();
-        w.link(linked, "PROJ-33", "d");
-        ListProjectIssues.IssuePage page = list.run("PROJ", 25);
-        assertThat(page.startAt()).isEqualTo(25);
-        assertThat(page.total()).isEqualTo(60);
-        assertThat(page.issues()).hasSize(25);
-        assertThat(page.issues().getFirst().key()).isEqualTo("PROJ-34");
-        assertThat(page.issues()).filteredOn(i -> i.linkedSessionId() != null).singleElement()
-                .satisfies(i -> {
-                    assertThat(i.key()).isEqualTo("PROJ-33");
-                    assertThat(i.linkedSessionId()).isEqualTo(linked.id());
-                });
-        assertThat(w.tracker.calls).containsExactly("project PROJ 25 25");
-    }
-
-    @Test
-    void entreesRefusees() {
-        w.configureJira().grant(ConsentService.JIRA);
-        assertThatThrownBy(() -> list.run("PROJ OR 1=1", 0)).isInstanceOfSatisfying(DomainException.class,
-                e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
-        assertThatThrownBy(() -> list.run("PROJ", -1)).isInstanceOfSatisfying(DomainException.class,
-                e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+    void pageTrieeAvecLaDerniereSynchronisationDeJira() {
+        w.configureJira();
+        syncs.record(P, IndexationScope.JIRA, SourceSyncResult.success(T, new SourceChange(1, 0, 0)));
+        ListProjectIssues.IssuePage page = list.run(P, IssueSort.parse("sync", "asc"), 50, 50);
+        assertThat(page.jiraProjectKey()).isEqualTo("PROJ");
+        assertThat(page.total()).isEqualTo(120);
+        assertThat(page.startAt()).isEqualTo(50);
+        assertThat(page.issues()).extracting(ListedIssue::key).containsExactly("PROJ-1");
+        assertThat(page.lastSync()).isNotNull();
+        assertThat(page.lastSync().at()).isEqualTo(T);
+        assertThat(calls).containsExactly("IssueSort[field=SYNC, direction=ASC] 50 50");
+        // aucun appel à Jira (SC-002)
         assertThat(w.tracker.calls).isEmpty();
     }
 
     @Test
-    void jiraInjoignableOuNonConsenti() {
+    void sansSynchronisationLaDateEstVide() {
         w.configureJira();
-        assertThatThrownBy(() -> list.run("PROJ", 0)).isInstanceOfSatisfying(DomainException.class,
-                e -> assertThat(e.code()).isEqualTo(ErrorCode.CONSENT_REQUIRED));
-        w.grant(ConsentService.JIRA);
-        w.tracker.failure = Kind.UNREACHABLE;
-        assertThatThrownBy(() -> list.run("PROJ", 0)).isInstanceOfSatisfying(DomainException.class,
-                e -> assertThat(e.code()).isEqualTo(ErrorCode.JIRA_UNREACHABLE));
+        assertThat(list.run(P, IssueSort.DEFAULT, 0, 50).lastSync()).isNull();
+    }
+
+    @Test
+    void sansProjetJiraLaVueEstRefusee() {
+        assertThatThrownBy(() -> list.run(P, IssueSort.DEFAULT, 0, 50)).isInstanceOf(DomainException.class)
+                .extracting(e -> ((DomainException) e).code()).isEqualTo(ErrorCode.JIRA_NOT_CONFIGURED);
+    }
+
+    @Test
+    void taillesEtPositionsBornees() {
+        w.configureJira();
+        assertThatThrownBy(() -> list.run(P, IssueSort.DEFAULT, 0, 0)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> list.run(P, IssueSort.DEFAULT, 0, 101)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> list.run(P, IssueSort.DEFAULT, -1, 50)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> list.run(UUID.randomUUID(), IssueSort.DEFAULT, 0, 50))
+                .isInstanceOf(DomainException.class).extracting(e -> ((DomainException) e).code())
+                .isEqualTo(ErrorCode.PROJECT_NOT_FOUND);
     }
 }

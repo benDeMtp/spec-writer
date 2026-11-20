@@ -383,6 +383,25 @@ En cas d'écart, la spécification suit la référence et le signale dans la rub
 sources**, avec les deux extraits, leur source et leur date ; la rubrique est reprise à l'export
 et dans la description Jira. Dans la conversation, l'écart est présenté comme une incohérence.
 
+### Synchronisation automatique et notifications
+
+Chaque source d'un projet (une documentation, Jira, le modèle d'architecture) a son délai de
+synchronisation automatique dans **Réglages du projet › Synchronisation des sources** : désactivée
+(par défaut), 15 minutes, 30 minutes, 1 heure, 4 heures ou une fois par jour. Tant que spec-writer
+tourne, une source dont le délai est écoulé est relue seule, de façon incrémentale, jamais en même
+temps qu'une autre indexation du projet ; au démarrage, les échéances dépassées partent une à une.
+Chaque source montre sa dernière synchronisation (nouveaux, modifiés, retirés, ou l'échec et la
+dernière réussite) et la prochaine. Une synchronisation manuelle repart le délai.
+
+Avec **Configuration › Notifications**, une notification du navigateur dit quelle source a été
+mise à jour et combien d'éléments ont changé, jamais leur contenu. Le navigateur demande sa
+permission à l'activation. Un seul onglet de spec-writer notifie ; rien si aucun onglet n'est
+ouvert. Un clic mène à la connaissance du projet de la source.
+
+La vue **Tickets Jira** lit l'index local : elle se trie sur toute la liste par date de
+modification, statut ou état de synchronisation avec la spécification liée, sans appeler Jira, et
+dit de quand date la dernière synchronisation de Jira (« Resynchroniser Jira » la relance).
+
 ## Sources du code et analyse de périmètre
 
 Pour une évolution technique, l'agent peut recenser tous les modules du code qu'elle touche, sans

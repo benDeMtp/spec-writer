@@ -118,10 +118,12 @@ public class SynchronizeKnowledge {
      * Sources choisies (005, US2) : seules elles sont lues ; la documentation ne retire rien et la
      * date de synchronisation ne change pas, sauf pour toutes les sources.
      */
-    public void run(UUID projectId, Mode mode, IndexationScope scope, IndexationProgress progress) {
+    public void run(UUID projectId, Mode mode, IndexationScope scope, IndexationProgress listener) {
         Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
         KnowledgeSource source = sources.find(projectId);
         Instant now = clock.now();
+        SourceTracking progress = new SourceTracking(listener);
+        List<KnowledgeIndex.Fingerprint> before = index.fingerprints(projectId);
 
         EmbeddingPort.State model = prepareModel(progress);
         Instant mark = scope.jira() ? jira(project, source, mode, progress) : source.jiraMark();
@@ -143,6 +145,7 @@ public class SynchronizeKnowledge {
                         ? latest.withArchitectureHash(read.architectureHash())
                         : latest;
         sources.save(scope.all() ? kept.synced(mark, now) : kept.withJiraMark(mark));
+        report(projectId, scope, source, before, progress);
         if (model == EmbeddingPort.State.READY) {
             try {
                 vectors(projectId, progress);
@@ -152,6 +155,97 @@ public class SynchronizeKnowledge {
                 }
                 unexpected(progress, IndexationError.Kind.MODEL, null, e);
             }
+        }
+    }
+
+    // ---------- Bilan par source (017) ----------
+
+    /**
+     * Bilan de chaque source relue (FR-008) : différence d'empreintes de ses éléments avant et après.
+     * Jira compte s'il a été lu (configuré, accordé, projet Jira connu), l'architecture si un workspace
+     * est déclaré. Une source en erreur rapporte son motif au lieu d'un bilan.
+     */
+    private void report(UUID projectId, IndexationScope scope, KnowledgeSource source,
+            List<KnowledgeIndex.Fingerprint> before, SourceTracking progress) {
+        List<KnowledgeIndex.Fingerprint> after = index.fingerprints(projectId);
+        if (progress.steps.contains(Step.JIRA)) {
+            report(progress, IndexationScope.JIRA, progress.failure(IndexationError.Kind.JIRA, null),
+                    SourceChanges.between(before, after, f -> f.key().kind() == KnowledgeKind.TICKET));
+        }
+        for (DocSource doc : docSources.list(projectId).stream().filter(scope::includes).toList()) {
+            String prefix = doc.kind() == DocSource.Kind.DOCUMENTS ? DocumentFolder.prefix(doc) : null;
+            report(progress, doc.id().toString(), progress.failure(IndexationError.Kind.SOURCE, doc.location()),
+                    SourceChanges.between(before, after, f -> prefix != null
+                            ? f.key().ref().startsWith(prefix)
+                            : doc.id().equals(f.sourceId())));
+        }
+        if (scope.architecture() && source.workspace() != null) {
+            report(progress, IndexationScope.ARCHITECTURE, progress.failure(IndexationError.Kind.ARCHITECTURE, null),
+                    SourceChanges.between(before, after, f -> f.key().kind() == KnowledgeKind.ARCH_ELEMENT));
+        }
+    }
+
+    private static void report(IndexationProgress progress, String key, String failure,
+            fr.kawamind.domain.sync.SourceChange change) {
+        if (failure != null) {
+            progress.sourceFailed(key, failure);
+        } else {
+            progress.sourceDone(key, change);
+        }
+    }
+
+    /** Suivi transmis tel quel, qui retient en plus les étapes et les erreurs de chaque source. */
+    private static final class SourceTracking implements IndexationProgress {
+        private final IndexationProgress delegate;
+        final Set<Step> steps = java.util.EnumSet.noneOf(Step.class);
+        private final List<IndexationError> errors = new ArrayList<>();
+
+        SourceTracking(IndexationProgress delegate) {
+            this.delegate = delegate;
+        }
+
+        /** Motif de la première erreur de la sorte (et du lieu, s'il est donné) ; {@code null} sans erreur. */
+        String failure(IndexationError.Kind kind, String location) {
+            return errors.stream().filter(e -> e.kind() == kind)
+                    .filter(e -> location == null || location.equals(e.location())).map(IndexationError::reason)
+                    .findFirst().orElse(null);
+        }
+
+        @Override
+        public void step(Step step, int total) {
+            steps.add(step);
+            delegate.step(step, total);
+        }
+
+        @Override
+        public void advance(String current, int done, int total) {
+            delegate.advance(current, done, total);
+        }
+
+        @Override
+        public void error(IndexationError error) {
+            errors.add(error);
+            delegate.error(error);
+        }
+
+        @Override
+        public void tickets(TicketSummary summary) {
+            delegate.tickets(summary);
+        }
+
+        @Override
+        public void sourceDone(String sourceKey, fr.kawamind.domain.sync.SourceChange change) {
+            delegate.sourceDone(sourceKey, change);
+        }
+
+        @Override
+        public void sourceFailed(String sourceKey, String errorCode) {
+            delegate.sourceFailed(sourceKey, errorCode);
+        }
+
+        @Override
+        public boolean cancelled() {
+            return delegate.cancelled();
         }
     }
 

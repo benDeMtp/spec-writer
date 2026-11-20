@@ -26,12 +26,6 @@ final class JqlBuilder {
     private JqlBuilder() {
     }
 
-    /** Tous les tickets du projet, du plus récemment modifié au plus ancien. */
-    static String recent(String projectKey) {
-        requireProject(projectKey);
-        return "project = " + projectKey + " ORDER BY updated DESC";
-    }
-
     /**
      * Tickets modifiés depuis {@code since}, du plus ancien au plus récent (research.md R20). Jira
      * lit la date dans le fuseau de l'utilisateur : une marge d'un jour évite d'en manquer.

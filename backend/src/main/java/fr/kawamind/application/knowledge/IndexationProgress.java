@@ -31,6 +31,20 @@ public interface IndexationProgress {
 
     void error(IndexationError error);
 
+    /**
+     * Bilan d'une source relue (017, FR-008) : clé de la réindexation par source ({@code JIRA},
+     * {@code ARCHITECTURE} ou identifiant d'une source de documentation), éléments nouveaux, modifiés
+     * et retirés. Transmis à la fin de la synchronisation, avant les vecteurs.
+     */
+    default void sourceDone(String sourceKey, fr.kawamind.domain.sync.SourceChange change) {
+        // aucun suivi par défaut
+    }
+
+    /** Source relue en échec, avec le motif de l'erreur, sans contenu (017, FR-012). */
+    default void sourceFailed(String sourceKey, String errorCode) {
+        // aucun suivi par défaut
+    }
+
     /** Bilan de l'étape Jira, transmis à sa fin, même en erreur (FR-009 de 003). */
     default void tickets(TicketSummary summary) {
         // aucun suivi par défaut

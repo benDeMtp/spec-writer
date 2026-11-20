@@ -1,62 +1,59 @@
 package fr.kawamind.application.jira;
 
+import fr.kawamind.application.knowledge.IndexationScope;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
-import fr.kawamind.domain.jira.IssueTrackerException;
-import fr.kawamind.domain.jira.JiraSearchPage;
-import fr.kawamind.domain.jira.LinkedJiraTicket;
-import fr.kawamind.domain.port.IssueTracker;
-import fr.kawamind.domain.port.LinkedTicketRepository;
-import fr.kawamind.domain.project.JiraProjectKey;
-import java.time.Instant;
+import fr.kawamind.domain.jira.IssueSort;
+import fr.kawamind.domain.jira.ListedIssue;
+import fr.kawamind.domain.port.ListedIssues;
+import fr.kawamind.domain.port.ProjectRepository;
+import fr.kawamind.domain.port.SourceSyncRepository;
+import fr.kawamind.domain.project.Project;
+import fr.kawamind.domain.sync.SourceSync;
+import fr.kawamind.domain.sync.SourceSyncResult;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
- * Tickets d'un projet Jira, du plus récemment modifié au plus ancien, par 25 (FR-020 à FR-022 de
- * 002). Une erreur Jira est remontée telle quelle : l'écran garde la page déjà affichée.
+ * Tickets du projet Jira d'un projet, lus dans l'index local, triés et paginés par la base (017,
+ * US1, research.md R1). Aucun appel à Jira : la fraîcheur est la dernière synchronisation de Jira.
  */
 public class ListProjectIssues {
 
-    public static final int PAGE_SIZE = 25;
+    public static final int MAX_SIZE = 100;
 
-    public record Issue(String key, String summary, Instant updated, UUID linkedSessionId) {
-    }
-
-    public record IssuePage(int startAt, int total, List<Issue> issues) {
+    public record IssuePage(String jiraProjectKey, SourceSyncResult lastSync, int total, int startAt,
+            List<ListedIssue> issues) {
 
         public IssuePage {
             issues = List.copyOf(issues);
         }
     }
 
-    private final IssueTracker tracker;
+    private final ProjectRepository projects;
     private final JiraAccess jira;
-    private final LinkedTicketRepository tickets;
+    private final ListedIssues listed;
+    private final SourceSyncRepository syncs;
 
-    public ListProjectIssues(IssueTracker tracker, JiraAccess jira, LinkedTicketRepository tickets) {
-        this.tracker = tracker;
+    public ListProjectIssues(ProjectRepository projects, JiraAccess jira, ListedIssues listed,
+            SourceSyncRepository syncs) {
+        this.projects = projects;
         this.jira = jira;
-        this.tickets = tickets;
+        this.listed = listed;
+        this.syncs = syncs;
     }
 
-    public IssuePage run(String projectKey, int startAt) {
-        String key = new JiraProjectKey(projectKey).value();
-        if (startAt < 0) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "La position de la page doit être positive.");
+    public IssuePage run(UUID projectId, IssueSort sort, int startAt, int size) {
+        Project project = projects.find(projectId).orElseThrow(() -> new DomainException(ErrorCode.PROJECT_NOT_FOUND));
+        if (startAt < 0 || size < 1 || size > MAX_SIZE) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED,
+                    "La position doit être positive et la page compter de 1 à " + MAX_SIZE + " tickets.");
         }
-        JiraAccess.Target target = jira.require();
-        JiraSearchPage page;
-        try {
-            page = tracker.projectIssues(target.endpoint(), key, startAt, PAGE_SIZE);
-        } catch (IssueTrackerException e) {
-            throw e.toDomain();
+        String key = jira.configured() ? jira.effectiveProject(project) : null;
+        if (key == null) {
+            throw new DomainException(ErrorCode.JIRA_NOT_CONFIGURED);
         }
-        Map<String, UUID> linked = tickets.all().stream()
-                .collect(Collectors.toMap(LinkedJiraTicket::issueKey, LinkedJiraTicket::sessionId, (a, b) -> a));
-        return new IssuePage(startAt, page.total(), page.issues().stream()
-                .map(i -> new Issue(i.key(), i.summary(), i.updated(), linked.get(i.key()))).toList());
+        SourceSyncResult last = syncs.find(projectId, IndexationScope.JIRA).map(SourceSync::last).orElse(null);
+        return new IssuePage(key, last, listed.count(projectId), startAt, listed.page(projectId, sort, startAt, size));
     }
 }

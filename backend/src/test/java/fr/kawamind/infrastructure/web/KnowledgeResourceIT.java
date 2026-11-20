@@ -251,8 +251,6 @@ class KnowledgeResourceIT {
         api().body(Map.of("mode", "FULL", "sources", List.of())).post(base() + "/indexations").then().statusCode(422);
         api().body(Map.of("mode", "FULL", "sources", List.of("WIKI"))).post(base() + "/indexations").then()
                 .statusCode(422);
-        api().body(Map.of("mode", "INCREMENTAL", "sources", List.of(docId))).post(base() + "/indexations").then()
-                .statusCode(422);
 
         jira.resetRequests();
         api().body(Map.of("mode", "FULL", "sources", List.of(docId))).post(base() + "/indexations").then()

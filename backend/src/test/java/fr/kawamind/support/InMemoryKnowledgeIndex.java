@@ -56,6 +56,13 @@ public class InMemoryKnowledgeIndex implements KnowledgeIndex {
     }
 
     @Override
+    public List<Fingerprint> fingerprints(UUID projectId) {
+        Map<Key, UUID> owned = owners.getOrDefault(projectId, Map.of());
+        return of(projectId).entrySet().stream()
+                .map(e -> new Fingerprint(e.getKey(), e.getValue().item().contentHash(), owned.get(e.getKey()))).toList();
+    }
+
+    @Override
     public void save(KnowledgeItem item, float[] vector, String embeddingModel) {
         Key key = Key.of(item);
         Entry previous = of(item.projectId()).get(key);

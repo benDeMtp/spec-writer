@@ -76,6 +76,8 @@ describe('SettingsPage', () => {
     );
     // la carte du navigateur liste les navigateurs installés ; elle est testée à part
     ctrl.match('/api/settings/browser').forEach((r) => r.flush({ selected: null, missing: false, installed: [] }));
+    // la carte des notifications (017) lit son réglage ; elle est testée à part
+    ctrl.match('/api/settings/notifications').forEach((r) => r.flush({ sourceUpdates: false }));
     // la carte Confluence (016) lit le serveur déclaré ; elle est testée à part
     ctrl.match('/api/settings/confluence').forEach((r) =>
       r.flush({ enabled: false, serverUrl: null, caCertificatePath: null, insecureHttp: false, serverVersion: null, lastTest: null, tokenSet: false, secretPersistence: null }),
@@ -266,6 +268,7 @@ describe('SettingsPage', () => {
       'Modèle de recherche',
       'Accès des agents',
       'Navigateur',
+      'Notifications',
     ]);
     expect(sections[1].textContent).toContain(
       "S'applique à tous les projets. Changer de modèle demande de réindexer chaque projet.",

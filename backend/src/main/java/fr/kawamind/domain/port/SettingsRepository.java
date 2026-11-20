@@ -26,4 +26,9 @@ public interface SettingsRepository {
     String browser();
 
     void saveBrowser(String browserId);
+
+    /** Notifications du navigateur des sources mises à jour, désactivées par défaut (017, FR-016). */
+    boolean notificationsEnabled();
+
+    void saveNotificationsEnabled(boolean enabled);
 }

@@ -29,6 +29,7 @@ import { ProjectIdentityFormComponent } from '../projects/project-identity-form.
 import { SheetEditorComponent } from './sheet-editor.component';
 import { ReliabilityComponent } from './reliability.component';
 import { SourceRootsComponent } from './source-roots.component';
+import { SourceSyncComponent } from './source-sync.component';
 
 /**
  * Réglages du projet courant (012, US2) : identité et clé Jira, fiche générale rédigée à la main,
@@ -50,6 +51,7 @@ import { SourceRootsComponent } from './source-roots.component';
     ReliabilityComponent,
     SheetEditorComponent,
     SourceRootsComponent,
+    SourceSyncComponent,
   ],
   template: `
     <sw-project-heading label="Réglages du projet" />
@@ -237,6 +239,11 @@ import { SourceRootsComponent } from './source-roots.component';
         <sw-reliability [projectId]="p.id" [origins]="origins()" />
       </section>
 
+      <section class="sheet" aria-labelledby="source-sync-title">
+        <h2 id="source-sync-title">Synchronisation des sources</h2>
+        <sw-source-sync [projectId]="p.id" [revision]="syncRevision()" />
+      </section>
+
       <section class="sheet" aria-labelledby="sources-code">
         <h2 id="sources-code" tabindex="-1">Sources du code</h2>
         <sw-source-roots [projectId]="p.id" [roots]="p.sourceRoots ?? []" (changed)="load()" />
@@ -393,6 +400,12 @@ export class ProjectSettingsPage {
   /** Racine Confluence (016) : aperçu avant l'ajout. */
   protected readonly confluencePreview = signal<ConfluencePreview | null>(null);
   protected readonly levels: Reliability[] = ['REFERENCE', 'INTERPRETATION', 'TO_CONFIRM'];
+  /** Sources de documentation et workspace : la synchronisation des sources est relue s'ils changent. */
+  protected readonly syncRevision = computed(() => {
+    const p = this.project();
+    return p ? `${p.docSources.map((d) => d.id).join(',')}|${p.architectureWorkspace ?? ''}` : '';
+  });
+
   /** Sortes de source déclarées du projet, pour leurs niveaux de fiabilité (016). */
   protected readonly origins = computed<SourceOrigin[]>(() => {
     const p = this.project();

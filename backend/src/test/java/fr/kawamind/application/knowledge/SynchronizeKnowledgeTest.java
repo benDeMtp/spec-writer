@@ -81,15 +81,40 @@ class SynchronizeKnowledgeTest {
         final List<IndexationError> errors = new ArrayList<>();
         TicketSummary tickets;
         volatile boolean cancel;
+        final java.util.Map<String, fr.kawamind.domain.sync.SourceChange> done = new java.util.LinkedHashMap<>();
+        final java.util.Map<String, String> failed = new java.util.LinkedHashMap<>();
+
+        @Override
+        public void sourceDone(String sourceKey, fr.kawamind.domain.sync.SourceChange change) {
+            done.put(sourceKey, change);
+        }
+
+        @Override
+        public void sourceFailed(String sourceKey, String errorCode) {
+            failed.put(sourceKey, errorCode);
+        }
 
         @Override
         public void tickets(TicketSummary summary) {
             tickets = summary;
         }
 
+        /** Début de chaque étape, en nanosecondes, pour mesurer la seule étape Jira (SC-001 de 003). */
+        final java.util.Map<Step, Long> startedAt = new java.util.EnumMap<>(Step.class);
+        long endedAt;
+
         @Override
         public void step(Step step, int total) {
             steps.add(step);
+            startedAt.put(step, System.nanoTime());
+        }
+
+        /** Durée de l'étape, jusqu'au début de la suivante ou à la fin de la synchronisation. */
+        long millis(Step step) {
+            long start = startedAt.get(step);
+            long end = startedAt.entrySet().stream().filter(e -> e.getKey().ordinal() > step.ordinal())
+                    .mapToLong(java.util.Map.Entry::getValue).min().orElse(endedAt);
+            return (end - start) / 1_000_000;
         }
 
         @Override
@@ -725,9 +750,6 @@ class SynchronizeKnowledgeTest {
             assertThatThrownBy(() -> indexations.start(P, Mode.FULL, refused)).isInstanceOfSatisfying(
                     DomainException.class, e -> assertThat(e.code().name()).isEqualTo("VALIDATION_FAILED"));
         }
-        assertThatThrownBy(() -> indexations.start(P, Mode.INCREMENTAL, List.of(IndexationScope.JIRA)))
-                .isInstanceOfSatisfying(DomainException.class,
-                        e -> assertThat(e.code().name()).isEqualTo("VALIDATION_FAILED"));
         assertThat(executor.tasks).isEmpty();
 
         Indexations.Snapshot started = indexations.start(P, Mode.FULL, List.of(IndexationScope.ARCHITECTURE));
@@ -933,6 +955,80 @@ class SynchronizeKnowledgeTest {
                     .contains(org.assertj.core.groups.Tuple.tuple(IndexationError.Kind.ARCHITECTURE, "UNEXPECTED"));
         });
         assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(2);
+    }
+
+    /** 017, T005 : bilan de chaque source relue, par différence d'empreintes dans l'index (FR-008). */
+    @Test
+    void bilanDeChaqueSourceRelue() {
+        String doc = world.docSources.list(P).getFirst().id().toString();
+        sync.run(P, Mode.FULL, progress);
+        assertThat(progress.done).containsOnlyKeys(IndexationScope.JIRA, doc, IndexationScope.ARCHITECTURE);
+        assertThat(progress.done.get(IndexationScope.JIRA)).isEqualTo(new fr.kawamind.domain.sync.SourceChange(2, 0, 0));
+        assertThat(progress.done.get(doc)).isEqualTo(new fr.kawamind.domain.sync.SourceChange(2, 0, 0));
+        assertThat(progress.done.get(IndexationScope.ARCHITECTURE)).isEqualTo(new fr.kawamind.domain.sync.SourceChange(2, 0, 0));
+        assertThat(progress.failed).isEmpty();
+
+        // relecture sans changement : tout à zéro
+        Recorder again = new Recorder();
+        sync.run(P, Mode.INCREMENTAL, again);
+        assertThat(again.done.values()).allMatch(c -> !c.changed());
+
+        // un ticket modifié, un nouveau ; une page modifiée, une retirée ; l'architecture inchangée
+        world.tracker.tracked.put("PROJ-9", issue("PROJ-9", "Émettre un avoir total", "new", Instant.parse("2026-11-02T08:30:00Z")));
+        world.tracker.tracked.put("PROJ-12", issue("PROJ-12", "Relancer un client", "new", Instant.parse("2026-11-03T08:30:00Z")));
+        world.docs.sites.put(SITE, new Result(List.of(
+                new Page(SITE + "glossaire.html", "Glossaire", "texte", List.of(
+                        new Section(SITE + "glossaire.html#_avoir", 0, "Avoir", "Annule tout ou partie d'une facture.",
+                                KnowledgeKind.DOC_SECTION, null, KnowledgeRole.VOCABULARY)))), List.of()));
+        Recorder third = new Recorder();
+        sync.run(P, Mode.INCREMENTAL, third);
+        assertThat(third.done.get(IndexationScope.JIRA)).isEqualTo(new fr.kawamind.domain.sync.SourceChange(1, 1, 0));
+        assertThat(third.done.get(doc)).isEqualTo(new fr.kawamind.domain.sync.SourceChange(0, 1, 1));
+        assertThat(third.done.get(IndexationScope.ARCHITECTURE)).isEqualTo(fr.kawamind.domain.sync.SourceChange.NONE);
+    }
+
+    /** 017 : une source en erreur ne rapporte pas de bilan réussi, mais son motif. */
+    @Test
+    void sourceEnErreurRapporteeAvecSonMotif() {
+        world.tracker.failure = IssueTrackerException.Kind.UNREACHABLE;
+        architectureFailure.set(new IllegalStateException("panne"));
+        sync.run(P, Mode.FULL, progress);
+        assertThat(progress.failed).containsEntry(IndexationScope.JIRA, "UNREACHABLE")
+                .containsEntry(IndexationScope.ARCHITECTURE, "UNEXPECTED");
+        assertThat(progress.done).doesNotContainKeys(IndexationScope.JIRA, IndexationScope.ARCHITECTURE);
+        assertThat(progress.done).hasSize(1);
+    }
+
+    /** 017 : une source hors de la portée n'a pas de bilan ; Jira non configuré non plus. */
+    @Test
+    void seulesLesSourcesRelusOntUnBilan() {
+        world.settings.deleteJira();
+        sync.run(P, Mode.INCREMENTAL, IndexationScope.of(List.of(IndexationScope.ARCHITECTURE), world.docSources.list(P)),
+                progress);
+        assertThat(progress.done).containsOnlyKeys(IndexationScope.ARCHITECTURE);
+        Recorder jira = new Recorder();
+        sync.run(P, Mode.INCREMENTAL, IndexationScope.of(List.of(IndexationScope.JIRA), world.docSources.list(P)), jira);
+        assertThat(jira.done).isEmpty();
+        assertThat(jira.failed).isEmpty();
+    }
+
+    /** 017, T008 : une source choisie se relit en incrémental, seule (FR-009, SC-004). */
+    @Test
+    void uneSourceChoisieSeRelitEnIncrementalSeule() {
+        sync.run(P, Mode.FULL, progress);
+        world.tracker.calls.clear();
+        world.docs.reads.clear();
+        architectureReads.clear();
+        ManualExecutor executor = new ManualExecutor();
+        Indexations indexations = new Indexations(sync, world.projects, executor, world.clock);
+        assertThat(indexations.start(P, Mode.INCREMENTAL, List.of(IndexationScope.JIRA)).sources())
+                .containsExactly(IndexationScope.JIRA);
+        executor.runAll();
+        assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::status)
+                .isEqualTo(Indexations.Status.SUCCEEDED);
+        assertThat(world.tracker.calls).containsExactly("updatedSince PROJ 2026-10-28T08:30:00Z 0");
+        assertThat(world.docs.reads).isEmpty();
+        assertThat(architectureReads).isEmpty();
     }
 
     @Test
@@ -1166,9 +1262,9 @@ class SynchronizeKnowledgeTest {
 
     private long jiraStepMillis() {
         progress = new Recorder();
-        long start = System.nanoTime();
         sync.run(P, Mode.FULL, progress);
-        return (System.nanoTime() - start) / 1_000_000;
+        progress.endedAt = System.nanoTime();
+        return progress.millis(Step.JIRA);
     }
 
     /** US3-1 (FR-007) : un an plus tard, sans modification dans Jira, aucun fermé n'est relu ni retiré. */

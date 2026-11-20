@@ -5,7 +5,12 @@ import fr.kawamind.application.knowledge.SynchronizeKnowledge.Mode;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
 import fr.kawamind.domain.port.ClockPort;
+import fr.kawamind.domain.port.AppEvents;
 import fr.kawamind.domain.port.ProjectRepository;
+import fr.kawamind.domain.port.SourceSyncRepository;
+import fr.kawamind.domain.sync.SourceChange;
+import fr.kawamind.domain.sync.SourceSyncResult;
+import fr.kawamind.domain.sync.SourceUpdated;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,6 +49,10 @@ public class Indexations {
     private final Executor executor;
     private final ClockPort clock;
     private final boolean automatic;
+    /** Bilans des sources (017) ; absent, ils ne sont pas gardés. */
+    private final SourceSyncRepository syncs;
+    /** Sources mises à jour, vers les onglets ouverts (017, US3) ; absent, rien n'est publié. */
+    private final AppEvents events;
 
     public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock) {
         this(synchronize, projects, executor, clock, true);
@@ -52,11 +61,23 @@ public class Indexations {
     /** {@code automatic} faux : les déclenchements automatiques sont ignorés (tests d'intégration). */
     public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock,
             boolean automatic) {
+        this(synchronize, projects, executor, clock, automatic, null);
+    }
+
+    public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock,
+            boolean automatic, SourceSyncRepository syncs) {
+        this(synchronize, projects, executor, clock, automatic, syncs, null);
+    }
+
+    public Indexations(SynchronizeKnowledge synchronize, ProjectRepository projects, Executor executor, ClockPort clock,
+            boolean automatic, SourceSyncRepository syncs, AppEvents events) {
+        this.events = events;
         this.synchronize = synchronize;
         this.projects = projects;
         this.executor = executor;
         this.clock = clock;
         this.automatic = automatic;
+        this.syncs = syncs;
     }
 
     /** Démarre une indexation demandée par l'utilisateur ; refusée si une autre est en cours. */
@@ -65,21 +86,14 @@ public class Indexations {
     }
 
     /**
-     * Réindexation des seules sources choisies (005, US2) ; {@code null} pour toutes. Une liste n'est
-     * acceptée qu'en indexation complète : forcer la relecture d'une source, c'est la relire entière.
+     * Indexation des seules sources choisies ; {@code null} pour toutes. En mode complet, c'est la
+     * réindexation par source de la 005 ; en incrémental, la synchronisation d'une source (017, FR-009).
      */
     public Snapshot start(UUID projectId, Mode mode, List<String> sources) {
         if (projects.find(projectId).isEmpty()) {
             throw new DomainException(ErrorCode.PROJECT_NOT_FOUND);
         }
-        IndexationScope scope = IndexationScope.ALL;
-        if (sources != null) {
-            if (mode != Mode.FULL) {
-                throw new DomainException(ErrorCode.VALIDATION_FAILED,
-                        "Des sources choisies se réindexent entièrement : mode FULL.");
-            }
-            scope = synchronize.scope(projectId, sources);
-        }
+        IndexationScope scope = sources == null ? IndexationScope.ALL : synchronize.scope(projectId, sources);
         purge();
         Indexation indexation = new Indexation(projectId, mode, scope, sources == null ? null : List.copyOf(sources),
                 clock.now());
@@ -158,6 +172,8 @@ public class Indexations {
         private int total;
         private Instant finishedAt;
         private TicketSummary tickets;
+        /** Sources dont le bilan est déjà enregistré. */
+        private final Set<String> reported = ConcurrentHashMap.newKeySet();
 
         Indexation(UUID projectId, Mode mode, IndexationScope scope, List<String> sources, Instant startedAt) {
             this.projectId = projectId;
@@ -212,7 +228,20 @@ public class Indexations {
             return step == null ? "PREPARING" : step.name();
         }
 
-        private synchronized void finish(Status outcome) {
+        private void finish(Status outcome) {
+            boolean first;
+            synchronized (this) {
+                first = status == Status.RUNNING;
+                end(outcome);
+            }
+            // indexation interrompue ou en échec : les sources demandées sans bilan sont en échec, pour
+            // qu'une échéance ne reparte pas aussitôt (017, FR-012)
+            if (first && outcome != Status.SUCCEEDED && sources != null) {
+                sources.stream().filter(k -> !reported.contains(k)).forEach(k -> sourceFailed(k, outcome.name()));
+            }
+        }
+
+        private synchronized void end(Status outcome) {
             if (status != Status.RUNNING) {
                 return;
             }
@@ -256,6 +285,52 @@ public class Indexations {
             current = newCurrent;
             done = Math.max(done, newDone);
             total = Math.max(total, newTotal);
+        }
+
+        @Override
+        public void sourceDone(String sourceKey, SourceChange change) {
+            SourceSyncResult result = SourceSyncResult.success(clock.now(), change);
+            record(sourceKey, result);
+            if (change.changed()) {
+                publish(sourceKey, change, result.at());
+            }
+        }
+
+        /** Une notification par source changée (FR-014) : sa sorte, son nom, ses décomptes, sans contenu. */
+        private void publish(String sourceKey, SourceChange change, Instant at) {
+            if (events == null) {
+                return;
+            }
+            try {
+                IndexableSource source = synchronize.sources(projectId).stream().filter(s -> s.id().equals(sourceKey))
+                        .findFirst().orElse(null);
+                String project = projects.find(projectId).map(p -> p.name().value()).orElse("");
+                // identifiant stable de la mise à jour : projet, source et instant
+                UUID id = UUID.nameUUIDFromBytes((projectId + "/" + sourceKey + "/" + at).getBytes(
+                        java.nio.charset.StandardCharsets.UTF_8));
+                events.publish(new SourceUpdated(id, projectId, project, sourceKey,
+                        source == null ? null : source.kind().name(), source == null ? sourceKey : source.label(),
+                        change, at));
+            } catch (RuntimeException e) {
+                LOG.error("Mise à jour de la source " + sourceKey + " non publiée", e);
+            }
+        }
+
+        @Override
+        public void sourceFailed(String sourceKey, String errorCode) {
+            record(sourceKey, SourceSyncResult.failure(clock.now(), errorCode));
+        }
+
+        private void record(String sourceKey, SourceSyncResult result) {
+            reported.add(sourceKey);
+            if (syncs == null) {
+                return;
+            }
+            try {
+                syncs.record(projectId, sourceKey, result);
+            } catch (RuntimeException e) {
+                LOG.error("Bilan de la source " + sourceKey + " non enregistré", e);
+            }
         }
 
         @Override

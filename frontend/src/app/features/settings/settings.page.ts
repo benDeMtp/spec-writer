@@ -1,3 +1,4 @@
+import { NotificationsCardComponent } from './notifications-card.component';
 import { ChangeDetectionStrategy, Component, OnInit, inject, input } from '@angular/core';
 import { SettingsStore } from '../../core/settings/settings.store';
 import { AgentAccessCardComponent } from './agent-access-card.component';
@@ -18,6 +19,7 @@ import { JiraCardComponent } from './jira-card.component';
     CopilotCardComponent,
     EmbeddingCardComponent,
     JiraCardComponent,
+    NotificationsCardComponent,
   ],
   template: `
     <h1>Configuration</h1>
@@ -40,6 +42,7 @@ import { JiraCardComponent } from './jira-card.component';
           <sw-embedding-card />
           <sw-agent-access-card />
           <sw-browser-card />
+          <sw-notifications-card />
         </div>
       </section>
     } @else {

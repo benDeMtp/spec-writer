@@ -29,4 +29,7 @@ public class AppSettingsEntity {
 
     @Column(name = "browser")
     public String browser;
+
+    @Column(name = "notify_source_updates")
+    public boolean notifySourceUpdates;
 }
