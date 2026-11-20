@@ -1,7 +1,10 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/017-synchro-auto-sources/` (vue Jira lue dans l'index et triée par
+La feature en cours est `specs/018-premier-lancement-visite/` (assistant de premier lancement
+`/premiers-pas/:etape` jusqu'à l'indexation du projet, progression en base V29, installation déjà
+utilisée réputée configurée ; visite guidée de 11 arrêts sur le CDK, cibles `data-tour` ; guide
+« Installer depuis les sources » du README), après `specs/017-synchro-auto-sources/` (vue Jira lue dans l'index et triée par
 date, statut ou état de synchro ; délai de synchronisation automatique par source, réveil par
 quarkus-scheduler, bilan de chaque source par différence d'empreintes ; notification du navigateur
 des sources mises à jour, flux SSE `/api/events`, un seul onglet), après
@@ -95,6 +98,10 @@ dev mode ne remplace aucune gate. Le jar de `backend/target/quarkus-app` est rec
   sinon le jar s'arrête au démarrage.
 - Synchronisation automatique (017) : coupée en `%test` (`quarkus.scheduler.enabled=false`) ; en
   `%e2e`, une minute de délai vaut une seconde et le réveil passe toutes les 2 s.
+- Assistant de premier lancement (018) : ouvert de lui-même sur une installation vierge, sauf en
+  `%e2e` (`specwriter.onboarding.auto-open=false`) ; `us18-premiers-pas` démarre une seconde
+  instance sur une base neuve, port 47697. Une installation compte toujours au moins un projet
+  (« Projet par défaut ») : l'assistant le renomme au lieu d'en créer un.
 - Profil `live` (`-Dquarkus.profile=dev,live`) : vrai Copilot et vrai trousseau. Il est réservé
   aux essais manuels du mainteneur.
 

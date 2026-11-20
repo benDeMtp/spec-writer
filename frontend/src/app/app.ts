@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, ElementRef, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, viewChild } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { LaunchTokenService } from './core/launch/launch-token.service';
 import { MainNavComponent } from './features/shell/main-nav.component';
 import { ProjectNoticeComponent } from './features/shell/project-notice.component';
 import { AppEventsService } from './core/events/app-events.service';
+import { OnboardingService } from './core/onboarding/onboarding.service';
 import { SessionLostComponent } from './features/shell/session-lost.component';
 import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 
@@ -94,6 +95,8 @@ export class App {
   constructor() {
     // 017 : sources mises à jour, notifiées par un seul onglet
     inject(AppEventsService).start();
+    // 018 : une installation vierge s'ouvre sur l'assistant de premier lancement
+    inject(OnboardingService).start(inject(DestroyRef));
     // Gestion du focus : après chaque navigation, le focus va au contenu principal.
     inject(Router)
       .events.pipe(filter((e) => e instanceof NavigationEnd))

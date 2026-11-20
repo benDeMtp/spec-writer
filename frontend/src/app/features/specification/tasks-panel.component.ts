@@ -26,7 +26,7 @@ import { TaskProposalComponent } from './task-proposal.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DatePipe, ElapsedComponent, MatButtonModule, MatFormFieldModule, MatInputModule, TaskProposalComponent],
   template: `
-    <section aria-labelledby="tasks-title" class="tasks">
+    <section aria-labelledby="tasks-title" class="tasks" data-tour="tasks-panel">
       <h2 id="tasks-title">Tâches</h2>
       @if (view(); as v) {
         @if (v.progress.total) {

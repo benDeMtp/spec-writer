@@ -48,12 +48,89 @@ puis les dossiers d'installation habituels (`~/.local/bin`, `~/.npm-global/bin`,
 ancien, la connexion à GitHub l'indique, avec la marche à suivre. Avec une installation par npm,
 `node` doit se trouver dans le même dossier que `copilot`, ou dans le `PATH`.
 
+## Installer depuis les sources
+
+Tant qu'aucun installeur n'est publié, l'outil se construit et se lance depuis le dépôt. Comptez
+une quinzaine de minutes la première fois, téléchargements compris. Les commandes ci-dessous
+valent pour macOS et Linux.
+
+### 1. Prérequis
+
+| Outil | Version | Vérifier |
+|---|---|---|
+| JDK | 25 ou plus récent (Temurin, Mandrel ou autre) | `java -version` affiche `25` ou plus |
+| Git | toute version récente | `git --version` |
+| Copilot CLI de GitHub | 1.0.105 ou plus récent (voir [Prérequis](#prérequis)) | `copilot --version` |
+
+Node.js n'est pas à installer : la construction télécharge la version dont le front a besoin. Le
+wrapper `./mvnw` télécharge de même Maven.
+
+Si plusieurs JDK sont installés, désignez le 25 avant de construire et de lancer, par exemple
+`export JAVA_HOME=$(/usr/libexec/java_home -v 25)` sur macOS, ou le chemin du JDK sous Linux.
+
+### 2. Construire
+
+```bash
+git clone https://github.com/benDeMtp/spec-writer.git
+cd spec-writer
+./mvnw -B package -DskipTests -DskipDependencyCheck
+```
+
+La construction produit le front puis le backend, dans `backend/target/quarkus-app/`. La première
+fois, elle télécharge les dépendances Maven, Node.js et les paquets du front.
+
+### 3. Lancer
+
+```bash
+dist/scripts/spec-writer.sh
+```
+
+L'outil ouvre votre navigateur sur `http://127.0.0.1:47615/`, avec un jeton de lancement à usage
+unique dans l'adresse. Au tout premier lancement, l'**assistant de premier lancement** prend le
+relais (voir [Premier lancement](#premier-lancement)). Laissez le terminal ouvert : fermer le
+terminal arrête l'outil.
+
+### 4. Mettre à jour
+
+```bash
+git pull
+./mvnw -B package -DskipTests -DskipDependencyCheck
+dist/scripts/spec-writer.sh
+```
+
+Arrêtez l'outil avant de reconstruire : la construction remplace le jar en cours d'utilisation.
+Vos données, vos réglages et vos jetons ne sont pas dans le dépôt (voir [Vos données](#vos-données)) :
+ils sont gardés, et la base est mise à jour au démarrage.
+
+### En cas de difficulté
+
+- **« Java 25 ou plus est requis (trouvé : 21 …) »** au lancement, ou **« release version 25 not
+  supported »** à la construction : le JDK utilisé est trop ancien. Installez un JDK 25 et
+  désignez-le par `JAVA_HOME` (étape 1).
+- **La construction échoue en téléchargeant Maven, Node.js ou des paquets** (délai dépassé,
+  certificat refusé) derrière un proxy d'entreprise : Maven lit le proxy dans
+  `~/.m2/settings.xml`, npm dans `HTTPS_PROXY`. Si le proxy inspecte le HTTPS, son certificat
+  d'autorité doit être connu du JDK et de Node (`NODE_EXTRA_CA_CERTS`). L'outil lancé, lui, suit
+  les réglages décrits dans [Proxy d'entreprise](#proxy-dentreprise).
+- **« Picked up JAVA_TOOL_OPTIONS: -Dhttps.proxyHost=… »** suivi d'erreurs de certificat : une
+  variable d'environnement impose un proxy à toutes les JVM du poste. Si ce proxy n'est pas
+  nécessaire pour construire, lancez la commande avec `env -u JAVA_TOOL_OPTIONS ./mvnw …`.
+- **« Jar absent »** : la construction n'a pas abouti. Relancez-la et lisez la première erreur.
+- **Le navigateur ne s'ouvre pas** : relancez avec `dist/scripts/spec-writer.sh
+  -Dspecwriter.print-launch-url=true` et ouvrez l'adresse affichée dans le terminal.
+- **L'étape Copilot de l'assistant dit que le Copilot CLI est introuvable ou trop ancien** :
+  installez-le ou mettez-le à jour (voir [Prérequis](#prérequis)), puis cliquez de nouveau sur
+  **Se connecter à GitHub**. Les dossiers où l'outil le cherche sont listés dans
+  [Où spec-writer cherche le Copilot CLI](#où-spec-writer-cherche-le-copilot-cli).
+- **La connexion aboutit mais aucun modèle n'est proposé** : votre organisation GitHub n'autorise
+  pas Copilot hors de l'IDE (voir [Prérequis](#prérequis)).
+
 ## Installation
 
 Les installeurs seront publiés avec la première version : `.dmg` pour macOS (Apple Silicon et
 Intel), `.msi` pour Windows, `.deb` et `.tar.gz` pour Linux. Ils embarquent leur propre runtime
-Java : seul le Copilot CLI est à installer (voir les prérequis). D'ici là, lancez l'outil depuis
-les sources (voir [CONTRIBUTING.md](CONTRIBUTING.md)).
+Java : seul le Copilot CLI est à installer (voir les prérequis). D'ici là, voir
+[Installer depuis les sources](#installer-depuis-les-sources).
 
 Les installeurs ne sont pas encore signés. Le système vous avertira au premier lancement :
 
@@ -79,15 +156,35 @@ MCP de chaque agent. Le lanceur `spec-writer-mcp` des installeurs, lui, ne chang
 
 ## Premier lancement
 
-1. L'outil ouvre la page **Configuration** dans votre navigateur.
-2. **Se connecter à GitHub** : une page d'autorisation GitHub s'ouvre ; l'outil détecte seul la
-   fin de la connexion, puis vous propose de choisir le modèle.
-3. **Jira** (facultatif) : adresse du serveur et jeton, puis **Tester la connexion**. La clé Jira
-   par défaut est facultative : elle sert aux projets qui n'ont pas leur propre clé. Le test
-   vérifie le projet Jira du projet courant et le nomme. Si le serveur utilise une autorité de
-   certification interne, indiquez le chemin de son certificat (format PEM).
-4. Avant le premier envoi de données à Copilot ou à Jira, l'outil vous demande votre accord. Sans
-   cet accord, rien ne part vers ce service.
+Sur une installation neuve, l'outil s'ouvre sur l'**assistant de premier lancement**, qui mène
+de la connexion à Copilot jusqu'à un projet indexé, en six étapes :
+
+1. **GitHub Copilot**, seule étape obligatoire : **Se connecter à GitHub** ouvre une page
+   d'autorisation GitHub, l'outil détecte seul la fin de la connexion. Choisissez le modèle, puis
+   donnez votre accord à l'envoi de vos besoins et réponses à Copilot.
+2. **Jira** (facultatif) : adresse du serveur et jeton, puis **Tester la connexion**. Si le
+   serveur utilise une autorité de certification interne, indiquez le chemin de son certificat
+   (format PEM). L'outil demande votre accord avant le premier envoi de données à Jira.
+3. **Confluence** (facultatif) : adresse du serveur et jeton, puis **Tester la connexion**.
+4. **Votre projet** : son nom et, si Jira est connecté, sa clé Jira.
+5. **Documentation et architecture** (facultatif) : sites Antora, dossier SharePoint, racine
+   Confluence, et le fichier `workspace.dsl` du modèle d'architecture.
+6. **Indexation** : l'outil lit les sources du projet ; vous pouvez ouvrir la conversation sans
+   attendre la fin.
+
+Chaque étape facultative se passe d'un clic (**Passer**) et se reprend plus tard depuis
+**Configuration** ou les **Réglages du projet**. Si vous fermez l'onglet ou arrêtez l'outil en
+cours de route, l'assistant reprend à la même étape. Il se relance depuis **Configuration ›
+Relancer l'assistant de premier lancement**. Une installation déjà utilisée avant cette version
+ne le voit pas s'ouvrir de lui-même.
+
+À la fin, l'assistant propose la **visite guidée**, qui se lance aussi à tout moment depuis le
+menu (**Visite guidée**, bloc Application). Elle parcourt les écrans dans l'ordre où vous vous en
+servirez : conversation, spécification et discussion, tâches suivies par les agents, tickets
+Jira, connaissance et réglages du projet, réglages avancés et passerelle MCP. À chaque arrêt, une
+bulle désigne un élément de l'écran et explique son rôle. **Précédent**, **Suivant** et
+**Quitter la visite** (ou Échap) se pilotent au clavier ; la visite ne modifie rien et ramène à
+l'écran d'où vous l'avez lancée.
 
 Si l'outil est déjà lancé, rouvrez-le depuis son lanceur : l'adresse contient un jeton à usage
 unique qui ouvre votre session. Une fenêtre qui n'est plus reliée à l'outil (après un redémarrage,
@@ -101,7 +198,8 @@ Le menu a deux blocs :
   (avec la clé Jira du projet), Connaissance du projet et Réglages du projet. Ces pages portent
   sur le projet courant et le nomment dans leur titre.
 - **Application** : Projets, Configuration et Journal, qui valent pour tous les projets. Sous
-  Configuration, l'état de Copilot et de Jira reste visible.
+  Configuration, l'état de Copilot et de Jira reste visible. **Visite guidée** relance la visite
+  de l'outil.
 
 Ouvrir une spécification, un questionnaire ou une conversation d'un autre projet (par un lien, la
 recherche ou l'historique) rend ce projet courant, et l'outil l'annonce. Une proposition en

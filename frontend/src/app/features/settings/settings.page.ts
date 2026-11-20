@@ -1,5 +1,7 @@
 import { NotificationsCardComponent } from './notifications-card.component';
 import { ChangeDetectionStrategy, Component, OnInit, inject, input } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { RouterLink } from '@angular/router';
 import { SettingsStore } from '../../core/settings/settings.store';
 import { AgentAccessCardComponent } from './agent-access-card.component';
 import { BrowserCardComponent } from './browser-card.component';
@@ -19,10 +21,15 @@ import { JiraCardComponent } from './jira-card.component';
     CopilotCardComponent,
     EmbeddingCardComponent,
     JiraCardComponent,
+    MatButtonModule,
     NotificationsCardComponent,
+    RouterLink,
   ],
   template: `
     <h1>Configuration</h1>
+    <p class="relaunch">
+      <a mat-stroked-button routerLink="/premiers-pas/accueil">Relancer l'assistant de premier lancement</a>
+    </p>
     @if (raison() === 'copilot' && !store.copilotConnected()) {
       <p class="notice" role="status">Connectez GitHub Copilot pour commencer un nouveau besoin.</p>
     }
@@ -36,7 +43,7 @@ import { JiraCardComponent } from './jira-card.component';
           <sw-confluence-card />
         </div>
       </section>
-      <section aria-labelledby="advanced-title">
+      <section aria-labelledby="advanced-title" data-tour="advanced">
         <h2 id="advanced-title">Avancé</h2>
         <div class="cards">
           <sw-embedding-card />
@@ -55,6 +62,9 @@ import { JiraCardComponent } from './jira-card.component';
       font-family: var(--sw-font-doc);
       font-size: var(--sw-step-3);
       font-weight: 600;
+    }
+    .relaunch {
+      margin: -0.75rem 0 1.5rem;
     }
     .notice {
       max-width: var(--sw-measure);
