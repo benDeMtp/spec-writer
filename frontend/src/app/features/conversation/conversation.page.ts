@@ -66,7 +66,7 @@ export { MAX_MESSAGE } from './conversation-thread.component';
             <sw-project-heading label="Conversation" headingId="thread-title" />
           }
           @if (detail() && messages().length && !draft()) {
-            <span class="draft-action">
+            <span class="draft-action" data-tour="draft-spec">
               <button
                 mat-stroked-button
                 type="button"

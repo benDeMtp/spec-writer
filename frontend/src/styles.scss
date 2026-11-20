@@ -57,6 +57,13 @@ h3 {
   outline-offset: 2px;
 }
 
+// Visite guidée (018) : l'élément désigné par la bulle
+.sw-tour-target {
+  outline: 3px solid var(--sw-pencil);
+  outline-offset: 4px;
+  border-radius: var(--sw-radius-field);
+}
+
 // Texte réservé aux lecteurs d'écran
 .sw-visually-hidden {
   position: absolute !important;

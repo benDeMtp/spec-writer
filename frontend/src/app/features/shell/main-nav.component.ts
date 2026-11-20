@@ -1,4 +1,5 @@
 import {
+  Injector,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
@@ -103,6 +104,10 @@ const APP_LINKS: Link[] = [
               }
             </li>
           }
+          <li>
+            <!-- 018 : visite guidée de l'outil, dans l'ordre d'usage -->
+            <button type="button" class="tour" (click)="startTour()">Visite guidée</button>
+          </li>
         </ul>
       </div>
     </nav>
@@ -132,7 +137,8 @@ const APP_LINKS: Link[] = [
       display: grid;
       gap: 0.25rem;
     }
-    a {
+    a,
+    .tour {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
@@ -142,7 +148,16 @@ const APP_LINKS: Link[] = [
       color: var(--sw-ink-soft);
       text-decoration: none;
     }
-    a:hover {
+    .tour {
+      width: 100%;
+      border: none;
+      background: none;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    a:hover,
+    .tour:hover {
       color: var(--sw-ink);
       background: color-mix(in srgb, var(--sw-pencil) 8%, transparent);
     }
@@ -205,6 +220,7 @@ export class MainNavComponent {
   protected readonly settings = inject(SettingsStore);
   private readonly problems = inject(ProblemStore);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
   private readonly toggle = viewChild.required<ElementRef<HTMLButtonElement>>('toggle');
 
   protected readonly projectLinks = PROJECT_LINKS;
@@ -234,6 +250,16 @@ export class MainNavComponent {
   protected readonly jiraState = computed(
     () => `Jira : ${this.jiraOn() ? 'configuré' : 'non configuré'}`,
   );
+
+  /**
+   * Visite guidée (018) : chargée à la demande, l'overlay du CDK reste hors du bundle initial ; le
+   * panneau du menu se ferme sur petit écran.
+   */
+  protected async startTour(): Promise<void> {
+    this.open.set(false);
+    const { TourService } = await import('../../core/tour/tour.service');
+    await this.injector.get(TourService).start();
+  }
   protected readonly projectGroupLabel = computed(() => {
     const name = this.store.current()?.name;
     return name ? `Projet ${name}` : 'Projet';

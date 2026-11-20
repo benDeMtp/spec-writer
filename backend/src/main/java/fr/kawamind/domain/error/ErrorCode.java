@@ -116,6 +116,11 @@ public enum ErrorCode {
     BRIDGE_OUTDATED(422, "La passerelle de l'agent est trop ancienne : relancez l'agent après la mise à jour de "
             + "spec-writer.", ErrorAction.NONE),
 
+    // Assistant de premier lancement (018)
+    ONBOARDING_COPILOT_REQUIRED(409,
+            "Connectez GitHub Copilot pour continuer : c'est la seule étape obligatoire.", ErrorAction.NONE),
+    ONBOARDING_UNKNOWN_STEP(400, "Étape de l'assistant inconnue.", ErrorAction.NONE),
+
     // Secrets
     KEYCHAIN_UNAVAILABLE(503,
             "Le trousseau du système n'est pas accessible. Le jeton sera gardé en mémoire jusqu'à la fermeture.",

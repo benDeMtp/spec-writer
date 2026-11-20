@@ -232,7 +232,7 @@ const KINDS: Record<SourceKind, string> = {
       </p>
     }
     <ng-content select="[swComposerTop]" />
-    <form class="composer" (ngSubmit)="send()" novalidate>
+    <form class="composer" data-tour="composer" (ngSubmit)="send()" novalidate>
       <label for="composer-text" class="sw-visually-hidden">Votre question</label>
       <!-- une ligne au repos, qui grandit avec le texte : le fil garde la hauteur -->
       <textarea

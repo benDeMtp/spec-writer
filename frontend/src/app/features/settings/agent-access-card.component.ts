@@ -29,7 +29,7 @@ const OPERATIONS: Record<AgentOperation, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DatePipe, MatButtonModule, PagerComponent],
   template: `
-    <section class="sheet" aria-labelledby="agents-title">
+    <section class="sheet" aria-labelledby="agents-title" data-tour="agent-access">
       <h3 id="agents-title">Accès des agents</h3>
       <p class="scope">Les agents de code accèdent à tous les projets.</p>
       @if (state(); as s) {
