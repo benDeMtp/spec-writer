@@ -70,14 +70,21 @@
 
   Le canal (R2) est ouvert par un bean `@Startup` quand le verrou est tenu, c'est-à-dire quand le
   processus est passé par ce `main`.
-- **Rationale** : le dev mode et `@QuarkusTest` ne passent pas par le `main` statique. Ils
-  appellent directement l'application. Ils ne prennent donc ni verrou ni canal, ce qui évite les
-  conflits au rechargement à chaud (FR-018). Le jar construit par `verify`, lancé par les E2E, et
+- **Rationale** : le `main` ne prend ni verrou ni canal hors de `LaunchMode.NORMAL`, ce qui
+  évite les conflits au rechargement à chaud du dev mode et en test (FR-018). Le jar construit par `verify`, lancé par les E2E, et
   l'uber-jar des installeurs passent, eux, par ce `main`. Chaque E2E a son dossier de données,
   donc son verrou. `McpBridge` garde son propre `main` et n'est pas concerné (FR-016).
-- **À vérifier en T001 (spike)** : que `quarkus.package.jar.type=uber-jar` (profil `dist`) et
-  fast-jar appellent bien le `main` de la classe `@QuarkusMain`, et que `quarkus:dev` ne le fait
-  pas. Le journal du spike tranchera.
+- **Résultat du spike T001 (20/11)** :
+  - Le jar fast-jar et l'uber-jar passent bien par ce `main`.
+  - **Le dev mode aussi**, et il le rappelle à chaque rechargement à chaud. `LaunchMode.current()`
+    y vaut déjà `DEVELOPMENT`. Le `main` ne prend donc le verrou et n'ouvre le canal qu'en
+    `LaunchMode.NORMAL`, ce qui couvre le jar, les installeurs et les E2E (profil `e2e`, mode
+    `NORMAL`, un dossier de données par instance). Le dev mode et les tests sont exclus par cette
+    condition, pas par l'absence d'appel.
+  - **Découverte** : l'uber-jar du profil `dist` ne se construisait plus. ONNX Runtime embarque
+    `ai/onnxruntime/native/win-x64/onnxruntime.pdb`, des symboles de débogage de 300 Mo, au-delà de
+    la limite de 256 Mo d'une entrée. Le profil `dist` exclut désormais ce fichier
+    (`quarkus.package.jar.user-configured-ignored-entries`). L'uber-jar est vérifié au démarrage.
 - **Alternatives considered** : prendre le verrou dans `DataDirConfigSource`, appelée tôt. Mais
   elle est aussi appelée en dev mode et en test, et elle ne peut pas arrêter proprement le
   processus. Rejeté.

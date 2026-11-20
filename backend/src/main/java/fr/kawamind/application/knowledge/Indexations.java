@@ -150,6 +150,17 @@ public class Indexations {
         }
     }
 
+    /** Indexations en cours, tous projets confondus (019, Quitter). */
+    public List<Snapshot> running() {
+        return indexations.values().stream().filter(Indexation::running).map(Indexation::snapshot).toList();
+    }
+
+    /** Interrompt toutes les indexations en cours ; ce qui est indexé reste (019, Quitter). */
+    public void cancelAll() {
+        pendingFull.clear();
+        indexations.values().stream().filter(Indexation::running).forEach(Indexation::cancel);
+    }
+
     private void purge() {
         Instant limit = clock.now().minus(KEEP);
         indexations.values().removeIf(i -> i.finishedBefore(limit));

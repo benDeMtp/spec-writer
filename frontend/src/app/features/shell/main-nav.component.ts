@@ -108,6 +108,10 @@ const APP_LINKS: Link[] = [
             <!-- 018 : visite guidée de l'outil, dans l'ordre d'usage -->
             <button type="button" class="tour" (click)="startTour()">Visite guidée</button>
           </li>
+          <li>
+            <!-- 019 : arrête l'outil, après confirmation -->
+            <button type="button" class="tour" (click)="quit()">Quitter spec-writer</button>
+          </li>
         </ul>
       </div>
     </nav>
@@ -250,6 +254,13 @@ export class MainNavComponent {
   protected readonly jiraState = computed(
     () => `Jira : ${this.jiraOn() ? 'configuré' : 'non configuré'}`,
   );
+
+  /** Quitter (019) : chargé à la demande, comme la visite, pour le budget du bundle initial. */
+  protected async quit(): Promise<void> {
+    this.open.set(false);
+    const { quitApplication } = await import('./quit');
+    await quitApplication(this.injector);
+  }
 
   /**
    * Visite guidée (018) : chargée à la demande, l'overlay du CDK reste hors du bundle initial ; le

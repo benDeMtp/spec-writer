@@ -7,6 +7,8 @@ export interface ConfirmData {
   title: string;
   message: string;
   confirm: string;
+  /** Liste affichée sous le message, par exemple les travaux en cours avant Quitter (019). */
+  items?: string[];
   /** Case facultative, par exemple « Supprimer aussi ses discussions » (011). */
   option?: { label: string; checked: boolean };
 }
@@ -29,6 +31,13 @@ export interface ConfirmResult {
     <h2 mat-dialog-title>{{ data.title }}</h2>
     <mat-dialog-content>
       <p>{{ data.message }}</p>
+      @if (data.items?.length) {
+        <ul class="items">
+          @for (item of data.items; track $index) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+      }
       @if (data.option; as option) {
         <mat-checkbox [checked]="checked()" (change)="checked.set($event.checked)">{{
           option.label
@@ -43,6 +52,10 @@ export interface ConfirmResult {
     </mat-dialog-actions>
   `,
   styles: `
+    .items {
+      margin: 0 0 0.75rem;
+      padding-left: 1.25rem;
+    }
     .danger {
       --mat-button-filled-container-color: var(--sw-outcome);
     }

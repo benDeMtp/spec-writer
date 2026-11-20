@@ -164,7 +164,7 @@ public class ProposeRevision {
                 conversations.find(conversationId).ifPresent(c -> conversations.save(c.touched(clock.now())));
             }
             UUID turn = ids.next();
-            events.open(turn);
+            events.open(turn, TurnEvents.Kind.REVISION, conversationId);
             Instant begin = clock.now();
             events.publish(turn, new Event.Started(begin));
             // la discussion ne reçoit pas de message, et la spécification ne se supprime pas, pendant la rédaction

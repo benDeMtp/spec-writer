@@ -7,15 +7,20 @@ import { ProjectNoticeComponent } from './features/shell/project-notice.componen
 import { AppEventsService } from './core/events/app-events.service';
 import { OnboardingService } from './core/onboarding/onboarding.service';
 import { SessionLostComponent } from './features/shell/session-lost.component';
+import { AppStoppedComponent } from './features/shell/app-stopped.component';
+import { LifecycleStore } from './core/lifecycle/lifecycle.store';
 import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 
 /** Shell : lien d'évitement, navigation, zone principale et bandeau d'erreur (T037, FR-029). */
 @Component({
   selector: 'sw-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, ProblemBannerComponent, MainNavComponent, ProjectNoticeComponent, SessionLostComponent],
+  imports: [RouterOutlet, RouterLink, ProblemBannerComponent, MainNavComponent, ProjectNoticeComponent, SessionLostComponent, AppStoppedComponent],
   template: `
-    @if (launch.state() === 'rejected') {
+    @if (lifecycle.state() === 'stopped') {
+      <!-- 019 : l'outil est arrêté, seule la consigne de relance -->
+      <sw-app-stopped />
+    } @else if (launch.state() === 'rejected') {
       <!-- 012 : seule la consigne de relance, sans menu ni pages vides -->
       <sw-session-lost />
     } @else {
@@ -90,6 +95,7 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 })
 export class App {
   protected readonly launch = inject(LaunchTokenService);
+  protected readonly lifecycle = inject(LifecycleStore);
   private readonly main = viewChild<ElementRef<HTMLElement>>('main');
 
   constructor() {

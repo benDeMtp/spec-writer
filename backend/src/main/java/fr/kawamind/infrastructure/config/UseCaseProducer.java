@@ -45,6 +45,10 @@ import fr.kawamind.application.knowledge.KnowledgeQueries;
 import fr.kawamind.application.knowledge.ListAdrs;
 import fr.kawamind.application.knowledge.ManageArchitectureSource;
 import fr.kawamind.application.knowledge.ManageEmbeddingSettings;
+import fr.kawamind.application.lifecycle.ExitPort;
+import fr.kawamind.application.lifecycle.GracefulStop;
+import fr.kawamind.application.lifecycle.LongWorkTracker;
+import fr.kawamind.application.lifecycle.RunningWork;
 import fr.kawamind.application.settings.ManageBrowser;
 import fr.kawamind.application.settings.ManageNotifications;
 import fr.kawamind.application.onboarding.ManageOnboarding;
@@ -238,6 +242,28 @@ public class UseCaseProducer {
     @ApplicationScoped
     EditTasks editTasks(TaskDesk desk, ReadTasks read) {
         return new EditTasks(desk, read);
+    }
+
+    /** Générations synchrones en cours, nommées avant Quitter (019, research.md R4). */
+    @Produces
+    @ApplicationScoped
+    LongWorkTracker longWorkTracker() {
+        return new LongWorkTracker();
+    }
+
+    /** Travaux en cours : indexations, tours, générations (019, research.md R4). */
+    @Produces
+    @ApplicationScoped
+    RunningWork runningWork(Indexations indexations, TurnEvents turns, LongWorkTracker generations,
+            ProjectRepository projects, ConversationRepository conversations) {
+        return new RunningWork(indexations, turns, generations, projects, conversations);
+    }
+
+    /** Arrêt propre, commun à Quitter, ⌘Q, Ctrl+C et SIGTERM (019, research.md R4). */
+    @Produces
+    @ApplicationScoped
+    GracefulStop gracefulStop(RunningWork work, ExitPort exit, ClockPort clock) {
+        return new GracefulStop(work, exit, clock, d -> Thread.sleep(d));
     }
 
     /** Événements des tours de l'agent, en mémoire (010, research.md R2). */

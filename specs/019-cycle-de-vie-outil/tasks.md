@@ -43,7 +43,7 @@ description: "Tâches de la feature 019 : cycle de vie de l'outil installé (qui
 
 ## Phase 1: Setup
 
-- [ ] T001 Spike R3 : ajouter une classe `B/infrastructure/platform/SpecWriterMain.java` annotée
+- [X] T001 Spike R3 : ajouter une classe `B/infrastructure/platform/SpecWriterMain.java` annotée
   `@QuarkusMain`, dont le `main(String[])` statique écrit une ligne dans `System.err` puis appelle
   `Quarkus.run(args)`. Vérifier les trois cas suivants et consigner le résultat dans research.md
   (R3, « Résultat du spike ») :
@@ -53,7 +53,7 @@ description: "Tâches de la feature 019 : cycle de vie de l'outil installé (qui
   3. `quarkus:dev` ne passe pas par ce `main`.
 
   Si l'un des trois n'est pas conforme, s'arrêter et revoir R3 avant la suite.
-- [ ] T002 Ajouter `quarkus.shutdown.timeout=4s` dans
+- [X] T002 Ajouter `quarkus.shutdown.timeout=4s` dans
   `backend/src/main/resources/application.properties`, avec un commentaire qui renvoie à R4.
 
 ---
@@ -62,44 +62,44 @@ description: "Tâches de la feature 019 : cycle de vie de l'outil installé (qui
 
 ### Inventaire des travaux en cours
 
-- [ ] T003 [P] Test `BT/application/knowledge/IndexationsRunningTest.java` :
+- [X] T003 [P] Test `BT/application/knowledge/IndexationsRunningTest.java` :
   - `running()` liste les instantanés au statut `RUNNING` avec leur projet ;
   - `cancelAll()` demande l'annulation de chacun.
-- [ ] T004 Implémenter `running()` et `cancelAll()` dans `B/application/knowledge/Indexations.java`.
-- [ ] T005 [P] Test `BT/application/conversation/TurnEventsOpenTurnsTest.java` :
+- [X] T004 Implémenter `running()` et `cancelAll()` dans `B/application/knowledge/Indexations.java`.
+- [X] T005 [P] Test `BT/application/conversation/TurnEventsOpenTurnsTest.java` :
   - `open(turnId, kind, conversationId)` enregistre la nature du tour (`AGENT_REPLY` ou
     `REVISION`) ;
   - `openTurns()` liste les tours non finis ;
   - `cancelAll()` les annule tous ;
   - un tour fini n'est plus listé.
-- [ ] T006 Implémenter la nature du tour, `openTurns()` et `cancelAll()` dans
+- [X] T006 Implémenter la nature du tour, `openTurns()` et `cancelAll()` dans
   `B/application/conversation/TurnEvents.java`. Passer la nature à `open` depuis
   `B/application/conversation/Converse.java` (`AGENT_REPLY`) et
   `B/application/conversation/ProposeRevision.java` (`REVISION`). Le comportement de l'existant est
   inchangé.
-- [ ] T007 [P] Test `BT/application/lifecycle/LongWorkTrackerTest.java` : `begin(kind, projectId)`
+- [X] T007 [P] Test `BT/application/lifecycle/LongWorkTrackerTest.java` : `begin(kind, projectId)`
   rend un jeton, `end(jeton)` le retire, `current()` liste ceux en cours, et deux générations
   simultanées sont comptées deux fois.
-- [ ] T008 Implémenter `B/application/lifecycle/LongWorkTracker.java`.
-- [ ] T009 [P] Test `BT/application/lifecycle/RunningWorkTest.java` :
+- [X] T008 Implémenter `B/application/lifecycle/LongWorkTracker.java`.
+- [X] T009 [P] Test `BT/application/lifecycle/RunningWorkTest.java` :
   - l'inventaire agrège les trois sources ;
   - `kind` vaut `INDEXATION`, `AGENT_REPLY`, `REVISION` ou `GENERATION` ;
   - `projectName` et `conversationTitle` sont résolus par `ProjectRepository` et le dépôt des
     conversations, sans aucun texte saisi ;
   - l'inventaire est vide quand rien ne tourne.
-- [ ] T010 Implémenter `B/application/lifecycle/RunningWork.java` (record `Item(kind, projectName,
+- [X] T010 Implémenter `B/application/lifecycle/RunningWork.java` (record `Item(kind, projectName,
   conversationTitle)`) et le câbler dans `B/infrastructure/config/UseCaseProducer.java`.
 
 ### Ouverture d'un onglet (partagée par le canal et le Dock)
 
-- [ ] T011 [P] Test `BT/infrastructure/platform/TabOpenerTest.java` :
+- [X] T011 [P] Test `BT/infrastructure/web/TabOpenerTest.java` :
   - un nouveau jeton à usage unique est émis à chaque ouverture (`LaunchTokenService.issue()`) ;
   - le navigateur configuré est ouvert (`ManageBrowser` simulé) ;
   - si `specwriter.open-browser=false` ou si l'ouverture échoue, le résultat est `PRINT` avec
     l'adresse, sinon `OPENED` ;
   - l'adresse n'est jamais journalisée.
-- [ ] T012 Implémenter `B/infrastructure/platform/TabOpener.java` (bean), en reprenant
-  `BrowserOpener.launchUrl`.
+- [X] T012 Implémenter `B/infrastructure/web/TabOpener.java` (bean, à côté de `BrowserOpener` dont il reprend
+  `launchUrl`).
 
 **Checkpoint** : `./mvnw -B test -DskipDependencyCheck -Dtest='Indexations*,TurnEvents*,LongWork*,RunningWork*,TabOpener*' -Dsurefire.failIfNoSpecifiedTests=false`
 au vert.
@@ -115,70 +115,70 @@ travaux en cours, et l'onglet affiche l'écran d'arrêt.
 
 ### Tests (écrits d'abord, vus échouer)
 
-- [ ] T013 [P] [US1] Test `BT/application/lifecycle/GracefulStopTest.java` (horloge simulée) :
+- [X] T013 [P] [US1] Test `BT/application/lifecycle/GracefulStopTest.java` (horloge simulée) :
   - `stop()` annule les indexations et les tours, attend que l'inventaire soit vide **au plus
     5 s**, puis appelle `ExitPort.exit(0)` ;
   - un second `stop()` est sans effet (état `ARRÊT DEMANDÉ` atteint une fois) ;
   - `onShutdown()` (crochet de la JVM) annule et attend sans rappeler `ExitPort` ;
   - le journal ne contient que `Arrêt demandé depuis l'interface (n travaux interrompus)`.
-- [ ] T014 [P] [US1] Test `BT/infrastructure/web/LongWorkFilterTest.java` : une requête sur une
+- [X] T014 [P] [US1] Test `BT/infrastructure/web/LongWorkFilterTest.java` : une requête sur une
   route `@LongWork(GENERATION)` est comptée pendant son traitement, puis retirée, même en cas
   d'exception.
-- [ ] T015 [P] [US1] Test `@QuarkusTest @Isolated`
+- [X] T015 [P] [US1] Test `@QuarkusTest @Isolated`
   `BT/infrastructure/web/ApplicationResourceIT.java`, contrat de contracts/rest-api.md :
   - `GET /api/application` → `os` vaut `MACOS`, `WINDOWS` ou `LINUX`, `installation` vaut
     `SOURCES`, `work` est vide ;
   - `POST /api/application/quit` avec `{}` → `202` avec `{"stopping":true}` et `ExitPort` simulé
     appelé ; un second appel → `202` ;
-  - sans cookie → `401` ; sans `Content-Type` JSON → `415`.
-- [ ] T016 [P] [US1] Test `F/core/lifecycle/lifecycle.store.spec.ts` :
+  - sans cookie → `403` (refus existant de `LocalSecurityFilter`) ; sans `Content-Type` JSON → `415`.
+- [X] T016 [P] [US1] Test `F/core/lifecycle/lifecycle.store.spec.ts` :
   - `load()` garde `os` et `installation` ;
-  - `probe()` : une erreur réseau → `stopped`, `401` → inchangé (la session perdue prend le relais),
+  - `probe()` : une erreur réseau → `stopped`, toute réponse HTTP (même `403`) → inchangé,
     `200` → `running` ;
   - `stopped` est définitif.
-- [ ] T017 [P] [US1] Test `F/features/shell/app-stopped.component.spec.ts` :
+- [X] T017 [P] [US1] Test `F/features/shell/app-stopped.component.spec.ts` :
   - le `h1` « spec-writer est arrêté » reçoit le focus et est annoncé ;
   - la consigne suit les cinq cas de contracts/ui.md ;
   - le texte se termine par « Vous pouvez fermer cet onglet. ».
-- [ ] T018 [P] [US1] Test dans `F/features/shell/main-nav.component.spec.ts` :
+- [X] T018 [P] [US1] Test dans `F/features/shell/main-nav.component.spec.ts` :
   - « Quitter spec-writer » est dans le bloc Application, après « Visite guidée » ;
   - sans travail en cours, la confirmation porte « Quitter » et « Annuler » ;
   - avec des travaux, elle les liste avec leur devenir et porte « Quitter quand même » ;
   - « Annuler » n'appelle pas `quit` ;
   - la confirmation appelle `quit` puis passe le store à `stopped`.
-- [ ] T019 [P] [US1] Tests dans `F/core/events/app-events.service.spec.ts` et
+- [X] T019 [P] [US1] Tests dans `F/core/events/app-events.service.spec.ts` et
   `F/core/http/problem.interceptor.spec.ts` : une coupure du flux, ou une erreur de statut 0,
   déclenche `LifecycleStore.probe()`.
 
 ### Implémentation
 
-- [ ] T020 [US1] Port `B/application/lifecycle/ExitPort.java`, puis
+- [X] T020 [US1] Port `B/application/lifecycle/ExitPort.java`, puis
   `B/application/lifecycle/GracefulStop.java` (attente par `ClockPort`), câblés dans
   `UseCaseProducer`.
-- [ ] T021 [US1] `B/infrastructure/platform/QuarkusExit.java` : implémente `ExitPort` par
+- [X] T021 [US1] `B/infrastructure/platform/QuarkusExit.java` : implémente `ExitPort` par
   `Quarkus.asyncExit(code)`. `B/infrastructure/platform/GracefulStopOnShutdown.java` :
   `@Observes ShutdownEvent` → `GracefulStop.onShutdown()`.
-- [ ] T022 [US1] `B/infrastructure/web/LongWork.java` (`@NameBinding`, valeur `kind`) et
+- [X] T022 [US1] `B/infrastructure/web/LongWork.java` (`@NameBinding`, valeur `kind`) et
   `B/infrastructure/web/LongWorkFilter.java`. Annoter les routes de génération :
   - `POST` de `B/infrastructure/web/VersionResource.java` ;
   - `POST /specifications` de `B/infrastructure/web/ConversationResource.java` ;
   - toute autre route qui appelle `GenerateSpecification`, à relever par `grep`.
-- [ ] T023 [US1] `B/infrastructure/web/ApplicationResource.java` : `GET /api/application` et
+- [X] T023 [US1] `B/infrastructure/web/ApplicationResource.java` : `GET /api/application` et
   `POST /api/application/quit`, qui répond `202` puis appelle `GracefulStop.stop()` hors de la
   requête (exécuteur géré).
-- [ ] T024 [P] [US1] `F/core/lifecycle/application.api.ts` (types `ApplicationState`,
+- [X] T024 [P] [US1] `F/core/lifecycle/application.api.ts` (types `ApplicationState`,
   `WorkItem`) et `F/core/lifecycle/lifecycle.store.ts`.
-- [ ] T025 [P] [US1] `F/features/shell/app-stopped.component.ts`, textes de contracts/ui.md.
+- [X] T025 [P] [US1] `F/features/shell/app-stopped.component.ts`, textes de contracts/ui.md.
   L'afficher dans `F/app.ts` à la place du shell quand le store est `stopped`, avant
   `sw-session-lost`.
-- [ ] T026 [US1] Dans `F/features/shell/main-nav.component.ts`, ajouter « Quitter spec-writer »
+- [X] T026 [US1] Dans `F/features/shell/main-nav.component.ts`, ajouter « Quitter spec-writer »
   avec `ConfirmDialogComponent` (`F/shared/ui/confirm-dialog.component.ts`). Le focus initial va
   sur « Annuler », et Échap annule. Libellés des travaux : « Indexation du projet <p> »,
   « Réponse de l'agent dans <conversation> », « Proposition de version dans <conversation> »,
   « Génération d'une spécification du projet <p> ».
-- [ ] T027 [US1] Brancher `LifecycleStore.probe()` dans `F/core/events/app-events.service.ts`
+- [X] T027 [US1] Brancher `LifecycleStore.probe()` dans `F/core/events/app-events.service.ts`
   (erreur du flux) et `F/core/http/problem.interceptor.ts` (statut 0).
-- [ ] T028 [US1] E2E `e2e/tests/us19-cycle-de-vie.spec.ts`, sur une seconde instance
+- [X] T028 [US1] E2E `e2e/tests/us19-cycle-de-vie.spec.ts`, sur une seconde instance
   (`e2e/tests/support/fresh-instance.ts`, port 47697) :
   - **Q1** : Quitter → écran d'arrêt, processus terminé avec le code 0 en moins de 10 s, un
     second onglet ouvert passe à l'écran d'arrêt ;

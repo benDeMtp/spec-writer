@@ -23,7 +23,7 @@ class TurnEventsTest {
 
     @Test
     void rejeuPuisFluxPuisFin() {
-        events.open(turn);
+        events.open(turn, TurnEvents.Kind.AGENT_REPLY, UUID.randomUUID());
         events.publish(turn, new Event.Step(new SearchStep(1, "avoirs", Set.of(SourceKind.TICKET), 3)));
         events.publish(turn, new Event.Delta("Les avoirs "));
         List<Event> seen = new ArrayList<>();
@@ -44,13 +44,13 @@ class TurnEventsTest {
 
     @Test
     void arretEtOubli() {
-        events.open(turn);
+        events.open(turn, TurnEvents.Kind.AGENT_REPLY, UUID.randomUUID());
         assertThat(events.cancelled(turn)).isFalse();
         events.cancel(turn);
         assertThat(events.cancelled(turn)).isTrue();
         events.publish(turn, new Event.Error("LLM_UNAVAILABLE", "Copilot ne répond pas."));
         clock.advance(Duration.ofMinutes(11));
-        events.open(UUID.randomUUID());
+        events.open(UUID.randomUUID(), TurnEvents.Kind.AGENT_REPLY, UUID.randomUUID());
         assertThat(events.subscribe(turn, e -> { }).isEmpty()).isTrue();
     }
 }

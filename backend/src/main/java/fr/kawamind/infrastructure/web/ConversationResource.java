@@ -138,6 +138,7 @@ public class ConversationResource {
     }
 
     /** Démarre la spécification avec le brouillon relu par l'utilisateur. */
+    @LongWork
     @POST
     @Path("/specifications")
     @Consumes(MediaType.APPLICATION_JSON)

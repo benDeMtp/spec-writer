@@ -107,11 +107,25 @@ public class TurnEvents {
         void close();
     }
 
+    /** Nature d'un tour : réponse de l'agent (010) ou proposition d'une nouvelle version (011). */
+    public enum Kind { AGENT_REPLY, REVISION }
+
+    /** Tour en cours, pour la liste des travaux interrompus par Quitter (019, research.md R4). */
+    public record OpenTurn(UUID turnId, Kind kind, UUID conversationId) {
+    }
+
     private static final class Turn {
+        final Kind kind;
+        final UUID conversationId;
         final List<Event> events = new ArrayList<>();
         final List<Consumer<Event>> listeners = new CopyOnWriteArrayList<>();
         volatile boolean cancelled;
         Instant finishedAt;
+
+        Turn(Kind kind, UUID conversationId) {
+            this.kind = kind;
+            this.conversationId = conversationId;
+        }
     }
 
     private final Map<UUID, Turn> turns = new ConcurrentHashMap<>();
@@ -121,9 +135,27 @@ public class TurnEvents {
         this.clock = clock;
     }
 
-    public void open(UUID turnId) {
+    public void open(UUID turnId, Kind kind, UUID conversationId) {
         purge();
-        turns.put(turnId, new Turn());
+        turns.put(turnId, new Turn(kind, conversationId));
+    }
+
+    /** Tours ouverts et pas encore finis. */
+    public List<OpenTurn> openTurns() {
+        List<OpenTurn> open = new ArrayList<>();
+        turns.forEach((id, turn) -> {
+            synchronized (turn) {
+                if (turn.finishedAt == null) {
+                    open.add(new OpenTurn(id, turn.kind, turn.conversationId));
+                }
+            }
+        });
+        return open;
+    }
+
+    /** Annule tous les tours ouverts : chacun s'arrête comme par « Arrêter » (019, Quitter). */
+    public void cancelAll() {
+        turns.values().forEach(turn -> turn.cancelled = true);
     }
 
     public void publish(UUID turnId, Event event) {
