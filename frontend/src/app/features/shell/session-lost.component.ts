@@ -14,7 +14,10 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
         Cette fenêtre n'est plus reliée à spec-writer, par exemple après un redémarrage de l'application ou de
         l'ordinateur. Vos données sont conservées.
       </p>
-      <p>Fermez cet onglet, puis ouvrez spec-writer depuis son raccourci : une nouvelle fenêtre s'ouvre.</p>
+      <p>
+        Fermez cet onglet, puis ouvrez spec-writer depuis son raccourci, ou son icône dans le Dock sous macOS : un nouvel
+        onglet s'ouvre, que l'outil soit déjà lancé ou non.
+      </p>
       <p>
         Pour utiliser spec-writer dans ce navigateur-ci, choisissez-le dans Configuration, rubrique « Navigateur », depuis
         la fenêtre déjà ouverte.

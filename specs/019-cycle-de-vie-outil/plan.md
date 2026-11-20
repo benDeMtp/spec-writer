@@ -121,12 +121,13 @@ backend/src/main/java/fr/kawamind/
 │   ├── InstanceChannel.java        # serveur de la socket (bean @Startup, si verrou tenu)
 │   ├── SecondLaunch.java           # client : attentes, réponses, codes de sortie
 │   ├── LauncherMessages.java       # console + boîte (JOptionPane / zenity / kdialog / notify-send)
-│   ├── TabOpener.java              # nouveau jeton + navigateur configuré, partagé canal et Dock
+│   ├── ChannelServer.java, ChannelClient.java, ChannelProtocol.java  # socket et messages du canal
 │   ├── MacDesktopIntegration.java  # setQuitHandler, AppReopenedListener (macOS seulement)
 │   ├── QuarkusExit.java            # ExitPort → Quarkus.asyncExit
 │   └── GracefulStopOnShutdown.java # @Observes ShutdownEvent → GracefulStop
 ├── infrastructure/web/
 │   ├── ApplicationResource.java    # GET /api/application, POST /api/application/quit
+│   ├── TabOpener.java              # nouveau jeton + navigateur configuré, partagé canal et Dock
 │   ├── LongWork.java               # @NameBinding
 │   └── LongWorkFilter.java         # compte les générations synchrones
 └── infrastructure/config/UseCaseProducer.java   # câblage de RunningWork et GracefulStop

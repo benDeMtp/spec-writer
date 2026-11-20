@@ -201,13 +201,13 @@ marche et se termine. Un arrêt brutal ne bloque jamais le démarrage suivant.
 
 ### Tests (écrits d'abord, vus échouer)
 
-- [ ] T029 [P] [US2] Test `BT/infrastructure/platform/InstanceLockTest.java`, avec un processus
+- [X] T029 [P] [US2] Test `BT/infrastructure/platform/InstanceLockTest.java`, avec un processus
   enfant lancé par `ProcessBuilder` sur `java -cp <classpath de test>` :
   - si l'enfant tient le verrou, `tryAcquire()` → occupé ;
   - si l'enfant est tué (`destroyForcibly`), `tryAcquire()` → obtenu (FR-012) ;
   - un dossier en lecture seule → `IOException` distincte de « occupé » (cas « dossier illisible »
     de R1).
-- [ ] T030 [P] [US2] Test `BT/infrastructure/platform/InstanceChannelTest.java`, socket dans un
+- [X] T030 [P] [US2] Test `BT/infrastructure/platform/InstanceChannelTest.java`, socket dans un
   dossier temporaire, contrat de contracts/instance-socket.md :
   - `open` → la réponse de `TabOpener` (`OPENED` ou `PRINT` avec l'adresse) ;
   - une `version` autre que 1, ou une commande inconnue → `UNSUPPORTED` ;
@@ -216,7 +216,7 @@ marche et se termine. Un arrêt brutal ne bloque jamais le démarrage suivant.
   - pendant l'arrêt → `STOPPING` ;
   - un `instance.sock` orphelin est remplacé au démarrage ;
   - à l'arrêt, le fichier est supprimé.
-- [ ] T031 [P] [US2] Test `BT/infrastructure/platform/SecondLaunchTest.java` (horloge et canal
+- [X] T031 [P] [US2] Test `BT/infrastructure/platform/SecondLaunchTest.java` (horloge et canal
   simulés) :
   - `OPENED` → message `spec-writer est déjà lancé : un nouvel onglet a été ouvert.` et code 0 ;
   - `PRINT` → adresse affichée et code 0 ;
@@ -225,7 +225,7 @@ marche et se termine. Un arrêt brutal ne bloque jamais le démarrage suivant.
   - pas de réponse en **5 s** → code 3 ;
   - `STOPPING` → nouvel essai ;
   - `UNSUPPORTED` → code 3.
-- [ ] T032 [P] [US2] Test `BT/infrastructure/platform/LauncherMessagesTest.java` (exécuteur de
+- [X] T032 [P] [US2] Test `BT/infrastructure/platform/LauncherMessagesTest.java` (exécuteur de
   commandes simulé) :
   - toujours la console ;
   - une boîte sous macOS et Windows ;
@@ -234,17 +234,17 @@ marche et se termine. Un arrêt brutal ne bloque jamais le démarrage suivant.
 
 ### Implémentation
 
-- [ ] T033 [US2] `B/infrastructure/platform/InstanceLock.java` (`FileChannel.tryLock` sur
+- [X] T033 [US2] `B/infrastructure/platform/InstanceLock.java` (`FileChannel.tryLock` sur
   `instance.lock`, référence statique gardée toute la vie du processus) et `held()` statique.
-- [ ] T034 [US2] `B/infrastructure/platform/InstanceChannel.java` : bean `@Startup`, ouvert
+- [X] T034 [US2] `B/infrastructure/platform/InstanceChannel.java` : bean `@Startup`, ouvert
   seulement si `InstanceLock.held()`. Il écoute sur `instance.sock` (droits du dossier), avec un
   thread virtuel par connexion. Il est fermé, et son fichier supprimé, sur `ShutdownEvent` avant
   la fin du processus. Un chemin trop long est journalisé et l'instance démarre sans canal (R2).
-- [ ] T035 [US2] `B/infrastructure/platform/SecondLaunch.java` et
+- [X] T035 [US2] `B/infrastructure/platform/SecondLaunch.java` et
   `B/infrastructure/platform/LauncherMessages.java` (R5). Les messages sont en français et
   disent comment arrêter l'outil bloqué, selon l'OS : Moniteur d'activité, Gestionnaire des
   tâches, ou `pkill -f spec-writer`.
-- [ ] T036 [US2] Compléter `B/infrastructure/platform/SpecWriterMain.java` :
+- [X] T036 [US2] Compléter `B/infrastructure/platform/SpecWriterMain.java` :
   1. résoudre le dossier de données par `UserDirectories.fromSystem()` ;
   2. `InstanceLock.tryAcquire()` ;
   3. si le verrou est occupé, `SecondLaunch.run()` puis `System.exit(code)`, ou démarrer si
@@ -252,14 +252,14 @@ marche et se termine. Un arrêt brutal ne bloque jamais le démarrage suivant.
   4. sinon `Quarkus.run(args)`.
 
   Retirer la ligne de diagnostic du spike T001.
-- [ ] T037 [US2] Vérifier que `fr.kawamind.mcp.McpBridge` et `dist/launchers/spec-writer-mcp.properties`
+- [X] T037 [US2] Vérifier que `fr.kawamind.mcp.McpBridge` et `dist/launchers/spec-writer-mcp.properties`
   n'utilisent pas `SpecWriterMain` (FR-016). Ajouter un test ArchUnit dans
   `BT/architecture/HexagonalArchitectureTest.java` : aucune classe de `fr.kawamind.mcp` ne dépend
   de `SpecWriterMain`, `InstanceLock` ni `SecondLaunch`.
-- [ ] T038 [US2] Vérifier que `dist/scripts/spec-writer.sh` et `dist/scripts/spec-writer.cmd`
+- [X] T038 [US2] Vérifier que `dist/scripts/spec-writer.sh` et `dist/scripts/spec-writer.cmd`
   propagent le code de sortie : `exec` pour le `.sh`, `exit /b %ERRORLEVEL%` pour le `.cmd`.
   Corriger si besoin.
-- [ ] T039 [US2] E2E dans `e2e/tests/us19-cycle-de-vie.spec.ts`, sur la seconde instance :
+- [X] T039 [US2] E2E dans `e2e/tests/us19-cycle-de-vie.spec.ts`, sur la seconde instance :
   - **Q3** : second lancement sur le même dossier, avec `-Dspecwriter.open-browser=false
     -Dspecwriter.print-launch-url=true` → code 0 en moins de 5 s, adresse affichée qui ouvre une
     session dans un nouvel onglet Playwright, toujours une seule instance (le port n'a pas changé) ;
@@ -277,14 +277,14 @@ connecté. ⌘Q arrête proprement, avec confirmation si un travail est en cours
 
 **Independent Test** : quickstart Q5 (manuel, sur le `.dmg` construit en local).
 
-- [ ] T040 [P] [US3] Test `BT/infrastructure/platform/MacDesktopIntegrationTest.java`, avec une
+- [X] T040 [P] [US3] Test `BT/infrastructure/platform/MacDesktopIntegrationTest.java`, avec une
   abstraction de `Desktop` (interface `DesktopEvents` : `onQuit`, `onReopen`) :
   - `onReopen` appelle `TabOpener.open()` ;
   - `onQuit` sans travail → `performQuit` ;
   - avec des travaux → une confirmation (abstraction de boîte) qui les nomme, puis `performQuit`
     ou `cancelQuit` selon la réponse ;
   - rien n'est enregistré hors macOS, en mode headless ou sans `InstanceLock.held()`.
-- [ ] T041 [US3] Implémenter `B/infrastructure/platform/MacDesktopIntegration.java` (bean
+- [X] T041 [US3] Implémenter `B/infrastructure/platform/MacDesktopIntegration.java` (bean
   `@Startup`, `Desktop.setQuitHandler`, `Desktop.addAppEventListener(AppReopenedListener)`), et
   l'adaptateur réel de `DesktopEvents` sur `java.awt.Desktop`.
 - [ ] T042 [US3] Vérification manuelle Q5 sur un `.dmg` construit par `./mvnw -Pdist package` :
@@ -295,21 +295,21 @@ connecté. ⌘Q arrête proprement, avec confirmation si un travail est en cours
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T043 [P] Mettre à jour `F/features/shell/session-lost.component.ts` et sa spec : consigne de
+- [X] T043 [P] Mettre à jour `F/features/shell/session-lost.component.ts` et sa spec : consigne de
   relance par le raccourci, plus le Dock sous macOS (FR-019).
-- [ ] T044 [P] README.md :
+- [X] T044 [P] README.md :
   - **Lancement** : le second lancement rouvre un onglet ; sous macOS, le Dock aussi.
   - **Arrêt** : Menu › Quitter spec-writer, ⌘Q, Ctrl+C depuis les sources. Fermer le terminal
     arrête toujours l'outil.
   - **Outil bloqué** : comment l'arrêter.
   - **Sections touchées** : « Installer depuis les sources », « Installation », « Premier
     lancement » (paragraphe sur l'outil déjà lancé) et « Le menu » (FR-020).
-- [ ] T045 [P] CLAUDE.md :
+- [X] T045 [P] CLAUDE.md :
   - feature en cours : 019 ;
   - pièges : `SpecWriterMain` n'est pas utilisé en dev mode ni en `@QuarkusTest` ;
     `instance.lock` et `instance.sock` sont dans le dossier de données ; une seconde instance E2E
     a besoin d'un dossier à elle.
-- [ ] T046 Gates avant commit :
+- [X] T046 Gates avant commit :
   1. supprimer `backend/target/jacoco.exec` et `backend/target/test-data` ;
   2. `./mvnw -B verify -DskipDependencyCheck` (JaCoCo, ArchUnit, SpotBugs, PMD, front) ;
   3. `npm --prefix e2e test` sur le jar construit ;
