@@ -343,4 +343,24 @@ class ProposeRevisionTest {
         assertThat(ProposeRevision.title(interview.withParticipants(List.of()), fr.kawamind.domain.session.Language.EN))
                 .isEqualTo("Session of 2026-11-20");
     }
+
+    @Test
+    void laRevisionRepriseLesPointsOuvertsEtLesAncresDeLaBase() {
+        var anchor = new fr.kawamind.domain.specification.Anchor("UC-01", 2, false);
+        var base = fr.kawamind.domain.specification.Specs.valid()
+                .withAssumptions(List.of(new fr.kawamind.domain.specification.Assumption("H-01", "TTC",
+                        fr.kawamind.domain.specification.Assumption.Origin.TOOL_INFERENCE, null, anchor, null)))
+                .withOpenQuestions(List.of(new fr.kawamind.domain.specification.OpenQuestion("Q-01", "Qui valide ?",
+                        "Paul D.", null, null, null)));
+        var revised = fr.kawamind.domain.specification.Specs.valid()
+                .withAssumptions(List.of(new fr.kawamind.domain.specification.Assumption("H-01", "TTC reformulé",
+                        fr.kawamind.domain.specification.Assumption.Origin.TOOL_INFERENCE, null, null, "H-01")));
+        var out = ProposeRevision.withoutFromCodes(ProposeRevision.withBase(revised, base, false));
+        assertThat(out.assumptions().getFirst().anchor()).isEqualTo(anchor);
+        assertThat(out.assumptions().getFirst().fromCode()).isNull();
+        assertThat(out.openQuestions()).extracting(q -> q.code(), q -> q.owner(), q -> q.fromCode())
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Q-01", "Paul D.", null));
+        assertThat(ProposeRevision.withBase(revised, base, true).openQuestions().getFirst().fromCode()).isEqualTo("Q-01");
+    }
 }
+

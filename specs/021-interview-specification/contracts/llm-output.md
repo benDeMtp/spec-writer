@@ -18,6 +18,9 @@ facultatifs : une sortie sans eux reste valide (versions et rejeux existants).
 }
 ```
 
+- **Révision** : avec les ancres et `openQuestions`, Copilot refuse le schéma (« compiled grammar
+  is too large », évaluation du 20/11/2026). La révision ne garde que `fromCode` sur les
+  hypothèses ; le code reprend les écarts, les points ouverts et les ancres de la version de base.
 - **Forme retenue à l'implémentation** : `anchor` est une chaîne courte, et non un objet. Le schéma
   strict de Copilot rend toutes les propriétés obligatoires, et sa grammaire compilée a déjà atteint
   sa limite en 016 ; un objet de quatre champs sur trois listes la grossissait d'autant. Formes :
@@ -35,7 +38,7 @@ facultatifs : une sortie sans eux reste valide (versions et rejeux existants).
 | Consigne | Ancre | `fromCode` | `openQuestions` |
 |---|---|---|---|
 | `generate-specification` | oui | non | non |
-| `revise-specification` | oui | oui | oui |
+| `revise-specification` | non (repris de la base par `fromCode`) | oui, hypothèses seulement | non (repris de la base) |
 | `edit-specification` | oui | non (schéma de la génération, voir tasks.md T054) | non |
 | `structure-imported-text` | oui | non | non |
 | `merge-conflict` | oui | non | non |

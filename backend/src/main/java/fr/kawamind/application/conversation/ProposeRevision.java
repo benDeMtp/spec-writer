@@ -355,11 +355,13 @@ public class ProposeRevision {
             content = outcome == null ? base.content() : InterviewOutcome.unchanged(base.content());
             perimeterOnly = u;
         }
-        content = withBaseDeviations(content, base.content());
+        content = withBase(content, base.content(), outcome != null);
         if (outcome != null) {
             // les écarts sont repris de la base, dans l'ordre : chacun garde son code d'origine
             content = InterviewOutcome.apply(content.withSourceDeviations(content.sourceDeviations().stream()
                     .map(d -> d.fromCode() == null ? d.withFromCode(d.code()) : d).toList()), base.content(), outcome);
+        } else {
+            content = withoutFromCodes(content);
         }
         PerimeterSnapshot perimeter = analysed == null ? null : analysed.corrected(corrections);
         ProposalStore.Proposal p = proposals.propose(session, base, content, VersionOrigin.DISCUSSION, null, null,
@@ -459,12 +461,38 @@ public class ProposeRevision {
     }
 
     /**
-     * Le format de la révision n'a pas d'écarts entre sources (016, {@code LlmSchemas.REVISION}) :
-     * la version proposée reprend ceux de la version discutée.
+     * Le format de la révision n'a pas d'écarts entre sources (016), ni points ouverts ni ancres (021,
+     * {@code LlmSchemas.REVISION}) : la version proposée reprend les écarts et les points ouverts de la
+     * version discutée, et chaque hypothèse reprise ({@code fromCode}) garde l'ancre de la base si son
+     * élément existe encore. Pour une séance, les points ouverts repris portent leur propre code, que
+     * l'issue de la séance retire s'il est tranché.
      */
+    static SpecificationContent withBase(SpecificationContent revised, SpecificationContent base, boolean interview) {
+        SpecificationContent out = withBaseDeviations(revised, base);
+        if (out.openQuestions().isEmpty() && !base.openQuestions().isEmpty()) {
+            out = out.withOpenQuestions(base.openQuestions().stream()
+                    .map(q -> interview ? q.withFromCode(q.code()) : q).toList());
+        }
+        java.util.Map<String, fr.kawamind.domain.specification.Anchor> anchors = new java.util.HashMap<>();
+        base.assumptions().stream().filter(a -> a.anchor() != null).forEach(a -> anchors.put(a.code(), a.anchor()));
+        SpecificationContent target = out;
+        return out.withAssumptions(out.assumptions().stream()
+                .map(a -> a.anchor() == null && a.fromCode() != null && anchors.containsKey(a.fromCode())
+                        ? a.withAnchor(fr.kawamind.domain.specification.Anchor.orNull(anchors.get(a.fromCode()), target))
+                        : a)
+                .toList());
+    }
+
     static SpecificationContent withBaseDeviations(SpecificationContent revised, SpecificationContent base) {
         return revised.sourceDeviations().isEmpty() && !base.sourceDeviations().isEmpty()
                 ? revised.withSourceDeviations(base.sourceDeviations()) : revised;
+    }
+
+    /** Hors séance, les codes d'origine ne valent que pour la rédaction : ils ne sont pas gardés. */
+    static SpecificationContent withoutFromCodes(SpecificationContent c) {
+        return c.withAssumptions(c.assumptions().stream().map(a -> a.withFromCode(null)).toList())
+                .withOpenQuestions(c.openQuestions().stream().map(q -> q.withFromCode(null)).toList())
+                .withSourceDeviations(c.sourceDeviations().stream().map(d -> d.withFromCode(null)).toList());
     }
 
     /** Premier appel du code de l'outil dans la pile d'une erreur, pour la situer sans son message. */

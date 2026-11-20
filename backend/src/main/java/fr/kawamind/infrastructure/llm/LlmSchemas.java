@@ -51,8 +51,9 @@ final class LlmSchemas {
 
     /**
      * 011 : nouvelle version d'après la discussion, ou aucun changement établi et sa raison. Sans
-     * écarts entre sources (016) : avec eux, la grammaire compilée de ce schéma dépasse la limite de
-     * Copilot (« compiled grammar is too large ») ; la révision reprend ceux de la version discutée.
+     * écarts entre sources (016), ni points ouverts ni ancres (021) : avec eux, la grammaire compilée
+     * de ce schéma dépasse la limite de Copilot (« compiled grammar is too large ») ; la révision
+     * reprend ceux de la version discutée.
      */
     static final ResponseFormat REVISION = format("revision", JsonObjectSchema.builder()
             .addProperty("changed", JsonBooleanSchema.builder().build())
@@ -132,15 +133,8 @@ final class LlmSchemas {
                     .addStringProperty("anchor")
                     .build()));
         }
-        if (revision) {
-            // 021 (contracts/llm-output.md) : questions laissées en suspens, reprises par leur code de base
-            out.addProperty("openQuestions", array(JsonObjectSchema.builder()
-                    .addStringProperty("question")
-                    .addStringProperty("owner")
-                    .addStringProperty("fromCode")
-                    .addStringProperty("anchor")
-                    .build()));
-        }
+        // 021 : la révision n'a ni points ouverts ni ancres (grammaire trop grande pour Copilot) ; le
+        // code reprend ceux de la version de base (ProposeRevision.withBase)
         return out.build();
     }
 
@@ -151,9 +145,10 @@ final class LlmSchemas {
                 .addStringProperty("questionId");
         if (revision) {
             out.addStringProperty("fromCode");
+        } else {
+            // 021 (R1) : l'élément concerné, en chaîne courte (USE_CASE:1:4) pour ménager la grammaire
+            out.addStringProperty("anchor");
         }
-        // 021 (R1) : l'élément concerné, en chaîne courte (USE_CASE:1:4) pour ménager la grammaire
-        out.addStringProperty("anchor");
         return out.build();
     }
 
