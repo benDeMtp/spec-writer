@@ -173,5 +173,70 @@ test.describe.serial('021 interview d’une spécification', () => {
     await expect(current).toContainText('Hypothèse H-01');
     await expect(page.getByText('Non rattachés')).toHaveCount(0);
   });
+
+  test('V5 : préparer une séance sur deux spécifications, en écartant un point', async () => {
+    let created = await (
+      await page.request.post('/api/sessions', {
+        headers,
+        data: { need: 'E2E-ANCRES Les employés doivent pouvoir réserver une salle de réunion depuis leur poste.' },
+      })
+    ).json();
+    const other = created.id;
+    while (created.currentBatch.length) {
+      const q = created.currentBatch[0];
+      created = await (
+        await page.request.put(`/api/sessions/${other}/questions/${q.id}/answer`, {
+          headers,
+          data: { value: q.defaultValue ?? q.suggestions[0] ?? 'Oui' },
+        })
+      ).json();
+    }
+    expect((await page.request.post(`/api/sessions/${other}/versions`, { headers })).status()).toBe(201);
+    // des noms uniques : plusieurs spécifications de la suite naissent du même besoin
+    const names: Record<string, string> = { [sessionId]: 'Salles, séance V5', [other]: 'Ancres, séance V5' };
+    for (const [id, name] of Object.entries(names)) {
+      expect((await page.request.patch(`/api/sessions/${id}`, { headers, data: { name } })).ok()).toBe(true);
+    }
+    const nameOf = (id: string) => names[id];
+
+    // la page « Spécifications » : points à traiter, sélection, préparation
+    await page.goto('/sessions');
+    await page.getByRole('checkbox', { name: `Sélectionner « ${nameOf(sessionId)} » pour une séance` }).check();
+    await page.getByRole('checkbox', { name: `Sélectionner « ${nameOf(other)} » pour une séance` }).check();
+    await page.getByRole('button', { name: 'Préparer une séance (2)' }).click();
+    await expect(page).toHaveURL(/\/seances\/[0-9a-f-]+\/preparation$/);
+    const interviewId = page.url().split('/').at(-2)!;
+    await expect(page.getByRole('heading', { name: 'Préparer la séance' })).toBeVisible();
+    await expectNoA11yViolations(page);
+    const second = page.locator('.specs > li').filter({ hasText: nameOf(other) });
+    await second.getByRole('button', { name: 'Écarter de cette séance' }).first().click();
+    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    await expect(page).toHaveURL(/\/sessions$/);
+
+    // la séance préparée attend en tête de la page, même après un rechargement
+    await page.reload();
+    const prepared = page.locator('section[aria-labelledby="prepared-title"]');
+    await expect(prepared).toContainText('Séance préparée : 2 spécifications');
+    await prepared.getByRole('button', { name: 'Démarrer' }).click();
+    await expect(page).toHaveURL(new RegExp(`/seances/${interviewId}$`));
+    await expect(page.locator('.spec-pos')).toHaveText('Spéc. 1 sur 2');
+
+    // le point écarté n'est pas dans le parcours ; une seconde séance sur une spécification occupée est refusée
+    const detail = await (await page.request.get(`/api/interviews/${interviewId}`)).json();
+    const items = detail.stops
+      .filter((s: { sessionId: string }) => s.sessionId === other)
+      .flatMap((s: { items: { code: string }[] }) => s.items.map((i) => i.code));
+    expect(items).not.toContain('H-01');
+    const busy = await page.request.post(`/api/sessions/${other}/interviews`, { headers, data: {} });
+    expect(busy.status()).toBe(409);
+    expect((await busy.json()).code).toBe('INTERVIEW_BUSY');
+
+    // le compte rendu est en deux parties, une par spécification
+    // des points restent à traiter : la fin se confirme
+    await page.getByRole('button', { name: 'Terminer' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Terminer la séance' }).click();
+    await expect(page).toHaveURL(/\/recapitulatif$/);
+    await expect(page.locator('.preview h3')).toHaveCount(2);
+  });
 });
 

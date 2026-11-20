@@ -8,6 +8,7 @@ import {
   InterviewSummary,
   PointInput,
   PointView,
+  PrepareInput,
   RevisionStarted,
 } from './interviews.model';
 
@@ -60,4 +61,28 @@ export class InterviewsApi {
       this.http.post<RevisionStarted>(`/api/interviews/${id(interviewId)}/specs/${id(sessionId)}/revision`, {}),
     );
   }
+
+  /** Séances préparées du projet courant (US5). */
+  prepared(): Promise<InterviewSummary[]> {
+    return firstValueFrom(this.http.get<InterviewSummary[]>('/api/interviews', { params: { state: 'PREPARED' } }));
+  }
+
+  prepare(input: PrepareInput): Promise<InterviewDetail> {
+    return firstValueFrom(this.http.post<InterviewDetail>('/api/interviews', input));
+  }
+
+  update(interviewId: string, input: PrepareInput): Promise<InterviewDetail> {
+    return firstValueFrom(this.http.put<InterviewDetail>(`/api/interviews/${id(interviewId)}`, input));
+  }
+
+  delete(interviewId: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`/api/interviews/${id(interviewId)}`));
+  }
+
+  start(interviewId: string, participants?: string[]): Promise<InterviewDetail> {
+    return firstValueFrom(
+      this.http.post<InterviewDetail>(`/api/interviews/${id(interviewId)}/start`, participants ? { participants } : {}),
+    );
+  }
 }
+

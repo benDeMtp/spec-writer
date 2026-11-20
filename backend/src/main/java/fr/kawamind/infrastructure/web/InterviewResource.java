@@ -1,6 +1,9 @@
 package fr.kawamind.infrastructure.web;
 
 import fr.kawamind.application.interview.InterviewRevision;
+import fr.kawamind.application.interview.PrepareInterview;
+import fr.kawamind.application.project.CurrentProject;
+import fr.kawamind.domain.port.ProjectRepository;
 import fr.kawamind.application.interview.RunInterview;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
@@ -15,6 +18,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
@@ -94,6 +98,66 @@ public class InterviewResource {
 
     @Inject
     InterviewRevision revision;
+
+    @Inject
+    PrepareInterview prepare;
+
+    @Inject
+    ProjectRepository projects;
+
+    /** Une spécification de la séance préparée, avec ses points écartés. */
+    public record SpecChoice(UUID sessionId, List<String> excluded) {
+    }
+
+    public record PrepareInput(List<SpecChoice> specs, List<String> participants) {
+    }
+
+    /** Séances du projet courant dans cet état ; seules les séances préparées se listent ainsi (US5). */
+    @GET
+    public List<InterviewSummary> list(@QueryParam("state") String state) {
+        if (!"PREPARED".equals(state)) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED);
+        }
+        return prepare.preparedFor(CurrentProject.resolve(projects).id()).stream().map(views::summary).toList();
+    }
+
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response create(PrepareInput input) {
+        RunInterview.View v = prepare.prepare(CurrentProject.resolve(projects).id(), choices(input),
+                input == null ? List.of() : input.participants());
+        return Response.status(Response.Status.CREATED).entity(views.detail(v)).build();
+    }
+
+    @PUT
+    @Path("/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public InterviewDetail update(@PathParam("id") String id, PrepareInput input) {
+        return views.detail(prepare.update(Ids.parse(id), choices(input), input == null ? null : input.participants()));
+    }
+
+    @DELETE
+    @Path("/{id}")
+    public void delete(@PathParam("id") String id) {
+        prepare.delete(Ids.parse(id));
+    }
+
+    @POST
+    @Path("/{id}/start")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public InterviewDetail start(@PathParam("id") String id, StartInput input) {
+        return views.detail(prepare.start(Ids.parse(id), input == null ? null : input.participants()));
+    }
+
+    private static List<PrepareInterview.Choice> choices(PrepareInput input) {
+        if (input == null || input.specs() == null) {
+            return List.of();
+        }
+        return input.specs().stream().filter(java.util.Objects::nonNull)
+                .map(c -> new PrepareInterview.Choice(c.sessionId(),
+                        c.excluded() == null ? java.util.Set.of() : java.util.Set.copyOf(c.excluded())))
+                .toList();
+    }
 
     @GET
     @Path("/{id}")

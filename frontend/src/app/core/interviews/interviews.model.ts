@@ -113,3 +113,9 @@ export interface RevisionStarted {
   turnId: string;
   conversationId: string;
 }
+
+/** Séance préparée : les spécifications dans l'ordre de passage, avec leurs points écartés (US5). */
+export interface PrepareInput {
+  specs: { sessionId: string; excluded: string[] }[];
+  participants: string[];
+}

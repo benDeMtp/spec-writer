@@ -2,6 +2,7 @@ package fr.kawamind.infrastructure.web;
 
 import fr.kawamind.domain.knowledge.ArchitectureModel;
 import fr.kawamind.domain.knowledge.KnowledgeSelection;
+import fr.kawamind.domain.interview.PendingPoints;
 import fr.kawamind.domain.specification.OpenQuestion;
 import fr.kawamind.domain.specification.SourceDeviation;
 import fr.kawamind.domain.specification.SpecificationContent;
@@ -40,8 +41,9 @@ final class SessionViews {
             String defaultValue, QuestionState state, String answer) {
     }
 
+    /** {@code pending} : points à traiter de la dernière version (021, FR-025) ; nul sans version lisible. */
     record SessionSummary(UUID id, String name, String state, Instant updatedAt, Integer latestVersion,
-            String jiraKey, boolean readable, String implementationStatus) {
+            String jiraKey, boolean readable, String implementationStatus, PendingPoints pending) {
     }
 
     /** Statut d'implémentation (FR-026) ; {@code evolvedFromSessionId} : spécification d'origine d'une évolution. */
@@ -111,14 +113,15 @@ final class SessionViews {
 
     static SessionSummary summary(Session s, int latestVersion, LinkedJiraTicket ticket, ImplementationStatus status) {
         return new SessionSummary(s.id(), s.name(), s.state().name(), s.updatedAt(),
-                latestVersion == 0 ? null : latestVersion, ticket == null ? null : ticket.issueKey(), true, status.name());
+                latestVersion == 0 ? null : latestVersion, ticket == null ? null : ticket.issueKey(), true, status.name(),
+                null);
     }
 
-    static SessionSummary summary(ManageSessions.Entry e, LinkedJiraTicket ticket) {
+    static SessionSummary summary(ManageSessions.Entry e, LinkedJiraTicket ticket, PendingPoints pending) {
         SessionListing s = e.session();
         return new SessionSummary(s.id(), s.name(), s.state() == null ? null : s.state().name(), s.updatedAt(),
                 e.latestVersion() == 0 ? null : e.latestVersion(), ticket == null ? null : ticket.issueKey(), s.readable(),
-                s.implementationStatus().name());
+                s.implementationStatus().name(), pending);
     }
 
     static LinkedTicketView ticket(LinkedJiraTicket t) {

@@ -135,6 +135,44 @@ class InterviewResourceIT {
                 .then().statusCode(409).body("code", equalTo("INTERVIEW_NOT_IN_PROGRESS"));
     }
 
+    /** 021, US5 : préparer, modifier, démarrer ; points à traiter dans la liste des spécifications. */
+    @Test
+    void preparationDUneSeanceDePlusieursSpecifications() {
+        UUID previous = fr.kawamind.application.project.CurrentProject.resolve(projects).id();
+        Session a = specification();
+        Session b = specification();
+        try {
+            api().body(Map.of("projectId", a.projectId().toString())).put("/api/projects/current").then().statusCode(204);
+            api().get("/api/sessions").then().statusCode(200)
+                    .body("find { it.id == '" + a.id() + "' }.pending.assumptions", equalTo(1))
+                    .body("find { it.id == '" + a.id() + "' }.pending.openQuestions", equalTo(0));
+
+            Map<String, Object> body = Map.of("participants", List.of("Julie M."), "specs", List.of(
+                    Map.of("sessionId", a.id().toString(), "excluded", List.of()),
+                    Map.of("sessionId", b.id().toString(), "excluded", List.of("H-01"))));
+            String id = api().body(body).post("/api/interviews").then().statusCode(201)
+                    .body("state", equalTo("PREPARED")).body("specs", hasSize(2))
+                    .body("specs[1].excluded", equalTo(List.of("H-01"))).extract().path("id");
+            api().get("/api/interviews?state=PREPARED").then().statusCode(200).body("id", hasItem(id));
+
+            api().body(Map.of("participants", List.of("Paul D."), "specs", List.of(
+                    Map.of("sessionId", b.id().toString(), "excluded", List.of("H-09")))))
+                    .put("/api/interviews/" + id).then().statusCode(422);
+            api().body(Map.of("participants", List.of("Paul D."), "specs", List.of(
+                    Map.of("sessionId", b.id().toString()), Map.of("sessionId", a.id().toString()))))
+                    .put("/api/interviews/" + id).then().statusCode(200).body("specs[0].sessionId", equalTo(b.id().toString()))
+                    .body("participants", equalTo(List.of("Paul D.")));
+
+            api().body(Map.of()).post("/api/interviews/" + id + "/start").then().statusCode(200)
+                    .body("state", equalTo("IN_PROGRESS")).body("specs.version", equalTo(List.of(1, 1)));
+            api().delete("/api/interviews/" + id).then().statusCode(409).body("code", equalTo("INTERVIEW_NOT_PREPARED"));
+            api().body(Map.of()).post("/api/sessions/" + a.id() + "/interviews").then().statusCode(409)
+                    .body("code", equalTo("INTERVIEW_BUSY"));
+        } finally {
+            api().body(Map.of("projectId", previous.toString())).put("/api/projects/current");
+        }
+    }
+
     @Test
     void validation() {
         Session s = specification();

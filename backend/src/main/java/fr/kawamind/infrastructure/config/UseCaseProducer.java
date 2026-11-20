@@ -88,6 +88,7 @@ import fr.kawamind.application.specification.AcceptAiEdit;
 import fr.kawamind.application.specification.DeleteVersion;
 import fr.kawamind.application.specification.GenerateSpecification;
 import fr.kawamind.application.interview.InterviewRevision;
+import fr.kawamind.application.interview.PrepareInterview;
 import fr.kawamind.application.interview.RunInterview;
 import fr.kawamind.application.specification.OperationRegistry;
 import fr.kawamind.application.specification.ProposalStore;
@@ -551,6 +552,15 @@ public class UseCaseProducer {
     RunInterview runInterview(InterviewRepository interviews, SessionRepository sessions, SpecificationRepository versions,
             OperationRegistry operations, ClockPort clock, IdGenerator ids) {
         return new RunInterview(interviews, sessions, versions, operations, clock, ids);
+    }
+
+    /** Préparation d'une séance de plusieurs spécifications (021, US5). */
+    @Produces
+    @ApplicationScoped
+    PrepareInterview prepareInterview(InterviewRepository interviews, SessionRepository sessions,
+            SpecificationRepository versions, OperationRegistry operations, RunInterview run, ClockPort clock,
+            IdGenerator ids) {
+        return new PrepareInterview(interviews, sessions, versions, operations, run, clock, ids);
     }
 
     /** Révision d'une spécification d'après la séance (021, US3) : la rédaction de la 011. */

@@ -59,6 +59,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/interview/interview.page').then((m) => m.InterviewPage),
   },
   {
+    path: 'seances/:id/preparation',
+    title: 'Préparer la séance',
+    loadComponent: () =>
+      import('./features/interview/interview-preparation.page').then((m) => m.InterviewPreparationPage),
+  },
+  {
     path: 'seances/:id/recapitulatif',
     title: 'Récapitulatif de la séance',
     loadComponent: () => import('./features/interview/interview-recap.page').then((m) => m.InterviewRecapPage),

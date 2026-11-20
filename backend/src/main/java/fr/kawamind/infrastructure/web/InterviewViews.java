@@ -33,6 +33,9 @@ public class InterviewViews {
     @Inject
     InterviewRevision revision;
 
+    @Inject
+    RunInterview run;
+
     InterviewDetail detail(RunInterview.View v) {
         Interview i = v.interview();
         List<SpecView> specs = v.specs().stream().map(s -> {
@@ -59,7 +62,10 @@ public class InterviewViews {
         List<SpecName> names = interviews.specs(i.id()).stream()
                 .map(s -> new SpecName(s.sessionId(), sessions.find(s.sessionId()).map(Session::name).orElse("")))
                 .toList();
+        // préparée : les points à traiter de la séance (US5) ; sinon les points notés
+        int points = i.state() == Interview.State.PREPARED ? run.view(i.id()).walkthrough().counts().pending()
+                : interviews.points(i.id()).size();
         return new InterviewSummary(i.id(), i.state().name(), i.participants(), i.createdAt(), i.startedAt(),
-                i.finishedAt(), names, interviews.points(i.id()).size());
+                i.finishedAt(), names, points);
     }
 }

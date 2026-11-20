@@ -44,6 +44,14 @@ export interface SessionSummary {
   readable: boolean;
   /** Absent du détail, qui porte `implementation`. */
   implementationStatus?: ImplementationStatus;
+  /** Points à traiter de la dernière version (021) ; nul sans version lisible. */
+  pending?: PendingPoints | null;
+}
+
+export interface PendingPoints {
+  assumptions: number;
+  openQuestions: number;
+  sourceDeviations: number;
 }
 
 export type SyncState = 'IN_SYNC' | 'LOCAL_AHEAD' | 'CONFLICT';
@@ -196,9 +204,12 @@ export interface CitedExtract {
 }
 
 export interface SourceDeviation {
+  /** Code de l'écart, « EC-01 »… (021). */
+  code?: string;
   reference: CitedExtract;
   interpretation: CitedExtract;
   difference: string;
+  anchor?: SpecAnchor | null;
 }
 
 export type StoryPart = 'ROLE' | 'CAPABILITY' | 'BENEFIT';

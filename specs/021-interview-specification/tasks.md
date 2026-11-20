@@ -417,25 +417,25 @@ une séance de plusieurs spécifications. La séance préparée attend en tête 
 
 ### Tests US5
 
-- [ ] T069 [P] [US5] Test `BT/domain/interview/PendingPointsTest.java` (FR-025) : décompte par sorte
+- [X] T069 [P] [US5] Test `BT/domain/interview/PendingPointsTest.java` (FR-025) : décompte par sorte
   depuis la dernière version, moins les points tranchés d'une séance terminée sans
   `applied_version`.
-- [ ] T070 [P] [US5] Test `BT/application/interview/PrepareInterviewTest.java` :
+- [X] T070 [P] [US5] Test `BT/application/interview/PrepareInterviewTest.java` :
   - créer, modifier et supprimer une séance `PREPARED` (409 si elle n'est plus préparée) ;
   - les exclusions doivent être des codes de la dernière version ;
   - démarrer fixe la version de chaque spécification et refuse si l'une est occupée ;
   - une spécification supprimée sort de la séance ;
   - une séance préparée vide est supprimée.
-- [ ] T071 [P] [US5] Ajouter à `BT/infrastructure/web/InterviewResourceIT.java` les routes de
+- [X] T071 [P] [US5] Ajouter à `BT/infrastructure/web/InterviewResourceIT.java` les routes de
   préparation (`GET ?state=PREPARED`, `POST`, `PUT`, `DELETE`, `POST …/start`), et `pending` dans
   `GET /api/sessions`.
-- [ ] T072 [P] [US5] Ajouter à `F/features/sessions/sessions.page.spec.ts` :
+- [X] T072 [P] [US5] Ajouter à `F/features/sessions/sessions.page.spec.ts` :
   - les compteurs sont lus avec le nom de la spécification ;
   - le filtre annonce le nombre affiché ;
   - les cases à cocher font apparaître « Préparer une séance (n) » ;
   - la séance préparée s'affiche en tête, avec « Démarrer », « Modifier » et « Supprimer »
     (confirmation).
-- [ ] T073 [P] [US5] Test `F/features/interview/interview-preparation.page.spec.ts` :
+- [X] T073 [P] [US5] Test `F/features/interview/interview-preparation.page.spec.ts` :
   - ordre modifiable par « Monter » et « Descendre » ;
   - participants proposés d'après la dernière séance ;
   - « Écarter de cette séance » ;
@@ -443,19 +443,20 @@ une séance de plusieurs spécifications. La séance préparée attend en tête 
 
 ### Implémentation US5
 
-- [ ] T074 [US5] Implémenter `B/domain/interview/PendingPoints.java`, puis `pending` dans
+- [X] T074 [US5] Implémenter `B/domain/interview/PendingPoints.java`, puis `pending` dans
   `B/infrastructure/web/SessionViews.java` et dans la liste des sessions. Faire passer T069.
-- [ ] T075 [US5] Implémenter `B/application/interview/PrepareInterview.java` et ses routes dans
+- [X] T075 [US5] Implémenter `B/application/interview/PrepareInterview.java` et ses routes dans
   `InterviewResource`. Gérer le cas d'une spécification supprimée, en cascade, dans le cas d'usage
   de suppression existant. Faire passer T070 et T071.
-- [ ] T076 [US5] Sur `F/features/sessions/sessions.page.ts`, ajouter les compteurs, le filtre, la
+- [X] T076 [US5] Sur `F/features/sessions/sessions.page.ts`, ajouter les compteurs, le filtre, la
   sélection et les séances préparées. Faire passer T072.
-- [ ] T077 [US5] Implémenter `F/features/interview/interview-preparation.page.ts` (route
+- [X] T077 [US5] Implémenter `F/features/interview/interview-preparation.page.ts` (route
   `/seances/:id/preparation`, shell normal). Faire passer T073. Dans la séance, afficher
   « Spéc. n sur m », et rendre le récapitulatif avec une révision par spécification.
-- [ ] T078 [US5] E2E `us21-interview.spec.ts`, partie « préparation » (V5) :
+- [X] T078 [US5] E2E `us21-interview.spec.ts`, partie « préparation » (V5) :
   - préparer une séance sur deux spécifications en écartant un point, relancer l'instance, puis
-    démarrer ;
+    démarrer ; *la relance est remplacée par un rechargement de la page : la séance préparée est
+    en base, et le jar E2E est partagé par toute la suite ;*
   - vérifier que le point écarté est absent, que le compte rendu est en deux parties, et qu'une
     seconde séance sur une spécification occupée est refusée ;
   - contrôle axe sur la préparation.
