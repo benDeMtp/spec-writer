@@ -159,10 +159,34 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(navigate).toHaveBeenCalledWith(['/seances', 'i9']);
   });
 
+  it('les séances passées et leur compte rendu (021, FR-012)', async () => {
+    await open(SESSION, [{ number: 1 }]);
+    ctrl.expectOne('/api/sessions/s1/interviews').flush([
+      {
+        id: 'i2',
+        state: 'FINISHED',
+        participants: ['Julie M.'],
+        createdAt: '2026-11-20T09:00:00Z',
+        startedAt: '2026-11-20T09:00:00Z',
+        finishedAt: '2026-11-20T10:00:00Z',
+        specifications: [],
+        points: 3,
+      },
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    const block = section('interviews-title');
+    expect(text(block)).toContain('avec Julie M.');
+    expect(text(block)).toContain('3 points');
+    expect(block.querySelector('a')?.getAttribute('href')).toBe('/seances/i2/recapitulatif');
+  });
+
   it('une séance en cours : « Reprendre la séance » (021)', async () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     await open(SESSION, [{ number: 1 }]);
-    ctrl.expectOne('/api/sessions/s1/interviews').flush([{ id: 'i3', state: 'IN_PROGRESS' }]);
+    ctrl.expectOne('/api/sessions/s1/interviews').flush([
+      { id: 'i3', state: 'IN_PROGRESS', participants: [], createdAt: '2026-11-20T09:00:00Z', startedAt: null, finishedAt: null, specifications: [], points: 0 },
+    ]);
     await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
     const resume = Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find(

@@ -237,7 +237,7 @@ spécification, se copie en HTML et en texte, et reste consultable plus tard.
 
 ### Tests US2
 
-- [ ] T035 [P] [US2] Test `BT/domain/interview/InterviewReportTest.java` :
+- [X] T035 [P] [US2] Test `BT/domain/interview/InterviewReportTest.java` :
   - le titre porte la date et les participants ;
   - les décisions citent leur élément et leur issue ;
   - « À vérifier » porte le responsable et l'échéance ;
@@ -246,31 +246,31 @@ spécification, se copie en HTML et en texte, et reste consultable plus tard.
   - « Aucun point noté » quand il n'y a rien ;
   - l'HTML est échappé (`<script>` dans un point) ;
   - le texte brut utilise des puces « • ».
-- [ ] T036 [P] [US2] Ajouter à `BT/application/interview/RunInterviewTest.java` :
+- [X] T036 [P] [US2] Ajouter à `BT/application/interview/RunInterviewTest.java` :
   - `finish` passe la séance en `FINISHED` et lève le verrou `in_progress` ;
   - une séance terminée refuse tout point (409).
-- [ ] T037 [P] [US2] Ajouter à `BT/infrastructure/web/InterviewResourceIT.java` :
+- [X] T037 [P] [US2] Ajouter à `BT/infrastructure/web/InterviewResourceIT.java` :
   `POST …/finish`, `GET …/report` (`html`, `text`), et la liste des séances passées d'une
   spécification.
-- [ ] T038 [P] [US2] Test `F/features/interview/interview-recap.page.spec.ts` :
+- [X] T038 [P] [US2] Test `F/features/interview/interview-recap.page.spec.ts` :
   - « Copier le compte rendu » appelle `navigator.clipboard.write` avec `text/html` et `text/plain` ;
   - la confirmation est annoncée ;
   - repli : une zone sélectionnée et une consigne quand le presse-papiers est refusé.
 
 ### Implémentation US2
 
-- [ ] T039 [US2] Implémenter `B/domain/interview/InterviewReport.java` (research.md R7), en
+- [X] T039 [US2] Implémenter `B/domain/interview/InterviewReport.java` (research.md R7), en
   français et en anglais selon la langue de la spécification. Faire passer T035.
-- [ ] T040 [US2] Ajouter `finish` à `RunInterview`, et les routes `finish` et `report` à
+- [X] T040 [US2] Ajouter `finish` à `RunInterview`, et les routes `finish` et `report` à
   `InterviewResource`, ainsi que `GET /api/sessions/{sid}/interviews`. Faire passer T036 et T037.
-- [ ] T041 [US2] Implémenter `F/features/interview/interview-recap.page.ts` (route
+- [X] T041 [US2] Implémenter `F/features/interview/interview-recap.page.ts` (route
   `/seances/:id/recapitulatif`, shell normal), bloc « Compte rendu ». Faire passer T038.
-- [ ] T042 [US2] Dans `F/features/interview/interview.page.ts`, faire que « Terminer » demande
+- [X] T042 [US2] Dans `F/features/interview/interview.page.ts`, faire que « Terminer » demande
   confirmation quand des points de la spécification restent non traités (en les nommant), puis
   mène au récapitulatif.
-- [ ] T043 [US2] Sur la page d'une spécification, ajouter un bloc « Séances » : la liste des séances
+- [X] T043 [US2] Sur la page d'une spécification, ajouter un bloc « Séances » : la liste des séances
   passées, avec leur compte rendu à revoir et à copier (FR-012).
-- [ ] T044 [US2] E2E `us21-interview.spec.ts`, partie « compte rendu » (V2) :
+- [X] T044 [US2] E2E `us21-interview.spec.ts`, partie « compte rendu » (V2) :
   - terminer la séance, puis copier avec les permissions du presse-papiers accordées au contexte
     Playwright ;
   - relire le presse-papiers et y retrouver les trois points mot pour mot ;

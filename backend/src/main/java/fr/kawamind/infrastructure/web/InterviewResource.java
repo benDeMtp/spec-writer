@@ -135,6 +135,16 @@ public class InterviewResource {
         return views.detail(run.finish(Ids.parse(id)));
     }
 
+    public record ReportView(String html, String text) {
+    }
+
+    @GET
+    @Path("/{id}/report")
+    public ReportView report(@PathParam("id") String id) {
+        var report = run.report(Ids.parse(id));
+        return new ReportView(report.html(), report.text());
+    }
+
     static RunInterview.PointInput input(PointInput in) {
         if (in == null || in.sessionId() == null || in.origin() == null) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED);

@@ -2,6 +2,7 @@ import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { Router, provideRouter } from '@angular/router';
 import { InterviewDetail, Stop } from '../../core/interviews/interviews.model';
 import { InterviewPage } from './interview.page';
@@ -61,7 +62,14 @@ describe('InterviewPage (021, US1)', () => {
   let announced: string[];
 
   async function open(d: InterviewDetail): Promise<void> {
-    TestBed.configureTestingModule({ providers: [provideRouter([{ path: '**', children: [] }]), provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([{ path: '**', children: [] }]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
+      ],
+    });
     ctrl = TestBed.inject(HttpTestingController);
     announced = [];
     vi.spyOn(TestBed.inject(LiveAnnouncer), 'announce').mockImplementation(async (m) => {
@@ -165,4 +173,20 @@ describe('InterviewPage (021, US1)', () => {
     await open(detail({ state: 'FINISHED' }));
     expect(TestBed.inject(Router).url).toBe('/seances/i1/recapitulatif');
   });
+
+  it('« Terminer » avec des points non traités demande confirmation, puis termine', async () => {
+    await open(detail());
+    el.querySelector<HTMLButtonElement>('.bar button')!.click();
+    await settle(fixture);
+    const dialog = document.querySelector('mat-dialog-container')!;
+    expect(dialog.textContent).toContain('1 point reste à traiter');
+    Array.from(dialog.querySelectorAll<HTMLButtonElement>('button'))
+      .find((b) => b.textContent?.includes('Terminer la séance'))!
+      .click();
+    await settle(fixture);
+    ctrl.expectOne('/api/interviews/i1/finish').flush(detail({ state: 'FINISHED' }));
+    await settle(fixture);
+    expect(TestBed.inject(Router).url).toBe('/seances/i1/recapitulatif');
+  });
 });
+

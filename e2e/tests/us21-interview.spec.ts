@@ -86,4 +86,28 @@ test.describe.serial('021 interview d’une spécification', () => {
     await page.goto(`/sessions/${sessionId}/versions/1`);
     await expect(page.getByRole('button', { name: 'Reprendre la séance' })).toBeVisible();
   });
+
+  test('V2 : terminer, copier le compte rendu, le retrouver sur la spécification', async () => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseURL });
+    await page.getByRole('button', { name: 'Reprendre la séance' }).click();
+    await page.getByRole('button', { name: 'Terminer' }).click();
+    await expect(page).toHaveURL(/\/seances\/[0-9a-f-]+\/recapitulatif$/);
+    await expect(page.getByRole('heading', { name: 'Récapitulatif de la séance' })).toBeVisible();
+    await expectNoA11yViolations(page);
+
+    await page.getByRole('button', { name: 'Copier le compte rendu' }).click();
+    await expect(page.getByText('Compte rendu copié.')).toBeVisible();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied).toContain('Point sur « ');
+    expect(copied).toContain('H-01');
+    expect(copied).toContain('à modifier : Validation du manager au-delà de 500 €');
+    expect(copied).toContain('Qui valide en l’absence du manager ? (Paul D.)');
+
+    // le compte rendu reste consultable depuis la spécification (FR-012)
+    await page.goto(`/sessions/${sessionId}/versions/1`);
+    const seances = page.getByRole('region', { name: 'Séances' }).or(page.locator('section[aria-labelledby="interviews-title"]'));
+    await expect(seances.getByRole('link', { name: 'Compte rendu' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Faire le point/ })).toBeVisible();
+  });
 });
+

@@ -630,6 +630,29 @@ export function storyParts(
                   </ul>
                 </section>
               }
+              @if (interviews().length) {
+                <!-- 021, FR-012 : comptes rendus des séances passées, à revoir et recopier -->
+                <section aria-labelledby="interviews-title">
+                  <h2 id="interviews-title">Séances</h2>
+                  <ul class="interviews">
+                    @for (i of interviews(); track i.id) {
+                      <li>
+                        {{ (i.startedAt ?? i.createdAt) | date: 'd MMMM y' }}
+                        @if (i.participants.length) {
+                          , avec {{ i.participants.join(', ') }}
+                        }
+                        · {{ i.points }} point{{ i.points > 1 ? 's' : '' }}
+                        @if (i.state === 'IN_PROGRESS') {
+                          · en cours
+                          <a mat-button [routerLink]="['/seances', i.id]">Reprendre</a>
+                        } @else {
+                          <a mat-button [routerLink]="['/seances', i.id, 'recapitulatif']">Compte rendu</a>
+                        }
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
               <sw-tasks-panel [sessionId]="id()" (changed)="tasksChanged($event)" />
               <sw-subtasks-panel [sessionId]="id()" [versionNumber]="v.number" />
             </div>

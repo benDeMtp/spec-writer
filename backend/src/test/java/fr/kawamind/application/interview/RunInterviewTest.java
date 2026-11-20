@@ -164,4 +164,15 @@ class RunInterviewTest {
                         e -> assertThat(e.code()).isEqualTo(ErrorCode.INTERVIEW_NOT_IN_PROGRESS));
         assertThat(run.forSpecification(s.id())).extracting(Interview::id).containsExactly(id);
     }
+
+    @Test
+    void compteRendu() {
+        Session s = specification("Avoirs");
+        UUID id = run.startForSpecification(s.id(), List.of("Julie M.")).interview().id();
+        run.savePoint(id, null, answer(s.id(), "", InterviewPoint.Outcome.CONFIRMED));
+        String text = run.report(id).text();
+        assertThat(text).startsWith("Point sur « Avoirs » — ").contains(", avec Julie M.")
+                .contains("• H-01 (UC-01, étape 2) — confirmé : Le montant est TTC.");
+        assertThat(run.report(id).html()).startsWith("<h2>Point sur « Avoirs »");
+    }
 }

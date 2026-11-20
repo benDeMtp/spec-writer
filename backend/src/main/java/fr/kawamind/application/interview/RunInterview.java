@@ -5,6 +5,7 @@ import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
 import fr.kawamind.domain.interview.Interview;
 import fr.kawamind.domain.interview.InterviewPoint;
+import fr.kawamind.domain.interview.InterviewReport;
 import fr.kawamind.domain.interview.InterviewSpec;
 import fr.kawamind.domain.interview.Walkthrough;
 import fr.kawamind.domain.port.ClockPort;
@@ -22,6 +23,7 @@ import fr.kawamind.domain.specification.SpecificationContent;
 import fr.kawamind.domain.specification.SpecificationVersion;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -171,6 +173,22 @@ public class RunInterview {
         Interview interview = interview(interviewId);
         interviews.save(interview.finish(clock.now()));
         return view(interviewId);
+    }
+
+    /**
+     * Compte rendu de la séance (FR-010, R7), sans modèle, regroupé par spécification ; daté du
+     * démarrage de la séance, dans le fuseau du poste.
+     */
+    public InterviewReport.Report report(UUID interviewId) {
+        View v = view(interviewId);
+        Instant at = v.interview().startedAt() == null ? v.interview().createdAt() : v.interview().startedAt();
+        LocalDate date = at.atZone(ZoneId.systemDefault()).toLocalDate();
+        List<InterviewReport.Section> sections = v.specs().stream()
+                .map(s -> new InterviewReport.Section(s.session().name(), s.read().content(),
+                        v.points().stream().filter(p -> p.sessionId().equals(s.spec().sessionId())).toList()))
+                .toList();
+        Language language = v.specs().isEmpty() ? Language.FR : v.specs().getFirst().session().language();
+        return InterviewReport.render(date, v.interview().participants(), sections, language);
     }
 
     /** Séances de cette spécification, les plus récentes d'abord (FR-012). */

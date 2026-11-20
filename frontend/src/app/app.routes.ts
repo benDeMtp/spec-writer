@@ -58,6 +58,11 @@ export const routes: Routes = [
     data: { presentation: true },
     loadComponent: () => import('./features/interview/interview.page').then((m) => m.InterviewPage),
   },
+  {
+    path: 'seances/:id/recapitulatif',
+    title: 'Récapitulatif de la séance',
+    loadComponent: () => import('./features/interview/interview-recap.page').then((m) => m.InterviewRecapPage),
+  },
   { path: 'sessions', title: 'Spécifications', data: PROJECT, loadComponent: () => import('./features/sessions/sessions.page').then((m) => m.SessionsPage) },
   {
     path: 'projet/reglages',

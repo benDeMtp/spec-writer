@@ -121,6 +121,9 @@ class InterviewResourceIT {
         api().get("/api/sessions/" + s.id() + "/interviews").then().statusCode(200).body("$", hasSize(1))
                 .body("[0].specifications[0].name", equalTo("Avoirs")).body("[0].points", equalTo(1));
 
+        api().get("/api/interviews/" + id + "/report").then().statusCode(200)
+                .body("text", org.hamcrest.Matchers.startsWith("Point sur « Avoirs »"))
+                .body("html", org.hamcrest.Matchers.containsString("<li>H-01 (UC-01, étape 2) — à modifier : Plafonné au TTC.</li>"));
         api().post("/api/interviews/" + id + "/finish").then().statusCode(200).body("state", equalTo("FINISHED"))
                 .body("finishedAt", notNullValue());
         api().body(point(s.id(), "ASSUMPTION", "H-01", "", "CONFIRMED")).post("/api/interviews/" + id + "/points")
