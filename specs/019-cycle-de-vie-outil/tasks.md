@@ -314,7 +314,7 @@ connecté. ⌘Q arrête proprement, avec confirmation si un travail est en cours
   2. `./mvnw -B verify -DskipDependencyCheck` (JaCoCo, ArchUnit, SpotBugs, PMD, front) ;
   3. `npm --prefix e2e test` sur le jar construit ;
   4. `ci/check-eval.sh`, avec une empreinte inchangée.
-- [ ] T047 Dérouler quickstart Q1, Q3, Q4 et Q7 à la main sur le jar, avec `dist/scripts/spec-writer.sh`.
+- [X] T047 Dérouler quickstart Q1, Q3, Q4 et Q7 à la main sur le jar, avec `dist/scripts/spec-writer.sh`.
   Cocher les tâches dans ce fichier.
 
 ---

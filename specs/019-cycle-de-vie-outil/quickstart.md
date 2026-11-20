@@ -42,6 +42,12 @@ Chaque scénario utilise un dossier de données à lui (`-Dspecwriter.data-dir=$
 1. Lancer l'outil, puis `kill -9` sur son processus.
 2. Relancer. Attendu : l'outil démarre normalement, sans message sur le verrou.
 
+## Résultats du 20/11
+
+Q1, Q3 et Q4 ont été déroulés par `dist/scripts/spec-writer.sh` sur le jar, sans navigateur. Q3 :
+retour en 1 s, code 0, une seule instance. Q4 : redémarrage normal après `kill -9`. Q1 : arrêt en
+2 s, `instance.sock` supprimée. Q5 (Dock, sur un `.dmg` installé) reste à faire par le mainteneur.
+
 ## Q5. macOS installé : Dock et ⌘Q (US3, FR-006, FR-015) — manuel
 
 1. Construire le `.dmg` (`./mvnw -Pdist package`), installer, lancer.
