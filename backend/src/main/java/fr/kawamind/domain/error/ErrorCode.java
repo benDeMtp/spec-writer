@@ -121,6 +121,14 @@ public enum ErrorCode {
             "Connectez GitHub Copilot pour continuer : c'est la seule étape obligatoire.", ErrorAction.NONE),
     ONBOARDING_UNKNOWN_STEP(400, "Étape de l'assistant inconnue.", ErrorAction.NONE),
 
+    // Interview d'une spécification (021)
+    INTERVIEW_BUSY(409, "Une séance est déjà en cours sur cette spécification. Reprenez-la ou terminez-la.",
+            ErrorAction.NONE),
+    INTERVIEW_NOT_PREPARED(409, "Cette séance a déjà commencé : sa préparation ne se modifie plus.", ErrorAction.NONE),
+    INTERVIEW_NOT_IN_PROGRESS(409, "Cette séance n'est pas en cours : ses points ne se modifient pas.",
+            ErrorAction.NONE),
+    INTERVIEW_NOT_FINISHED(409, "Terminez d'abord la séance.", ErrorAction.NONE),
+
     // Secrets
     KEYCHAIN_UNAVAILABLE(503,
             "Le trousseau du système n'est pas accessible. Le jeton sera gardé en mémoire jusqu'à la fermeture.",

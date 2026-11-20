@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { ProjectsStore } from '../projects/projects.store';
+import { PresentationService } from '../interviews/presentation';
 import { AppEventsService, NOTIFICATIONS_LOCK, SourceUpdatedEvent, notificationText } from './app-events.service';
 
 class FakeEventSource {
@@ -123,6 +124,19 @@ describe('AppEventsService', () => {
     expect(service.enabled()).toBe(false);
     FakeNotification.permission = 'denied';
     FakeEventSource.last.emit(EVENT);
+    expect(FakeNotification.shown).toHaveLength(0);
+  });
+
+  it('écran de présentation (021) : aucune notification, et rien n’est rejoué après', async () => {
+    start(true);
+    await Promise.resolve();
+    TestBed.inject(PresentationService).active.set(true);
+    FakeEventSource.last.emit(EVENT);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    ctrl.expectNone('/api/settings/notifications');
+    expect(FakeNotification.shown).toHaveLength(0);
+    TestBed.inject(PresentationService).active.set(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(FakeNotification.shown).toHaveLength(0);
   });
 

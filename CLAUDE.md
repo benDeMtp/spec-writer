@@ -1,7 +1,11 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/018-premier-lancement-visite/` (assistant de premier lancement
+La feature en cours est `specs/021-interview-specification/` (séance de relecture d'une ou
+plusieurs spécifications avec les sachants, sur écran partagé : préparation depuis la page
+Spécifications, parcours élément par élément, points rattachés, compte rendu à copier, révision
+en une fois par la discussion de la 011, « à reporter » vers les sources de vérité ; tables V30),
+après `specs/018-premier-lancement-visite/` (assistant de premier lancement
 `/premiers-pas/:etape` jusqu'à l'indexation du projet, progression en base V29, installation déjà
 utilisée réputée configurée ; visite guidée de 11 arrêts sur le CDK, cibles `data-tour` ; guide
 « Installer depuis les sources » du README), après `specs/017-synchro-auto-sources/` (vue Jira lue dans l'index et triée par

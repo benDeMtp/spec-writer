@@ -318,9 +318,9 @@ class ProposeRevisionTest {
                 "500 euros contre 1 000 euros.");
         var discussed = base.withSourceDeviations(List.of(deviation));
 
-        assertThat(ProposeRevision.withBaseDeviations(base, discussed).sourceDeviations()).containsExactly(deviation);
+        assertThat(ProposeRevision.withBaseDeviations(base, discussed).sourceDeviations()).containsExactly(deviation.withCode("EC-01"));
         // une révision qui en porte (format futur) garde les siennes ; sans écart, rien n'est inventé
-        assertThat(ProposeRevision.withBaseDeviations(discussed, base).sourceDeviations()).containsExactly(deviation);
+        assertThat(ProposeRevision.withBaseDeviations(discussed, base).sourceDeviations()).containsExactly(deviation.withCode("EC-01"));
         assertThat(ProposeRevision.withBaseDeviations(base, base).sourceDeviations()).isEmpty();
     }
 
