@@ -548,6 +548,51 @@ sources.
   `decidedRemoved` = 1,0 et aucun recul ailleurs. Mettre ensuite à jour `last-run.json` et la
   baseline.
 
+
+---
+
+## Phase 10: Séance en lecture du document (reprise de US1, conception du 20/11/2026)
+
+**Goal**: la séance déroule la spécification verticalement, comme un document ; une hypothèse se
+confirme d'un clic ou se réécrit ; un passage sélectionné se commente, se remplace ou se supprime
+(`docs/superpowers/specs/2026-11-20-seance-en-lecture-du-document-design.md`).
+
+**Independent Test**: démarrer une séance, confirmer une hypothèse d'un clic, réécrire une autre,
+sélectionner un passage d'une étape et le remplacer, fermer l'onglet, rouvrir : la séance reprend
+au dernier point, le passage cité figure dans le compte rendu et le message de révision.
+
+### Tests (écrits d'abord)
+
+- [ ] T095 [P] [US1] `InterviewPointTest` et `InterviewPointRepositoryIT` : `quote` facultatif, au
+  plus 1 000 caractères, enregistré et relu.
+- [ ] T096 [P] [US1] `InterviewReportTest` : « Sur « passage » : … » pour une remarque citée ;
+  `InterviewRevisionTest` : « remplacer « passage » par … », « supprimer « passage » ».
+- [ ] T097 [P] [US1] `spec-document.component.spec.ts` : rendu complet (story, résumé, détails, use
+  cases, scénarios Soit / Quand / Alors, exigences) et emplacement par élément reçu avec son ancre.
+- [ ] T098 [P] [US1] `point-card.component.spec.ts` : Confirmer en un clic, Réécrire prérempli,
+  Retirer, Reporter, carte repliée et « Modifier » ; point ouvert sans réponse proposée.
+- [ ] T099 [P] [US1] `selection-toolbar.spec.ts` : sélection ramenée au premier élément touché,
+  Commenter / Remplacer / Supprimer, passage cité ; bouton « Noter » au clavier.
+- [ ] T100 [US1] `interview.page.spec.ts` réécrit : document vertical, ↑ ↓ entre cartes, prochain
+  point à traiter, curseur = ancre de la dernière carte focalisée, spécification suivante.
+- [ ] T101 [US1] E2E `us21-interview.spec.ts` : scénarios de séance repris sur le nouvel écran (V1
+  à V6), plus la sélection d'un passage et axe sans violation.
+
+### Implémentation
+
+- [ ] T102 [US1] Migration V31 `interview_point.quote` ; `InterviewPoint`, dépôt JDBC,
+  `PointInput` / `PointView` REST et modèle front.
+- [ ] T103 [US1] `InterviewReport` et message de séance (`InterviewRevision`) : passage cité.
+- [ ] T104 [US1] Extraire `sw-spec-document` de `specification.page.ts` (emplacement par élément) ;
+  la page de la spécification l'utilise sans changement visible.
+- [ ] T105 [US1] `sw-point-card` (réutilise `PointEditor` pour le formulaire déplié) et barre de
+  sélection (`role="toolbar"`, surlignage du passage cité).
+- [ ] T106 [US1] Réécrire `interview.page.ts` sur le document ; supprimer `walkthrough.ts`, les
+  touches N, R, Q et ← →.
+- [ ] T107 [US1] Visite guidée, README et quickstart (V1) : décrire le nouvel écran.
+- [ ] T108 [US1] Gates : `verify` (après suppression de `jacoco.exec`), E2E sur le jar, bundle
+  initial sous 500 kB, `ci/check-eval.sh`.
+
 ---
 
 ## Dependencies & Execution Order

@@ -31,12 +31,13 @@ garde visible tout écart qu'elle crée avec les sources de vérité.
 ### User Story 1 - Relire une spécification en séance et noter les points (Priority: P1)
 
 Depuis la page d'une spécification, le mainteneur lance « Faire le point ». L'écran passe en mode
-séance, lisible sur un écran partagé : la spécification se parcourt dans l'ordre, élément par
-élément (résumé, use cases et leurs étapes, scénarios, exigences). Chaque hypothèse, écart entre
-sources et point ouvert s'affiche là où il s'applique, et appelle une réponse. Sur n'importe quel
-élément, le mainteneur peut aussi noter une remarque (« le demandeur veut une validation du
-manager ») ou une question qu'on ne sait pas trancher, avec la personne qui doit y répondre. Tout
-est enregistré au fil de l'eau.
+séance, lisible sur un écran partagé : la spécification se déroule verticalement, en entier, comme
+un document (résumé, use cases et leurs étapes, scénarios, exigences). Chaque hypothèse, écart entre
+sources et point ouvert s'affiche en carte sous l'élément qu'il concerne ; pour une hypothèse, la
+réponse proposée est l'hypothèse elle-même, confirmée d'un clic ou réécrite. Sur n'importe quel
+passage, le mainteneur sélectionne le texte faux et le commente, le remplace ou le supprime, à la
+manière de Plannotator ; il peut aussi noter une question qu'on ne sait pas trancher, avec la
+personne qui doit y répondre. Tout est enregistré au fil de l'eau.
 
 **Why this priority**: c'est le cœur de la demande : faire le point avec les sachants sans quitter
 la spécification ni prendre de notes ailleurs. Seule, elle donne déjà une séance utile, dont les
@@ -50,13 +51,18 @@ fermer l'onglet, rouvrir : la séance reprend avec tous les points notés.
 
 1. **Given** une spécification avec 3 hypothèses et 2 points ouverts, **When** le mainteneur ouvre
    sa page, **Then** l'en-tête propose « Faire le point (5) ».
-2. **Given** une séance en cours, **When** le mainteneur avance élément par élément au clavier,
-   **Then** chaque hypothèse, écart et point ouvert apparaît sur l'élément auquel il est rattaché,
-   et la progression indique où il en est (« UC-2 · 4 sur 12 », « 2 décidés · 3 restants »).
-3. **Given** une hypothèse affichée, **When** le mainteneur saisit la réponse et choisit son issue
-   (confirmée, à modifier, à retirer, reportée), **Then** le point est enregistré avec cette issue.
-4. **Given** une étape de use case sans aucun point, **When** le mainteneur note une remarque,
-   **Then** la remarque est rattachée à cette étape et compte parmi les points de la séance.
+2. **Given** une séance en cours, **When** le mainteneur fait défiler le document ou passe d'un
+   point au suivant (↑ ↓), **Then** chaque hypothèse, écart et point ouvert apparaît en carte sous
+   l'élément auquel il est rattaché, et la progression indique où il en est (« Spéc. 1 sur 2 »,
+   « 2 décidés · 3 à traiter »).
+3. **Given** une hypothèse affichée, **When** le mainteneur clique « Confirmer », **Then** le point
+   est enregistré confirmé, sans saisie ; **When** il choisit « Réécrire », « Retirer » ou
+   « Reporter… », **Then** le point est enregistré avec cette issue (texte de l'hypothèse prérempli
+   pour « Réécrire »), et la carte se replie en une ligne modifiable.
+4. **Given** une étape de use case sans aucun point, **When** le mainteneur sélectionne un passage
+   de l'étape et choisit « Remplacer » avec le texte voulu, **Then** une remarque à modifier est
+   rattachée à cette étape, garde le passage cité, et compte parmi les points de la séance ;
+   « Commenter » et « Supprimer » font de même, avec une remarque libre ou à retirer.
 5. **Given** une question qu'on ne sait pas trancher, **When** le mainteneur la note avec « Paul D. »
    comme responsable, **Then** elle est enregistrée comme reportée, avec son responsable.
 6. **Given** une séance avec des points notés, **When** l'onglet est fermé ou l'outil quitté, puis
@@ -255,20 +261,26 @@ modifiée, à vérifier » ; le clore.
 
 - **FR-001**: L'outil MUST permettre de démarrer une séance sur une spécification depuis sa page
   (« Faire le point », avec le nombre de points à traiter), sans nouvelle entrée dans le menu.
-- **FR-002**: L'écran de séance MUST être conçu pour un écran partagé : grands caractères, un
-  élément mis en avant à la fois, menu masqué, aucune notification ni contenu étranger à la séance.
-- **FR-003**: La séance MUST parcourir toute la spécification dans l'ordre de son rendu (résumé, use
-  cases avec étapes et alternatives, scénarios, exigences, puis « Non rattachés »), au clavier, avec
-  un raccourci vers le prochain point à traiter.
+- **FR-002**: L'écran de séance MUST être conçu pour un écran partagé : grands caractères, la
+  spécification affichée comme un document lu de haut en bas, menu masqué, aucune notification ni
+  contenu étranger à la séance.
+- **FR-003**: La séance MUST dérouler verticalement toute la spécification dans l'ordre de son rendu
+  (énoncé de story, résumé, détails, use cases avec étapes et alternatives suivis de leurs scénarios,
+  exigences, puis « Non rattachés »), avec un passage d'un point au suivant au clavier (↑ ↓) et un
+  raccourci vers le prochain point à traiter.
 - **FR-004**: Chaque hypothèse, écart entre sources et point ouvert MUST s'afficher sur l'élément
   auquel il est rattaché et pouvoir recevoir une réponse et une issue : confirmé, à modifier (avec
-  le texte voulu), à retirer, reporté (avec un responsable et une échéance facultative).
-- **FR-005**: Le mainteneur MUST pouvoir noter, sur n'importe quel élément, une remarque (avec la
-  même issue qu'un point) ou une question reportée avec son responsable.
-- **FR-006**: La séance MUST être enregistrée à chaque point noté, et reprendre à l'élément en cours
-  après fermeture de l'onglet ou arrêt de l'outil.
+  le texte voulu), à retirer, reporté (avec un responsable et une échéance facultative). Pour une
+  hypothèse, la réponse proposée MUST être l'hypothèse elle-même, confirmée d'un clic ou réécrite à
+  partir de son texte, sans appel au modèle.
+- **FR-005**: Le mainteneur MUST pouvoir sélectionner un passage de n'importe quel élément et le
+  commenter, le remplacer ou le supprimer (une remarque, libre, à modifier ou à retirer, qui garde le
+  passage cité), et noter sur tout élément une question reportée avec son responsable ; les mêmes
+  actions MUST être accessibles au clavier sur l'élément entier.
+- **FR-006**: La séance MUST être enregistrée à chaque point noté, et reprendre au dernier point
+  consulté après fermeture de l'onglet ou arrêt de l'outil.
 - **FR-007**: Une spécification MUST avoir au plus une séance en cours.
-- **FR-008**: La séance MUST afficher sa progression (élément courant, points décidés, points
+- **FR-008**: La séance MUST afficher sa progression (points décidés, points
   restants, spécification courante pour une séance de plusieurs spécifications).
 
 **Fin de séance et compte rendu**
