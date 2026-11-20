@@ -287,7 +287,7 @@ connecté. ⌘Q arrête proprement, avec confirmation si un travail est en cours
 - [X] T041 [US3] Implémenter `B/infrastructure/platform/MacDesktopIntegration.java` (bean
   `@Startup`, `Desktop.setQuitHandler`, `Desktop.addAppEventListener(AppReopenedListener)`), et
   l'adaptateur réel de `DesktopEvents` sur `java.awt.Desktop`.
-- [ ] T042 [US3] Vérification manuelle Q5 sur un `.dmg` construit par `./mvnw -Pdist package` :
+- [X] T042 [US3] Vérification manuelle Q5 sur un `.dmg` construit par `./mvnw -Pdist package` :
   clic sur le Dock, Launchpad, Quitter du Dock pendant une indexation, ⌘Q. Consigner le résultat
   dans quickstart.md (Q5, date). Faire aussi Q6 (instance suspendue) sous macOS.
 

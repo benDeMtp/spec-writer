@@ -46,7 +46,16 @@ Chaque scénario utilise un dossier de données à lui (`-Dspecwriter.data-dir=$
 
 Q1, Q3 et Q4 ont été déroulés par `dist/scripts/spec-writer.sh` sur le jar, sans navigateur. Q3 :
 retour en 1 s, code 0, une seule instance. Q4 : redémarrage normal après `kill -9`. Q1 : arrêt en
-2 s, `instance.sock` supprimée. Q5 (Dock, sur un `.dmg` installé) reste à faire par le mainteneur.
+2 s, `instance.sock` supprimée.
+
+Q5 validé par le mainteneur sur le `.dmg` 0.1.0 installé (macOS arm64). Le premier `.dmg` de la
+feature ne démarrait pas, pour trois raisons :
+- le lanceur désignait encore `io.quarkus.runner.GeneratedMain`, que le `@QuarkusMain` remplace ;
+- le runtime jlink n'avait pas `java.net.http` (ni `jdk.net`, `java.scripting`, `java.compiler`) ;
+- les `Add-Opens` du manifeste ne sont pas appliqués, puisque le lanceur passe par le classpath.
+
+Les trois sont corrigés dans `jreleaser.yml`, avec la version réelle des installeurs
+(`dist/macos/Info.plist`). Q6 n'a pas été déroulé sur le `.dmg`.
 
 ## Q5. macOS installé : Dock et ⌘Q (US3, FR-006, FR-015) — manuel
 
