@@ -27,6 +27,8 @@ import { ProjectsApi } from '../../core/projects/projects.api';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira.model';
+import { InterviewsApi } from '../../core/interviews/interviews.api';
+import { InterviewSummary } from '../../core/interviews/interviews.model';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import {
   CitedExtract,
@@ -262,6 +264,21 @@ export function storyParts(
                 (click)="toggleDiscussion()"
               >
                 Discuter avec l'IA
+              </button>
+              <!-- 021 : séance de relecture avec les sachants, sur écran partagé -->
+              <button
+                data-tour="interview"
+                mat-stroked-button
+                type="button"
+                [disabled]="drafting() || startingInterview()"
+                [attr.aria-describedby]="drafting() ? 'drafting-hint' : null"
+                (click)="interview()"
+              >
+                @if (activeInterview()) {
+                  Reprendre la séance
+                } @else {
+                  Faire le point{{ pendingPoints() ? ' (' + pendingPoints() + ')' : '' }}
+                }
               </button>
               <button
                 mat-stroked-button
@@ -944,6 +961,16 @@ export class SpecificationPage {
   private readonly workspace = viewChild<ElementRef<HTMLElement>>('workspace');
   /** L'agent rédige une nouvelle version : le panneau reste ouvert. */
   protected readonly drafting = signal(false);
+  /** 021 : séance en cours sur cette spécification, à reprendre ; séances passées. */
+  protected readonly activeInterview = signal<string | null>(null);
+  protected readonly interviews = signal<InterviewSummary[]>([]);
+  protected readonly startingInterview = signal(false);
+  private readonly interviewsApi = inject(InterviewsApi);
+  /** Hypothèses, écarts entre sources et points ouverts de la version affichée. */
+  protected readonly pendingPoints = computed(() => {
+    const v = this.spec();
+    return v ? v.assumptions.length + (v.sourceDeviations?.length ?? 0) + (v.openQuestions?.length ?? 0) : 0;
+  });
   private readonly route = inject(ActivatedRoute);
 
   /**
@@ -1509,6 +1536,36 @@ export class SpecificationPage {
     }
     // 012 : une spécification d'un autre projet rend ce projet courant
     void this.follower.follow(session.projectId).catch(() => undefined);
+    void this.loadInterviews(id);
+  }
+
+  /** 021 : séances de la spécification ; la séance en cours se reprend. */
+  private async loadInterviews(id: string): Promise<void> {
+    try {
+      const list = await this.interviewsApi.forSpecification(id);
+      this.interviews.set(list);
+      this.activeInterview.set(list.find((i) => i.state === 'IN_PROGRESS')?.id ?? null);
+    } catch {
+      // sans la liste, « Faire le point » démarre une séance ; le serveur refuse un doublon
+    }
+  }
+
+  /** « Faire le point » (021, FR-001) : démarre une séance, ou reprend celle en cours. */
+  protected async interview(): Promise<void> {
+    const active = this.activeInterview();
+    if (active) {
+      await this.router.navigate(['/seances', active]);
+      return;
+    }
+    this.startingInterview.set(true);
+    try {
+      const started = await this.interviewsApi.startForSpecification(this.id());
+      await this.router.navigate(['/seances', started.id]);
+    } catch {
+      // le bandeau d'erreur dit pourquoi (séance déjà en cours, opération de l'IA en cours)
+    } finally {
+      this.startingInterview.set(false);
+    }
   }
 
   protected scenariosOf(code: string) {

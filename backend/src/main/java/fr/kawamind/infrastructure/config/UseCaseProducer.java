@@ -87,6 +87,7 @@ import fr.kawamind.application.settings.TestJiraConnection;
 import fr.kawamind.application.specification.AcceptAiEdit;
 import fr.kawamind.application.specification.DeleteVersion;
 import fr.kawamind.application.specification.GenerateSpecification;
+import fr.kawamind.application.interview.RunInterview;
 import fr.kawamind.application.specification.OperationRegistry;
 import fr.kawamind.application.specification.ProposalStore;
 import fr.kawamind.application.specification.ProposeAiEdit;
@@ -114,6 +115,7 @@ import fr.kawamind.domain.port.BrowserPort;
 import fr.kawamind.domain.port.EmbeddingPort;
 import fr.kawamind.domain.port.GitHubAuthenticator;
 import fr.kawamind.domain.port.IdGenerator;
+import fr.kawamind.domain.port.InterviewRepository;
 import fr.kawamind.domain.port.IssueTracker;
 import fr.kawamind.domain.port.KnowledgeIndex;
 import fr.kawamind.domain.port.KnowledgeSourceRepository;
@@ -538,6 +540,15 @@ public class UseCaseProducer {
     DeleteVersion deleteVersion(SessionRepository sessions, SpecificationRepository versions,
             LinkedTicketRepository tickets, ProposalStore proposals, OperationRegistry operations, ClockPort clock) {
         return new DeleteVersion(sessions, versions, tickets, proposals, operations, clock);
+    }
+
+    // ---------- Interview d'une spécification (021) ----------
+
+    @Produces
+    @ApplicationScoped
+    RunInterview runInterview(InterviewRepository interviews, SessionRepository sessions, SpecificationRepository versions,
+            OperationRegistry operations, ClockPort clock, IdGenerator ids) {
+        return new RunInterview(interviews, sessions, versions, operations, clock, ids);
     }
 
     // ---------- Projets (feature 002, User Story 1) ----------

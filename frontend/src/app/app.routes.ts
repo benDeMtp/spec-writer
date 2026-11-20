@@ -51,6 +51,13 @@ export const routes: Routes = [
     // 011 : une rédaction ou une proposition en attente n'est pas quittée sans confirmation
     canDeactivate: [() => inject(LeaveGuard).confirm()],
   },
+  // 021 : séance avec les sachants, en présentation (sans menu ni notification)
+  {
+    path: 'seances/:id',
+    title: 'Séance',
+    data: { presentation: true },
+    loadComponent: () => import('./features/interview/interview.page').then((m) => m.InterviewPage),
+  },
   { path: 'sessions', title: 'Spécifications', data: PROJECT, loadComponent: () => import('./features/sessions/sessions.page').then((m) => m.SessionsPage) },
   {
     path: 'projet/reglages',

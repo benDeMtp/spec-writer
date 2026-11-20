@@ -51,7 +51,7 @@ description: "Tâches de la feature 021 : interview d'une spécification avec le
 
 ## Phase 1: Setup
 
-- [ ] T001 Écrire la migration `R/db/migration/V30__interview.sql` (data-model.md) :
+- [X] T001 Écrire la migration `R/db/migration/V30__interview.sql` (data-model.md) :
   - les tables `interview`, `interview_spec`, `interview_point` et `source_update`, avec leurs
     cascades vers `session` ;
   - l'index unique partiel `interview_spec(session_id) WHERE in_progress = 1` ;
@@ -64,7 +64,7 @@ description: "Tâches de la feature 021 : interview d'une spécification avec le
   - `source_update.state IN ('OPEN','CLOSED')`.
 
   Vérifier ensuite qu'une base neuve migre jusqu'à 30, sans toucher aux migrations appliquées.
-- [ ] T002 [P] Pointer `CLAUDE.md` sur la feature en cours, `specs/021-interview-specification/`,
+- [X] T002 [P] Pointer `CLAUDE.md` sur la feature en cours, `specs/021-interview-specification/`,
   en une phrase de contexte, comme pour les features précédentes.
 
 ---
@@ -73,82 +73,82 @@ description: "Tâches de la feature 021 : interview d'une spécification avec le
 
 ### Format de la spécification (research.md R1, R2)
 
-- [ ] T003 [P] Test `BT/domain/specification/AnchorTest.java` :
+- [X] T003 [P] Test `BT/domain/specification/AnchorTest.java` :
   - une ancre valide contre une version : `UC-01` étape 2 sur un use case de 3 étapes,
     alternative 1, `SC-01-02`, `EF-03`, `SUMMARY` ;
   - une ancre invalide : code inconnu, étape 0 ou 4 sur 3 étapes, étape sur un scénario.
-- [ ] T004 [P] Implémenter `B/domain/specification/Anchor.java` :
+- [X] T004 [P] Implémenter `B/domain/specification/Anchor.java` :
   - `record Anchor(String element, Integer step, boolean alternative)` ;
   - `boolean resolves(SpecificationContent)` et `static Anchor orNull(Anchor, SpecificationContent)`.
-- [ ] T005 [P] Test `BT/domain/specification/OpenQuestionTest.java`, sur les bornes :
+- [X] T005 [P] Test `BT/domain/specification/OpenQuestionTest.java`, sur les bornes :
   - « question 1 à 1 000 caractères, owner ≤ 120, 50 au plus par version » ;
   - une question vide est refusée par `DomainException` `VALIDATION_FAILED`.
-- [ ] T006 Implémenter `B/domain/specification/OpenQuestion.java` :
+- [X] T006 Implémenter `B/domain/specification/OpenQuestion.java` :
   - `record OpenQuestion(String code, String question, String owner, LocalDate due, Anchor anchor,
     String fromCode)` ;
   - ajouter `openQuestions` à `B/domain/specification/SpecificationContent.java` (liste vide si nulle,
     `MAX_OPEN_QUESTIONS = 50`), et mettre à jour tous les appels du constructeur.
-- [ ] T007 Test `BT/domain/specification/SpecificationContentCompatibilityTest.java` : un JSON de
+- [X] T007 Test `BT/domain/specification/SpecificationContentCompatibilityTest.java` : un JSON de
   version antérieure (sans `openQuestions`, `anchor`, `fromCode`, ni code d'écart) se lit par le
   `JsonMapper` de `SpecificationJpaRepository`. On obtient alors :
   - des listes vides et des ancres nulles ;
   - les écarts numérotés `EC-01`… par position.
-- [ ] T008 Ajouter `anchor` et `fromCode` (nuls) à `B/domain/specification/Assumption.java`, puis
+- [X] T008 Ajouter `anchor` et `fromCode` (nuls) à `B/domain/specification/Assumption.java`, puis
   `code`, `anchor` et `fromCode` à `B/domain/specification/SourceDeviation.java`. Le code d'un écart
   sans code est attribué par position dans le constructeur compact de `SpecificationContent`. Faire
   passer T007.
 
 ### Domaine de la séance (data-model.md)
 
-- [ ] T009 [P] Test `BT/domain/interview/InterviewTest.java` :
+- [X] T009 [P] Test `BT/domain/interview/InterviewTest.java` :
   - transitions `PREPARED` → `IN_PROGRESS` → `FINISHED` ; une transition interdite lève une
     `DomainException` `CONFLICT` ;
   - « ≤ 20 participants de 1 à 120 caractères » ;
   - une séance terminée refuse tout nouveau point.
-- [ ] T010 [P] Test `BT/domain/interview/InterviewPointTest.java` :
+- [X] T010 [P] Test `BT/domain/interview/InterviewPointTest.java` :
   - un texte de 5 000 caractères au plus, obligatoire sauf pour `CONFIRMED` et `REMOVE` ;
   - `QUESTION` est toujours `DEFERRED` ;
   - `origin_code` est obligatoire pour `ASSUMPTION`, `SOURCE_DEVIATION` et `OPEN_QUESTION` ;
   - responsable de 120 caractères au plus ;
   - « au plus 200 points par spécification et par séance ».
-- [ ] T011 Implémenter dans `B/domain/interview/` les records `Interview`, `InterviewSpec` et
+- [X] T011 Implémenter dans `B/domain/interview/` les records `Interview`, `InterviewSpec` et
   `InterviewPoint`, ainsi que les énumérations `State`, `PointOrigin` et `Outcome`, d'après
   data-model.md. Faire passer T009 et T010.
-- [ ] T012 [P] Test `BT/domain/interview/WalkthroughTest.java`, sur l'ordre de parcours (FR-003) :
+- [X] T012 [P] Test `BT/domain/interview/WalkthroughTest.java`, sur l'ordre de parcours (FR-003) :
   - résumé ; pour chaque use case, le use case, ses étapes, ses alternatives, puis ses scénarios ;
   - les exigences EF puis ET ; enfin « Non rattachés », qui regroupe les points sans ancre valide ;
   - les points écartés sont absents, et « prochain point à traiter » saute les éléments sans point
     non traité ;
   - plusieurs spécifications se suivent dans leur rang.
-- [ ] T013 Implémenter `B/domain/interview/Walkthrough.java`, qui construit la liste des arrêts
+- [X] T013 Implémenter `B/domain/interview/Walkthrough.java`, qui construit la liste des arrêts
   depuis le contenu de chaque version relue, ses points et ses exclusions. Faire passer T012.
-- [ ] T014 Déclarer les ports `B/domain/port/InterviewRepository.java` (séance, spécifications,
-  points, curseur, séance en cours d'une spécification) et `B/domain/port/SourceUpdateRepository.java`.
+- [X] T014 Déclarer les ports `B/domain/port/InterviewRepository.java` (séance, spécifications,
+  points, curseur, séance en cours d'une spécification). `SourceUpdateRepository` est déclaré avec
+  US6 (T084).
 
 ### Persistance et câblage
 
-- [ ] T015 Test `BT/infrastructure/persistence/interview/InterviewPersistenceIT.java` (`@Isolated`) :
+- [X] T015 Test `BT/infrastructure/persistence/interview/InterviewPersistenceIT.java` (`@Isolated`) :
   - aller-retour d'une séance, de ses spécifications et de ses points ;
   - la cascade à la suppression d'une spécification ;
   - le refus d'une seconde séance en cours sur la même spécification, par l'index partiel.
-- [ ] T016 Implémenter les entités et les dépôts JPA de `B/infrastructure/persistence/interview/`
-  (`InterviewEntity`, `InterviewSpecEntity`, `InterviewPointEntity`, `SqliteInterviewRepository`),
-  sur le modèle des dépôts existants (JDBC pour les nulls natifs). Faire passer T015.
-- [ ] T017 Câbler les dépôts et les futurs cas d'usage de séance dans
+- [X] T016 Implémenter `B/infrastructure/persistence/interview/SqliteInterviewRepository.java` en
+  JDBC (`Session.doWork`), sans entité JPA : le pilote SQLite refuse les nulls liés sans type. Faire passer T015.
+- [X] T017 Câbler les dépôts et les futurs cas d'usage de séance dans
   `B/infrastructure/config/UseCaseProducer.java`, puis lancer `HexagonalArchitectureTest` sous
   Maven : `domain/interview` ne doit dépendre d'aucun framework.
 
 ### Mode présentation (research.md R6)
 
-- [ ] T018 [P] Test `F/app.spec.ts`. Quand la route active porte `data.presentation`, le rail
+- [X] T018 [P] Test `F/app.spec.ts`. Quand la route active porte `data.presentation`, le rail
   (`sw-main-nav`, la marque) et `sw-project-notice` sont absents, et le lien d'évitement mène au
   contenu. Le shell normal ne change pas ailleurs.
-- [ ] T019 [P] Test `F/core/events/app-events.service.spec.ts` : aucune `Notification` n'est créée
+- [X] T019 [P] Test `F/core/events/app-events.service.spec.ts` : aucune `Notification` n'est créée
   tant qu'une route de présentation est active, et rien n'est rejoué après.
-- [ ] T020 Implémenter `F/core/interviews/presentation.ts` : un signal `presentation()` dérivé des
+- [X] T020 Implémenter `F/core/interviews/presentation.ts` : un signal `presentation()` dérivé des
   données de la route active. Masquer le rail dans `F/app.ts` et suspendre les notifications dans
   `F/core/events/app-events.service.ts`. Faire passer T018 et T019.
-- [ ] T021 [P] Créer `F/core/interviews/interviews.model.ts` (types de contracts/rest-api.md :
+- [X] T021 [P] Créer `F/core/interviews/interviews.model.ts` (types de contracts/rest-api.md :
   `InterviewDetail`, `PointInput`, `PointView`, `InterviewSummary`) et
   `F/core/interviews/interviews.api.ts` (méthodes vides typées, complétées par story).
 
@@ -167,30 +167,30 @@ enregistrement au fil de l'eau et une reprise sans perte.
 
 ### Tests US1
 
-- [ ] T022 [P] [US1] Test `BT/application/interview/RunInterviewTest.java`, avec des doubles :
+- [X] T022 [P] [US1] Test `BT/application/interview/RunInterviewTest.java`, avec des doubles :
   - `startForSpecification` crée une séance `IN_PROGRESS` et fixe la version relue ;
   - refus `INTERVIEW_BUSY` si la spécification a déjà une séance en cours (le message la nomme) ;
   - refus `OPERATION_IN_PROGRESS` pendant une génération ou une révision (`OperationRegistry`) ;
   - `savePoint` : création et modification, avec une ancre validée contre la version relue (422
     sinon) ;
   - `moveCursor` ; `deletePoint`, limité aux `REMARK` et aux `QUESTION`.
-- [ ] T023 [P] [US1] Test `BT/infrastructure/web/InterviewResourceIT.java` (`@Isolated`), sur les
+- [X] T023 [P] [US1] Test `BT/infrastructure/web/InterviewResourceIT.java` (`@Isolated`), sur les
   routes de US1 de contracts/rest-api.md :
   - `POST /api/sessions/{sid}/interviews`, `GET /api/interviews/{id}`, `PUT …/cursor`,
     `POST/PUT/DELETE …/points` ;
   - les statuts 201, 200, 204, 409 et 422 ;
   - 403 sans session ;
   - un corps trop gros refusé.
-- [ ] T024 [P] [US1] Test `F/features/interview/walkthrough.spec.ts` : même ordre que T012 côté
+- [X] T024 [P] [US1] Test `F/features/interview/walkthrough.spec.ts` : même ordre que T012 côté
   front, navigation ↑ ↓ ← →, et « prochain point » (N).
-- [ ] T025 [P] [US1] Test `F/features/interview/interview.page.spec.ts` :
+- [X] T025 [P] [US1] Test `F/features/interview/interview.page.spec.ts` :
   - l'élément courant est annoncé ;
   - chaque point affiche un libellé textuel ;
   - `R` et `Q` ouvrent la saisie, et les raccourcis sont inactifs quand un champ a le focus ;
   - l'enregistrement appelle l'API et confirme « Enregistré » ;
   - la progression affiche « 2 décidés · 1 remarque · 3 restants » ;
   - le bandeau de version plus récente s'affiche.
-- [ ] T026 [P] [US1] Test `F/features/interview/point-editor.component.spec.ts` :
+- [X] T026 [P] [US1] Test `F/features/interview/point-editor.component.spec.ts` :
   - les issues sont des boutons radio ;
   - le responsable et l'échéance n'apparaissent que pour « Reporté » ;
   - les bornes sont appliquées à la saisie, avec un message ;
@@ -198,27 +198,27 @@ enregistrement au fil de l'eau et une reprise sans perte.
 
 ### Implémentation US1
 
-- [ ] T027 [US1] Implémenter `B/application/interview/RunInterview.java` (démarrage depuis une
+- [X] T027 [US1] Implémenter `B/application/interview/RunInterview.java` (démarrage depuis une
   spécification, lecture, curseur, points) avec `OperationRegistry` et `ClockPort`. Faire passer
   T022.
-- [ ] T028 [US1] Implémenter `B/infrastructure/web/InterviewResource.java` pour les routes de US1,
+- [X] T028 [US1] Implémenter `B/infrastructure/web/InterviewResource.java` pour les routes de US1,
   avec des vues qui incluent la `SpecificationView` de la version relue et `latestVersion`. Faire
   passer T023.
-- [ ] T029 [P] [US1] Implémenter `F/features/interview/walkthrough.ts`. Faire passer T024.
-- [ ] T030 [US1] Implémenter `F/features/interview/point-editor.component.ts`. Faire passer T026.
-- [ ] T031 [US1] Implémenter `F/features/interview/interview.page.ts` (contracts/ui.md, « Séance »).
+- [X] T029 [P] [US1] Implémenter `F/features/interview/walkthrough.ts`. Faire passer T024.
+- [X] T030 [US1] Implémenter `F/features/interview/point-editor.component.ts`. Faire passer T026.
+- [X] T031 [US1] Implémenter `F/features/interview/interview.page.ts` (contracts/ui.md, « Séance »).
   - Présentation : typographie de base 1,25 rem, élément courant mis en avant, région `polite`.
   - Raccourcis : ↑ ↓ ← → N R Q Entrée et `?`.
   - Progression, bandeau de version, et `PUT …/cursor` à chaque déplacement.
   - Faire passer T025.
-- [ ] T032 [US1] Déclarer la route `/seances/:id` (chargée à la demande, `data: { presentation:
+- [X] T032 [US1] Déclarer la route `/seances/:id` (chargée à la demande, `data: { presentation:
   true }`) dans `F/app.routes.ts`, et compléter `F/core/interviews/interviews.api.ts`.
-- [ ] T033 [US1] Sur `F/features/specification/specification.page.ts` :
+- [X] T033 [US1] Sur `F/features/specification/specification.page.ts` :
   - ajouter « Faire le point (n) », ou « Reprendre la séance » si une séance est en cours
     (`GET /api/sessions/{sid}/interviews`) ;
   - le rendre indisponible pendant une génération ou une révision, avec la raison ;
   - compléter les tests dans `specification.page.spec.ts`.
-- [ ] T034 [US1] E2E `e2e/tests/us21-interview.spec.ts`, partie « séance » (quickstart V1, étapes
+- [X] T034 [US1] E2E `e2e/tests/us21-interview.spec.ts`, partie « séance » (quickstart V1, étapes
   1 à 6) :
   - démarrer la séance, répondre à une hypothèse, noter une remarque et une question ;
   - recharger la page et reprendre la séance ;
