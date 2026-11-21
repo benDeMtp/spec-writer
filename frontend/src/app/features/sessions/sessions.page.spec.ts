@@ -54,7 +54,9 @@ describe('SessionsPage', () => {
     const items = el.querySelectorAll('li');
     expect(items).toHaveLength(3);
     expect(items[0].textContent).toContain('Spécification générée, version 2');
-    expect(items[0].querySelector('a.name')?.getAttribute('href')).toBe('/sessions/s1');
+    // une spécification générée s'ouvre sur sa dernière version ; sans version, sur son questionnaire
+    expect(items[0].querySelector('a.name')?.getAttribute('href')).toBe('/sessions/s1/versions/2');
+    expect(button(items[0], 'Reprendre')?.getAttribute('href')).toBe('/sessions/s1/versions/2');
     expect(button(items[1], 'Reprendre')?.getAttribute('href')).toBe('/sessions/s2');
   });
 

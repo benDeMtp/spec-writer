@@ -176,11 +176,20 @@ public class RunInterview {
         interviews.deletePoint(pointId);
     }
 
-    /** « Terminer » (FR-009) : la séance est close, ses spécifications sont libérées. */
-    public synchronized View finish(UUID interviewId) {
+    /**
+     * « Terminer » (FR-009) : la séance est close, ses spécifications sont libérées. Sans aucun point
+     * noté, elle est supprimée : vide, l'écran revient à la spécification sans récapitulatif.
+     */
+    public synchronized Optional<View> finish(UUID interviewId) {
         Interview interview = interview(interviewId);
-        interviews.save(interview.finish(clock.now()));
-        return view(interviewId);
+        Interview finished = interview.finish(clock.now());
+        // une relecture terminée sans rien noter n'est pas une séance : rien n'est gardé
+        if (interviews.points(interviewId).isEmpty()) {
+            interviews.delete(interviewId);
+            return Optional.empty();
+        }
+        interviews.save(finished);
+        return Optional.of(view(interviewId));
     }
 
     /**

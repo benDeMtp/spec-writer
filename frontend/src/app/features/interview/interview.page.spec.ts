@@ -7,6 +7,7 @@ import { Router, provideRouter } from '@angular/router';
 import { InterviewDetail, Stop } from '../../core/interviews/interviews.model';
 import { provideMarkdown } from 'ngx-markdown';
 import { Specification } from '../../core/sessions/sessions.model';
+import { ConsentGate } from '../../shared/ui/consent-gate.service';
 import { InterviewPage } from './interview.page';
 
 async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
@@ -81,6 +82,18 @@ const SPEC = {
   requirements: [],
   markdown: '',
 } as unknown as Specification;
+
+const REMARK = {
+        origin: 'REMARK' as const,
+        code: null,
+        statement: null,
+        pending: false,
+        point: {
+          id: 'p9', sessionId: 's1', anchor: { element: 'SUMMARY', step: null, alternative: false }, origin: 'REMARK' as const,
+          originCode: null, text: 'À revoir', outcome: 'CHANGE' as const, owner: null, due: null, source: null,
+          quote: 'Émission', createdAt: '2026-11-20T09:00:00Z', updatedAt: '2026-11-20T09:00:00Z',
+        },
+      };
 
 describe('InterviewPage (021, séance en lecture du document)', () => {
   let ctrl: HttpTestingController;
@@ -187,30 +200,39 @@ describe('InterviewPage (021, séance en lecture du document)', () => {
     cursorRequests();
   });
 
-  it('un passage sélectionné se remplace : la remarque garde le passage cité', async () => {
-    await open(detail());
-    const line = el.querySelector('[data-anchor="UC-01:1"] .line')!;
+  function selectIn(selector: string, start: number, end: number): void {
+    const node = el.querySelector(selector)!;
+    const text = node.firstChild!.nodeType === 3 ? node.firstChild! : node.querySelector('*')!.firstChild!;
     const range = document.createRange();
-    range.setStart(line.firstChild!, 7);
-    range.setEnd(line.firstChild!, 17);
+    range.setStart(text, start);
+    range.setEnd(text, end);
     window.getSelection()!.removeAllRanges();
     window.getSelection()!.addRange(range);
-    line.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  }
+
+  function toolbar(): HTMLElement {
+    return el.querySelector<HTMLElement>('aside [role="toolbar"]')!;
+  }
+
+  it('un passage sélectionné se remplace depuis la colonne de notes : rien n’est inséré dans le document', async () => {
+    await open(detail());
+    expect(el.querySelector('aside')?.textContent).toContain('Sélectionnez un passage');
+    selectIn('[data-anchor="UC-01:1"] .line', 7, 17);
     await settle(fixture);
-    const toolbar = el.querySelector('[data-anchor="UC-01:1"] [role="toolbar"]')!;
-    expect(toolbar.getAttribute('aria-label')).toBe('Noter sur « la facture »');
-    button('Remplacer', toolbar).click();
+    expect(toolbar().getAttribute('aria-label')).toBe('Noter sur « la facture »');
+    expect(el.querySelector('.paper [role="toolbar"]')).toBeNull();
+    button('Remplacer', toolbar()).click();
     await settle(fixture);
-    expect(el.querySelector('sw-point-editor .heading')?.textContent).toBe('Remplacer « la facture »');
-    const text = el.querySelector<HTMLTextAreaElement>('sw-point-editor textarea')!;
+    expect(el.querySelector('aside sw-point-editor .heading')?.textContent).toBe('Remplacer « la facture »');
+    const text = el.querySelector<HTMLTextAreaElement>('aside sw-point-editor textarea')!;
     expect(text.value).toBe('la facture');
     text.value = 'l’avoir';
     text.dispatchEvent(new Event('input'));
     await settle(fixture);
-    el.querySelector<HTMLButtonElement>('sw-point-editor button[type="submit"]')!.click();
+    el.querySelector<HTMLButtonElement>('aside sw-point-editor button[type="submit"]')!.click();
     await settle(fixture);
-    const post = ctrl.expectOne('/api/interviews/i1/points');
-    expect(post.request.body).toMatchObject({
+    expect(ctrl.expectOne('/api/interviews/i1/points').request.body).toMatchObject({
       origin: 'REMARK',
       outcome: 'CHANGE',
       text: 'l’avoir',
@@ -219,30 +241,79 @@ describe('InterviewPage (021, séance en lecture du document)', () => {
     });
   });
 
-  it('« Supprimer » enregistre d’un clic ; « Noter » ouvre les mêmes actions sur l’élément entier', async () => {
+  it('tout le texte s’annote : un titre hors élément se rattache à l’élément qui le précède', async () => {
     await open(detail());
-    button('Noter', el.querySelector('[data-anchor="SUMMARY"]')!).click();
+    selectIn('h3', 0, 10);
     await settle(fixture);
-    const toolbar = el.querySelector('[data-anchor="SUMMARY"] [role="toolbar"]')!;
-    expect(toolbar.getAttribute('aria-label')).toBe('Noter sur cet élément');
-    button('Supprimer', toolbar).click();
+    expect(toolbar().getAttribute('aria-label')).toBe('Noter sur « Déroulemen »');
+    button('Supprimer', toolbar()).click();
     await settle(fixture);
     expect(ctrl.expectOne('/api/interviews/i1/points').request.body).toMatchObject({
       origin: 'REMARK',
       outcome: 'REMOVE',
-      quote: null,
-      anchor: { element: 'SUMMARY', step: null, alternative: false },
+      quote: 'Déroulemen',
+      anchor: { element: 'UC-01', step: null, alternative: false },
     });
   });
 
-  it('« Question… » sur un élément', async () => {
+  it('« Question… » sur un passage demande le responsable', async () => {
     await open(detail());
-    button('Noter', el.querySelector('[data-anchor="UC-01"]')!).click();
+    selectIn('[data-anchor="UC-01:2"] .line', 0, 6);
     await settle(fixture);
-    button('Question…', el.querySelector('[role="toolbar"]')!).click();
+    button('Question…', toolbar()).click();
     await settle(fixture);
-    expect(el.querySelector('sw-point-editor .heading')?.textContent).toBe('Question sur UC-01');
-    expect(el.querySelector('sw-point-editor input[name="owner"]')).not.toBeNull();
+    expect(el.querySelector('aside sw-point-editor .heading')?.textContent).toBe('Question sur « Saisir »');
+    expect(el.querySelector('aside sw-point-editor input[name="owner"]')).not.toBeNull();
+  });
+
+  it('les notes sont listées dans la colonne, pas dans le document ; elles se modifient et se suppriment', async () => {
+    const d = detail();
+    d.stops[0].items = [REMARK];
+    await open(d);
+    expect(el.querySelector('.paper sw-point-card')?.textContent).toContain('H-01');
+    expect(el.querySelectorAll('.paper sw-point-card')).toHaveLength(1);
+    const note = el.querySelector('aside .note-list li')!;
+    expect(note.textContent).toContain('Résumé');
+    expect(note.textContent).toContain('« Émission »');
+    expect(note.textContent).toContain('À modifier');
+    expect(el.querySelector('#notes-title')?.textContent).toBe('Notes de séance (1)');
+    button('Modifier', note).click();
+    await settle(fixture);
+    expect(el.querySelector<HTMLTextAreaElement>('aside sw-point-editor textarea')!.value).toBe('À revoir');
+    button('Annuler', el.querySelector('aside')!).click();
+    await settle(fixture);
+    button('Supprimer la remarque', el.querySelector('aside .note-list li')!).click();
+    await settle(fixture);
+    ctrl.expectOne((r) => r.method === 'DELETE' && r.url === '/api/interviews/i1/points/p9').flush(null);
+    await settle(fixture);
+    expect(announced).toContain('Remarque supprimée.');
+  });
+
+  it('après une première remarque, on en note une autre à la suite', async () => {
+    await open(detail());
+    async function remark(text: string): Promise<void> {
+      selectIn('[data-anchor="UC-01:1"] .line', 0, 6);
+      await settle(fixture);
+      button('Commenter', toolbar()).click();
+      await settle(fixture);
+      const area = el.querySelector<HTMLTextAreaElement>('aside sw-point-editor textarea')!;
+      area.value = text;
+      area.dispatchEvent(new Event('input'));
+      await settle(fixture);
+      el.querySelector<HTMLButtonElement>('aside sw-point-editor button[type="submit"]')!.click();
+      await settle(fixture);
+    }
+    await remark('Première');
+    ctrl.expectOne('/api/interviews/i1/points').flush({});
+    await settle(fixture);
+    const after = detail();
+    after.stops[2].items = [{ ...REMARK, point: { ...REMARK.point, anchor: { element: 'UC-01', step: 1, alternative: false }, text: 'Première' } }];
+    ctrl.expectOne('/api/interviews/i1').flush(after);
+    await settle(fixture);
+    cursorRequests();
+    expect(el.querySelector('aside sw-point-editor')).toBeNull();
+    await remark('Seconde');
+    expect(ctrl.expectOne('/api/interviews/i1/points').request.body).toMatchObject({ origin: 'REMARK', text: 'Seconde', quote: 'Ouvrir' });
   });
 
   it('une version plus récente est signalée', async () => {
@@ -258,7 +329,7 @@ describe('InterviewPage (021, séance en lecture du document)', () => {
   });
 
   it('« Terminer » avec des points non traités demande confirmation, puis termine', async () => {
-    await open(detail());
+    await open(detail({ counts: { handled: 1, notes: 0, pending: 1 } }));
     button('Terminer').click();
     await settle(fixture);
     const dialog = document.querySelector('mat-dialog-container')!;
@@ -270,112 +341,58 @@ describe('InterviewPage (021, séance en lecture du document)', () => {
     expect(TestBed.inject(Router).url).toBe('/seances/i1/recapitulatif');
   });
 
-  it('« Supprimer la remarque » retire une remarque notée en séance', async () => {
-    const d = detail();
-    d.stops[0].items = [
-      {
-        origin: 'REMARK',
-        code: null,
-        statement: null,
-        pending: false,
-        point: {
-          id: 'p9',
-          sessionId: 's1',
-          anchor: { element: 'SUMMARY', step: null, alternative: false },
-          origin: 'REMARK',
-          originCode: null,
-          text: 'À revoir',
-          outcome: 'CHANGE',
-          owner: null,
-          due: null,
-          source: null,
-          quote: null,
-          createdAt: '2026-11-20T09:00:00Z',
-          updatedAt: '2026-11-20T09:00:00Z',
-        },
-      },
-    ];
+
+  it('« Prendre en compte les notes » termine sans dialogue et lance la révision, même avec des points ouverts', async () => {
+    const d = detail({ counts: { handled: 0, notes: 1, pending: 1 } });
+    d.stops[0].items = [REMARK];
     await open(d);
-    button('Supprimer la remarque').click();
+    vi.spyOn(TestBed.inject(ConsentGate), 'ensure').mockResolvedValue(true);
+    button('Prendre en compte les notes').click();
     await settle(fixture);
-    ctrl.expectOne((r) => r.method === 'DELETE' && r.url === '/api/interviews/i1/points/p9').flush(null);
+    expect(document.querySelector('mat-dialog-container')).toBeNull();
+    ctrl.expectOne('/api/interviews/i1/finish').flush(detail({ state: 'FINISHED' }));
     await settle(fixture);
-    expect(announced).toContain('Remarque supprimée.');
-    ctrl.expectOne('/api/interviews/i1').flush(detail());
+    const req = ctrl.expectOne('/api/interviews/i1/specs/s1/revision');
+    req.flush({ turnId: 't1', conversationId: 'c1' });
     await settle(fixture);
-    cursorRequests();
-    expect(el.querySelector('[data-anchor="SUMMARY"] sw-point-card')).toBeNull();
+    expect(TestBed.inject(Router).url).toBe('/sessions/s1/versions/1?discussion=1&tour=t1');
   });
 
-  it('après une première remarque, on en note une autre à la suite', async () => {
+  it('sans note ni décision, « Prendre en compte les notes » est indisponible', async () => {
     await open(detail());
-    const summary = () => el.querySelector('[data-anchor="SUMMARY"]')!;
-    async function remark(text: string): Promise<void> {
-      button('Noter', summary()).click();
-      await settle(fixture);
-      button('Commenter', summary().querySelector('[role="toolbar"]')!).click();
-      await settle(fixture);
-      const area = el.querySelector<HTMLTextAreaElement>('sw-point-editor textarea')!;
-      area.value = text;
-      area.dispatchEvent(new Event('input'));
-      await settle(fixture);
-      el.querySelector<HTMLButtonElement>('sw-point-editor button[type="submit"]')!.click();
-      await settle(fixture);
-    }
-    await remark('Première');
-    ctrl.expectOne('/api/interviews/i1/points').flush({});
-    await settle(fixture);
-    const after = detail();
-    after.stops[0].items = [
-      {
-        origin: 'REMARK',
-        code: null,
-        statement: null,
-        pending: false,
-        point: {
-          id: 'p1', sessionId: 's1', anchor: { element: 'SUMMARY', step: null, alternative: false }, origin: 'REMARK',
-          originCode: null, text: 'Première', outcome: 'CHANGE', owner: null, due: null, source: null, quote: null,
-          createdAt: '2026-11-20T09:00:00Z', updatedAt: '2026-11-20T09:00:00Z',
-        },
-      },
-    ];
-    ctrl.expectOne('/api/interviews/i1').flush(after);
-    await settle(fixture);
-    cursorRequests();
-    expect(el.querySelector('sw-point-editor')).toBeNull();
-    await remark('Seconde');
-    expect(ctrl.expectOne('/api/interviews/i1/points').request.body).toMatchObject({ origin: 'REMARK', text: 'Seconde' });
+    expect(button('Prendre en compte les notes').disabled).toBe(true);
   });
 
-  it('une sélection relâchée sur la carte d’une remarque ouvre quand même la barre', async () => {
-    const d = detail();
-    d.stops[2].items = [
-      {
-        origin: 'REMARK',
-        code: null,
-        statement: null,
-        pending: false,
-        point: {
-          id: 'p1', sessionId: 's1', anchor: { element: 'UC-01', step: 1, alternative: false }, origin: 'REMARK',
-          originCode: null, text: 'Première', outcome: 'CHANGE', owner: null, due: null, source: null, quote: null,
-          createdAt: '2026-11-20T09:00:00Z', updatedAt: '2026-11-20T09:00:00Z',
-        },
-      },
-    ];
-    await open(d);
-    const step = el.querySelector('[data-anchor="UC-01:1"]')!;
-    const line = step.querySelector('.line')!;
-    const card = step.querySelector('sw-point-card .head')!;
-    const range = document.createRange();
-    range.setStart(line.firstChild!, 0);
-    range.setEnd(card.firstChild!.firstChild ?? card.firstChild!, 3);
-    window.getSelection()!.removeAllRanges();
-    window.getSelection()!.addRange(range);
-    card.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  it('zoom propre à la relecture : agrandi par défaut, réglable, retenu, sans toucher au reste du site', async () => {
+    localStorage.removeItem('sw.relectureZoom');
+    await open(detail());
+    const seance = el.querySelector<HTMLElement>('.seance')!;
+    expect(seance.style.zoom).toBe('1.25');
+    expect(el.querySelector('.zoom-level')?.textContent?.trim()).toBe('125 %');
+    button('A+').click();
     await settle(fixture);
-    expect(step.querySelector('[role="toolbar"]')?.getAttribute('aria-label')).toBe('Noter sur « Ouvrir la facture »');
-    button('Commenter', step.querySelector('[role="toolbar"]')!).click();
+    expect(seance.style.zoom).toBe('1.5');
+    expect(localStorage.getItem('sw.relectureZoom')).toBe('1.5');
+    button('A−').click();
+    button('A−').click();
+    button('A−').click();
     await settle(fixture);
-    expect(window.getSelection()!.toString()).toBe('');
+    expect(seance.style.zoom).toBe('1');
+    expect(button('A−').disabled).toBe(true);
+    // rien sur la page entière : la page de la spécification garde sa taille normale
+    expect(document.documentElement.style.zoom).toBe('');
+    expect(document.body.style.zoom).toBe('');
+    localStorage.removeItem('sw.relectureZoom');
+  });
+
+  it('« Terminer » sans rien de noté : ni confirmation ni récapitulatif, retour à la spécification', async () => {
+    await open(detail());
+    button('Terminer').click();
+    await settle(fixture);
+    expect(document.querySelector('mat-dialog-container')).toBeNull();
+    ctrl.expectOne('/api/interviews/i1/finish').flush(null, { status: 204, statusText: 'No Content' });
+    await settle(fixture);
+    expect(TestBed.inject(Router).url).toBe('/sessions/s1/versions/1');
+    expect(announced).toContain('Rien n’a été noté : la relecture n’est pas gardée.');
   });
 });

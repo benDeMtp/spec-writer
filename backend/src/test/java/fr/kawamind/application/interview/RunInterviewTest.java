@@ -77,6 +77,7 @@ class RunInterviewTest {
     void lesParticipantsDeLaSeancePrecedenteSontRepris() {
         Session s = specification("Avoirs");
         RunInterview.View first = run.startForSpecification(s.id(), List.of("Julie M.", "Paul D."));
+        run.savePoint(first.interview().id(), null, answer(s.id(), "", InterviewPoint.Outcome.CONFIRMED));
         run.finish(first.interview().id());
         assertThat(run.startForSpecification(s.id(), List.of()).interview().participants())
                 .containsExactly("Julie M.", "Paul D.");
@@ -153,10 +154,21 @@ class RunInterviewTest {
     }
 
     @Test
+    void uneRelectureTermineeSansRienNoterNEstPasEnregistree() {
+        Session s = specification("Avoirs");
+        UUID id = run.startForSpecification(s.id(), List.of("Julie M.")).interview().id();
+        assertThat(run.finish(id)).isEmpty();
+        assertThat(interviews.find(id)).isEmpty();
+        assertThat(interviews.inProgress(s.id())).isEmpty();
+        assertThat(run.forSpecification(s.id())).isEmpty();
+    }
+
+    @Test
     void uneSeanceTermineeRefuseTouteModification() {
         Session s = specification("Avoirs");
         UUID id = run.startForSpecification(s.id(), List.of()).interview().id();
-        RunInterview.View finished = run.finish(id);
+        run.savePoint(id, null, answer(s.id(), "", InterviewPoint.Outcome.CONFIRMED));
+        RunInterview.View finished = run.finish(id).orElseThrow();
         assertThat(finished.interview().state()).isEqualTo(Interview.State.FINISHED);
         assertThat(interviews.inProgress(s.id())).isEmpty();
         assertThatThrownBy(() -> run.savePoint(id, null, answer(s.id(), "", InterviewPoint.Outcome.CONFIRMED)))

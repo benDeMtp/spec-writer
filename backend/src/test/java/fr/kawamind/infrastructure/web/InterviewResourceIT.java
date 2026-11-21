@@ -174,6 +174,16 @@ class InterviewResourceIT {
     }
 
     @Test
+    void uneRelectureSansRienNoterNEstPasGardee() {
+        Session s = specification();
+        String id = api().body(Map.of()).post("/api/sessions/" + s.id() + "/interviews").then().statusCode(201)
+                .extract().path("id");
+        api().post("/api/interviews/" + id + "/finish").then().statusCode(204);
+        api().get("/api/interviews/" + id).then().statusCode(404);
+        api().get("/api/sessions/" + s.id() + "/interviews").then().statusCode(200).body("$", hasSize(0));
+    }
+
+    @Test
     void validation() {
         Session s = specification();
         String id = api().body(Map.of()).post("/api/sessions/" + s.id() + "/interviews").then().statusCode(201)

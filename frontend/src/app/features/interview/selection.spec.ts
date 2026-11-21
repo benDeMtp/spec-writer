@@ -8,7 +8,9 @@ describe('passageOf (021, sélection d’un passage)', () => {
     root.innerHTML = `
       <h2 id="titre">Résumé</h2>
       <li data-anchor="UC-01:1"><span id="a">Ouvrir la facture</span><div data-card><span id="card">Hypothèse H-01</span></div></li>
-      <li data-anchor="UC-01:2"><span id="b">Saisir le montant</span></li>`;
+      <li data-anchor="UC-01:2"><span id="b">Saisir le montant</span></li>
+      <h3 id="sous-titre">Répartition IA / algorithme</h3>
+      <table><tr><td id="cellule">Délai demandé</td></tr></table>`;
     document.body.appendChild(root);
   });
 
@@ -28,16 +30,21 @@ describe('passageOf (021, sélection d’un passage)', () => {
     expect(passageOf(root, select('a', 0, 'a', 6))).toEqual({ key: 'UC-01:1', quote: 'Ouvrir' });
   });
 
-  it('une sélection sur deux éléments est ramenée au premier, sans le texte des cartes', () => {
-    expect(passageOf(root, select('a', 7, 'b', 6))).toEqual({ key: 'UC-01:1', quote: 'la facture' });
+  it('une sélection sur deux éléments se rattache au premier et cite tout, sans le texte des cartes', () => {
+    expect(passageOf(root, select('a', 7, 'b', 6))).toEqual({ key: 'UC-01:1', quote: 'la facture Saisir' });
   });
 
   it('une sélection tirée jusque dans la carte de l’élément s’arrête avant elle', () => {
     expect(passageOf(root, select('a', 7, 'card', 5))).toEqual({ key: 'UC-01:1', quote: 'la facture' });
   });
 
-  it('une sélection commencée hors élément vise le premier élément touché', () => {
-    expect(passageOf(root, select('titre', 0, 'b', 6))).toEqual({ key: 'UC-01:1', quote: 'Ouvrir la facture' });
+  it('tout texte s’annote : un titre ou un tableau hors élément se rattache à l’élément qui le précède', () => {
+    expect(passageOf(root, select('sous-titre', 0, 'sous-titre', 11))).toEqual({ key: 'UC-01:2', quote: 'Répartition' });
+    expect(passageOf(root, select('cellule', 0, 'cellule', 5))).toEqual({ key: 'UC-01:2', quote: 'Délai' });
+  });
+
+  it('avant tout élément, la sélection vise le premier élément qu’elle touche', () => {
+    expect(passageOf(root, select('titre', 0, 'b', 6))).toEqual({ key: 'UC-01:1', quote: 'Résumé Ouvrir la facture Saisir' });
   });
 
   it('rien pour une sélection vide, dans une carte, ou hors du document', () => {

@@ -266,9 +266,9 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                 (click)="interview()"
               >
                 @if (activeInterview()) {
-                  Reprendre la séance
+                  Reprendre la relecture
                 } @else {
-                  Faire le point{{ pendingPoints() ? ' (' + pendingPoints() + ')' : '' }}
+                  Relire{{ pendingPoints() ? ' (' + pendingPoints() + ')' : '' }}
                 }
               </button>
               <button
@@ -1697,7 +1697,7 @@ export class SpecificationPage {
       this.interviews.set(list);
       this.activeInterview.set(list.find((i) => i.state === 'IN_PROGRESS')?.id ?? null);
     } catch {
-      // sans la liste, « Faire le point » démarre une séance ; le serveur refuse un doublon
+      // sans la liste, « Relire » démarre une séance ; le serveur refuse un doublon
     }
     this.sourceUpdates.set(await this.interviewsApi.sourceUpdates(id).catch(() => []));
   }
@@ -1718,7 +1718,10 @@ export class SpecificationPage {
     }
   }
 
-  /** « Faire le point » (021, FR-001) : démarre une séance, ou reprend celle en cours. */
+  /**
+   * « Relire » (021, FR-001) : démarre une relecture, seul ou en séance avec les sachants, ou reprend
+   * celle en cours.
+   */
   protected async interview(): Promise<void> {
     const active = this.activeInterview();
     if (active) {

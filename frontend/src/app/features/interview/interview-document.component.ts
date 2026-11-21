@@ -37,28 +37,31 @@ export interface SlotContext {
       }
     </ng-template>
 
-    @if (s.story; as story) {
-      <p class="story">
-        @for (part of storyParts(story); track part.lead) {
-          {{ part.lead }} <strong>{{ part.text }}</strong
-          >@if (part.assumed) {
-            <span class="assumed"> (hypothèse)</span>
-          }{{ part.end }}
-        }
-      </p>
-    }
-
-    <section aria-labelledby="doc-summary">
-      <h2 id="doc-summary">Résumé</h2>
-      <div class="el" data-anchor="SUMMARY">
-        <markdown class="rich" [data]="s.summary" />
-        <ng-container [ngTemplateOutlet]="after" [ngTemplateOutletContext]="{ $implicit: 'SUMMARY' }" />
-      </div>
-      @if (s.details) {
-        <h3>Détails</h3>
-        <markdown class="rich" [data]="s.details" />
+    <!-- l'énoncé de story et les détails n'ont pas d'ancre à eux : une remarque s'y rattache au résumé,
+         avec le passage cité -->
+    <div class="el intro" data-anchor="SUMMARY">
+      @if (s.story; as story) {
+        <p class="story">
+          @for (part of storyParts(story); track part.lead) {
+            {{ part.lead }} <strong>{{ part.text }}</strong
+            >@if (part.assumed) {
+              <span class="assumed"> (hypothèse)</span>
+            }{{ part.end }}
+          }
+        </p>
       }
-    </section>
+      <section aria-labelledby="doc-summary">
+        <h2 id="doc-summary">Résumé</h2>
+        <markdown class="rich" [data]="s.summary" />
+      </section>
+      @if (s.details) {
+        <section aria-labelledby="doc-details">
+          <h2 id="doc-details">Détails</h2>
+          <markdown class="rich" [data]="s.details" />
+        </section>
+      }
+      <ng-container [ngTemplateOutlet]="after" [ngTemplateOutletContext]="{ $implicit: 'SUMMARY' }" />
+    </div>
 
     @for (uc of s.useCases; track uc.code) {
       <section class="use-case" [attr.aria-labelledby]="'doc-' + uc.code">
@@ -200,6 +203,10 @@ export interface SlotContext {
     }
     .scenario {
       margin-top: 0.75rem;
+    }
+    .intro {
+      display: grid;
+      gap: 1rem;
     }
     .use-case {
       border-top: 1px solid var(--sw-rule);

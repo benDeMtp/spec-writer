@@ -203,8 +203,10 @@ public class InterviewResource {
 
     @POST
     @Path("/{id}/finish")
-    public InterviewDetail finish(@PathParam("id") String id) {
-        return views.detail(run.finish(Ids.parse(id)));
+    public Response finish(@PathParam("id") String id) {
+        // 204 : relecture sans aucun point, supprimée plutôt que gardée comme séance
+        return run.finish(Ids.parse(id)).map(v -> Response.ok(views.detail(v)).build())
+                .orElseGet(() -> Response.noContent().build());
     }
 
     public record ReportView(String html, String text) {

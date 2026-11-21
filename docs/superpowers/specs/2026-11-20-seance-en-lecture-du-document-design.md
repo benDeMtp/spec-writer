@@ -22,6 +22,19 @@ ouvrir (↵, R, Q) pour chaque point. Ce n'est pas ce que le mainteneur attendai
 2. **Approche 1** : un écran de séance qui affiche le document, distinct de la page de la
    spécification. Les approches 2 (mode séance sur la page de la spécification) et 3 (annotation
    du Markdown rendu, sans structure) sont écartées.
+3. **Colonne de notes (21/11/2026)**, après essai sur une spécification réelle : tout le texte
+   s'annote, et les remarques et questions vont dans une colonne à droite du document, pas dans
+   le document. Les hypothèses, écarts et points ouverts restent en carte sous leur élément.
+4. **Relire, seul ou en séance (21/11/2026)** : un seul écran, deux usages. « Faire le point »
+   devient « Relire » sur la page de la spécification. « Prendre en compte les notes », disponible
+   à tout moment, termine la relecture sans dialogue (les points non traités restent ouverts) et
+   lance la révision ; « Terminer » mène au récapitulatif et au compte rendu, pour la séance avec
+   les sachants. Une spécification générée s'ouvre, depuis la liste, sur sa dernière version.
+5. **Zoom de la relecture (21/11/2026)** : le document prend toute la largeur, agrandi à 125 % par
+   défaut, réglable (A− / A+, de 100 à 200 %), retenu dans le navigateur. Il ne vaut que pour cet
+   écran : la page de la spécification et la discussion restent à la taille normale.
+6. **Relecture vide (21/11/2026)** : terminée sans aucun point noté, elle n'est pas gardée comme
+   séance ; « Terminer » revient à la spécification, sans confirmation ni récapitulatif.
 
 ## Conception
 
@@ -78,22 +91,30 @@ Ctrl+Entrée).
 
 ### Corriger un passage (à la Plannotator)
 
-On sélectionne un passage dans n'importe quel élément du document ; une barre flottante propose :
+**Tout le texte du document s'annote** : titres, détails, tableaux, énoncé de story, et texte d'une
+spécification antérieure sans ancres. Une sélection ouvre, dans la colonne de notes, une barre :
 
 - **Commenter** : une remarque libre (origine `REMARK`) ;
 - **Remplacer** : le texte qui doit remplacer le passage, prérempli avec le passage à réécrire
   (`REMARK`, issue `À MODIFIER`) ;
-- **Supprimer** : le passage est à retirer (`REMARK`, issue `À RETIRER`).
+- **Supprimer** : le passage est à retirer (`REMARK`, issue `À RETIRER`), d'un clic ;
+- **Question…** : une question nouvelle, avec son responsable.
 
-Le point est ancré sur l'élément qui contient la sélection et **garde le passage cité**. Une
-sélection qui déborde de l'élément est ramenée au premier élément touché. Le passage apparaît
-surligné dans le document, avec la carte de la remarque sous l'élément.
+La note se rattache à l'élément ancré qui contient le début de la sélection, sinon au dernier
+élément qui le précède (un titre ou un tableau des détails se rattache au résumé), et **garde le
+passage sélectionné tel quel**. Le passage reste surligné dans le document.
 
-« Question… » reste disponible sur chaque élément (bouton au survol et au focus) pour une question
-nouvelle, avec son responsable.
+### La colonne de notes
 
-Au clavier : chaque élément a un bouton « Noter » focalisable, discret hors survol, qui ouvre les
-mêmes actions sur l'élément entier.
+À droite du document, toujours visible au défilement (sous le document sur un écran étroit) :
+
+- en tête, la barre de la sélection en cours, puis la saisie de la note ;
+- les remarques et questions de la spécification, dans l'ordre du document : l'élément
+  (« Résumé », « UC-01, étape 1 »), le passage cité, l'issue et le texte ; **Aller au passage**
+  (défile jusqu'au passage et le met en évidence), **Modifier**, **Supprimer**.
+
+Rien n'est inséré dans le document pour une remarque : le texte ne bouge pas sous la souris, et
+le rendu Markdown reste intact. Le bouton « Noter » par élément disparaît.
 
 ### Navigation
 

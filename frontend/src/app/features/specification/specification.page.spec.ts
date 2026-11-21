@@ -141,7 +141,7 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(el.querySelector('#jira-missing a')?.getAttribute('href')).toBe('/configuration');
   });
 
-  it('« Faire le point » démarre une séance ; une séance en cours se reprend (021)', async () => {
+  it('« Relire » démarre une relecture ; une relecture en cours se reprend (021)', async () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     await open(SESSION, [{ number: 1 }]);
     ctrl.expectOne('/api/sessions/s1/interviews').flush([]);
@@ -149,8 +149,8 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     fixture.detectChanges();
     const points = SPEC.assumptions.length + (SPEC.sourceDeviations?.length ?? 0);
     const button = () =>
-      Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent?.includes('Faire le point'));
-    expect(button()?.textContent?.trim()).toBe(points ? `Faire le point (${points})` : 'Faire le point');
+      Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent?.trim().startsWith('Relire'));
+    expect(button()?.textContent?.trim()).toBe(points ? `Relire (${points})` : 'Relire');
     button()!.click();
     const start = ctrl.expectOne('/api/sessions/s1/interviews');
     expect(start.request.method).toBe('POST');
@@ -234,7 +234,7 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(section('source-updates-title')).toBeNull();
   });
 
-  it('une séance en cours : « Reprendre la séance » (021)', async () => {
+  it('une relecture en cours : « Reprendre la relecture » (021)', async () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     await open(SESSION, [{ number: 1 }]);
     ctrl.expectOne('/api/sessions/s1/interviews').flush([
@@ -243,7 +243,7 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
     const resume = Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find(
-      (b) => b.textContent?.trim() === 'Reprendre la séance',
+      (b) => b.textContent?.trim() === 'Reprendre la relecture',
     )!;
     resume.click();
     await new Promise((resolve) => setTimeout(resolve, 0));

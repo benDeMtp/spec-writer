@@ -291,31 +291,39 @@ Supprimer une spécification qui a des discussions propose la case **Supprimer a
 discussions**, cochée par défaut ; décochée, elles restent dans la liste, marquées « spécification
 supprimée », et se poursuivent comme des conversations ordinaires.
 
-## Faire le point avec les sachants
+## Relire une spécification, seul ou avec les sachants
 
 Une spécification s'écrit souvent avec des hypothèses, des écarts entre sources et des points
-ouverts. **Faire le point** les tranche avec les sachants, en séance sur écran partagé.
+ouverts. **Relire**, sur la page d'une spécification, les tranche et annote le texte : seul, ou en
+séance avec les sachants sur écran partagé. Ouverte depuis la page **Spécifications**, une
+spécification générée s'affiche sur sa dernière version ; le questionnaire reste accessible par
+**Retour au questionnaire**.
 
-**Préparer.** La page **Spécifications** montre sous chacune ses points à traiter (« 3 hypothèses ·
-2 points ouverts · 1 écart entre sources ») ; la case **Avec des points à traiter** filtre la liste.
-Cochez une ou plusieurs spécifications, puis **Préparer une séance** : l'ordre de passage, les
-participants (ceux de la dernière séance sont proposés) et les points à écarter se règlent avant la
-séance, qui attend en tête de la page avec **Démarrer**, **Modifier** et **Supprimer**. Sur une
-spécification seule, **Faire le point** démarre directement.
+**Préparer une séance.** La page **Spécifications** montre sous chacune ses points à traiter
+(« 3 hypothèses · 2 points ouverts · 1 écart entre sources ») ; la case **Avec des points à traiter**
+filtre la liste. Cochez une ou plusieurs spécifications, puis **Préparer une séance** : l'ordre de
+passage, les participants (ceux de la dernière séance sont proposés) et les points à écarter se
+règlent avant la séance, qui attend en tête de la page avec **Démarrer**, **Modifier** et
+**Supprimer**.
 
-**La séance** s'affiche en plein écran, sans menu ni notification. La spécification s'y déroule
-comme un document, de haut en bas, chaque point en carte sous l'élément qu'il concerne (« UC-02,
-étape 4 »), ceux sans élément à la fin. Une hypothèse est sa propre réponse proposée :
+**La relecture** s'affiche en plein écran, sans menu ni notification, en grand pour les participants
+qui lisent à distance : **A−** / **A+** règlent la taille du texte, pour cet écran seulement. La spécification s'y déroule
+comme un document, de haut en bas ; chaque hypothèse, écart ou point ouvert est en carte sous
+l'élément qu'il concerne (« UC-02, étape 4 »). Une hypothèse est sa propre réponse proposée :
 **Confirmer** d'un clic, **Réécrire** à partir de son texte, **Retirer** ou **Reporter** (avec un
-responsable et une échéance). Pour corriger un passage, sélectionnez-le : **Commenter**,
-**Remplacer** ou **Supprimer** ; le passage cité reste surligné. **Noter** ouvre les mêmes actions
-sur un élément entier, et **Question…** note une question avec la personne qui doit y répondre ; une remarque ou une
-question notée en séance se modifie ou se supprime depuis sa carte.
-↑ ↓ passent d'un point à l'autre, **Prochain point à traiter** mène au suivant. Tout est enregistré
-au fil de l'eau : une séance interrompue reprend au dernier point consulté. Rien n'est envoyé au
-modèle pendant la séance.
+responsable et une échéance). Tout le texte s'annote : sélectionnez un passage, puis **Commenter**,
+**Remplacer**, **Supprimer** ou **Question…** dans la colonne **Notes de séance**, à droite, qui
+liste les notes dans l'ordre du document (**Aller au passage**, **Modifier**, **Supprimer**) ; le
+passage cité reste surligné. ↑ ↓ passent d'une carte à l'autre, **Prochain point à traiter** mène
+à la suivante. Tout est enregistré au fil de l'eau : une relecture interrompue reprend au dernier
+point consulté. Rien n'est envoyé au modèle pendant la relecture.
 
-**Terminer** mène au récapitulatif : le compte rendu (décisions, points à vérifier, sources à
+**Prendre en compte les notes** termine la relecture, même avec des points encore ouverts, et lance
+aussitôt la révision : la page de la spécification s'ouvre sur la nouvelle version proposée, à
+relire par différences.
+
+**Terminer** une relecture où rien n'a été noté ne la garde pas : retour direct à la spécification.
+Sinon, **Terminer** mène au récapitulatif : le compte rendu (décisions, points à vérifier, sources à
 mettre à jour) se copie d'un clic, mis en forme pour un mail ou Teams. Les séances passées et
 leur compte rendu restent sur la page de la spécification.
 

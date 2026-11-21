@@ -104,7 +104,7 @@ const STATES: Record<SessionState, string> = {
                 } @else if (s.readable) {
                   <a
                     class="name"
-                    [routerLink]="['/sessions', s.id]"
+                    [routerLink]="openLink(s)"
                     [attr.aria-describedby]="s.pending ? 'pending-' + s.id : null"
                     >{{ s.name }}</a
                   >
@@ -124,7 +124,7 @@ const STATES: Record<SessionState, string> = {
                 @if (editing() !== s.id) {
                   <div class="actions">
                     @if (s.readable) {
-                      <a mat-stroked-button [routerLink]="['/sessions', s.id]">Reprendre</a>
+                      <a mat-stroked-button [routerLink]="openLink(s)">Reprendre</a>
                       <button mat-button type="button" (click)="startRename(s)">Renommer</button>
                     }
                     <button mat-button type="button" (click)="remove(s)" [attr.aria-label]="'Supprimer la spécification ' + s.name">
@@ -279,6 +279,11 @@ export class SessionsPage {
       projects.currentId();
       void this.reload();
     });
+  }
+
+  /** Une spécification générée s'ouvre sur sa dernière version ; sans version, sur son questionnaire. */
+  protected openLink(s: SessionSummary): (string | number)[] {
+    return s.latestVersion ? ['/sessions', s.id, 'versions', s.latestVersion] : ['/sessions', s.id];
   }
 
   protected meta(s: SessionSummary): string {

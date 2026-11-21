@@ -61,9 +61,9 @@ export const TOUR_STOPS: TourStop[] = [
     id: 'interview',
     route: SPECIFICATION,
     target: 'interview',
-    title: 'Faire le point avec les sachants',
-    text: 'Une séance sur écran partagé : la spécification lue comme un document, hypothèses confirmées d’un clic, passages corrigés par sélection, puis un compte rendu.',
-    fallback: 'Sur une spécification, « Faire le point » ouvre une séance de relecture avec les sachants.',
+    title: 'Relire une spécification',
+    text: 'La spécification lue comme un document, seul ou avec les sachants : hypothèses confirmées d’un clic, passages annotés par sélection, puis la révision.',
+    fallback: 'Sur une spécification, « Relire » ouvre une relecture, seul ou avec les sachants.',
   },
   {
     id: 'tasks',

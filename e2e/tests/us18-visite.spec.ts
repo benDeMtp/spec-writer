@@ -10,7 +10,7 @@ const TITLES = [
   'Vos spécifications',
   'Une spécification',
   'Discuter avec l’IA',
-  'Faire le point avec les sachants',
+  'Relire une spécification',
   'Tâches et suivi par les agents',
   'Tickets Jira',
   'Connaissance du projet',
@@ -78,7 +78,7 @@ test.describe.serial('018 Visite guidée', () => {
       for (const [i, text] of [
         [4, 'Une spécification s’ouvre depuis cette liste'],
         [5, '« Discuter avec l’IA » propose une nouvelle version'],
-        [6, '« Faire le point » ouvre une séance de relecture'],
+        [6, '« Relire » ouvre une relecture'],
         [7, 'Une spécification se découpe en tâches'],
       ] as const) {
         await expect(bubble(page)).toContainText(`Arrêt ${i} sur 12`);

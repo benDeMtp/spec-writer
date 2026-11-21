@@ -120,6 +120,15 @@ describe('InterviewDocumentComponent (021, séance en lecture du document)', () 
     expect(step2.querySelector('.slot')?.textContent).toBe('[UC-012]');
   });
 
+  it('l’énoncé de story et les détails se notent sur le résumé', () => {
+    const summary = el.querySelector('[data-anchor="SUMMARY"]')!;
+    expect(summary.textContent).toContain('En tant que');
+    expect(summary.textContent).toContain('Détails utiles.');
+    // les points du résumé viennent après les détails
+    const text = summary.textContent ?? '';
+    expect(text.indexOf('[SUMMARY]')).toBeGreaterThan(text.indexOf('Détails utiles.'));
+  });
+
   it('les points non rattachés ferment le document', () => {
     fixture.componentInstance.stops.update((s) => [
       ...s,

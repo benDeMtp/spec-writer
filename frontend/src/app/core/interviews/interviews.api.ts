@@ -20,7 +20,7 @@ const id = encodeURIComponent;
 export class InterviewsApi {
   private readonly http = inject(HttpClient);
 
-  /** « Faire le point » : séance d'une spécification, en cours dès sa création. */
+  /** « Relire » : relecture (séance) d'une spécification, en cours dès sa création. */
   startForSpecification(sessionId: string, participants: string[] = []): Promise<InterviewDetail> {
     return firstValueFrom(this.http.post<InterviewDetail>(`/api/sessions/${id(sessionId)}/interviews`, { participants }));
   }
@@ -49,8 +49,9 @@ export class InterviewsApi {
     return firstValueFrom(this.http.delete<void>(`/api/interviews/${id(interviewId)}/points/${id(pointId)}`));
   }
 
-  finish(interviewId: string): Promise<InterviewDetail> {
-    return firstValueFrom(this.http.post<InterviewDetail>(`/api/interviews/${id(interviewId)}/finish`, {}));
+  /** Nul (204) : rien n'était noté, la relecture est supprimée plutôt que gardée comme séance. */
+  finish(interviewId: string): Promise<InterviewDetail | null> {
+    return firstValueFrom(this.http.post<InterviewDetail | null>(`/api/interviews/${id(interviewId)}/finish`, {}));
   }
 
   report(interviewId: string): Promise<InterviewReport> {

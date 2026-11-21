@@ -43,7 +43,7 @@ test.describe.serial('021 interview d’une spécification', () => {
 
   test('V1 : faire le point, répondre, noter une remarque et une question, reprendre', async () => {
     await page.goto(`/sessions/${sessionId}/versions/1`);
-    const start = page.getByRole('button', { name: /^Faire le point/ });
+    const start = page.getByRole('button', { name: /^Relire( \(\d+\))?$/ });
     await expect(start).toBeVisible();
     await start.click();
     await expect(page).toHaveURL(/\/seances\/[0-9a-f-]+$/);
@@ -62,69 +62,76 @@ test.describe.serial('021 interview d’une spécification', () => {
     await expect(page.locator('.progress')).toContainText('1 traité');
     await expect(page.getByRole('region', { name: 'Hypothèse H-01' })).toContainText('Confirmé');
 
-    // « Noter » sur le résumé : une remarque, puis une question avec son responsable
-    const summary = page.locator('[data-anchor="SUMMARY"]');
-    await summary.getByRole('button', { name: /^Noter/ }).click();
-    await summary.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
-    await page.getByRole('textbox', { name: 'Ce qui a été dit' }).fill('Validation du manager au-delà de 500 €');
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    // tout le texte s'annote ; la barre et la saisie sont dans la colonne de notes, rien n'est
+    // inséré dans le document
+    const notes = page.getByRole('complementary', { name: /^Notes de séance/ });
+    const select = async (target: import('@playwright/test').Locator) => {
+      await target.selectText();
+      await target.dispatchEvent('mouseup');
+    };
+    const summary = page.locator('[data-anchor="SUMMARY"] markdown p').first();
+    await select(summary);
+    await notes.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
+    await notes.getByRole('textbox', { name: 'Ce qui a été dit' }).fill('Validation du manager au-delà de 500 €');
+    await notes.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.locator('.progress')).toContainText('1 note');
-    await summary.getByRole('button', { name: /^Noter/ }).click();
-    await summary.getByRole('toolbar').getByRole('button', { name: 'Question…' }).click();
-    await page.getByRole('textbox', { name: 'Question' }).fill('Qui valide en l’absence du manager ?');
-    await page.getByLabel('Responsable').fill('Paul D.');
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await select(summary);
+    await notes.getByRole('toolbar').getByRole('button', { name: 'Question…' }).click();
+    await notes.getByRole('textbox', { name: 'Question' }).fill('Qui valide en l’absence du manager ?');
+    await notes.getByLabel('Responsable').fill('Paul D.');
+    await notes.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.locator('.progress')).toContainText('2 notes');
 
-    // un passage sélectionné se supprime d'un clic, et la remarque le cite
-    const step = page.locator('[data-anchor="UC-01:1"]');
-    const line = step.locator('.line');
+    // un passage d'une étape se supprime d'un clic ; la note cite le passage et y ramène
+    const line = page.locator('[data-anchor="UC-01:1"] .line');
     const passage = ((await line.textContent()) ?? '').trim();
-    await line.selectText();
-    await line.dispatchEvent('mouseup');
-    await step.getByRole('toolbar').getByRole('button', { name: 'Supprimer' }).click();
+    await select(line);
+    await notes.getByRole('toolbar').getByRole('button', { name: 'Supprimer' }).click();
     await expect(page.locator('.progress')).toContainText('3 notes');
-    await expect(step.getByRole('region', { name: 'Remarque' })).toContainText(`« ${passage} »`);
+    const cited = notes.getByRole('listitem').filter({ hasText: `« ${passage} »` });
+    await expect(cited).toContainText('UC-01, étape 1');
+    await expect(cited).toContainText('À retirer');
+    await expect(page.locator('.paper').getByRole('region', { name: 'Remarque' })).toHaveCount(0);
 
-    // une seconde remarque à la suite, par une sélection tirée à la souris jusque sur la première
+    // une seconde remarque à la suite, par une vraie sélection à la souris (ligne au centre de
+    // l'écran : l'en-tête de la séance reste collé en haut)
+    await line.evaluate((e) => e.scrollIntoView({ block: 'center' }));
     const from = (await line.boundingBox())!;
-    const to = (await step.locator('sw-point-card').first().boundingBox())!;
     await page.mouse.move(from.x + 2, from.y + from.height / 2);
     await page.mouse.down();
-    await page.mouse.move(to.x + 40, to.y + to.height / 2, { steps: 8 });
+    await page.mouse.move(from.x + from.width - 2, from.y + from.height / 2, { steps: 8 });
     await page.mouse.up();
-    await step.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
-    await page.getByRole('textbox', { name: 'Ce qui a été dit' }).fill('Seconde remarque sur l’étape');
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await notes.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
+    await notes.getByRole('textbox', { name: 'Ce qui a été dit' }).fill('Seconde remarque sur l’étape');
+    await notes.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.locator('.progress')).toContainText('4 notes');
-    await expect(step.getByRole('region', { name: 'Remarque' })).toHaveCount(2);
+    await expect(notes.getByRole('listitem').filter({ hasText: 'UC-01, étape 1' })).toHaveCount(2);
     await expectNoA11yViolations(page);
 
-    // reprise après rechargement : rien de perdu, le focus revient au dernier point
+    // reprise après rechargement : rien de perdu
     await page.reload();
     await expect(page.locator('.progress')).toContainText('1 traité');
     await expect(page.locator('.progress')).toContainText('4 notes');
-    await expect(page.getByText('Qui valide en l’absence du manager ?')).toBeVisible();
-    await expect(page.locator('sw-point-card:focus')).toHaveCount(1);
+    await expect(notes.getByText('Qui valide en l’absence du manager ?')).toBeVisible();
 
     // une remarque notée par erreur se supprime
-    await summary.getByRole('button', { name: /^Noter/ }).click();
-    await summary.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
-    await page.getByRole('textbox', { name: 'Ce qui a été dit' }).fill('Notée par erreur');
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await select(summary);
+    await notes.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
+    await notes.getByRole('textbox', { name: 'Ce qui a été dit' }).fill('Notée par erreur');
+    await notes.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.locator('.progress')).toContainText('5 notes');
-    await page.locator('sw-point-card', { hasText: 'Notée par erreur' }).getByRole('button', { name: 'Supprimer la remarque' }).click();
+    await notes.getByRole('listitem').filter({ hasText: 'Notée par erreur' }).getByRole('button', { name: 'Supprimer la remarque' }).click();
     await expect(page.locator('.progress')).toContainText('4 notes');
     await expect(page.getByText('Notée par erreur')).toHaveCount(0);
 
     // depuis la page de la spécification, la séance se reprend
     await page.goto(`/sessions/${sessionId}/versions/1`);
-    await expect(page.getByRole('button', { name: 'Reprendre la séance' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reprendre la relecture' })).toBeVisible();
   });
 
   test('V2 : terminer, copier le compte rendu, le retrouver sur la spécification', async () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseURL });
-    await page.getByRole('button', { name: 'Reprendre la séance' }).click();
+    await page.getByRole('button', { name: 'Reprendre la relecture' }).click();
     await page.getByRole('button', { name: 'Terminer' }).click();
     await expect(page).toHaveURL(/\/seances\/[0-9a-f-]+\/recapitulatif$/);
     await expect(page.getByRole('heading', { name: 'Récapitulatif de la séance' })).toBeVisible();
@@ -143,7 +150,7 @@ test.describe.serial('021 interview d’une spécification', () => {
     await page.goto(`/sessions/${sessionId}/versions/1`);
     const seances = page.getByRole('region', { name: 'Séances' }).or(page.locator('section[aria-labelledby="interviews-title"]'));
     await expect(seances.getByRole('link', { name: 'Compte rendu' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Faire le point/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Relire( \(\d+\))?$/ })).toBeVisible();
   });
 
   test('V3 : proposer la nouvelle version, relire le diff, appliquer', async () => {
@@ -201,12 +208,18 @@ test.describe.serial('021 interview d’une spécification', () => {
     await expect(page.locator('#UC-01-etape-1')).toBeFocused();
 
     // la séance la présente sur l'étape, pas dans « Non rattachés »
-    await page.getByRole('button', { name: /^Faire le point/ }).click();
+    await page.getByRole('button', { name: /^Relire( \(\d+\))?$/ }).click();
     await expect(page).toHaveURL(/\/seances\/[0-9a-f-]+$/);
     await page.getByRole('button', { name: 'Prochain point à traiter' }).click();
     const card = page.locator('[data-anchor="UC-01:1"] sw-point-card:focus');
     await expect(card).toContainText('Hypothèse H-01');
     await expect(page.getByText('Non rattachés')).toHaveCount(0);
+
+    // rien de noté : « Terminer » ne garde pas la relecture et revient à la spécification
+    await page.getByRole('button', { name: 'Terminer', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/sessions/${id}/versions/1$`));
+    await expect(page.getByRole('button', { name: /^Relire( \(\d+\))?$/ })).toBeVisible();
+    await expect(page.locator('section[aria-labelledby="interviews-title"]')).toHaveCount(0);
   });
 
   test('V5 : préparer une séance sur deux spécifications, en écartant un point', async () => {
@@ -266,9 +279,24 @@ test.describe.serial('021 interview d’une spécification', () => {
     expect(busy.status()).toBe(409);
     expect((await busy.json()).code).toBe('INTERVIEW_BUSY');
 
-    // le compte rendu est en deux parties, une par spécification
+    // le compte rendu est en deux parties, une par spécification ; une note sur chacune, sinon la
+    // séance vide ne serait pas gardée
+    const notes = page.getByRole('complementary', { name: /^Notes de séance/ });
+    for (let i = 0; i < 2; i++) {
+      const summary = page.locator('[data-anchor="SUMMARY"] markdown p').first();
+      await summary.selectText();
+      await summary.dispatchEvent('mouseup');
+      await notes.getByRole('toolbar').getByRole('button', { name: 'Commenter' }).click();
+      await notes.getByRole('textbox', { name: 'Ce qui a été dit' }).fill(`Remarque de séance ${i + 1}`);
+      await notes.getByRole('button', { name: 'Enregistrer' }).click();
+      await expect(notes.getByText(`Remarque de séance ${i + 1}`)).toBeVisible();
+      if (i === 0) {
+        await page.getByRole('button', { name: 'Spécification suivante' }).click();
+        await expect(page.locator('.spec-pos')).toHaveText('Spéc. 2 sur 2');
+      }
+    }
     // des points restent à traiter : la fin se confirme
-    await page.getByRole('button', { name: 'Terminer' }).click();
+    await page.getByRole('button', { name: 'Terminer', exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Terminer la séance' }).click();
     await expect(page).toHaveURL(/\/recapitulatif$/);
     await expect(page.locator('.preview h3')).toHaveCount(2);

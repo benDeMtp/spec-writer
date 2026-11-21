@@ -8,7 +8,7 @@ case qui cite une page Confluence. Les rejeux de 021 (`e2e/fixtures/llm`, marque
 
 ## V1. Séance d'une spécification (US1)
 
-1. Page de la spécification : « Faire le point (n) » affiche le bon nombre.
+1. Page de la spécification : « Relire (n) » affiche le bon nombre.
 2. Démarrer : menu masqué, grand texte, la spécification entière en document.
 3. « Prochain point à traiter » : la carte de `H-…` sous son étape prend le focus. « Confirmer ».
 4. Sur une étape sans point, « Noter », « Commenter » : « validation du manager au-delà de 500 € ».

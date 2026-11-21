@@ -593,6 +593,22 @@ au dernier point, le passage cité figure dans le compte rendu et le message de 
 - [X] T108 [US1] Gates : `verify` (après suppression de `jacoco.exec`), E2E sur le jar, bundle
   initial sous 500 kB, `ci/check-eval.sh`.
 
+
+### Retours d'usage du 21/11/2026
+
+- [X] T109 [US1] Tout le texte s'annote (titres, détails, tableaux, story, spécification sans
+  ancres) ; colonne « Notes de séance » à droite du document, rien n'est inséré dans le texte.
+- [X] T110 [US1] Supprimer une remarque ou une question notée en séance.
+- [X] T111 [US1] « Relire » remplace « Faire le point » ; « Prendre en compte les notes » termine
+  sans dialogue et lance la révision ; une spécification générée s'ouvre sur sa dernière version.
+- [X] T113 [US1] Zoom propre à la relecture (125 % par défaut, A− / A+), document sur toute la
+  largeur ; la page de la spécification garde sa taille normale.
+- [X] T114 [US1] Une relecture terminée sans rien de noté n'est pas gardée (204, supprimée) : ni
+  confirmation ni récapitulatif, retour à la spécification.
+- [X] T115 `index.html` servi en `no-cache` (les fichiers à empreinte restent en cache) : après une
+  mise à jour, le navigateur chargeait l'ancien front, dont les fichiers n'existent plus.
+- [X] T112 Gates : `verify`, E2E sur le jar, bundle initial sous 500 kB.
+
 ---
 
 ## Dependencies & Execution Order
