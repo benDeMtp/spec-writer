@@ -3,6 +3,7 @@ package fr.kawamind.infrastructure.platform;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.net.SocketException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
 import java.nio.ByteBuffer;
@@ -51,6 +52,10 @@ class InstanceChannelTest {
             c.connect(UnixDomainSocketAddress.of(socket));
             c.write(ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8)));
             return ChannelServer.readLine(c);
+        } catch (SocketException reset) {
+            // Linux : fermée par le serveur avec des octets encore non lus, la connexion est
+            // réinitialisée (RST) au lieu de finir proprement ; dans les deux cas, aucune réponse
+            return null;
         }
     }
 
