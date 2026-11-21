@@ -11,20 +11,22 @@ export interface FreshInstance {
   /** URL de lancement, à usage unique. */
   launchUrl: string;
   dataDir: string;
+  /** Code de sortie du processus, à sa fin (019). */
+  exited: Promise<number | null>;
   stop(): Promise<void>;
+  /** Arrêt brutal, sans arrêt propre (019, Q4). */
+  kill(): Promise<void>;
 }
 
 export const freshPort = Number(process.env.SPECWRITER_E2E_FRESH_PORT ?? 47697);
 
-/**
- * Démarre le jar sur un dossier de données neuf, assistant de premier lancement ouvert de lui-même
- * (coupé sur l'instance partagée). Le même dossier peut être repris pour tester la reprise après
- * un arrêt de l'outil.
- */
-export async function startFreshInstance(dataDir = mkdtempSync(join(tmpdir(), 'spec-writer-e2e-fresh-'))): Promise<FreshInstance> {
-  const java = process.env.JAVA_HOME ? join(process.env.JAVA_HOME, 'bin', 'java') : 'java';
-  const baseURL = `http://127.0.0.1:${freshPort}`;
-  const app: ChildProcess = spawn(java, [
+function java(): string {
+  return process.env.JAVA_HOME ? join(process.env.JAVA_HOME, 'bin', 'java') : 'java';
+}
+
+/** Options de la seconde instance ; `extraArgs` vient en dernier et l'emporte (019). */
+function freshArgs(dataDir: string, extraArgs: string[]): string[] {
+  return [
     '-Dquarkus.profile=e2e',
     `-Dspecwriter.port=${freshPort}`,
     `-Dspecwriter.data-dir=${dataDir}`,
@@ -33,8 +35,24 @@ export async function startFreshInstance(dataDir = mkdtempSync(join(tmpdir(), 's
     '-Dspecwriter.onboarding.auto-open=true',
     `-Dspecwriter.llm.replay-dir=${join(process.cwd(), 'fixtures', 'llm')}`,
     `-Dspecwriter.embedding.folder=${join(process.cwd(), '../backend/target/test-model')}`,
-    '-jar', join(process.cwd(), '../backend/target/quarkus-app/quarkus-run.jar'),
-  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    ...extraArgs,
+    '-jar',
+    join(process.cwd(), '../backend/target/quarkus-app/quarkus-run.jar'),
+  ];
+}
+
+/**
+ * Démarre le jar sur un dossier de données neuf, assistant de premier lancement ouvert de lui-même
+ * (coupé sur l'instance partagée). Le même dossier peut être repris pour tester la reprise après
+ * un arrêt de l'outil.
+ */
+export async function startFreshInstance(
+  dataDir = mkdtempSync(join(tmpdir(), 'spec-writer-e2e-fresh-')),
+  extraArgs: string[] = [],
+): Promise<FreshInstance> {
+  const baseURL = `http://127.0.0.1:${freshPort}`;
+  const app: ChildProcess = spawn(java(), freshArgs(dataDir, extraArgs), { stdio: ['ignore', 'pipe', 'pipe'] });
+  const exited = new Promise<number | null>((resolve) => app.once('exit', (code) => resolve(code)));
   const log = createWriteStream(join(stateDir, 'fresh-app.log'), { flags: 'a' });
   const mask = (chunk: Buffer) => chunk.toString().replace(/launch=[\w-]+/g, 'launch=***');
   app.stderr!.on('data', (chunk: Buffer) => log.write(mask(chunk)));
@@ -57,6 +75,7 @@ export async function startFreshInstance(dataDir = mkdtempSync(join(tmpdir(), 's
     baseURL,
     launchUrl,
     dataDir,
+    exited,
     stop: () =>
       new Promise<void>((resolve) => {
         if (app.exitCode !== null) {
@@ -66,5 +85,59 @@ export async function startFreshInstance(dataDir = mkdtempSync(join(tmpdir(), 's
         app.once('exit', () => resolve());
         app.kill('SIGTERM');
       }),
+    kill: () =>
+      new Promise<void>((resolve) => {
+        if (app.exitCode !== null || app.signalCode !== null) {
+          resolve();
+          return;
+        }
+        app.once('exit', () => resolve());
+        app.kill('SIGKILL');
+      }),
   };
+}
+
+/** Lancement brut du jar, sans attendre d'URL : l'un ou l'autre rôle peut lui échoir (019). */
+export interface Spawned {
+  exited: Promise<number | null>;
+  stdout(): string;
+  terminate(): Promise<void>;
+}
+
+export function spawnInstance(dataDir: string, extraArgs: string[] = []): Spawned {
+  const app = spawn(java(), freshArgs(dataDir, extraArgs), { stdio: ['ignore', 'pipe', 'pipe'] });
+  let out = '';
+  app.stdout!.on('data', (chunk: Buffer) => (out += chunk.toString()));
+  app.stderr!.resume();
+  const exited = new Promise<number | null>((resolve) => app.once('exit', (code) => resolve(code)));
+  return {
+    exited,
+    stdout: () => out,
+    terminate: async () => {
+      if (app.exitCode === null && app.signalCode === null) {
+        app.kill('SIGTERM');
+      }
+      await exited;
+    },
+  };
+}
+
+/** Résultat d'un lancement qui se termine de lui-même (019, second lancement). */
+export interface Launched {
+  code: number | null;
+  stdout: string;
+  ms: number;
+}
+
+/** Lance le jar sur un dossier de données et attend sa fin (60 s au plus). */
+export async function launchAgain(dataDir: string, extraArgs: string[] = []): Promise<Launched> {
+  const begin = Date.now();
+  const launched = spawnInstance(dataDir, extraArgs);
+  const timeout = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 60_000));
+  const code = await Promise.race([launched.exited, timeout]);
+  if (code === 'timeout') {
+    await launched.terminate();
+    throw new Error(`Le second lancement ne s'est pas terminé en 60 s : ${launched.stdout()}`);
+  }
+  return { code, stdout: launched.stdout(), ms: Date.now() - begin };
 }

@@ -197,7 +197,7 @@ public class Converse {
     }
 
     private void launch(UUID projectId, ConversationMessage question, ConversationMessage answer) {
-        events.open(answer.id());
+        events.open(answer.id(), TurnEvents.Kind.AGENT_REPLY, question.conversationId());
         Instant begin = clock.now();
         events.publish(answer.id(), new Event.Started(begin));
         OperationRegistry.Operation operation = operations.begin(question.conversationId());

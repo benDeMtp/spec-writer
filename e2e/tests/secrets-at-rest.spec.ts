@@ -6,10 +6,15 @@ import { baseURL, stateDir, storageStatePath } from './support/env';
 /** Jetons GitHub (préfixes officiels) et jetons Jira saisis pendant les parcours E2E. */
 const SECRETS = [/gho_[A-Za-z0-9]/, /ghu_[A-Za-z0-9]/, /github_pat_/, /e2e-good-token/, /jeton-perime/];
 
+/** Fichiers ordinaires du dossier ; la socket du canal de l'instance (019) ne se lit pas et ne garde rien. */
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
-    return statSync(path).isDirectory() ? files(path) : [path];
+    const stat = statSync(path);
+    if (stat.isDirectory()) {
+      return files(path);
+    }
+    return stat.isFile() ? [path] : [];
   });
 }
 

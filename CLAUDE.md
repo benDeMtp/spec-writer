@@ -1,7 +1,10 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/018-premier-lancement-visite/` (assistant de premier lancement
+La feature en cours est `specs/019-cycle-de-vie-outil/` (Quitter depuis le menu, arrêt propre
+commun à Quitter, ⌘Q, Ctrl+C et SIGTERM ; une instance par dossier de données, verrou
+`instance.lock` et canal `instance.sock` ; un second lancement ou le Dock de macOS rouvre un onglet),
+après `specs/018-premier-lancement-visite/` (assistant de premier lancement
 `/premiers-pas/:etape` jusqu'à l'indexation du projet, progression en base V29, installation déjà
 utilisée réputée configurée ; visite guidée de 11 arrêts sur le CDK, cibles `data-tour` ; guide
 « Installer depuis les sources » du README), après `specs/017-synchro-auto-sources/` (vue Jira lue dans l'index et triée par
@@ -102,6 +105,20 @@ dev mode ne remplace aucune gate. Le jar de `backend/target/quarkus-app` est rec
   `%e2e` (`specwriter.onboarding.auto-open=false`) ; `us18-premiers-pas` démarre une seconde
   instance sur une base neuve, port 47697. Une installation compte toujours au moins un projet
   (« Projet par défaut ») : l'assistant le renomme au lieu d'en créer un.
+- Cycle de vie (019) : `SpecWriterMain` (`@QuarkusMain`) est aussi appelé par le dev mode, à chaque
+  rechargement à chaud ; le verrou `instance.lock` et le canal `instance.sock` (dossier de données)
+  ne sont pris qu'en `LaunchMode.NORMAL` (jar, installeurs, E2E). Une seconde instance E2E a donc
+  besoin de son propre dossier de données. Le Dock de macOS n'est relié que si l'outil ouvre le
+  navigateur (pas en E2E). Un `@QuarkusTest` qui appelle `POST /api/application/quit` remplace
+  `GracefulStop` par `QuarkusMock`, sinon il arrête la JVM des tests.
+- Installeurs (`./mvnw -Pdist package`) : le lanceur jpackage passe par le classpath, pas par
+  `-jar`. Les `Add-Opens` du manifeste sont donc repris dans `jreleaser.yml`, et la classe
+  principale doit y suivre le `Main-Class` du jar. Le runtime jlink n'a que les modules listés :
+  relancer `jdeps` (commande dans `jreleaser.yml`) après l'ajout d'une dépendance. La version vient
+  du pom sans `-SNAPSHOT` ; sous macOS, jpackage refuse 0.x et reçoit 1.0.0, la version réelle
+  étant dans `dist/macos/Info.plist`. Ne pas lancer JReleaser directement sur `jreleaser.yml` : le
+  profil `dist` en écrit la version dans `backend/target/`. Tester le `.dmg` sur un dossier de
+  données temporaire (`-Dspecwriter.data-dir`), pas sur celui de l'utilisateur.
 - Profil `live` (`-Dquarkus.profile=dev,live`) : vrai Copilot et vrai trousseau. Il est réservé
   aux essais manuels du mainteneur.
 

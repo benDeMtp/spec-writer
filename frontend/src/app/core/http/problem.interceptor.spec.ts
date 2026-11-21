@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { ProblemBannerComponent } from '../../shared/ui/problem-banner.component';
 import { LaunchTokenService } from '../launch/launch-token.service';
+import { LifecycleStore } from '../lifecycle/lifecycle.store';
 import { problemInterceptor } from './problem.interceptor';
 import { ProblemStore } from './problem.store';
 
@@ -61,6 +62,13 @@ describe('problemInterceptor et bandeau', () => {
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).textContent).toContain(label);
     }
+  });
+
+  it('une coupure réseau, même silencieuse, lance la sonde de l’arrêt (019)', () => {
+    const probe = vi.spyOn(TestBed.inject(LifecycleStore), 'probe').mockResolvedValue();
+    http.get('/api/z', { headers: { 'X-Sw-Silent': '1' } }).subscribe({ error: () => undefined });
+    ctrl.expectOne('/api/z').error(new ProgressEvent('error'), { status: 0 });
+    expect(probe).toHaveBeenCalledTimes(1);
   });
 
   it('signale une coupure réseau', () => {

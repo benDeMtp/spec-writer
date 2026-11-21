@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { LifecycleStore } from '../lifecycle/lifecycle.store';
 import { ProjectsStore } from '../projects/projects.store';
 import { AppEventsService, NOTIFICATIONS_LOCK, SourceUpdatedEvent, notificationText } from './app-events.service';
 
@@ -85,6 +86,13 @@ describe('AppEventsService', () => {
     service.start();
     ctrl.expectOne('/api/settings/notifications').flush({ sourceUpdates: enabled });
   }
+
+  it('une coupure du flux lance la sonde de l’arrêt (019)', () => {
+    const probe = vi.spyOn(TestBed.inject(LifecycleStore), 'probe').mockResolvedValue();
+    start(true);
+    FakeEventSource.last.onerror!();
+    expect(probe).toHaveBeenCalledTimes(1);
+  });
 
   it('texte sans contenu : la source et ses décomptes, sans les zéros', () => {
     expect(notificationText(EVENT)).toEqual({

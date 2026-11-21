@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+ <dict>
+  <key>LSMinimumSystemVersion</key>
+  <string>10.11</string>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>English</string>
+  <key>CFBundleAllowMixedLocalizations</key>
+  <true/>
+  <key>CFBundleExecutable</key>
+  <string>DEPLOY_LAUNCHER_NAME</string>
+  <key>CFBundleIconFile</key>
+  <string>DEPLOY_ICON_FILE</string>
+  <key>CFBundleIdentifier</key>
+  <string>fr.kawamind.spec-writer</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>DEPLOY_BUNDLE_NAME</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>@APP_VERSION@</string>
+  <key>CFBundleSignature</key>
+  <string>????</string>
+  <!-- Modèle de jpackage 25 (Info-lite.plist.template), sauf la version : jpackage refuse une version qui
+       commence par 0 sous macOS. Il reçoit 1.0.0, et la version réelle est écrite ici
+       par le profil dist du backend. Identifiant fixé ici : jpackage le tirerait du paquet de la
+       classe principale. Les autres jetons restent remplis par jpackage. -->
+  <key>LSApplicationCategoryType</key>
+  <string>DEPLOY_APP_CATEGORY</string>
+  <key>CFBundleVersion</key>
+  <string>@APP_VERSION@</string>
+  <key>NSHumanReadableCopyright</key>
+  <string>DEPLOY_BUNDLE_COPYRIGHT</string>DEPLOY_FILE_ASSOCIATIONS
+  <key>NSHighResolutionCapable</key>
+  <string>true</string>
+ </dict>
+</plist>

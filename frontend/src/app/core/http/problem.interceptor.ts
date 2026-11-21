@@ -2,6 +2,7 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { LaunchTokenService } from '../launch/launch-token.service';
+import { LifecycleStore } from '../lifecycle/lifecycle.store';
 import { Problem, isProblem } from './problem';
 import { ProblemStore } from './problem.store';
 
@@ -18,6 +19,7 @@ const NETWORK_PROBLEM: Problem = {
 export const problemInterceptor: HttpInterceptorFn = (req, next) => {
   const store = inject(ProblemStore);
   const launch = inject(LaunchTokenService);
+  const lifecycle = inject(LifecycleStore);
   const silent = req.headers.has('X-Sw-Silent');
   const request = silent ? req.clone({ headers: req.headers.delete('X-Sw-Silent') }) : req;
   return next(request).pipe(
@@ -27,6 +29,10 @@ export const problemInterceptor: HttpInterceptorFn = (req, next) => {
       if (error instanceof HttpErrorResponse && isProblem(error.error) && error.error.code === 'SESSION_REQUIRED') {
         launch.state.set('rejected');
         return throwError(() => error);
+      }
+      // 019 : sans réponse, l'outil est peut-être arrêté ; la sonde le dit, même pour une requête silencieuse
+      if (error instanceof HttpErrorResponse && error.status === 0) {
+        void lifecycle.probe();
       }
       if (!silent && error instanceof HttpErrorResponse) {
         if (isProblem(error.error)) {

@@ -58,6 +58,7 @@ public class VersionResource {
     }
 
     /** 201 pour une nouvelle version, 200 quand la version existante est réutilisée. */
+    @LongWork
     @POST
     public Response generate(@PathParam("id") String id) {
         GenerateSpecification.Generated generated = generateSpecification.run(Ids.parse(id));
