@@ -4,6 +4,7 @@ import { startApp, stopApp } from './support/app';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, storageStatePath } from './support/env';
 import { exchange } from './support/global-setup';
+import { versionMenu } from './support/spec-actions';
 
 const NEED =
   'Les employés doivent pouvoir réserver une place de parking pour une journée, et être prévenus quand le parking ' +
@@ -99,13 +100,13 @@ test.describe.serial('US3 reprise et révision', () => {
     await page.getByRole('button', { name: 'Générer à nouveau' }).click();
     await expect(page).toHaveURL(/\/versions\/2$/);
 
-    const versions = page.getByRole('navigation', { name: 'Versions de la spécification' });
-    await expect(versions.getByRole('link')).toHaveText(['Version 1', 'Version 2']);
-    await expect(versions.getByRole('link', { name: 'Version 2' })).toHaveAttribute('aria-current', 'page');
     await expectNoA11yViolations(page);
-    await versions.getByRole('link', { name: 'Version 1' }).click();
+    const versions = await versionMenu(page);
+    await expect(versions.getByRole('menuitem')).toHaveText([/^Version 1/, /^Version 2/]);
+    await expect(versions.getByRole('menuitem', { name: /^Version 2/ })).toHaveAttribute('aria-current', 'page');
+    await versions.getByRole('menuitem', { name: /^Version 1/ }).click();
     await expect(page).toHaveURL(/\/versions\/1$/);
-    await expect(page.getByText('Version 1 ·')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Version 1, changer de version' })).toBeVisible();
   });
 
   test('renommer puis supprimer la session', async () => {

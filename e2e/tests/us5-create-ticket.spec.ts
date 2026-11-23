@@ -2,6 +2,7 @@ import { expect, request, test, type APIRequestContext, type BrowserContext, typ
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, jiraURL, storageStatePath } from './support/env';
+import { specAction, closeActions } from './support/spec-actions';
 
 const NEED =
   'Les employés doivent pouvoir réserver une place de parking pour une journée, et être prévenus quand le parking ' +
@@ -126,9 +127,10 @@ test.describe.serial('US5 création du ticket Jira', () => {
 
   test("Jira non configuré : le bouton est désactivé et l'écran explique pourquoi", async () => {
     await page.goto(versionPath);
-    const create = page.getByRole('button', { name: 'Créer un ticket Jira' });
+    const create = await specAction(page, 'Créer un ticket Jira');
     await expect(create).toBeDisabled();
     await expect(create).toHaveAccessibleDescription(/renseignez le serveur et le jeton Jira/);
+    await closeActions(page);
     await expectNoA11yViolations(page);
   });
 
@@ -139,7 +141,7 @@ test.describe.serial('US5 création du ticket Jira', () => {
     });
     expect(saved.status()).toBe(200);
     await page.reload();
-    await page.getByRole('button', { name: 'Créer un ticket Jira' }).click();
+    await (await specAction(page, 'Créer un ticket Jira')).click();
     // consentement Jira demandé avant le premier appel
     await page.getByRole('button', { name: 'Accepter' }).click();
     const dialog = page.getByRole('dialog', { name: /Créer un ticket Jira/ });
@@ -184,7 +186,8 @@ test.describe.serial('US5 création du ticket Jira', () => {
     await dialog.getByRole('button', { name: 'Fermer' }).click();
     await expect(page.getByText('Ticket PROJ-200 créé depuis la version 1.')).toBeVisible();
     await expect(page.getByText('Liée au ticket')).toContainText('PROJ-200');
-    await expect(page.getByRole('button', { name: 'Envoyer vers Jira' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Créer un ticket Jira' })).toHaveCount(0);
+    await expect(await specAction(page, 'Envoyer vers Jira')).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Créer un ticket Jira' })).toHaveCount(0);
+    await closeActions(page);
   });
 });

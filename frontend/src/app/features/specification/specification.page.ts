@@ -1,4 +1,5 @@
-import { DOCUMENT, DatePipe, NgTemplateOutlet } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,6 +18,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
@@ -129,13 +132,15 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
     ProposalReviewComponent,
     DiscussionPanelComponent,
     AttachmentsComponent,
-    DatePipe,
+    SwDatePipe,
     NgTemplateOutlet,
     MarkdownComponent,
     MatButtonModule,
     MatInputModule,
     MatFormFieldModule,
     MatSelectModule,
+    MatMenuModule,
+    MatDividerModule,
     RouterLink,
     ScenarioComponent,
     SubtasksPanelComponent,
@@ -171,19 +176,28 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
               </form>
             } @else {
               <p class="meta">
-                Version {{ v.number }} · {{ session()?.name }}
+                @if (versions().length > 1) {
+                  <sw-versions-panel [sessionId]="id()" [versions]="versions()" [current]="v.number" />
+                } @else {
+                  Version {{ v.number }}
+                }
+                · {{ session()?.name }}
                 @if (v.contextUpdatedAt) {
-                  · contexte du {{ v.contextUpdatedAt | date: 'd MMM y, HH:mm' }}
+                  · contexte du {{ v.contextUpdatedAt | swDate: 'd MMM y, HH:mm' }}
                 }
                 @if (session(); as s) {
                   <button
-                    mat-button
+                    mat-icon-button
                     type="button"
                     class="rename-action"
+                    title="Renommer"
                     (click)="startRename(s.name)"
                     [attr.aria-label]="'Renommer la spécification ' + s.name"
                   >
-                    Renommer
+                    <!-- crayon -->
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
                   </button>
                 }
               </p>
@@ -230,7 +244,7 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                 }
                 @if (locked()) {
                   <p id="locked-reason" class="hint">
-                    Implémentée le {{ s.implementation.implementedAt | date: 'd MMMM y' }} : cette
+                    Implémentée le {{ s.implementation.implementedAt | swDate: 'd MMMM y' }} : cette
                     spécification est verrouillée. Rétablissez un statut antérieur, ou créez une
                     évolution.
                   </p>
@@ -271,60 +285,59 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                   Relire{{ pendingPoints() ? ' (' + pendingPoints() + ')' : '' }}
                 }
               </button>
-              <button
-                mat-stroked-button
-                type="button"
-                [disabled]="exporting()"
-                (click)="exportMarkdown(v.number)"
-              >
-                Exporter en Markdown
+              <!-- les autres actions dans un menu : l'en-tête reste sur une ligne, même discussion ouverte -->
+              <button mat-stroked-button type="button" class="more" [matMenuTriggerFor]="moreMenu">
+                Autres actions <span aria-hidden="true">▾</span>
               </button>
-              @if (session()?.linkedTicket) {
-                <button
-                  mat-stroked-button
-                  type="button"
-                  [disabled]="pushing() || locked()"
-                  [attr.aria-describedby]="locked() ? 'locked-reason' : null"
-                  (click)="push(v.number)"
-                >
-                  Envoyer vers Jira
+              <mat-menu #moreMenu="matMenu">
+                <button mat-menu-item type="button" [disabled]="exporting()" (click)="exportMarkdown(v.number)">
+                  Exporter en Markdown
                 </button>
-              } @else if (session()) {
-                <button
-                  mat-stroked-button
-                  type="button"
-                  [disabled]="!jiraReady() || pushing() || locked()"
-                  [attr.aria-describedby]="
-                    locked() ? 'locked-reason' : jiraReady() ? null : 'jira-missing'
-                  "
-                  (click)="createTicket(v.number)"
-                >
-                  Créer un ticket Jira
-                </button>
-              }
-              @if (session() && moveTargets().length) {
-                <button mat-button type="button" (click)="move()">Déplacer vers…</button>
-              }
-              @if (session()?.origin !== 'JIRA_IMPORT') {
-                <a mat-button [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
-              }
-              @if (session()) {
-                <!-- à l'écart des autres actions, en couleur d'alerte : rien ne se supprime par mégarde -->
-                <span class="danger-zone">
+                @if (session()?.linkedTicket) {
                   <button
-                    mat-button
+                    mat-menu-item
                     type="button"
+                    [disabled]="pushing() || locked()"
+                    [attr.aria-describedby]="locked() ? 'locked-reason' : null"
+                    (click)="push(v.number)"
+                  >
+                    Envoyer vers Jira
+                  </button>
+                } @else if (session()) {
+                  <button
+                    mat-menu-item
+                    type="button"
+                    [disabled]="!jiraReady() || pushing() || locked()"
+                    [attr.aria-describedby]="locked() ? 'locked-reason' : jiraReady() ? null : 'jira-missing'"
+                    (click)="createTicket(v.number)"
+                  >
+                    Créer un ticket Jira
+                  </button>
+                }
+                @if (session() && moveTargets().length) {
+                  <button mat-menu-item type="button" (click)="move()">Déplacer vers…</button>
+                }
+                @if (session()?.origin !== 'JIRA_IMPORT') {
+                  <a mat-menu-item [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
+                }
+                @if (session()) {
+                  <!-- à l'écart des autres actions, en couleur d'alerte : rien ne se supprime par mégarde -->
+                  <mat-divider />
+                  <button
+                    mat-menu-item
+                    type="button"
+                    class="danger"
                     [disabled]="locked()"
                     [attr.aria-describedby]="locked() ? 'locked-reason' : null"
                     (click)="removeVersion(v.number)"
                   >
                     Supprimer cette version
                   </button>
-                  <button mat-button type="button" (click)="removeSpecification()">
+                  <button mat-menu-item type="button" class="danger" (click)="removeSpecification()">
                     Supprimer la spécification
                   </button>
-                </span>
-              }
+                }
+              </mat-menu>
             </div>
             @if (session() && !session()?.linkedTicket && !jiraReady()) {
               <p id="jira-missing" class="hint">
@@ -693,7 +706,7 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                   <ul class="interviews">
                     @for (i of interviews(); track i.id) {
                       <li>
-                        {{ (i.startedAt ?? i.createdAt) | date: 'd MMMM y' }}
+                        {{ (i.startedAt ?? i.createdAt) | swDate: 'd MMMM y' }}
                         @if (i.participants.length) {
                           , avec {{ i.participants.join(', ') }}
                         }
@@ -712,15 +725,6 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
               <sw-tasks-panel [sessionId]="id()" (changed)="tasksChanged($event)" />
               <sw-subtasks-panel [sessionId]="id()" [versionNumber]="v.number" />
             </div>
-            @if (versions().length > 1) {
-              <aside class="side">
-                <sw-versions-panel
-                  [sessionId]="id()"
-                  [versions]="versions()"
-                  [current]="v.number"
-                />
-              </aside>
-            }
           </div>
           @if (discussing() && !locked()) {
             <!-- petit écran : le panneau est sous le document, ce bouton y ramène -->
@@ -813,13 +817,17 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
       align-items: center;
       gap: 0.5rem;
     }
-    .danger-zone {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.25rem;
-      padding-left: 0.5rem;
-      border-left: 1px solid var(--sw-rule);
-      --mat-button-text-label-text-color: var(--mat-sys-error, #b3261e);
+    /* les suppressions, au bas du menu « Autres actions », en couleur d'alerte */
+    .danger {
+      color: var(--mat-sys-error, #b3261e);
+    }
+    .rename-action {
+      vertical-align: middle;
+      color: var(--sw-ink-soft);
+    }
+    .rename-action:hover,
+    .rename-action:focus-visible {
+      color: var(--sw-pencil);
     }
     .hint {
       margin: 0.5rem 0 0;
@@ -869,23 +877,15 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
       overflow-y: auto;
       overscroll-behavior: contain;
     }
-    .workspace.discussing .side {
-      position: static;
-      order: -1;
-    }
     .back-to-discussion {
       display: none;
     }
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, calc(var(--sw-measure) + 10rem)) 13rem;
+      grid-template-columns: minmax(0, calc(var(--sw-measure) + 10rem));
       gap: 1.5rem;
       align-items: start;
       margin-top: 1rem;
-    }
-    .side {
-      position: sticky;
-      top: 1rem;
     }
     @media (max-width: 64rem) {
       .workspace.discussing {
@@ -907,10 +907,6 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
       }
       .layout {
         grid-template-columns: minmax(0, 1fr);
-      }
-      .side {
-        position: static;
-        order: -1;
       }
     }
     .sheet {

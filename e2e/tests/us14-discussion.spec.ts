@@ -2,6 +2,7 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, storageStatePath } from './support/env';
+import { specAction } from './support/spec-actions';
 
 const DEFAULT_PROJECT = '00000000-0000-0000-0000-000000000001';
 const NEED =
@@ -113,8 +114,7 @@ test.describe.serial('011 discussion d’une spécification', () => {
     await review.getByRole('button', { name: 'Appliquer' }).click();
     await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/versions/2\\?discussion=1$`));
     await expect(panel()).toContainText(/Contexte : .+, version 2/);
-    const versions = page.getByRole('navigation', { name: 'Versions de la spécification' });
-    const origin = versions.getByRole('link', { name: 'Issue de la discussion' });
+    const origin = page.getByRole('link', { name: 'Discussion d’origine' });
     await expect(origin).toHaveAttribute('href', /^\/conversations\/[0-9a-f-]{36}$/);
     firstConversation = (await origin.getAttribute('href'))!.split('/').pop()!;
     await expect(page.locator('#UC-02')).toContainText('Établi dans la discussion :');
@@ -179,7 +179,7 @@ test.describe.serial('011 discussion d’une spécification', () => {
 
   test('D7 : les deux discussions dans la liste, gardées quand la spécification est supprimée', async () => {
     await page.goto(`/sessions/${sessionId}/versions/2`);
-    await page.getByRole('button', { name: 'Supprimer la spécification' }).click();
+    await (await specAction(page, 'Supprimer la spécification')).click();
     const dialog = page.getByRole('dialog', { name: 'Supprimer la spécification ?' });
     await expect(dialog).toContainText('Elle a 2 discussions avec l’IA.');
     const option = dialog.getByRole('checkbox', { name: 'Supprimer aussi ses discussions' });

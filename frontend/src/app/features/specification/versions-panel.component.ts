@@ -1,7 +1,9 @@
-import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatMenuModule } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import { VersionSummary } from '../../core/sessions/sessions.model';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 
 const ORIGINS: Record<VersionSummary['origin'], string> = {
   GENERATED: 'Générée',
@@ -12,70 +14,60 @@ const ORIGINS: Record<VersionSummary['origin'], string> = {
 };
 
 /**
- * Historique des versions (FR-018) : chacune reste consultable. Une version issue d'une discussion
- * mène à la conversation, tant qu'elle existe (011, FR-011).
+ * Sélecteur de version (FR-018) : « Version 4 ▾ », chaque version reste consultable depuis le
+ * menu. La version affichée, issue d'une discussion, mène à sa conversation tant qu'elle existe
+ * (011, FR-011).
  */
 @Component({
   selector: 'sw-versions-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink],
+  imports: [MatButtonModule, MatMenuModule, RouterLink, SwDatePipe],
   template: `
-    <nav class="versions" aria-label="Versions de la spécification">
-      <h2>Versions</h2>
-      <ol>
-        @for (v of versions(); track v.number) {
-          <li>
-            <a
-              [routerLink]="['/sessions', sessionId(), 'versions', v.number]"
-              queryParamsHandling="preserve"
-              [attr.aria-current]="v.number === current() ? 'page' : null"
-              [class.current]="v.number === current()"
-            >
-              Version {{ v.number }}
-            </a>
-            <span class="meta">
-              @if (v.conversationId) {
-                <a class="origin" [routerLink]="['/conversations', v.conversationId]"
-                  >{{ origin(v)
-                  }}<span class="sw-visually-hidden"> : ouvrir la conversation</span></a
-                >
-              } @else {
-                {{ origin(v) }}
-              }
-              ,
-              {{ v.createdAt | date: 'd MMM y, HH:mm' }}
-            </span>
-          </li>
-        }
-      </ol>
-    </nav>
+    <button
+      mat-button
+      type="button"
+      class="version-menu"
+      [matMenuTriggerFor]="menu"
+      [attr.aria-label]="'Version ' + current() + ', changer de version'"
+    >
+      Version {{ current() }} <span aria-hidden="true">▾</span>
+    </button>
+    <mat-menu #menu="matMenu" class="version-items">
+      @for (v of versions(); track v.number) {
+        <a
+          mat-menu-item
+          [routerLink]="['/sessions', sessionId(), 'versions', v.number]"
+          queryParamsHandling="preserve"
+          [attr.aria-current]="v.number === current() ? 'page' : null"
+        >
+          <span class="number">Version {{ v.number }}</span>
+          <span class="meta">{{ origin(v) }}, {{ v.createdAt | swDate: 'd MMM y, HH:mm' }}</span>
+        </a>
+      }
+    </mat-menu>
+    @if (conversationId(); as c) {
+      <a class="origin" [routerLink]="['/conversations', c]">Discussion d’origine</a>
+    }
   `,
   styles: `
-    .versions h2 {
-      margin: 0 0 0.5rem;
-      font-size: var(--sw-step-0);
-      font-weight: 650;
-    }
-    ol {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: grid;
+    :host {
+      display: inline-flex;
+      align-items: baseline;
       gap: 0.25rem;
+      flex-wrap: wrap;
     }
-    a {
-      color: var(--sw-pencil);
+    .version-menu {
       font-weight: 600;
     }
-    .meta a.origin {
-      font-weight: 400;
+    .origin {
+      color: var(--sw-pencil);
+      font-size: var(--sw-step--1);
     }
-    a.current {
-      color: var(--sw-ink);
-      text-decoration: none;
+    .number {
+      font-weight: 600;
+      margin-right: 0.5rem;
     }
     .meta {
-      display: block;
       color: var(--sw-ink-soft);
       font-size: var(--sw-step--1);
     }
@@ -85,6 +77,10 @@ export class VersionsPanelComponent {
   readonly sessionId = input.required<string>();
   readonly versions = input.required<VersionSummary[]>();
   readonly current = input.required<number>();
+
+  protected readonly conversationId = computed(
+    () => this.versions().find((v) => v.number === this.current())?.conversationId ?? null,
+  );
 
   protected origin(v: VersionSummary): string {
     return ORIGINS[v.origin] ?? v.origin;

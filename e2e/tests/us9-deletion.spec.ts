@@ -3,6 +3,7 @@ import { expectNoA11yViolations } from './support/a11y';
 import { proposeThroughDiscussion } from './support/discussion';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, jiraURL, storageStatePath } from './support/env';
+import { specAction, versionMenu } from './support/spec-actions';
 
 const NEED =
   'Les assistantes doivent pouvoir réserver une salle de réunion pour un comité, et voir les salles libres du jour.';
@@ -83,7 +84,7 @@ test.describe.serial('US9 suppression locale', () => {
 
   test('P9 : supprimer la version 2 sur trois, après une confirmation nommée ; annuler ne change rien', async () => {
     await page.goto(`/sessions/${threeVersions}/versions/2`);
-    await page.getByRole('button', { name: 'Supprimer cette version' }).click();
+    await (await specAction(page, 'Supprimer cette version')).click();
     const dialog = page.getByRole('dialog', { name: 'Supprimer la version 2 ?' });
     await expect(dialog).toContainText('La version 2 de');
     await expect(dialog).toContainText('Les autres versions gardent leur numéro.');
@@ -94,13 +95,14 @@ test.describe.serial('US9 suppression locale', () => {
     let versions = await (await page.request.get(`/api/sessions/${threeVersions}/versions`)).json();
     expect(versions.map((v: { number: number }) => v.number)).toEqual([1, 2, 3]);
 
-    await page.getByRole('button', { name: 'Supprimer cette version' }).click();
+    await (await specAction(page, 'Supprimer cette version')).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Supprimer la version' }).click();
     await expect(page).toHaveURL(new RegExp(`/sessions/${threeVersions}/versions/3$`));
     await expect(page.getByRole('status').filter({ hasText: 'Version 2 supprimée.' })).toBeVisible();
     versions = await (await page.request.get(`/api/sessions/${threeVersions}/versions`)).json();
     expect(versions.map((v: { number: number }) => v.number)).toEqual([1, 3]);
-    await expect(page.getByRole('navigation', { name: 'Versions de la spécification' })).not.toContainText('Version 2');
+    await expect((await versionMenu(page)).getByRole('menuitem')).toHaveText([/^Version 1/, /^Version 3/]);
+    await page.keyboard.press('Escape');
     expect(await jiraCalls()).toEqual([]);
   });
 

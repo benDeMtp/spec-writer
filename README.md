@@ -296,8 +296,10 @@ supprimée », et se poursuivent comme des conversations ordinaires.
 Une spécification s'écrit souvent avec des hypothèses, des écarts entre sources et des points
 ouverts. **Relire**, sur la page d'une spécification, les tranche et annote le texte : seul, ou en
 séance avec les sachants sur écran partagé. Ouverte depuis la page **Spécifications**, une
-spécification générée s'affiche sur sa dernière version ; le questionnaire reste accessible par
-**Retour au questionnaire**.
+spécification générée s'affiche sur sa dernière version. En tête de page, **Discuter avec l'IA** et
+**Relire** ; tout le reste (export, Jira, déplacement, **Retour au questionnaire**, suppressions)
+est dans **Autres actions**, et **Version n ▾** ouvre les versions précédentes. Le crayon à côté du
+nom renomme la spécification.
 
 **Préparer une séance.** La page **Spécifications** montre sous chacune ses points à traiter
 (« 3 hypothèses · 2 points ouverts · 1 écart entre sources ») ; la case **Avec des points à traiter**

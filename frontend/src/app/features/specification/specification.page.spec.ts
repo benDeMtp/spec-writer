@@ -431,6 +431,18 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(section('source-deviations')).toBeNull();
   });
 
+  it('en-tête compact : deux actions principales, le reste dans « Autres actions », crayon pour renommer', async () => {
+    await open(SESSION, []);
+    const actions = Array.from(el.querySelectorAll<HTMLElement>('.actions > button')).map((b) => b.textContent?.trim());
+    expect(actions).toEqual(["Discuter avec l'IA", 'Relire', 'Autres actions ▾']);
+    expect(document.querySelector('.cdk-overlay-container')?.textContent ?? '').not.toContain('Supprimer cette version');
+    const rename = el.querySelector<HTMLButtonElement>('button.rename-action')!;
+    expect(rename.getAttribute('aria-label')).toBe('Renommer la spécification ' + SESSION.name);
+    expect(rename.getAttribute('title')).toBe('Renommer');
+    expect(rename.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(button('Supprimer cette version').classList).toContain('danger');
+  });
+
   it('renomme la spécification depuis son écran', async () => {
     await open(SESSION, []);
     button('Renommer').click();
@@ -476,10 +488,25 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(text(efforts)).toContain('Avoirs → Comptabilité : traverse des infrastructures');
   });
 
+  /**
+   * Bouton par son texte, ou par le début de son nom accessible (bouton icône « Renommer ») ; les
+   * actions secondaires sont dans le menu « Autres actions », ouvert au besoin.
+   */
   function button(label: string): HTMLButtonElement {
-    return Array.from(document.querySelectorAll('button')).find(
-      (b) => b.textContent?.trim() === label,
-    )!;
+    const find = () =>
+      Array.from(document.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === label || b.getAttribute('aria-label')?.startsWith(label + ' '),
+      );
+    let found = find();
+    if (!found) {
+      const more = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+        b.textContent?.trim().startsWith('Autres actions'),
+      );
+      more?.click();
+      fixture.detectChanges();
+      found = find();
+    }
+    return found!;
   }
 
   /** Bouton de la boîte de confirmation ouverte : « Supprimer la spécification » existe aussi sur la page. */
