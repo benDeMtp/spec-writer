@@ -1,4 +1,5 @@
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import { Subtask, SubtaskReport } from '../../core/sessions/sessions.model';
@@ -11,7 +12,7 @@ import { Subtask, SubtaskReport } from '../../core/sessions/sessions.model';
 @Component({
   selector: 'sw-subtasks-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, NgTemplateOutlet],
+  imports: [SwDatePipe, NgTemplateOutlet],
   template: `
     @if (report(); as r) {
       <section aria-labelledby="subtasks-title" class="subtasks">
@@ -82,7 +83,7 @@ import { Subtask, SubtaskReport } from '../../core/sessions/sessions.model';
           }
           @if (!t.statusFresh && t.status) {
             <span class="stale">
-              statut indexé{{ t.statusDate ? ' le ' + (t.statusDate | date: 'd MMM y') : '' }} (Jira n'a pas pu être relu)
+              statut indexé{{ t.statusDate ? ' le ' + (t.statusDate | swDate: 'd MMM y') : '' }} (Jira n'a pas pu être relu)
             </span>
           }
         </p>

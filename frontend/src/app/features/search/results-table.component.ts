@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
@@ -24,7 +24,7 @@ export function itemLink(item: SearchItem): string[] {
 @Component({
   selector: 'sw-results-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatTableModule, RouterLink],
+  imports: [SwDatePipe, MatTableModule, RouterLink],
   template: `
     <table mat-table [dataSource]="items()" class="results">
       <caption class="sw-visually-hidden">{{ caption() }}</caption>
@@ -50,7 +50,7 @@ export function itemLink(item: SearchItem): string[] {
       <ng-container matColumnDef="updatedAt">
         <th mat-header-cell *matHeaderCellDef scope="col">Modifié le</th>
         <td mat-cell *matCellDef="let item" class="date">
-          <time [attr.datetime]="item.updatedAt">{{ item.updatedAt | date: 'd MMM y, HH:mm' }}</time>
+          <time [attr.datetime]="item.updatedAt">{{ item.updatedAt | swDate: 'd MMM y, HH:mm' }}</time>
         </td>
       </ng-container>
       <tr mat-header-row *matHeaderRowDef="columns"></tr>

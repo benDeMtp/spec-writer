@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router, RouterLink } from '@angular/router';
@@ -17,7 +17,7 @@ import { ProjectsStore } from '../../core/projects/projects.store';
 @Component({
   selector: 'sw-item-detail-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ElapsedComponent, DatePipe, MarkdownComponent, MatButtonModule, RouterLink],
+  imports: [ElapsedComponent, SwDatePipe, MarkdownComponent, MatButtonModule, RouterLink],
   template: `
     @if (issue(); as i) {
       <header class="head">
@@ -25,7 +25,7 @@ import { ProjectsStore } from '../../core/projects/projects.store';
         <h1>{{ i.summary }}</h1>
         <p class="meta">
           Modifié dans Jira le
-          <time [attr.datetime]="i.updated">{{ i.updated | date: 'd MMMM y, HH:mm' }}</time
+          <time [attr.datetime]="i.updated">{{ i.updated | swDate: 'd MMMM y, HH:mm' }}</time
           >.
           <a [href]="i.url" target="_blank" rel="noopener noreferrer"
             >Ouvrir dans Jira<span class="sw-visually-hidden"> (nouvel onglet)</span></a

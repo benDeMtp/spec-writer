@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -12,12 +12,12 @@ import { ConflictResolution, JiraConflict } from '../../core/jira/jira.model';
 @Component({
   selector: 'sw-conflict-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MarkdownComponent, MatButtonModule, MatDialogModule],
+  imports: [SwDatePipe, MarkdownComponent, MatButtonModule, MatDialogModule],
   template: `
     <h2 mat-dialog-title>Le ticket a été modifié dans Jira</h2>
     <mat-dialog-content>
       <p>
-        Quelqu'un a modifié le ticket le {{ data.jiraUpdated | date: 'd MMMM y à HH:mm' }}, après votre dernière
+        Quelqu'un a modifié le ticket le {{ data.jiraUpdated | swDate: 'd MMMM y à HH:mm' }}, après votre dernière
         lecture. Rien n'a été envoyé : choisissez quelle version garder.
       </p>
       <div class="versions">

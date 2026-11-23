@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -31,7 +31,7 @@ const STATES: Record<SessionState, string> = {
 @Component({
   selector: 'sw-sessions-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, RouterLink, SearchPage, ProjectHeadingComponent],
+  imports: [SwDatePipe, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, RouterLink, SearchPage, ProjectHeadingComponent],
   template: `
     <header class="head">
       <sw-project-heading label="Spécifications" />
@@ -113,7 +113,7 @@ const STATES: Record<SessionState, string> = {
                 }
                 <p class="meta">
                   @if (s.readable) {
-                    {{ meta(s) }}, modifiée le {{ s.updatedAt | date: 'd MMMM y, HH:mm' }}
+                    {{ meta(s) }}, modifiée le {{ s.updatedAt | swDate: 'd MMMM y, HH:mm' }}
                   } @else {
                     <span class="unreadable">Illisible : sa sauvegarde est endommagée. Vous pouvez la supprimer.</span>
                   }

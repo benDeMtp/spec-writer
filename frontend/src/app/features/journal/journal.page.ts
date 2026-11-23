@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -16,7 +16,7 @@ import { ConfirmData, ConfirmDialogComponent } from '../../shared/ui/confirm-dia
 @Component({
   selector: 'sw-journal-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatButtonModule, MatFormFieldModule, MatSelectModule],
+  imports: [SwDatePipe, MatButtonModule, MatFormFieldModule, MatSelectModule],
   template: `
     <h1>Journal</h1>
     <div class="sheet">
@@ -47,7 +47,7 @@ import { ConfirmData, ConfirmDialogComponent } from '../../shared/ui/confirm-dia
           <li [class]="e.level === 'ERROR' ? 'error' : 'warn'">
             <div class="head">
               <span class="level">{{ e.level === 'ERROR' ? 'Erreur' : 'Avertissement' }}</span>
-              <time [attr.datetime]="e.at">{{ e.at | date: 'd MMM y, HH:mm:ss' }}</time>
+              <time [attr.datetime]="e.at">{{ e.at | swDate: 'd MMM y, HH:mm:ss' }}</time>
               <span class="logger">{{ shortLogger(e.logger) }}</span>
             </div>
             <p class="message">{{ e.message }}</p>
