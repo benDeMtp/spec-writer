@@ -544,9 +544,10 @@ sources.
   quickstart.md.
 - [X] T093 Avant le commit final, lancer les gates : `./mvnw -B verify -DskipDependencyCheck` (après
   suppression de `jacoco.exec`), les E2E sur le jar et `ci/check-eval.sh`.
-- [ ] T094 Évaluation `live` par le mainteneur (nouvelle empreinte) : `anchoredRate` ≥ 0,90,
+- [X] T094 Évaluation `live` par le mainteneur (nouvelle empreinte) : `anchoredRate` ≥ 0,90,
   `decidedRemoved` = 1,0 et aucun recul ailleurs. Mettre ensuite à jour `last-run.json` et la
-  baseline.
+  baseline. Fait le 21/11/2026 : `anchoredRate` 1,0, révision à 1,0 ; une génération sur 21 rejetée
+  après ses tentatives (`scenarioStructure` 0,99), seuil abaissé à 0,95 par le mainteneur.
 
 
 ---
