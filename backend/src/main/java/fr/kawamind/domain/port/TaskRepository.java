@@ -5,6 +5,7 @@ import fr.kawamind.domain.task.TaskProposal;
 import fr.kawamind.domain.task.TaskTracking;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +20,12 @@ public interface TaskRepository {
 
     /** Enregistre l'état d'une tâche existante, sans toucher aux autres ni à sa position. */
     void update(SpecTask task);
+
+    /** Descriptions relues dans Jira des tâches de la session, par tâche ; absentes si vides. */
+    Map<UUID, String> descriptions(UUID sessionId);
+
+    /** Description relue dans Jira, en Markdown ; nulle si la sous-tâche n'en a pas. */
+    void describe(UUID taskId, String description);
 
     Optional<TaskProposal> proposal(UUID sessionId);
 

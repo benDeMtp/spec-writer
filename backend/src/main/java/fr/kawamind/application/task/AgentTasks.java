@@ -30,8 +30,12 @@ public class AgentTasks {
     static final String PENDING_MESSAGE = "Jira est injoignable : la transition est enregistrée dans spec-writer et "
             + "sera envoyée à Jira dès que possible. Vous pouvez continuer ou attendre.";
 
-    /** Une tâche telle qu'un agent la voit. {@code dependsOn} : clés Jira des préalables. */
-    public record TaskInfo(String key, String title, String outcome, int position, List<String> dependsOn,
+    /**
+     * Une tâche telle qu'un agent la voit. {@code dependsOn} : clés Jira des préalables ;
+     * {@code description} : celle de la sous-tâche dans Jira, en Markdown, nulle si vide.
+     */
+    public record TaskInfo(String key, String title, String outcome, String description, int position,
+            List<String> dependsOn,
             TaskStatus status, String heldBy, boolean heldByYou, String jiraSync, String report) {
     }
 
@@ -201,16 +205,17 @@ public class AgentTasks {
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Aucune tâche " + key + " dans cette feature."));
     }
 
-    private static List<TaskInfo> infos(List<SpecTask> tasks, String connection) {
+    private List<TaskInfo> infos(List<SpecTask> tasks, String connection) {
         return tasks.stream().filter(SpecTask::isCreated).map(t -> info(t, tasks, connection)).toList();
     }
 
-    private static TaskInfo info(SpecTask t, List<SpecTask> tasks, String connection) {
+    private TaskInfo info(SpecTask t, List<SpecTask> tasks, String connection) {
         Map<UUID, SpecTask> byId = tasks.stream().collect(Collectors.toMap(SpecTask::id, Function.identity()));
         List<String> deps = t.dependsOn().stream().map(byId::get).filter(d -> d != null && d.isCreated())
                 .map(SpecTask::jiraKey).toList();
         boolean mine = t.holder() != null && t.holder().connection().equals(connection);
-        return new TaskInfo(t.jiraKey(), t.title(), t.outcome(), t.position(), deps, t.status(),
+        String description = desk.tasks.descriptions(t.sessionId()).get(t.id());
+        return new TaskInfo(t.jiraKey(), t.title(), t.outcome(), description, t.position(), deps, t.status(),
                 t.holder() == null ? null : t.holder().agentName(), mine, t.isPending() ? "PENDING" : "OK", t.report());
     }
 }

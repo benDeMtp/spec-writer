@@ -10,6 +10,7 @@ import fr.kawamind.domain.agent.AgentOperation;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
 import fr.kawamind.domain.jira.IssueTrackerException.Kind;
+import fr.kawamind.domain.jira.TrackedIssue;
 import fr.kawamind.domain.jira.Transition;
 import fr.kawamind.domain.session.ImplementationStatus;
 import fr.kawamind.domain.session.Session;
@@ -195,5 +196,26 @@ class AgentTasksTest {
         assertThat(feature.total()).isEqualTo(3);
         w.tracker.failure = Kind.UNREACHABLE;
         assertThat(agent.forFeature(session.id(), ME).readProblem()).isTrue();
+    }
+
+    /** Une sous-tâche enrichie dans Jira : l'agent reçoit sa description telle qu'elle est dans Jira. */
+    @Test
+    void laDescriptionEnrichieDansJiraParvientALAgent() {
+        enrich("FACT-124", "## Accès\n\nDemander le jeton au registre Halo.");
+        AgentTasks.NextAnswer next = agent.next("claude-code", ME, session.id());
+        assertThat(next.task().key()).isEqualTo("FACT-124");
+        assertThat(next.task().description()).isEqualTo("## Accès\n\nDemander le jeton au registre Halo.");
+
+        enrich("FACT-124", "## Accès\n\nJeton en lecture seule, via le coffre.");
+        assertThat(agent.start("claude-code", ME, session.id(), "FACT-124").task().description())
+                .isEqualTo("## Accès\n\nJeton en lecture seule, via le coffre.");
+        assertThat(agent.forFeature(session.id(), ME).tasks()).extracting(AgentTasks.TaskInfo::description)
+                .containsExactly("## Accès\n\nJeton en lecture seule, via le coffre.", null, null);
+    }
+
+    void enrich(String key, String description) {
+        TrackedIssue t = w.tracker.tracked.get(key);
+        w.tracker.tracked.put(key, new TrackedIssue(t.key(), t.summary(), description, t.status(), t.statusCategory(),
+                t.issueType(), t.updated(), t.links()));
     }
 }

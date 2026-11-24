@@ -25,6 +25,8 @@ public record SpecTask(UUID id, UUID sessionId, int position, String title, Stri
     public static final int MAX_TITLE = 120;
     public static final int MAX_OUTCOME = 300;
     public static final int MAX_REPORT = 2000;
+    /** Description d'une sous-tâche relue dans Jira, au plus (V33). */
+    public static final int MAX_DESCRIPTION = 32_000;
 
     public SpecTask {
         Objects.requireNonNull(id);

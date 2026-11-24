@@ -15,6 +15,7 @@ import fr.kawamind.domain.task.TaskTracking;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jboss.logging.Logger;
@@ -110,8 +111,13 @@ public class TaskSync {
             LOG.warnf("Relecture des sous-tâches refusée par Jira (%s)", e.kind());
             return true;
         }
+        Map<UUID, String> descriptions = desk.tasks.descriptions(sessionId);
         for (SpecTask task : created) {
             TrackedIssue issue = found.get(task.jiraKey());
+            String description = issue == null ? descriptions.get(task.id()) : description(issue);
+            if (!Objects.equals(description, descriptions.get(task.id()))) {
+                desk.tasks.describe(task.id(), description);
+            }
             SpecTask read;
             if (issue == null) {
                 read = task.read(TaskStatus.MISSING, null, desk.clock.now());
@@ -125,6 +131,17 @@ public class TaskSync {
             }
         }
         return false;
+    }
+
+    /** Description en Markdown, nulle si vide, coupée à {@link SpecTask#MAX_DESCRIPTION}. */
+    static String description(TrackedIssue issue) {
+        String text = issue.description() == null ? "" : issue.description().strip();
+        if (text.isEmpty()) {
+            return null;
+        }
+        String cut = "\n\n[description tronquée]";
+        return text.length() <= SpecTask.MAX_DESCRIPTION ? text
+                : text.substring(0, SpecTask.MAX_DESCRIPTION - cut.length()) + cut;
     }
 
     /** Le statut de la spécification suit les tâches, sauf suivi suspendu ou brouillon (R7). */

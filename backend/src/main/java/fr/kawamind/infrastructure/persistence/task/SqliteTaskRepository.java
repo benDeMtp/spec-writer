@@ -143,6 +143,30 @@ public class SqliteTaskRepository implements TaskRepository {
 
     @Transactional
     @Override
+    @SuppressWarnings("unchecked")
+    public Map<UUID, String> descriptions(UUID sessionId) {
+        Map<UUID, String> out = new LinkedHashMap<>();
+        List<Object[]> rows = em.createNativeQuery("select id, jira_description from spec_task where session_id = ?1"
+                + " and jira_description is not null").setParameter(1, sessionId.toString()).getResultList();
+        rows.forEach(r -> out.put(UUID.fromString((String) r[0]), (String) r[1]));
+        return out;
+    }
+
+    @Transactional
+    @Override
+    public void describe(UUID taskId, String description) {
+        if (description == null) {
+            // un null lié en paramètre natif n'a pas de type pour Hibernate
+            em.createNativeQuery("update spec_task set jira_description = null where id = ?1")
+                    .setParameter(1, taskId.toString()).executeUpdate();
+            return;
+        }
+        em.createNativeQuery("update spec_task set jira_description = ?1 where id = ?2").setParameter(1, description)
+                .setParameter(2, taskId.toString()).executeUpdate();
+    }
+
+    @Transactional
+    @Override
     public TaskTracking tracking(UUID sessionId) {
         @SuppressWarnings("unchecked")
         List<String> rows = em.createNativeQuery("select task_tracking from session where id = ?1")
