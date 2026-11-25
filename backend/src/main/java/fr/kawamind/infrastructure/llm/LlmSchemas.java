@@ -47,17 +47,18 @@ final class LlmSchemas {
             .addProperty("newQuestions", array(QUESTION))
             .build());
 
-    static final ResponseFormat SPECIFICATION = format("specification", specification(List.of(), true));
+    static final ResponseFormat SPECIFICATION = format("specification", specification(List.of(), true, false));
 
     /**
      * 011 : nouvelle version d'après la discussion, ou aucun changement établi et sa raison. Sans
-     * écarts entre sources (016) : avec eux, la grammaire compilée de ce schéma dépasse la limite de
-     * Copilot (« compiled grammar is too large ») ; la révision reprend ceux de la version discutée.
+     * écarts entre sources (016), ni points ouverts ni ancres (021) : avec eux, la grammaire compilée
+     * de ce schéma dépasse la limite de Copilot (« compiled grammar is too large ») ; la révision
+     * reprend ceux de la version discutée.
      */
     static final ResponseFormat REVISION = format("revision", JsonObjectSchema.builder()
             .addProperty("changed", JsonBooleanSchema.builder().build())
             .addStringProperty("reason")
-            .addProperty("specification", specification(List.of("DISCUSSION"), false))
+            .addProperty("specification", specification(List.of("DISCUSSION"), false, true))
             .addProperty("perimeter", array(JsonObjectSchema.builder()
                     .addStringProperty("module")
                     .addProperty("qualification", JsonEnumSchema.builder()
@@ -69,8 +70,10 @@ final class LlmSchemas {
     /**
      * @param extraKinds sortes de source propres à l'opération (DISCUSSION pour une proposition)
      * @param sourceDeviations demander les écarts entre sources (016)
+     * @param revision révision (021) : {@code fromCode} des hypothèses reprises, et points ouverts
      */
-    private static JsonObjectSchema specification(List<String> extraKinds, boolean sourceDeviations) {
+    private static JsonObjectSchema specification(List<String> extraKinds, boolean sourceDeviations,
+            boolean revision) {
         List<String> kinds = new java.util.ArrayList<>(List.of("NEED_EXCERPT", "ANSWER", "ASSUMPTION",
                 "PROJECT_CONTEXT", "JIRA_ISSUE", "DOC_PAGE", "ARCH_ELEMENT"));
         kinds.addAll(extraKinds);
@@ -102,11 +105,7 @@ final class LlmSchemas {
                     .addProperty("then", array(string()))
                     .addProperty("assumption", JsonBooleanSchema.builder().build())
                     .build()))
-            .addProperty("assumptions", array(JsonObjectSchema.builder()
-                    .addStringProperty("statement")
-                    .addEnumProperty("origin", List.of("SKIPPED_QUESTION", "TOOL_INFERENCE"))
-                    .addStringProperty("questionId")
-                    .build()))
+            .addProperty("assumptions", array(assumption(revision)))
             .addProperty("requirements", array(JsonObjectSchema.builder()
                     .addEnumProperty("category", List.of("FUNCTIONAL", "TECHNICAL"))
                     .addStringProperty("statement")
@@ -131,7 +130,24 @@ final class LlmSchemas {
                     .addStringProperty("referenceRef")
                     .addStringProperty("interpretationRef")
                     .addStringProperty("difference")
+                    .addStringProperty("anchor")
                     .build()));
+        }
+        // 021 : la révision n'a ni points ouverts ni ancres (grammaire trop grande pour Copilot) ; le
+        // code reprend ceux de la version de base (ProposeRevision.withBase)
+        return out.build();
+    }
+
+    private static JsonObjectSchema assumption(boolean revision) {
+        JsonObjectSchema.Builder out = JsonObjectSchema.builder()
+                .addStringProperty("statement")
+                .addEnumProperty("origin", List.of("SKIPPED_QUESTION", "TOOL_INFERENCE"))
+                .addStringProperty("questionId");
+        if (revision) {
+            out.addStringProperty("fromCode");
+        } else {
+            // 021 (R1) : l'élément concerné, en chaîne courte (USE_CASE:1:4) pour ménager la grammaire
+            out.addStringProperty("anchor");
         }
         return out.build();
     }

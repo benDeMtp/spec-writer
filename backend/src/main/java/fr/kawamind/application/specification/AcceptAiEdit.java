@@ -4,6 +4,7 @@ import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
 import fr.kawamind.domain.port.ClockPort;
 import fr.kawamind.domain.port.IdGenerator;
+import fr.kawamind.domain.port.InterviewRepository;
 import fr.kawamind.domain.port.LinkedTicketRepository;
 import fr.kawamind.domain.port.SessionRepository;
 import fr.kawamind.domain.port.SpecificationRepository;
@@ -26,9 +27,26 @@ public class AcceptAiEdit {
     private final ProposalStore proposals;
     private final ClockPort clock;
     private final IdGenerator ids;
+    /** Séances (021) : la version appliquée d'une révision de séance y est notée ; nul sans séance. */
+    private final InterviewRepository interviews;
+    /** « À reporter » de la séance (021, US6), créés à l'application ; nul sans séance. */
+    private final fr.kawamind.application.interview.SourceUpdates sourceUpdates;
 
     public AcceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             ProposalStore proposals, ClockPort clock, IdGenerator ids) {
+        this(sessions, versions, tickets, proposals, clock, ids, null);
+    }
+
+    public AcceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, InterviewRepository interviews) {
+        this(sessions, versions, tickets, proposals, clock, ids, interviews, null);
+    }
+
+    public AcceptAiEdit(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            ProposalStore proposals, ClockPort clock, IdGenerator ids, InterviewRepository interviews,
+            fr.kawamind.application.interview.SourceUpdates sourceUpdates) {
+        this.sourceUpdates = sourceUpdates;
+        this.interviews = interviews;
         this.sessions = sessions;
         this.versions = versions;
         this.tickets = tickets;
@@ -50,6 +68,14 @@ public class AcceptAiEdit {
         if (p.origin() == VersionOrigin.DISCUSSION && p.conversationId() != null) {
             // « Issue de la discussion », avec le lien vers la conversation (011, FR-011)
             versions.linkDiscussion(version.id(), p.conversationId());
+        }
+        if (p.interviewId() != null && interviews != null) {
+            // la révision de la séance est faite : elle ne se repropose plus (FR-014)
+            interviews.specs(p.interviewId()).stream().filter(s -> s.sessionId().equals(sessionId)).findFirst()
+                    .ifPresent(s -> interviews.saveSpec(s.withApplied(version.number())));
+            if (sourceUpdates != null) {
+                sourceUpdates.recordFor(p.interviewId(), sessionId);
+            }
         }
         Questionnaire questionnaire = sessions.questionnaire(sessionId).orElseGet(Questionnaire::empty);
         sessions.save(session.generated(clock.now()), questionnaire);

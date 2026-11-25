@@ -34,4 +34,16 @@ class SpecificationStructureEval {
                         r.baseline().required(EvalBaseline.STORY_STATEMENT))
                 .isTrue();
     }
+
+    /** 021 (T067) : chaque hypothèse et écart générés désigne l'élément qu'il concerne. */
+    @Test
+    void pointsRattachesAUnElement() {
+        EvalRuns.Result r = EvalRuns.result();
+        double score = r.conversation().get(EvalBaseline.ANCHORED_RATE);
+        assertThat(r.baseline().accepts(EvalBaseline.ANCHORED_RATE, score))
+                .as("points rattachés %.4f, attendu au moins %.4f (détail dans last-run.json)", score,
+                        r.baseline().required(EvalBaseline.ANCHORED_RATE))
+                .isTrue();
+    }
 }
+

@@ -71,7 +71,14 @@ Règles de contenu :
   et de la discussion. Ce que tu ajoutes sans point établi ni source devient une hypothèse
   (origin TOOL_INFERENCE), et les scénarios qui en dépendent sont marqués "assumption": true.
 - N'attribue aucun identifiant (pas de UC-01, SC-01-01, H-01, EF-01) : le code s'en charge. Les
-  identifiants présents dans le Markdown fourni sont ignorés.
+  identifiants présents dans le Markdown fourni sont ignorés, sauf dans "fromCode".
+- Une hypothèse reprise de <specification-courante>, même reformulée, porte dans "fromCode" son
+  code dans <specification-courante> (H-03), recopié exactement ; "fromCode" est une chaîne vide
+  pour une hypothèse nouvelle.
+- Quand la discussion contient des décisions de séance, intègre-les : une hypothèse confirmée
+  devient un fait de la spécification, un élément à modifier est modifié, un élément à retirer est
+  retiré. Les questions reportées en séance et les points ouverts sont repris par le code : ne les
+  répète pas.
 - Une source ANSWER cite l'identifiant d'une question de <reponses> ; une source NEED_EXCERPT cite
   un extrait exact du besoin.
 

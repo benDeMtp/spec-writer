@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { LifecycleStore } from '../lifecycle/lifecycle.store';
 import { ProjectsStore } from '../projects/projects.store';
 import { changeLabel } from '../projects/source-changes';
+import { PresentationService } from '../interviews/presentation';
 import { NotificationsApi } from '../settings/notifications.api';
 
 /** Une source a changé à sa dernière synchronisation (017, contracts/events.md). */
@@ -49,6 +50,7 @@ export class AppEventsService {
   private readonly api = inject(NotificationsApi);
   private readonly projects = inject(ProjectsStore);
   private readonly router = inject(Router);
+  private readonly presentation = inject(PresentationService);
   private readonly lifecycle = inject(LifecycleStore);
 
   /** Réglage de l'application, relu au démarrage et à chaque enregistrement de la carte. */
@@ -107,6 +109,10 @@ export class AppEventsService {
 
   /** Le réglage est relu à chaque mise à jour : un autre onglet a pu le changer (FR-016). */
   async show(e: SourceUpdatedEvent): Promise<void> {
+    // écran de séance partagé (021) : rien d'étranger à la séance, et rien n'est rejoué après
+    if (this.presentation.active()) {
+      return;
+    }
     if (!this.leader || typeof Notification === 'undefined' || Notification.permission !== 'granted') {
       return;
     }

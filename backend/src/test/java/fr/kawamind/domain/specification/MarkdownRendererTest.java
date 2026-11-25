@@ -338,4 +338,45 @@ class MarkdownRendererTest {
         String md = MarkdownRenderer.render(spec(refused(false), List.of(), List.of()), Language.FR);
         assertThat(md).startsWith("# Paiement\n\n## Résumé\n").doesNotContain("Découpage proposé");
     }
+
+    @Test
+    void pointsOuvertsApresLesHypotheses() {
+        SpecificationContent c = spec(refused(false), List.of(new Assumption("H-01", "Paiement par carte",
+                Assumption.Origin.TOOL_INFERENCE, null)), List.of())
+                .withOpenQuestions(List.of(
+                        new OpenQuestion("Q-01", "Qui valide en l'absence du manager ?", "Paul D.",
+                                java.time.LocalDate.of(2026, 11, 27), null, null),
+                        new OpenQuestion("Q-02", "Quel plafond ?", "", null, null, null)));
+        String fr = MarkdownRenderer.render(c, Language.FR);
+        assertThat(fr).contains("""
+                - **H-01** : Paiement par carte
+
+                ## Points ouverts
+
+                - **Q-01** : Qui valide en l'absence du manager ? (responsable : Paul D., échéance : 27/11/2026)
+                - **Q-02** : Quel plafond ?
+                """);
+        assertThat(MarkdownRenderer.render(c, Language.EN))
+                .contains("## Open questions\n\n- **Q-01**: Qui valide en l'absence du manager ? (owner: Paul D., due 2026-11-27)");
+        assertThat(MarkdownRenderer.anchors()).containsEntry("Points ouverts", "open-questions");
+    }
+
+    @Test
+    void sansPointOuvertLaRubriqueEstOmise() {
+        assertThat(MarkdownRenderer.render(spec(refused(false), List.of(), List.of()), Language.FR))
+                .doesNotContain("Points ouverts");
+    }
+
+    @Test
+    void chaquePointRattacheAfficheSonElement() {
+        SpecificationContent c = spec(refused(false), List.of(new Assumption("H-01", "Montant TTC",
+                Assumption.Origin.TOOL_INFERENCE, null, new Anchor("UC-01", 2, false), null)), List.of())
+                .withOpenQuestions(List.of(new OpenQuestion("Q-01", "Qui valide ?", null, null,
+                        new Anchor("UC-01", 1, true), null)));
+        String md = MarkdownRenderer.render(c, Language.FR);
+        assertThat(md).contains("- **H-01** (UC-01, étape 2) : Montant TTC")
+                .contains("- **Q-01** (UC-01, alternative 1) : Qui valide ?");
+        assertThat(MarkdownRenderer.render(c, Language.EN)).contains("- **H-01** (UC-01, step 2): Montant TTC");
+    }
 }
+

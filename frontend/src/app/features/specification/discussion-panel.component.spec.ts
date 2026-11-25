@@ -277,6 +277,27 @@ describe('DiscussionPanelComponent', () => {
     await settle(fixture);
   }
 
+  it('suit la rédaction lancée par la révision d’une séance (021)', async () => {
+    fixture.componentRef.setInput('turn', 't9');
+    const drafting: boolean[] = [];
+    fixture.componentInstance.drafting.subscribe((d) => drafting.push(d));
+    const proposed: unknown[] = [];
+    fixture.componentInstance.proposed.subscribe((p) => proposed.push(p));
+    fixture.detectChanges();
+    await answer('c1', 3, [message('m1', 1, 'USER')]);
+    expect(opened).toContain('/api/conversations/c1/turns/t9/events');
+    expect(drafting).toEqual([true]);
+    expect(el.querySelector('.thinking')).not.toBeNull();
+    listeners.at(-1)!({ type: 'done', state: 'COMPLETE', historyTruncated: false, durationMs: 20, proposalId: 'p9' });
+    await settle(fixture);
+    ctrl
+      .expectOne('/api/sessions/s1/proposals/p9')
+      .flush({ proposalId: 'p9', baseVersion: 3, proposed: { title: 'Avoirs' }, unifiedDiff: '' });
+    await settle(fixture);
+    expect(proposed).toHaveLength(1);
+    expect(drafting).toEqual([true, false]);
+  });
+
   it('sans changement relevé, seul le champ libre est proposé ; Échap annule', async () => {
     await settle(fixture);
     await answer('c1', 3, [message('u1', 1, 'USER'), message('a1', 2, 'AGENT')]);
@@ -356,5 +377,39 @@ describe('DiscussionPanelComponent', () => {
     const alert = el.querySelector('[data-testid="discussion-problem"]')!;
     expect(alert.textContent).toContain('Une erreur inattendue est survenue');
     expect(alert.querySelector('a[href="/journal"]')).not.toBeNull();
+  });
+
+  it('un suivi perdu le dit, et « Réessayer » relance la rédaction des mêmes changements', async () => {
+    await settle(fixture);
+    await answer('c1', 3, [message('u1', 1, 'USER'), message('a1', 2, 'AGENT')]);
+
+    await confirmOne();
+    listeners.at(-1)!({ type: 'gone' });
+    await settle(fixture);
+
+    const alert = el.querySelector('[data-testid="discussion-problem"]')!;
+    expect(alert.textContent).toContain('Le suivi de la rédaction a été perdu');
+    expect(button('Proposer une nouvelle version').disabled).toBe(false);
+    button('Réessayer').click();
+    await settle(fixture);
+    const again = ctrl.expectOne({ method: 'POST', url: '/api/conversations/c1/proposals' });
+    expect(again.request.body).toEqual({ changes: ['Ajouter l’annulation'] });
+    again.flush({ turnId: 't10', message: null });
+    await settle(fixture);
+    expect(opened.at(-1)).toBe('/api/conversations/c1/turns/t10/events');
+    expect(el.querySelector('[data-testid="discussion-problem"]')).toBeNull();
+  });
+
+  it('après une rédaction lancée par une séance, « Réessayer » relève de nouveau les changements', async () => {
+    fixture.componentRef.setInput('turn', 't9');
+    fixture.detectChanges();
+    await answer('c1', 3, [message('m1', 1, 'USER')]);
+    listeners.at(-1)!({ type: 'error', code: 'LLM_UNAVAILABLE', userMessage: 'Le service d’IA ne répond pas.' });
+    await settle(fixture);
+
+    button('Réessayer').click();
+    await settle(fixture);
+    ctrl.expectOne({ method: 'POST', url: '/api/conversations/c1/proposals/candidates' }).flush({ changes: [] });
+    await settle(fixture);
   });
 });

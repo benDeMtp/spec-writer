@@ -24,6 +24,7 @@ Sortie inchangée, plus :
       "key": "FACT-124",
       "title": "Exposer l'endpoint de rétractation",
       "outcome": "POST /retractations renvoie 201 et enregistre la demande",
+      "description": "## Contexte\n\nLa demande est enregistrée avant l'appel au CRM…",
       "position": 0,
       "dependsOn": [],
       "status": "TODO | IN_PROGRESS | DONE | MISSING",
@@ -38,6 +39,9 @@ Sortie inchangée, plus :
 ```
 
 Seules les tâches `CREATED` sont listées. `heldBy` est absent si la tâche n'est pas tenue.
+`description` est celle de la sous-tâche dans Jira, en Markdown, relue avec le statut à chaque appel
+(V33, coupée à 32 000 caractères) ; absente si la sous-tâche n'en a pas. Une sous-tâche enrichie dans
+Jira après sa création parvient ainsi à l'agent ; Jira injoignable, la dernière description lue reste.
 `tasks` est une liste vide sans tâches. Les statuts sont relus dans Jira avant la réponse
 (research R6) ; si la relecture échoue, `readProblem: "JIRA_UNREACHABLE"` est ajouté.
 

@@ -318,9 +318,9 @@ class ProposeRevisionTest {
                 "500 euros contre 1 000 euros.");
         var discussed = base.withSourceDeviations(List.of(deviation));
 
-        assertThat(ProposeRevision.withBaseDeviations(base, discussed).sourceDeviations()).containsExactly(deviation);
+        assertThat(ProposeRevision.withBaseDeviations(base, discussed).sourceDeviations()).containsExactly(deviation.withCode("EC-01"));
         // une révision qui en porte (format futur) garde les siennes ; sans écart, rien n'est inventé
-        assertThat(ProposeRevision.withBaseDeviations(discussed, base).sourceDeviations()).containsExactly(deviation);
+        assertThat(ProposeRevision.withBaseDeviations(discussed, base).sourceDeviations()).containsExactly(deviation.withCode("EC-01"));
         assertThat(ProposeRevision.withBaseDeviations(base, base).sourceDeviations()).isEmpty();
     }
 
@@ -333,4 +333,34 @@ class ProposeRevisionTest {
         assertThat(ProposeRevision.origin(e)).isEqualTo("SelectKnowledge.forEdit:42");
         assertThat(ProposeRevision.origin(new IllegalStateException())).isNotBlank();
     }
+
+    @Test
+    void unMessageDeSeanceSeCiteParLaSeance() {
+        var interview = fr.kawamind.domain.interview.Interview.startNow(w.ids.next(), session.projectId(),
+                List.of("Julie M.", "Paul D."), Instant.parse("2026-11-20T09:00:00Z"));
+        assertThat(ProposeRevision.title(interview, fr.kawamind.domain.session.Language.FR))
+                .isEqualTo("Séance du 20/11/2026 (Julie M., Paul D.)");
+        assertThat(ProposeRevision.title(interview.withParticipants(List.of()), fr.kawamind.domain.session.Language.EN))
+                .isEqualTo("Session of 2026-11-20");
+    }
+
+    @Test
+    void laRevisionRepriseLesPointsOuvertsEtLesAncresDeLaBase() {
+        var anchor = new fr.kawamind.domain.specification.Anchor("UC-01", 2, false);
+        var base = fr.kawamind.domain.specification.Specs.valid()
+                .withAssumptions(List.of(new fr.kawamind.domain.specification.Assumption("H-01", "TTC",
+                        fr.kawamind.domain.specification.Assumption.Origin.TOOL_INFERENCE, null, anchor, null)))
+                .withOpenQuestions(List.of(new fr.kawamind.domain.specification.OpenQuestion("Q-01", "Qui valide ?",
+                        "Paul D.", null, null, null)));
+        var revised = fr.kawamind.domain.specification.Specs.valid()
+                .withAssumptions(List.of(new fr.kawamind.domain.specification.Assumption("H-01", "TTC reformulé",
+                        fr.kawamind.domain.specification.Assumption.Origin.TOOL_INFERENCE, null, null, "H-01")));
+        var out = ProposeRevision.withoutFromCodes(ProposeRevision.withBase(revised, base, false));
+        assertThat(out.assumptions().getFirst().anchor()).isEqualTo(anchor);
+        assertThat(out.assumptions().getFirst().fromCode()).isNull();
+        assertThat(out.openQuestions()).extracting(q -> q.code(), q -> q.owner(), q -> q.fromCode())
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Q-01", "Paul D.", null));
+        assertThat(ProposeRevision.withBase(revised, base, true).openQuestions().getFirst().fromCode()).isEqualTo("Q-01");
+    }
 }
+

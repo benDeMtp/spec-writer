@@ -120,9 +120,7 @@ public record PerimeterSnapshot(List<Entry> modules, boolean incomplete) {
             }
         }
         return all.size() == content.assumptions().size() ? content
-                : new SpecificationContent(content.title(), content.summary(), content.details(), content.useCases(),
-                        content.scenarios(), all, content.requirements(), content.adrDeviations(), content.story(),
-                        content.splitProposal(), content.sourceDeviations());
+                : content.withAssumptions(all);
     }
 
     static String statement(Entry e, Language language) {

@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -38,7 +38,7 @@ function failure(error: unknown): string {
 @Component({
   selector: 'sw-jira-issues-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatButtonModule, PagerComponent, ProjectHeadingComponent, RouterLink],
+  imports: [SwDatePipe, MatButtonModule, PagerComponent, ProjectHeadingComponent, RouterLink],
   template: `
     <sw-project-heading label="Tickets Jira" />
     @if (projectKey(); as key) {
@@ -48,7 +48,7 @@ function failure(error: unknown): string {
       <div class="freshness">
         @if (page(); as p) {
           @if (p.lastSync; as last) {
-            <p>Dernière synchronisation de Jira : {{ last.at | date: 'd MMM y, HH:mm' }}</p>
+            <p>Dernière synchronisation de Jira : {{ last.at | swDate: 'd MMM y, HH:mm' }}</p>
           } @else {
             <p>Jira n'a pas encore été synchronisé : synchronisez-le pour remplir la liste.</p>
           }
@@ -89,7 +89,7 @@ function failure(error: unknown): string {
                   <tr>
                     <td><a [routerLink]="['/jira', i.key]">{{ i.key }}</a></td>
                     <td>{{ i.title }}</td>
-                    <td>{{ i.updatedAt | date: 'd MMM y, HH:mm' }}</td>
+                    <td>{{ i.updatedAt | swDate: 'd MMM y, HH:mm' }}</td>
                     <td>{{ i.status ?? '—' }}</td>
                     <td><span class="sync" [attr.data-sync]="i.sync">{{ syncLabels[i.sync] }}</span></td>
                     <td>

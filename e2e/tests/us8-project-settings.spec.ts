@@ -5,6 +5,7 @@ import { expectNoA11yViolations } from './support/a11y';
 import { proposeThroughDiscussion } from './support/discussion';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, jiraURL, stateDir, storageStatePath } from './support/env';
+import { specAction } from './support/spec-actions';
 
 const DEFAULT_PROJECT = '00000000-0000-0000-0000-000000000001';
 const WORKSPACE = join(process.cwd(), 'fixtures', 'c4', 'facturation', 'workspace.dsl');
@@ -293,7 +294,7 @@ test.describe.serial('US8 connaissance du projet', () => {
       },
     });
     await jira.delete('/__admin/requests');
-    await page.getByRole('button', { name: 'Créer un ticket Jira' }).click();
+    await (await specAction(page, 'Créer un ticket Jira')).click();
     // le titre de la boîte change une fois le ticket créé
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('La story sera liée à FACT-7 par « relates to ».');

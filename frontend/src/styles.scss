@@ -129,3 +129,15 @@ markdown {
     border-top: 1px solid var(--sw-rule);
   }
 }
+
+/* Passage cité d'une remarque de séance (021), surligné par l'API CSS Custom Highlight. */
+::highlight(sw-quote) {
+  background-color: light-dark(#fff1b8, #5a4a10);
+  color: var(--sw-ink);
+}
+
+/* Passage atteint par « Aller au passage » (021). */
+::highlight(sw-quote-current) {
+  background-color: light-dark(#ffd166, #8a6a10);
+  color: var(--sw-ink);
+}

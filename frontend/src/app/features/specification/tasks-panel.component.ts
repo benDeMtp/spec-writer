@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,7 +24,7 @@ import { TaskProposalComponent } from './task-proposal.component';
 @Component({
   selector: 'sw-tasks-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, ElapsedComponent, MatButtonModule, MatFormFieldModule, MatInputModule, TaskProposalComponent],
+  imports: [SwDatePipe, ElapsedComponent, MatButtonModule, MatFormFieldModule, MatInputModule, TaskProposalComponent],
   template: `
     <section aria-labelledby="tasks-title" class="tasks" data-tour="tasks-panel">
       <h2 id="tasks-title">Tâches</h2>
@@ -39,7 +39,7 @@ import { TaskProposalComponent } from './task-proposal.component';
         @if (v.readProblem) {
           <p class="warning" role="note">
             Jira n'a pas pu être relu : statuts connus{{
-              v.lastReadAt ? ' au ' + (v.lastReadAt | date: 'd MMM y, HH:mm') : ''
+              v.lastReadAt ? ' au ' + (v.lastReadAt | swDate: 'd MMM y, HH:mm') : ''
             }}.
           </p>
         }
@@ -89,7 +89,7 @@ import { TaskProposalComponent } from './task-proposal.component';
                 }
                 @if (t.heldBy) {
                   <p class="holder">
-                    Prise par {{ t.heldBy }}{{ t.heldSince ? ' le ' + (t.heldSince | date: 'd MMM y, HH:mm') : '' }}
+                    Prise par {{ t.heldBy }}{{ t.heldSince ? ' le ' + (t.heldSince | swDate: 'd MMM y, HH:mm') : '' }}
                     @if (t.holderClosed) {
                       — sa conversation est fermée : la prochaine reprendra cette tâche.
                     }

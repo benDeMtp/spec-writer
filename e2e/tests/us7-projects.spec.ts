@@ -2,6 +2,7 @@ import { expect, request, test, type APIRequestContext, type BrowserContext, typ
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, jiraURL, storageStatePath } from './support/env';
+import { specAction } from './support/spec-actions';
 
 const NEED =
   'Les employés doivent pouvoir réserver une place de parking pour une journée, et être prévenus quand le parking ' +
@@ -51,7 +52,7 @@ test.describe.serial('US7 projets', () => {
 
   async function previewProject(): Promise<string> {
     await page.goto(`/sessions/${specId}/versions/1`);
-    await page.getByRole('button', { name: 'Créer un ticket Jira' }).click();
+    await (await specAction(page, 'Créer un ticket Jira')).click();
     const dialog = page.getByRole('dialog', { name: /Créer un ticket Jira/ });
     const key = (await dialog.locator('dt:text-is("Projet") + dd').textContent())?.trim() ?? '';
     await dialog.getByRole('button', { name: 'Annuler' }).click();
@@ -126,7 +127,7 @@ test.describe.serial('US7 projets', () => {
     expect(await previewProject()).toBe('FACT');
 
     // « Déplacer vers… » : la spécification rejoint le projet par défaut et vise PROJ
-    await page.getByRole('button', { name: 'Déplacer vers…' }).click();
+    await (await specAction(page, 'Déplacer vers…')).click();
     await dialogOpen();
     await expectNoA11yViolations(page);
     await page.getByRole('dialog').getByRole('button', { name: 'Déplacer' }).click();
@@ -136,7 +137,7 @@ test.describe.serial('US7 projets', () => {
 
   test('P3 : la liste et la recherche ne montrent que le projet courant', async () => {
     await page.goto(`/sessions/${specId}/versions/1`);
-    await page.getByRole('button', { name: 'Déplacer vers…' }).click();
+    await (await specAction(page, 'Déplacer vers…')).click();
     await page.getByRole('dialog').getByRole('combobox', { name: 'Projet de destination' }).click();
     await page.getByRole('option', { name: 'Facturation' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Déplacer' }).click();

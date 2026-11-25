@@ -314,6 +314,58 @@ Supprimer une spécification qui a des discussions propose la case **Supprimer a
 discussions**, cochée par défaut ; décochée, elles restent dans la liste, marquées « spécification
 supprimée », et se poursuivent comme des conversations ordinaires.
 
+## Relire une spécification, seul ou avec les sachants
+
+Une spécification s'écrit souvent avec des hypothèses, des écarts entre sources et des points
+ouverts. **Relire**, sur la page d'une spécification, les tranche et annote le texte : seul, ou en
+séance avec les sachants sur écran partagé. Ouverte depuis la page **Spécifications**, une
+spécification générée s'affiche sur sa dernière version. En tête de page, **Discuter avec l'IA** et
+**Relire** ; tout le reste (export, Jira, déplacement, **Retour au questionnaire**, suppressions)
+est dans **Autres actions**, et **Version n ▾** ouvre les versions précédentes. Le crayon à côté du
+nom renomme la spécification.
+
+**Préparer une séance.** La page **Spécifications** montre sous chacune ses points à traiter
+(« 3 hypothèses · 2 points ouverts · 1 écart entre sources ») ; la case **Avec des points à traiter**
+filtre la liste. Cochez une ou plusieurs spécifications, puis **Préparer une séance** : l'ordre de
+passage, les participants (ceux de la dernière séance sont proposés) et les points à écarter se
+règlent avant la séance, qui attend en tête de la page avec **Démarrer**, **Modifier** et
+**Supprimer**.
+
+**La relecture** s'affiche en plein écran, sans menu ni notification, en grand pour les participants
+qui lisent à distance : **A−** / **A+** règlent la taille du texte, pour cet écran seulement. La spécification s'y déroule
+comme un document, de haut en bas ; chaque hypothèse, écart ou point ouvert est en carte sous
+l'élément qu'il concerne (« UC-02, étape 4 »). Une hypothèse est sa propre réponse proposée :
+**Confirmer** d'un clic, **Réécrire** à partir de son texte, **Retirer** ou **Reporter** (avec un
+responsable et une échéance). Tout le texte s'annote : sélectionnez un passage, puis **Commenter**,
+**Remplacer**, **Supprimer** ou **Question…** dans la colonne **Notes de séance**, à droite, qui
+liste les notes dans l'ordre du document (**Aller au passage**, **Modifier**, **Supprimer**) ; le
+passage cité reste surligné. ↑ ↓ passent d'une carte à l'autre, **Prochain point à traiter** mène
+à la suivante. Tout est enregistré au fil de l'eau : une relecture interrompue reprend au dernier
+point consulté. Rien n'est envoyé au modèle pendant la relecture.
+
+**Prendre en compte les notes** termine la relecture, même avec des points encore ouverts, et lance
+aussitôt la révision : la page de la spécification s'ouvre sur la nouvelle version proposée, à
+relire par différences.
+
+**Terminer** une relecture où rien n'a été noté ne la garde pas : retour direct à la spécification.
+Sinon, **Terminer** mène au récapitulatif : le compte rendu (décisions, points à vérifier, sources à
+mettre à jour) se copie d'un clic, mis en forme pour un mail ou Teams. Les séances passées et
+leur compte rendu restent sur la page de la spécification.
+
+**Réviser.** **Proposer la nouvelle version** fait entrer les décisions dans la discussion de la
+spécification, en un seul message, puis l'agent rédige la version suivante, relue par différences
+comme toute proposition. Les points tranchés en disparaissent, les points reportés y deviennent des
+**Points ouverts**, et la séance est citée comme source (« Séance du 20/11/2026 (Julie M., Paul
+D.) »). La révision exige l'accord pour GitHub Copilot ; elle se relance tant qu'elle n'est pas
+appliquée.
+
+**Sources de vérité.** Une décision qui touche une page Confluence, une page de documentation, un
+ticket ou un élément d'architecture cité laisse, une fois la révision appliquée, une entrée dans
+**Sources à mettre à jour** sur la page de la spécification ; en séance, **Source à mettre à
+jour…** en désigne une à la main dans la connaissance du projet. L'outil n'écrit jamais dans ces
+sources : il signale « Source modifiée, à vérifier » quand la source change après la décision, et
+**Marquer comme reporté** clôt l'entrée une fois la mise à jour faite.
+
 ## Projets et connaissance du projet
 
 Chaque spécification appartient à un projet ; le projet courant se choisit en tête du menu. La

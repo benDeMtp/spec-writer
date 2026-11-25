@@ -32,6 +32,9 @@ public class ChatModelProducer {
     @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s")
     Duration timeout;
 
+    @ConfigProperty(name = "specwriter.llm.timeout.drafting", defaultValue = "600s")
+    Duration drafting;
+
     /** Journal des appels, partagé par les modèles (014, research R4). */
     private final LlmCallLog log = new LlmCallLog();
     private ReplayChatModel replay;
@@ -73,6 +76,6 @@ public class ChatModelProducer {
     @Produces
     @ApplicationScoped
     ConversationLlm conversationLlm(AgentAi agent, ConversationAi conversation, SpecificationAi specification) {
-        return new LangChainConversationLlm(agent, conversation, specification, timeout);
+        return new LangChainConversationLlm(agent, conversation, specification, timeout, drafting);
     }
 }

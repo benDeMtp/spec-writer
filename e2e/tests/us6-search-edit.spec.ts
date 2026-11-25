@@ -2,6 +2,7 @@ import { expect, request, test, type APIRequestContext, type BrowserContext, typ
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, jiraURL, storageStatePath } from './support/env';
+import { specAction } from './support/spec-actions';
 
 const ISSUE = '/rest/api/2/issue/PROJ-102';
 
@@ -155,7 +156,7 @@ test.describe.serial('US6 recherche et modification assistée', () => {
         },
       },
     });
-    await page.getByRole('button', { name: 'Envoyer vers Jira' }).click();
+    await (await specAction(page, 'Envoyer vers Jira')).click();
     const preview = page.getByRole('dialog', { name: 'Envoyer la version 2 vers Jira ?' });
     await expect(preview.getByLabel('Description envoyée à Jira')).toContainText(
       'h1. Réservation du parking visiteurs avec annulation',
@@ -183,7 +184,7 @@ test.describe.serial('US6 recherche et modification assistée', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Réservation du parking visiteurs fusionnée' })).toBeVisible();
 
     await stub({ request: { method: 'PUT', urlPath: ISSUE }, response: { status: 204 } });
-    await page.getByRole('button', { name: 'Envoyer vers Jira' }).click();
+    await (await specAction(page, 'Envoyer vers Jira')).click();
     await page.getByRole('dialog', { name: 'Envoyer la version 3 vers Jira ?' })
       .getByRole('button', { name: 'Envoyer vers Jira' }).click();
     await expect(page.getByText('Version 3 envoyée vers PROJ-102.')).toBeVisible();

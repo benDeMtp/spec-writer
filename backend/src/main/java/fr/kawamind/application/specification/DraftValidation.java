@@ -61,7 +61,7 @@ public final class DraftValidation {
             }).toList();
             return new SpecificationContent(content.title(), content.summary(), content.details(), useCases,
                     content.scenarios(), content.assumptions(), content.requirements(), content.adrDeviations(), content.story(),
-                    content.splitProposal(), content.sourceDeviations());
+                    content.splitProposal(), content.sourceDeviations(), content.openQuestions());
         }
 
         /**
@@ -166,7 +166,7 @@ public final class DraftValidation {
                 .filter(Objects::nonNull).toList();
         return new SpecificationContent(content.title(), content.summary(), content.details(), useCases,
                 content.scenarios(), content.assumptions(), content.requirements(), deviations, content.story(),
-                content.splitProposal(), sourceDeviations(content.sourceDeviations(), knowledge));
+                content.splitProposal(), sourceDeviations(content.sourceDeviations(), knowledge), content.openQuestions());
     }
 
     /**
@@ -186,7 +186,7 @@ public final class DraftValidation {
             SourceDeviation.Cited reference = cited(resolver, entries, d.reference().ref());
             SourceDeviation.Cited interpretation = cited(resolver, entries, d.interpretation().ref());
             if (reference != null && interpretation != null && !reference.ref().equals(interpretation.ref())) {
-                kept.add(new SourceDeviation(reference, interpretation, d.difference()));
+                kept.add(d.withCited(reference, interpretation));
             }
         }
         return kept;

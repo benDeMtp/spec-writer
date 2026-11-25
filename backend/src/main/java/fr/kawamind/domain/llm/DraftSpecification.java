@@ -20,7 +20,8 @@ public record DraftSpecification(
         List<DraftAdrDeviation> adrDeviations,
         UserStory story,
         List<String> splitProposal,
-        List<DraftSourceDeviation> sourceDeviations) {
+        List<DraftSourceDeviation> sourceDeviations,
+        List<DraftOpenQuestion> openQuestions) {
 
     public DraftSpecification {
         details = details == null ? "" : details;
@@ -31,6 +32,16 @@ public record DraftSpecification(
         adrDeviations = adrDeviations == null ? List.of() : List.copyOf(adrDeviations);
         splitProposal = UserStory.split(splitProposal);
         sourceDeviations = sourceDeviations == null ? List.of() : List.copyOf(sourceDeviations);
+        openQuestions = openQuestions == null ? List.of() : List.copyOf(openQuestions);
+    }
+
+    /** Sans point ouvert : toute sortie hors révision, et réponses antérieures à 021. */
+    public DraftSpecification(String title, String summary, String details, List<DraftUseCase> useCases,
+            List<DraftScenario> scenarios, List<DraftAssumption> assumptions, List<DraftRequirement> requirements,
+            List<DraftAdrDeviation> adrDeviations, UserStory story, List<String> splitProposal,
+            List<DraftSourceDeviation> sourceDeviations) {
+        this(title, summary, details, useCases, scenarios, assumptions, requirements, adrDeviations, story,
+                splitProposal, sourceDeviations, List.of());
     }
 
     /** Sans écart entre sources : réponses antérieures à 016 (fixtures rejouées), R8. */
@@ -95,7 +106,11 @@ public record DraftSpecification(
      * Écart entre une source de référence et une interprétation (016, R8) : les deux références
      * citées, telles que transmises, et ce qui diffère.
      */
-    public record DraftSourceDeviation(String referenceRef, String interpretationRef, String difference) {
+    public record DraftSourceDeviation(String referenceRef, String interpretationRef, String difference, String anchor) {
+
+        public DraftSourceDeviation(String referenceRef, String interpretationRef, String difference) {
+            this(referenceRef, interpretationRef, difference, "");
+        }
     }
 
     /** {@code kind} : NOMINAL, ERROR ou EDGE. */
@@ -116,8 +131,35 @@ public record DraftSpecification(
         }
     }
 
-    /** {@code origin} : SKIPPED_QUESTION ou TOOL_INFERENCE ; {@code questionId} vide si sans objet. */
-    public record DraftAssumption(String statement, String origin, String questionId) {
+    /**
+     * Ancre d'un point (021, contracts/llm-output.md), en chaîne courte pour ménager la grammaire du
+     * schéma strict : {@code SUMMARY}, {@code USE_CASE:i}, {@code USE_CASE:i:n} (étape n du
+     * déroulement), {@code USE_CASE:i:An} (alternative n), {@code SCENARIO:i}, {@code REQUIREMENT:i} ;
+     * {@code i} : position dans cette sortie, à partir de 0 ; vide sans rattachement.
+     *
+     * {@code origin} : SKIPPED_QUESTION ou TOOL_INFERENCE ; {@code questionId} vide si sans objet ;
+     * {@code fromCode} (révision, 021) : code de l'hypothèse dans la version de base, vide si nouvelle.
+     */
+    public record DraftAssumption(String statement, String origin, String questionId, String fromCode, String anchor) {
+
+        public DraftAssumption(String statement, String origin, String questionId) {
+            this(statement, origin, questionId, "", "");
+        }
+
+        public DraftAssumption(String statement, String origin, String questionId, String fromCode) {
+            this(statement, origin, questionId, fromCode, "");
+        }
+    }
+
+    /**
+     * Point ouvert (révision, 021, contracts/llm-output.md) : une question que la révision laisse en
+     * suspens ; {@code fromCode} : son code dans la version de base, vide si nouvelle.
+     */
+    public record DraftOpenQuestion(String question, String owner, String fromCode, String anchor) {
+
+        public DraftOpenQuestion(String question, String owner, String fromCode) {
+            this(question, owner, fromCode, "");
+        }
     }
 
     /** {@code category} : FUNCTIONAL ou TECHNICAL. */

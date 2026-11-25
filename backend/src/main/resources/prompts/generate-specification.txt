@@ -63,6 +63,14 @@ Structure attendue :
   "when" et "then" ont au moins une entrée, "given" peut être vide. Écris chaque entrée sans le
   mot-clé (pas de « Quand » ni « Alors » au début), 1 000 caractères au maximum.
 - "requirements" : exigences FUNCTIONAL ou TECHNICAL, une phrase chacune.
+- "anchor" de chaque hypothèse, écart entre sources : l'élément de cette sortie qu'il
+  concerne, désigné par sa position (0 pour le premier) : "USE_CASE:1" (le deuxième use case),
+  "USE_CASE:1:4" (son étape 4 du déroulement nominal, à partir de 1), "USE_CASE:1:A2" (sa deuxième
+  alternative), "SCENARIO:0", "REQUIREMENT:2" (position dans "requirements"), ou "SUMMARY".
+  Chaque hypothèse et chaque écart a une ancre, jamais vide : choisis l'élément le plus précis qui
+  dépend du point (l'étape plutôt que le use case) ; un point qui vaut pour toute la
+  spécification, ou pour une question passée sans élément évident, prend "SUMMARY". Exemple : une
+  hypothèse sur le montant saisi à l'étape 3 du premier use case a "anchor": "USE_CASE:0:3".
 - "adrDeviations" : écarts de la spécification aux ADR de <connaissance-projet>, chacun
   avec "adrRef" (la référence de l'ADR, recopiée exactement), "decision" (ce que l'ADR décide) et
   "deviation" (en quoi la spécification s'en écarte) ; liste vide sans écart.

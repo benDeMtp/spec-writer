@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { ChangeDetectionStrategy, Component, effect, inject, input, signal, untracked } from '@angular/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -31,7 +31,7 @@ export { changeLabel };
 @Component({
   selector: 'sw-source-sync',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatFormFieldModule, MatSelectModule],
+  imports: [SwDatePipe, MatFormFieldModule, MatSelectModule],
   template: `
     <p class="hint" id="source-sync-hint">
       Tant que spec-writer tourne, une source dont le délai est écoulé est relue seule, sans relire les autres. Une
@@ -57,11 +57,11 @@ export { changeLabel };
               </mat-form-field>
               <p class="last">
                 @if (s.last; as last) {
-                  Dernière synchronisation : {{ last.at | date: 'd MMM y, HH:mm' }} ·
+                  Dernière synchronisation : {{ last.at | swDate: 'd MMM y, HH:mm' }} ·
                   @if (last.outcome === 'ERROR') {
                     <strong>Échec</strong> ({{ last.errorCode }})
                     @if (s.lastSuccessAt) {
-                      , dernière réussite le {{ s.lastSuccessAt | date: 'd MMM y, HH:mm' }}
+                      , dernière réussite le {{ s.lastSuccessAt | swDate: 'd MMM y, HH:mm' }}
                     }
                   } @else {
                     {{ changes(last.change) }}
@@ -70,7 +70,7 @@ export { changeLabel };
                   Jamais synchronisée automatiquement.
                 }
                 @if (s.nextRunAt) {
-                  <br />Prochaine synchronisation vers {{ s.nextRunAt | date: 'd MMM y, HH:mm' }}
+                  <br />Prochaine synchronisation vers {{ s.nextRunAt | swDate: 'd MMM y, HH:mm' }}
                 }
               </p>
             </li>

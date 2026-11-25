@@ -1,12 +1,16 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/019-cycle-de-vie-outil/` (Quitter depuis le menu, arrêt propre
+La feature en cours est `specs/021-interview-specification/` (séance de relecture d'une ou
+plusieurs spécifications avec les sachants, sur écran partagé : préparation depuis la page
+Spécifications, parcours élément par élément, points rattachés, compte rendu à copier, révision
+en une fois par la discussion de la 011, « à reporter » vers les sources de vérité ; tables V30),
+après `specs/019-cycle-de-vie-outil/` (Quitter depuis le menu, arrêt propre
 commun à Quitter, ⌘Q, Ctrl+C et SIGTERM ; une instance par dossier de données, verrou
 `instance.lock` et canal `instance.sock` ; un second lancement ou le Dock de macOS rouvre un onglet),
 après `specs/018-premier-lancement-visite/` (assistant de premier lancement
 `/premiers-pas/:etape` jusqu'à l'indexation du projet, progression en base V29, installation déjà
-utilisée réputée configurée ; visite guidée de 11 arrêts sur le CDK, cibles `data-tour` ; guide
+utilisée réputée configurée ; visite guidée de 12 arrêts sur le CDK, cibles `data-tour` ; guide
 « Installer depuis les sources » du README), après `specs/017-synchro-auto-sources/` (vue Jira lue dans l'index et triée par
 date, statut ou état de synchro ; délai de synchronisation automatique par source, réveil par
 quarkus-scheduler, bilan de chaque source par différence d'empreintes ; notification du navigateur
@@ -105,6 +109,13 @@ dev mode ne remplace aucune gate. Le jar de `backend/target/quarkus-app` est rec
   `%e2e` (`specwriter.onboarding.auto-open=false`) ; `us18-premiers-pas` démarre une seconde
   instance sur une base neuve, port 47697. Une installation compte toujours au moins un projet
   (« Projet par défaut ») : l'assistant le renomme au lieu d'en créer un.
+- Séances (021) : les ancres du modèle sont des chaînes courtes par position (`USE_CASE:1:4`),
+  traduites en codes par `IdentifierAssigner` (schéma strict de Copilot, grammaire déjà à sa
+  limite) ; la révision de séance garantit les points tranchés retirés et les reportés ajoutés par
+  `InterviewOutcome` (`fromCode`), jamais par le modèle ; le message de séance passe par la
+  discussion de la 011 (`conversation_message.interview_id`) ; la route `data.presentation`
+  masque le menu et les notifications. Une page Confluence n'est indexée que par sections
+  (`ref#…`) : l'empreinte d'une source les agrège.
 - Cycle de vie (019) : `SpecWriterMain` (`@QuarkusMain`) est aussi appelé par le dev mode, à chaque
   rechargement à chaud ; le verrou `instance.lock` et le canal `instance.sock` (dossier de données)
   ne sont pris qu'en `LaunchMode.NORMAL` (jar, installeurs, E2E). Une seconde instance E2E a donc

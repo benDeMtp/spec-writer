@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, storageStatePath } from './support/env';
+import { specAction } from './support/spec-actions';
 
 const NEED =
   'Les comptables doivent pouvoir lettrer les virements reçus chaque jour avec les factures émises, ' +
@@ -100,7 +101,7 @@ test.describe.serial('009 joindre un document', () => {
     await expectNoA11yViolations(page);
 
     const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Exporter en Markdown' }).click();
+    await (await specAction(page, 'Exporter en Markdown')).click();
     const markdown = readFileSync((await (await download).path())!, 'utf8');
     expect(markdown).toContain('document joint Regles lettrage.html');
     expect(markdown).not.toContain(EXCERPT);

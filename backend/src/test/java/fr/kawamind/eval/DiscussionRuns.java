@@ -64,7 +64,7 @@ final class DiscussionRuns {
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     enum Kind {
-        QUESTION, INCONSISTENCY, REVISION, UNCHANGED
+        QUESTION, INCONSISTENCY, REVISION, UNCHANGED, INTERVIEW
     }
 
     /** Contrôles d'un cas, par métrique ; {@code outcome} : réponse, proposition, aucun changement ou erreur. */
@@ -93,6 +93,7 @@ final class DiscussionRuns {
             out.add(switch (kind) {
                 case QUESTION, INCONSISTENCY -> w.ask(c, kind, run);
                 case REVISION, UNCHANGED -> w.propose(c, kind, spec, run);
+                case INTERVIEW -> w.interview(c, spec, run);
             });
         }
         return out;
@@ -220,6 +221,71 @@ final class DiscussionRuns {
                 }
             }
             return new CaseRun(c.path("name").asString(), kind, run, checks, List.of(), outcome, excerpt);
+        }
+
+        /**
+         * Révision d'après une séance (021, FR-015) : les hypothèses tranchées ne figurent plus dans la
+         * proposition, chaque question reportée y est un point ouvert, et le changement noté y est.
+         */
+        CaseRun interview(JsonNode c, SpecificationContent spec, int run) {
+            List<fr.kawamind.domain.specification.Assumption> assumptions = new ArrayList<>();
+            for (JsonNode a : c.path("assumptions")) {
+                assumptions.add(new fr.kawamind.domain.specification.Assumption("H-%02d".formatted(assumptions.size() + 1),
+                        a.asString(), fr.kawamind.domain.specification.Assumption.Origin.TOOL_INFERENCE, null));
+            }
+            SpecificationContent read = spec.withAssumptions(assumptions);
+            versions.save(new SpecificationVersion(ids.next(), session.id(), 2, read, "eval-2", VersionOrigin.DISCUSSION,
+                    MarkdownRenderer.render(read, Language.FR), clock.now()));
+            fr.kawamind.support.InMemoryInterviews interviews = new fr.kawamind.support.InMemoryInterviews();
+            fr.kawamind.application.interview.RunInterview meet = new fr.kawamind.application.interview.RunInterview(
+                    interviews, sessions, versions, operations, clock, ids);
+            List<String> participants = new ArrayList<>();
+            c.path("participants").forEach(n -> participants.add(n.asString()));
+            UUID id = meet.startForSpecification(session.id(), participants).interview().id();
+            List<String> decided = new ArrayList<>();
+            List<String> deferred = new ArrayList<>();
+            for (JsonNode p : c.path("points")) {
+                JsonNode a = p.path("anchor");
+                var anchor = a.isMissingNode() || a.isNull() ? null
+                        : new fr.kawamind.domain.specification.Anchor(a.path("element").asString(),
+                                a.path("step").isMissingNode() ? null : a.path("step").asInt(), false);
+                var origin = fr.kawamind.domain.interview.InterviewPoint.Origin.valueOf(p.path("origin").asString());
+                var outcome = fr.kawamind.domain.interview.InterviewPoint.Outcome.valueOf(p.path("outcome").asString());
+                String code = p.path("code").isMissingNode() ? null : p.path("code").asString();
+                meet.savePoint(id, null, new fr.kawamind.application.interview.RunInterview.PointInput(session.id(), anchor,
+                        origin, code, p.path("text").asString(), outcome,
+                        p.path("owner").isMissingNode() ? null : p.path("owner").asString(), null, null));
+                if (code != null && outcome != fr.kawamind.domain.interview.InterviewPoint.Outcome.DEFERRED) {
+                    assumptions.stream().filter(h -> h.code().equals(code)).forEach(h -> decided.add(h.statement()));
+                }
+                if (outcome == fr.kawamind.domain.interview.InterviewPoint.Outcome.DEFERRED) {
+                    deferred.add(p.path("text").asString());
+                }
+            }
+            meet.finish(id);
+            ProposalStore proposals = new ProposalStore((x, y, l1, l2) -> "", ids, clock);
+            ProposeRevision revise = new ProposeRevision(sessions, versions, conversations, discussions,
+                    SessionKnowledge.sheetOnly(projects), llm, ModelCapacities.UNKNOWN, consent, operations, events,
+                    proposals, clock, ids, Runnable::run, null, interviews);
+            var revision = new fr.kawamind.application.interview.InterviewRevision(interviews, sessions, versions,
+                    conversations, discussions, revise, consent, clock, ids);
+            List<TurnEvents.Event> seen = new ArrayList<>();
+            events.subscribe(revision.propose(id, session.id()).turnId(), seen::add);
+            boolean removed = false;
+            String outcome;
+            String excerpt = "";
+            if (seen.getLast() instanceof TurnEvents.Event.Done done && done.proposalId() != null) {
+                ProposalStore.Proposal p = proposals.find(session.id(), done.proposalId()).orElseThrow();
+                outcome = "PROPOSITION";
+                excerpt = excerpt(p.markdown());
+                removed = p.content().assumptions().stream().noneMatch(h -> decided.contains(h.statement()))
+                        && deferred.stream().allMatch(q -> p.content().openQuestions().stream()
+                                .anyMatch(o -> o.question().equals(q)));
+            } else {
+                outcome = seen.getLast() instanceof TurnEvents.Event.Error e ? e.code() : "AUCUN_CHANGEMENT";
+            }
+            return new CaseRun(c.path("name").asString(), Kind.INTERVIEW, run,
+                    Map.of(EvalBaseline.DECIDED_REMOVED, removed), List.of(), outcome, excerpt);
         }
 
         /**

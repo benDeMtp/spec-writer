@@ -124,7 +124,7 @@ public final class LlmOutputs {
         return new DraftSpecification(draft.title(), TABLES.wikiTablesToMarkdown(draft.summary()),
                 TABLES.wikiTablesToMarkdown(draft.details()), draft.useCases(), draft.scenarios(), draft.assumptions(),
                 draft.requirements(), draft.adrDeviations(), draft.story(), draft.splitProposal(),
-                draft.sourceDeviations());
+                draft.sourceDeviations(), draft.openQuestions());
     }
 
     public static RelatedIssuesJudgement related(String json) {

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, storageStatePath } from './support/env';
+import { specAction } from './support/spec-actions';
 
 const NEED =
   'Les employés doivent pouvoir réserver une place de parking pour une journée, et être prévenus quand le parking ' +
@@ -52,7 +53,7 @@ test.describe.serial('US4 export Markdown', () => {
     await expectNoA11yViolations(page);
 
     const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Exporter en Markdown' }).click();
+    await (await specAction(page, 'Exporter en Markdown')).click();
     const file = await download;
     expect(file.suggestedFilename()).toBe('Parking-été-v1.md');
     const markdown = await readFile((await file.path())!, 'utf8');

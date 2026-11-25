@@ -44,6 +44,14 @@ export interface SessionSummary {
   readable: boolean;
   /** Absent du détail, qui porte `implementation`. */
   implementationStatus?: ImplementationStatus;
+  /** Points à traiter de la dernière version (021) ; nul sans version lisible. */
+  pending?: PendingPoints | null;
+}
+
+export interface PendingPoints {
+  assumptions: number;
+  openQuestions: number;
+  sourceDeviations: number;
 }
 
 export type SyncState = 'IN_SYNC' | 'LOCAL_AHEAD' | 'CONFLICT';
@@ -127,6 +135,8 @@ export interface Assumption {
   statement: string;
   origin: 'SKIPPED_QUESTION' | 'TOOL_INFERENCE';
   questionId: string | null;
+  /** Élément concerné (021) ; nul pour une hypothèse non rattachée. */
+  anchor?: SpecAnchor | null;
 }
 
 export interface Requirement {
@@ -165,6 +175,24 @@ export interface Specification {
   splitProposal?: string[];
   /** Écarts entre une source de référence et une interprétation (016, FR-021) ; vide sinon. */
   sourceDeviations?: SourceDeviation[];
+  /** Questions sans réponse ni valeur par défaut (021) ; absentes des versions antérieures. */
+  openQuestions?: OpenQuestion[];
+}
+
+/** Rattachement d'un point à un élément de la version (021) : use case et étape, scénario, exigence, résumé. */
+export interface SpecAnchor {
+  element: string;
+  step: number | null;
+  alternative: boolean;
+}
+
+/** Point ouvert (021) : une question, un responsable facultatif, son élément. */
+export interface OpenQuestion {
+  code: string;
+  question: string;
+  owner: string | null;
+  due: string | null;
+  anchor: SpecAnchor | null;
 }
 
 /** Extrait cité par un écart entre sources : référence, sorte de source, titre, date (016). */
@@ -176,9 +204,12 @@ export interface CitedExtract {
 }
 
 export interface SourceDeviation {
+  /** Code de l'écart, « EC-01 »… (021). */
+  code?: string;
   reference: CitedExtract;
   interpretation: CitedExtract;
   difference: string;
+  anchor?: SpecAnchor | null;
 }
 
 export type StoryPart = 'ROLE' | 'CAPABILITY' | 'BENEFIT';

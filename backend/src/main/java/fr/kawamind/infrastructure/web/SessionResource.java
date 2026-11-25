@@ -77,12 +77,16 @@ public class SessionResource {
     ChangeStatus changeStatus;
     @Inject
     EvolveSpecification evolveSpecification;
+    @Inject
+    fr.kawamind.application.interview.PrepareInterview prepareInterview;
 
     @GET
     public List<SessionViews.SessionSummary> list() {
         Map<UUID, LinkedJiraTicket> linked = tickets.all().stream()
                 .collect(Collectors.toMap(LinkedJiraTicket::sessionId, Function.identity()));
-        return manageSessions.list().stream().map(e -> SessionViews.summary(e, linked.get(e.session().id()))).toList();
+        return manageSessions.list().stream().map(e -> SessionViews.summary(e, linked.get(e.session().id()),
+                e.session().readable() && e.latestVersion() > 0
+                        ? prepareInterview.pending(e.session().id()).orElse(null) : null)).toList();
     }
 
     @PATCH

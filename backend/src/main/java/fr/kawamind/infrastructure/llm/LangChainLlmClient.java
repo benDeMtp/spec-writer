@@ -47,16 +47,20 @@ public class LangChainLlmClient implements LlmClient {
     private final KnowledgeAi knowledge;
     private final QuestionsAi questions;
     private final SpecificationAi specification;
-    /** Délai d'un appel : toutes les opérations sont interactives (180 s par défaut). */
+    /** Délai d'un appel interactif (180 s par défaut). */
     private final Duration timeout;
+    /** Délai d'une rédaction de spécification entière, plus longue sur une grosse spécification (600 s par défaut). */
+    private final Duration drafting;
 
     @Inject
     public LangChainLlmClient(KnowledgeAi knowledge, QuestionsAi questions, SpecificationAi specification,
-            @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s") Duration timeout) {
+            @ConfigProperty(name = "specwriter.llm.timeout.interactive", defaultValue = "180s") Duration timeout,
+            @ConfigProperty(name = "specwriter.llm.timeout.drafting", defaultValue = "600s") Duration drafting) {
         this.knowledge = knowledge;
         this.questions = questions;
         this.specification = specification;
         this.timeout = timeout;
+        this.drafting = drafting;
     }
 
     @Override
@@ -70,7 +74,7 @@ public class LangChainLlmClient implements LlmClient {
     public DraftSpecification generateSpecification(GenerationRequest request) {
         String user = UserMessages.generation(request.need(), request.language(), request.answers(),
                 request.correction(), request.knowledge());
-        return AiCalls.call(timeout, () -> specification.generate(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
+        return AiCalls.call(drafting, () -> specification.generate(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
     }
 
     @Override
@@ -84,21 +88,21 @@ public class LangChainLlmClient implements LlmClient {
     public DraftSpecification editSpecification(EditRequest request) {
         String user = UserMessages.edit(request.need(), request.language(), request.answers(), request.currentMarkdown(),
                 request.instruction(), request.correction(), request.knowledge());
-        return AiCalls.call(timeout, () -> specification.edit(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
+        return AiCalls.call(drafting, () -> specification.edit(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
     }
 
     @Override
     public DraftSpecification mergeConflict(MergeRequest request) {
         String user = UserMessages.merge(request.need(), request.language(), request.answers(), request.localMarkdown(),
                 request.jiraMarkdown(), request.correction(), request.knowledge());
-        return AiCalls.call(timeout, () -> specification.merge(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
+        return AiCalls.call(drafting, () -> specification.merge(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
     }
 
     @Override
     public DraftSpecification structureImportedText(StructureImportRequest request) {
         String user = UserMessages.structure(request.text(), request.language(), request.correction(),
                 request.knowledge());
-        return AiCalls.call(timeout, () -> specification.structure(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
+        return AiCalls.call(drafting, () -> specification.structure(user, LlmSchemas.params(LlmSchemas.SPECIFICATION)));
     }
 
     @Override

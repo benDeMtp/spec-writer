@@ -23,7 +23,7 @@ class DiscussionRunsTest {
         assertThat(runs).extracting(DiscussionRuns.CaseRun::caseName).contains("citation-contestee",
                 "incoherence-relance-postale", "revision-delai", "sans-changement-questions");
         assertThat(llm.answerRequests).allSatisfy(r -> assertThat(r.discussed()).isNotNull());
-        assertThat(llm.reviseRequests).hasSize(4)
+        assertThat(llm.reviseRequests).hasSize(5)
                 .allSatisfy(r -> assertThat(r.currentMarkdown()).contains("Relances des factures impayées"));
         // l'agent scripté ne cite rien et ne propose rien : seules les discussions sans changement passent
         assertThat(DiscussionRuns.score(runs, EvalBaseline.DISCUSSION_CITATION, 1)).isZero();
@@ -34,5 +34,7 @@ class DiscussionRunsTest {
         assertThat(llm.changesRequests).hasSize(4);
         assertThat(DiscussionRuns.score(runs, EvalBaseline.CHANGES_RECALL, 1)).isEqualTo(0.5);
         assertThat(DiscussionRuns.score(runs, EvalBaseline.CHANGES_PRECISION, 1)).isZero();
+        // séance : même sans changement rédigé, l'issue retire l'hypothèse confirmée et ajoute la question reportée
+        assertThat(DiscussionRuns.score(runs, EvalBaseline.DECIDED_REMOVED, 1)).isEqualTo(1.0);
     }
 }

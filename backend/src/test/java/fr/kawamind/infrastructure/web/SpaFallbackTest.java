@@ -18,6 +18,18 @@ class SpaFallbackTest {
         given().get("/questionnaire/123").then().statusCode(200).body(containsString("<sw-root>"));
     }
 
+    /**
+     * Après une mise à jour, la page doit charger le nouveau front : {@code index.html} n'est jamais
+     * gardé en cache (il nomme les fichiers du front, qui changent de nom à chaque build), alors que
+     * ces fichiers à empreinte le sont.
+     */
+    @Test
+    void indexHtmlNEstPasGardeEnCache() {
+        given().get("/").then().statusCode(200).header("Cache-Control", equalTo("no-cache"));
+        given().get("/index.html").then().statusCode(200).header("Cache-Control", equalTo("no-cache"));
+        given().get("/seances/123").then().statusCode(200).header("Cache-Control", equalTo("no-cache"));
+    }
+
     @Test
     void apiInconnueRenvoieUnProblem404() {
         LocalApi.api().get("/api/inconnu").then().statusCode(404)

@@ -275,6 +275,48 @@
           "Je ne sais pas encore, je dois en parler au métier."
         ]
       ]
+    },
+    {
+      "name": "seance-relances",
+      "kind": "INTERVIEW",
+      "assumptions": [
+        "La relance par courriel part au contact de facturation du client.",
+        "Une facture contestée reste contestée jusqu'à sa résolution par le gestionnaire."
+      ],
+      "participants": [
+        "Julie M.",
+        "Paul D."
+      ],
+      "points": [
+        {
+          "origin": "ASSUMPTION",
+          "code": "H-01",
+          "outcome": "CONFIRMED",
+          "text": ""
+        },
+        {
+          "origin": "REMARK",
+          "anchor": {
+            "element": "UC-01",
+            "step": 1
+          },
+          "outcome": "CHANGE",
+          "text": "La première relance part 7 jours après l'échéance, pas 10."
+        },
+        {
+          "origin": "QUESTION",
+          "anchor": {
+            "element": "UC-02",
+            "step": 2
+          },
+          "outcome": "DEFERRED",
+          "text": "Le courrier recommandé est-il encore obligatoire pour la troisième relance ?",
+          "owner": "Paul D."
+        }
+      ],
+      "mustContain": [
+        "7 jours"
+      ]
     }
   ]
 }

@@ -1,4 +1,5 @@
-import { DOCUMENT, DatePipe, NgTemplateOutlet } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,6 +18,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
@@ -27,6 +30,8 @@ import { ProjectsApi } from '../../core/projects/projects.api';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { LeaveGuard } from '../../core/navigation/leave-guard';
 import { ConflictResolution, JiraConflict, Proposal } from '../../core/jira/jira.model';
+import { InterviewsApi } from '../../core/interviews/interviews.api';
+import { InterviewSummary, SourceUpdate } from '../../core/interviews/interviews.model';
 import { SessionsApi } from '../../core/sessions/sessions.api';
 import {
   CitedExtract,
@@ -35,10 +40,10 @@ import {
   Language,
   LinkedTicket,
   SessionDetail,
+  SpecAnchor,
   Specification,
   SyncState,
   UseCase,
-  UserStory,
   VersionSummary,
 } from '../../core/sessions/sessions.model';
 import { AttachmentsComponent } from '../../shared/ui/attachments.component';
@@ -66,6 +71,9 @@ import { VersionsPanelComponent } from './versions-panel.component';
 import { DiscussionPanelComponent } from './discussion-panel.component';
 import { ElapsedComponent } from '../../shared/ui/elapsed.component';
 import { ProjectFollower } from '../../core/projects/project-follower';
+import { storyParts } from '../../shared/ui/story-parts';
+
+export { storyParts };
 
 const EFFORTS: Record<DeploymentFact['kind'], string> = {
   NOT_DEPLOYED: 'aucune instance en production, à déployer',
@@ -115,18 +123,6 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
   return found ? { title: found[1], body: found[2].trim() } : null;
 }
 
-/** Parties de l'énoncé de story (015, FR-023), la partie supposée marquée « (hypothèse) ». */
-export function storyParts(
-  story: UserStory,
-): { lead: string; text: string; assumed: boolean; end: string }[] {
-  const assumed = new Set(story.assumed ?? []);
-  return [
-    { lead: 'En tant que', text: story.role, assumed: assumed.has('ROLE'), end: ',' },
-    { lead: 'je veux', text: story.capability, assumed: assumed.has('CAPABILITY'), end: ',' },
-    { lead: 'afin de', text: story.benefit, assumed: assumed.has('BENEFIT'), end: '.' },
-  ];
-}
-
 /** Version de spécification : résumé, use cases, scénarios, hypothèses et exigences (FR-010). */
 @Component({
   selector: 'sw-specification-page',
@@ -136,13 +132,15 @@ export function storyParts(
     ProposalReviewComponent,
     DiscussionPanelComponent,
     AttachmentsComponent,
-    DatePipe,
+    SwDatePipe,
     NgTemplateOutlet,
     MarkdownComponent,
     MatButtonModule,
     MatInputModule,
     MatFormFieldModule,
     MatSelectModule,
+    MatMenuModule,
+    MatDividerModule,
     RouterLink,
     ScenarioComponent,
     SubtasksPanelComponent,
@@ -178,19 +176,28 @@ export function storyParts(
               </form>
             } @else {
               <p class="meta">
-                Version {{ v.number }} · {{ session()?.name }}
+                @if (versions().length > 1) {
+                  <sw-versions-panel [sessionId]="id()" [versions]="versions()" [current]="v.number" />
+                } @else {
+                  Version {{ v.number }}
+                }
+                · {{ session()?.name }}
                 @if (v.contextUpdatedAt) {
-                  · contexte du {{ v.contextUpdatedAt | date: 'd MMM y, HH:mm' }}
+                  · contexte du {{ v.contextUpdatedAt | swDate: 'd MMM y, HH:mm' }}
                 }
                 @if (session(); as s) {
                   <button
-                    mat-button
+                    mat-icon-button
                     type="button"
                     class="rename-action"
+                    title="Renommer"
                     (click)="startRename(s.name)"
                     [attr.aria-label]="'Renommer la spécification ' + s.name"
                   >
-                    Renommer
+                    <!-- crayon -->
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
                   </button>
                 }
               </p>
@@ -237,7 +244,7 @@ export function storyParts(
                 }
                 @if (locked()) {
                   <p id="locked-reason" class="hint">
-                    Implémentée le {{ s.implementation.implementedAt | date: 'd MMMM y' }} : cette
+                    Implémentée le {{ s.implementation.implementedAt | swDate: 'd MMMM y' }} : cette
                     spécification est verrouillée. Rétablissez un statut antérieur, ou créez une
                     évolution.
                   </p>
@@ -263,60 +270,74 @@ export function storyParts(
               >
                 Discuter avec l'IA
               </button>
+              <!-- 021 : séance de relecture avec les sachants, sur écran partagé -->
               <button
+                data-tour="interview"
                 mat-stroked-button
                 type="button"
-                [disabled]="exporting()"
-                (click)="exportMarkdown(v.number)"
+                [disabled]="drafting() || startingInterview()"
+                [attr.aria-describedby]="drafting() ? 'drafting-hint' : null"
+                (click)="interview()"
               >
-                Exporter en Markdown
+                @if (activeInterview()) {
+                  Reprendre la relecture
+                } @else {
+                  Relire{{ pendingPoints() ? ' (' + pendingPoints() + ')' : '' }}
+                }
               </button>
-              @if (session()?.linkedTicket) {
-                <button
-                  mat-stroked-button
-                  type="button"
-                  [disabled]="pushing() || locked()"
-                  [attr.aria-describedby]="locked() ? 'locked-reason' : null"
-                  (click)="push(v.number)"
-                >
-                  Envoyer vers Jira
+              <!-- les autres actions dans un menu : l'en-tête reste sur une ligne, même discussion ouverte -->
+              <button mat-stroked-button type="button" class="more" [matMenuTriggerFor]="moreMenu">
+                Autres actions <span aria-hidden="true">▾</span>
+              </button>
+              <mat-menu #moreMenu="matMenu">
+                <button mat-menu-item type="button" [disabled]="exporting()" (click)="exportMarkdown(v.number)">
+                  Exporter en Markdown
                 </button>
-              } @else if (session()) {
-                <button
-                  mat-stroked-button
-                  type="button"
-                  [disabled]="!jiraReady() || pushing() || locked()"
-                  [attr.aria-describedby]="
-                    locked() ? 'locked-reason' : jiraReady() ? null : 'jira-missing'
-                  "
-                  (click)="createTicket(v.number)"
-                >
-                  Créer un ticket Jira
-                </button>
-              }
-              @if (session() && moveTargets().length) {
-                <button mat-button type="button" (click)="move()">Déplacer vers…</button>
-              }
-              @if (session()?.origin !== 'JIRA_IMPORT') {
-                <a mat-button [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
-              }
-              @if (session()) {
-                <!-- à l'écart des autres actions, en couleur d'alerte : rien ne se supprime par mégarde -->
-                <span class="danger-zone">
+                @if (session()?.linkedTicket) {
                   <button
-                    mat-button
+                    mat-menu-item
                     type="button"
+                    [disabled]="pushing() || locked()"
+                    [attr.aria-describedby]="locked() ? 'locked-reason' : null"
+                    (click)="push(v.number)"
+                  >
+                    Envoyer vers Jira
+                  </button>
+                } @else if (session()) {
+                  <button
+                    mat-menu-item
+                    type="button"
+                    [disabled]="!jiraReady() || pushing() || locked()"
+                    [attr.aria-describedby]="locked() ? 'locked-reason' : jiraReady() ? null : 'jira-missing'"
+                    (click)="createTicket(v.number)"
+                  >
+                    Créer un ticket Jira
+                  </button>
+                }
+                @if (session() && moveTargets().length) {
+                  <button mat-menu-item type="button" (click)="move()">Déplacer vers…</button>
+                }
+                @if (session()?.origin !== 'JIRA_IMPORT') {
+                  <a mat-menu-item [routerLink]="['/sessions', id()]">Retour au questionnaire</a>
+                }
+                @if (session()) {
+                  <!-- à l'écart des autres actions, en couleur d'alerte : rien ne se supprime par mégarde -->
+                  <mat-divider />
+                  <button
+                    mat-menu-item
+                    type="button"
+                    class="danger"
                     [disabled]="locked()"
                     [attr.aria-describedby]="locked() ? 'locked-reason' : null"
                     (click)="removeVersion(v.number)"
                   >
                     Supprimer cette version
                   </button>
-                  <button mat-button type="button" (click)="removeSpecification()">
+                  <button mat-menu-item type="button" class="danger" (click)="removeSpecification()">
                     Supprimer la spécification
                   </button>
-                </span>
-              }
+                }
+              </mat-menu>
             </div>
             @if (session() && !session()?.linkedTicket && !jiraReady()) {
               <p id="jira-missing" class="hint">
@@ -410,7 +431,7 @@ export function storyParts(
                       <dd>
                         <ol>
                           @for (step of uc.nominalFlow; track $index) {
-                            <li>{{ step }}</li>
+                            <li [id]="uc.code + '-etape-' + ($index + 1)">{{ step }}</li>
                           }
                         </ol>
                       </dd>
@@ -419,7 +440,7 @@ export function storyParts(
                         <dd>
                           <ul>
                             @for (a of uc.alternatives; track $index) {
-                              <li>{{ a }}</li>
+                              <li [id]="uc.code + '-alternative-' + ($index + 1)">{{ a }}</li>
                             }
                           </ul>
                         </dd>
@@ -465,7 +486,13 @@ export function storyParts(
                   <ul class="assumptions">
                     @for (h of v.assumptions; track h.code) {
                       <li>
-                        <span class="code">{{ h.code }}</span> {{ h.statement }}
+                        <span class="code">{{ h.code }}</span>
+                        @if (h.anchor; as a) {
+                          <a class="element" [href]="'#' + anchorTarget(a)" (click)="goToAnchor($event, a)"
+                            >{{ anchorLabel(a) }}</a
+                          >
+                        }
+                        {{ h.statement }}
                       </li>
                     }
                   </ul>
@@ -474,11 +501,36 @@ export function storyParts(
                 }
               </section>
 
+              @if (v.openQuestions?.length) {
+                <section aria-labelledby="open-questions">
+                  <h2 id="open-questions">Points ouverts</h2>
+                  <ul class="assumptions">
+                    @for (q of v.openQuestions; track q.code) {
+                      <li>
+                        <span class="code">{{ q.code }}</span>
+                        @if (q.anchor; as a) {
+                          <a class="element" [href]="'#' + anchorTarget(a)" (click)="goToAnchor($event, a)"
+                            >{{ anchorLabel(a) }}</a
+                          >
+                        }
+                        {{ q.question }}
+                        @if (q.owner || q.due) {
+                          <span class="who"
+                            >({{ q.owner ? 'responsable : ' + q.owner : ''
+                            }}{{ q.owner && q.due ? ', ' : '' }}{{ q.due ? 'échéance : ' + dueLabel(q.due) : '' }})</span
+                          >
+                        }
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
+
               <section aria-labelledby="functional">
                 <h2 id="functional">Exigences fonctionnelles</h2>
                 <ul>
                   @for (r of functional(); track r.code) {
-                    <li>
+                    <li [id]="r.code">
                       <span class="code">{{ r.code }}</span> {{ r.statement }}
                     </li>
                   } @empty {
@@ -490,7 +542,7 @@ export function storyParts(
                 <h2 id="technical">Exigences techniques</h2>
                 <ul>
                   @for (r of technical(); track r.code) {
-                    <li>
+                    <li [id]="r.code">
                       <span class="code">{{ r.code }}</span> {{ r.statement }}
                     </li>
                   } @empty {
@@ -585,6 +637,9 @@ export function storyParts(
                           <dt>Écart</dt>
                           <dd>{{ d.difference }}</dd>
                         </dl>
+                        @if (pendingUpdate(d.reference.ref) || pendingUpdate(d.interpretation.ref)) {
+                          <p class="to-report">Décision prise en séance, à reporter dans la source.</p>
+                        }
                       </li>
                     }
                   </ul>
@@ -613,18 +668,63 @@ export function storyParts(
                   </ul>
                 </section>
               }
+              @if (sourceUpdates().length) {
+                <!-- 021, US6 : décisions à reporter à la main dans les sources de vérité -->
+                <section aria-labelledby="source-updates-title">
+                  <h2 id="source-updates-title">Sources à mettre à jour</h2>
+                  <ul class="source-updates">
+                    @for (u of sourceUpdates(); track u.id) {
+                      <li>
+                        @if (u.source.link) {
+                          <a [href]="u.source.link" target="_blank" rel="noopener noreferrer"
+                            >{{ u.source.title || u.source.ref }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a
+                          >
+                        } @else {
+                          <strong>{{ u.source.title || u.source.ref }}</strong>
+                        }
+                        @if (u.state === 'SOURCE_CHANGED') {
+                          <span class="changed">Source modifiée, à vérifier</span>
+                        }
+                        <p>{{ u.text }}</p>
+                        <button
+                          mat-button
+                          type="button"
+                          [attr.aria-label]="'Marquer comme reporté dans « ' + (u.source.title || u.source.ref) + ' »'"
+                          (click)="closeUpdate(u)"
+                        >
+                          Marquer comme reporté
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
+              @if (interviews().length) {
+                <!-- 021, FR-012 : comptes rendus des séances passées, à revoir et recopier -->
+                <section aria-labelledby="interviews-title">
+                  <h2 id="interviews-title">Séances</h2>
+                  <ul class="interviews">
+                    @for (i of interviews(); track i.id) {
+                      <li>
+                        {{ (i.startedAt ?? i.createdAt) | swDate: 'd MMMM y' }}
+                        @if (i.participants.length) {
+                          , avec {{ i.participants.join(', ') }}
+                        }
+                        · {{ i.points }} point{{ i.points > 1 ? 's' : '' }}
+                        @if (i.state === 'IN_PROGRESS') {
+                          · en cours
+                          <a mat-button [routerLink]="['/seances', i.id]">Reprendre</a>
+                        } @else {
+                          <a mat-button [routerLink]="['/seances', i.id, 'recapitulatif']">Compte rendu</a>
+                        }
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
               <sw-tasks-panel [sessionId]="id()" (changed)="tasksChanged($event)" />
               <sw-subtasks-panel [sessionId]="id()" [versionNumber]="v.number" />
             </div>
-            @if (versions().length > 1) {
-              <aside class="side">
-                <sw-versions-panel
-                  [sessionId]="id()"
-                  [versions]="versions()"
-                  [current]="v.number"
-                />
-              </aside>
-            }
           </div>
           @if (discussing() && !locked()) {
             <!-- petit écran : le panneau est sous le document, ce bouton y ramène -->
@@ -664,8 +764,9 @@ export function storyParts(
               [displayedVersion]="v.number"
               [internalLink]="showSection"
               [reviewing]="!!discussionProposal()"
+              [turn]="tour() ?? null"
               (proposed)="onProposed($event)"
-              (drafting)="drafting.set($event)"
+              (drafting)="onDrafting($event)"
               (closed)="closeDiscussion()"
             />
           </div>
@@ -716,13 +817,17 @@ export function storyParts(
       align-items: center;
       gap: 0.5rem;
     }
-    .danger-zone {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.25rem;
-      padding-left: 0.5rem;
-      border-left: 1px solid var(--sw-rule);
-      --mat-button-text-label-text-color: var(--mat-sys-error, #b3261e);
+    /* les suppressions, au bas du menu « Autres actions », en couleur d'alerte */
+    .danger {
+      color: var(--mat-sys-error, #b3261e);
+    }
+    .rename-action {
+      vertical-align: middle;
+      color: var(--sw-ink-soft);
+    }
+    .rename-action:hover,
+    .rename-action:focus-visible {
+      color: var(--sw-pencil);
     }
     .hint {
       margin: 0.5rem 0 0;
@@ -772,23 +877,15 @@ export function storyParts(
       overflow-y: auto;
       overscroll-behavior: contain;
     }
-    .workspace.discussing .side {
-      position: static;
-      order: -1;
-    }
     .back-to-discussion {
       display: none;
     }
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, calc(var(--sw-measure) + 10rem)) 13rem;
+      grid-template-columns: minmax(0, calc(var(--sw-measure) + 10rem));
       gap: 1.5rem;
       align-items: start;
       margin-top: 1rem;
-    }
-    .side {
-      position: sticky;
-      top: 1rem;
     }
     @media (max-width: 64rem) {
       .workspace.discussing {
@@ -810,10 +907,6 @@ export function storyParts(
       }
       .layout {
         grid-template-columns: minmax(0, 1fr);
-      }
-      .side {
-        position: static;
-        order: -1;
       }
     }
     .sheet {
@@ -894,6 +987,30 @@ export function storyParts(
     .assumptions {
       padding-left: 0;
     }
+    .who {
+      color: var(--sw-ink-soft);
+    }
+    .source-updates {
+      list-style: none;
+      padding: 0;
+    }
+    .source-updates li {
+      border-left: 3px solid var(--sw-outcome);
+      padding-left: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .changed,
+    .to-report {
+      color: var(--sw-outcome);
+      font-weight: 600;
+    }
+    .changed {
+      margin-left: 0.5rem;
+    }
+    .element {
+      margin-right: 0.25rem;
+      font-size: 0.875em;
+    }
     .implementation {
       display: flex;
       flex-wrap: wrap;
@@ -933,6 +1050,8 @@ export class SpecificationPage {
   readonly edit = input<string | undefined>();
   /** `?discussion=1` : ouvre la discussion avec l'IA, par exemple après l'import d'un ticket (011). */
   readonly discussion = input<string | undefined>();
+  /** `?tour=<id>` : rédaction lancée par la révision d'une séance (021), suivie par la discussion. */
+  readonly tour = input<string | undefined>();
   private readonly discussButton = viewChild('discussButton', {
     read: ElementRef<HTMLButtonElement>,
   });
@@ -944,6 +1063,18 @@ export class SpecificationPage {
   private readonly workspace = viewChild<ElementRef<HTMLElement>>('workspace');
   /** L'agent rédige une nouvelle version : le panneau reste ouvert. */
   protected readonly drafting = signal(false);
+  /** 021 : séance en cours sur cette spécification, à reprendre ; séances passées. */
+  protected readonly activeInterview = signal<string | null>(null);
+  protected readonly interviews = signal<InterviewSummary[]>([]);
+  /** « À reporter » ouverts (021, US6). */
+  protected readonly sourceUpdates = signal<SourceUpdate[]>([]);
+  protected readonly startingInterview = signal(false);
+  private readonly interviewsApi = inject(InterviewsApi);
+  /** Hypothèses, écarts entre sources et points ouverts de la version affichée. */
+  protected readonly pendingPoints = computed(() => {
+    const v = this.spec();
+    return v ? v.assumptions.length + (v.sourceDeviations?.length ?? 0) + (v.openQuestions?.length ?? 0) : 0;
+  });
   private readonly route = inject(ActivatedRoute);
 
   /**
@@ -1125,11 +1256,54 @@ export class SpecificationPage {
     this.discussionPanel()?.focus();
   }
 
+  /** « UC-02, étape 4 », « UC-02, alternative 1 », « Résumé », « EF-03 » (021, R1). */
+  protected anchorLabel(a: SpecAnchor): string {
+    if (a.element === 'SUMMARY') {
+      return 'Résumé';
+    }
+    return a.step == null ? a.element : `${a.element}, ${a.alternative ? 'alternative' : 'étape'} ${a.step}`;
+  }
+
+  /** Identifiant HTML de l'élément d'un point : l'étape, le scénario, l'exigence ou le résumé. */
+  protected anchorTarget(a: SpecAnchor): string {
+    if (a.element === 'SUMMARY') {
+      return 'summary';
+    }
+    if (a.element.startsWith('SC-')) {
+      return `sc-${a.element}`;
+    }
+    if (a.step != null) {
+      return `${a.element}-${a.alternative ? 'alternative' : 'etape'}-${a.step}`;
+    }
+    return a.element;
+  }
+
+  /** Mène à l'élément du point, dans la page, focus compris. */
+  protected goToAnchor(event: Event, a: SpecAnchor): void {
+    if (this.showSection(`/sessions/${this.id()}/versions/${this.n()}#${this.anchorTarget(a)}`)) {
+      event.preventDefault();
+    }
+  }
+
+  /** « 2026-11-27 » devient « 27/11/2026 ». */
+  protected dueLabel(due: string): string {
+    const [y, m, d] = due.split('-');
+    return d && m && y ? `${d}/${m}/${y}` : due;
+  }
+
+  /** Rédaction en cours ; une rédaction suivie depuis l'adresse ne se suit qu'une fois (021). */
+  protected onDrafting(active: boolean): void {
+    this.drafting.set(active);
+    if (active && this.tour()) {
+      void this.syncDiscussionUrl();
+    }
+  }
+
   /** `?discussion=1` suit le panneau : un rechargement ou un lien le rouvre. */
   private syncDiscussionUrl(): Promise<boolean> {
     return this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { discussion: this.discussing() ? 1 : null, edit: null },
+      queryParams: { discussion: this.discussing() ? 1 : null, edit: null, tour: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
@@ -1509,6 +1683,56 @@ export class SpecificationPage {
     }
     // 012 : une spécification d'un autre projet rend ce projet courant
     void this.follower.follow(session.projectId).catch(() => undefined);
+    void this.loadInterviews(id);
+  }
+
+  /** 021 : séances de la spécification ; la séance en cours se reprend. */
+  private async loadInterviews(id: string): Promise<void> {
+    try {
+      const list = await this.interviewsApi.forSpecification(id);
+      this.interviews.set(list);
+      this.activeInterview.set(list.find((i) => i.state === 'IN_PROGRESS')?.id ?? null);
+    } catch {
+      // sans la liste, « Relire » démarre une séance ; le serveur refuse un doublon
+    }
+    this.sourceUpdates.set(await this.interviewsApi.sourceUpdates(id).catch(() => []));
+  }
+
+  /** Une décision de séance attend d'être reportée dans cette source (US6). */
+  protected pendingUpdate(ref: string): boolean {
+    return this.sourceUpdates().some((u) => u.source.ref === ref);
+  }
+
+  /** « Marquer comme reporté » : la décision est reportée à la main dans la source (FR-029). */
+  protected async closeUpdate(u: SourceUpdate): Promise<void> {
+    try {
+      await this.interviewsApi.closeSourceUpdate(this.id(), u.id);
+      this.sourceUpdates.update((all) => all.filter((x) => x.id !== u.id));
+      this.status.set(`« ${u.source.title || u.source.ref} » : décision marquée comme reportée.`);
+    } catch {
+      // le bandeau affiche la cause
+    }
+  }
+
+  /**
+   * « Relire » (021, FR-001) : démarre une relecture, seul ou en séance avec les sachants, ou reprend
+   * celle en cours.
+   */
+  protected async interview(): Promise<void> {
+    const active = this.activeInterview();
+    if (active) {
+      await this.router.navigate(['/seances', active]);
+      return;
+    }
+    this.startingInterview.set(true);
+    try {
+      const started = await this.interviewsApi.startForSpecification(this.id());
+      await this.router.navigate(['/seances', started.id]);
+    } catch {
+      // le bandeau d'erreur dit pourquoi (séance déjà en cours, opération de l'IA en cours)
+    } finally {
+      this.startingInterview.set(false);
+    }
   }
 
   protected scenariosOf(code: string) {

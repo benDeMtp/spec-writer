@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { DecisionOutcome, SessionsApi } from '../../core/sessions/sessions.api';
@@ -25,7 +25,7 @@ export interface RelatedChoice {
 @Component({
   selector: 'sw-related-issues',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ElapsedComponent, DatePipe, MatButtonModule],
+  imports: [ElapsedComponent, SwDatePipe, MatButtonModule],
   template: `
     <section class="related" aria-labelledby="related-title">
       <h2 id="related-title" tabindex="-1">Tickets proches</h2>
@@ -57,7 +57,7 @@ export interface RelatedChoice {
               @if (!issue.statusFresh) {
                 statut indexé
                 @if (issue.updatedAt) {
-                  le {{ issue.updatedAt | date: 'd MMM y, HH:mm' }}
+                  le {{ issue.updatedAt | swDate: 'd MMM y, HH:mm' }}
                 }
                 (Jira n'a pas pu être relu)
               }

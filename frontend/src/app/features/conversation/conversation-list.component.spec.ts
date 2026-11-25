@@ -45,9 +45,19 @@ describe('ConversationListComponent', () => {
 
   function button(label: string): HTMLButtonElement {
     return Array.from(el.querySelectorAll('button')).find(
-      (b) => b.textContent?.trim() === label,
+      (b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label,
     ) as HTMLButtonElement;
   }
+
+  it('renommer et supprimer sont des icônes nommées, avec une infobulle', () => {
+    const rename = button('Renommer Avoirs');
+    const remove = button('Supprimer Avoirs');
+    expect(rename.textContent?.trim()).toBe('');
+    expect(rename.title).toBe('Renommer');
+    expect(rename.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(remove.textContent?.trim()).toBe('');
+    expect(remove.title).toBe('Supprimer');
+  });
 
   it('liste la plus récente d’abord, marque la conversation ouverte', () => {
     const links = el.querySelectorAll('li a');

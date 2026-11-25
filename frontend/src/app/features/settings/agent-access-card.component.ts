@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { SwDatePipe } from '../../shared/ui/sw-date.pipe';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -27,7 +27,7 @@ const OPERATIONS: Record<AgentOperation, string> = {
 @Component({
   selector: 'sw-agent-access-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatButtonModule, PagerComponent],
+  imports: [SwDatePipe, MatButtonModule, PagerComponent],
   template: `
     <section class="sheet" aria-labelledby="agents-title" data-tour="agent-access">
       <h3 id="agents-title">Accès des agents</h3>
@@ -76,7 +76,7 @@ const OPERATIONS: Record<AgentOperation, string> = {
               <tbody>
                 @for (e of l.entries; track $index) {
                   <tr>
-                    <td>{{ e.at | date: 'd MMM y, HH:mm' }}</td>
+                    <td>{{ e.at | swDate: 'd MMM y, HH:mm' }}</td>
                     <td>{{ e.agentName }}</td>
                     <td>{{ operation(e) }}</td>
                     <td>{{ subject(e) }}</td>

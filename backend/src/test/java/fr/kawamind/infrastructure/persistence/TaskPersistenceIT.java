@@ -72,6 +72,23 @@ class TaskPersistenceIT {
         assertThat(tasks.tasks(session.id())).extracting(SpecTask::title).containsExactly("Écran", "Exposer l'endpoint");
     }
 
+    /** V33 : description d'une sous-tâche relue dans Jira, gardée à part de l'état de la tâche. */
+    @Test
+    void laDescriptionRelueDansJiraEstGardee() {
+        SpecTask a = SpecTask.proposed(UUID.randomUUID(), session.id(), 0, "Accès Halo", "Installer sans erreur",
+                Basis.NONE, TaskOrigin.PROPOSED, List.of()).created("AURORA-182");
+        tasks.replaceAll(session.id(), List.of(a));
+        assertThat(tasks.descriptions(session.id())).isEmpty();
+
+        tasks.describe(a.id(), "## Accès\n\nJeton en lecture seule.");
+        tasks.update(a.started(new Holder("4242-1700000000000", "claude-code", T0), false));
+        assertThat(tasks.descriptions(session.id())).containsExactly(
+                java.util.Map.entry(a.id(), "## Accès\n\nJeton en lecture seule."));
+
+        tasks.describe(a.id(), null);
+        assertThat(tasks.descriptions(session.id())).isEmpty();
+    }
+
     @Test
     void laPropositionEtLeSuiviSontGardes() {
         assertThat(tasks.proposal(session.id())).isEmpty();

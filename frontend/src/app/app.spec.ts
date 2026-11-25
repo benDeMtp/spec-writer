@@ -1,7 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Component } from '@angular/core';
+import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
 import { LaunchTokenService } from './core/launch/launch-token.service';
 import { routes } from './app.routes';
@@ -45,4 +46,29 @@ describe('App (shell)', () => {
     expect(el.querySelector('sw-problem-banner')).toBeNull();
     expect(el.querySelectorAll('main')).toHaveLength(1);
   });
+
+  it('écran de présentation (021) : sans rail ni avis de projet, le lien d’évitement mène au contenu', async () => {
+    @Component({ template: '<h1>Séance</h1>' })
+    class Seance {}
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideRouter([{ path: 'seances/:id', component: Seance, data: { presentation: true } }]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(App);
+    await TestBed.inject(Router).navigateByUrl('/seances/1');
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('nav')).toBeNull();
+    expect(el.querySelector('.brand')).toBeNull();
+    expect(el.querySelector('sw-project-notice')).toBeNull();
+    expect(el.querySelector('a.skip')?.getAttribute('href')).toBe('#contenu');
+    expect(el.querySelector('main#contenu h1')?.textContent).toBe('Séance');
+    expect(el.querySelector('.layout')?.classList.contains('presentation')).toBe(true);
+  });
 });
+

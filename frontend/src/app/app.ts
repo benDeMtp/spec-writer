@@ -6,6 +6,7 @@ import { MainNavComponent } from './features/shell/main-nav.component';
 import { ProjectNoticeComponent } from './features/shell/project-notice.component';
 import { AppEventsService } from './core/events/app-events.service';
 import { OnboardingService } from './core/onboarding/onboarding.service';
+import { PresentationService } from './core/interviews/presentation';
 import { SessionLostComponent } from './features/shell/session-lost.component';
 import { AppStoppedComponent } from './features/shell/app-stopped.component';
 import { LifecycleStore } from './core/lifecycle/lifecycle.store';
@@ -25,14 +26,18 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
       <sw-session-lost />
     } @else {
       <a class="skip" href="#contenu" (click)="focusMain($event)">Aller au contenu</a>
-      <div class="layout">
-        <header class="rail">
-          <a class="brand" routerLink="/">spec-writer</a>
-          <sw-main-nav />
-        </header>
+      <div class="layout" [class.presentation]="presentation.active()">
+        @if (!presentation.active()) {
+          <header class="rail">
+            <a class="brand" routerLink="/">spec-writer</a>
+            <sw-main-nav />
+          </header>
+        }
         <main id="contenu" #main tabindex="-1">
           <sw-problem-banner />
-          <sw-project-notice />
+          @if (!presentation.active()) {
+            <sw-project-notice />
+          }
           <router-outlet />
         </main>
       </div>
@@ -78,6 +83,10 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
       padding: clamp(1.5rem, 4vw, 3rem);
       outline: none;
     }
+    /* 021 : écran de séance partagé, sans rail, en pleine largeur */
+    .layout.presentation {
+      grid-template-columns: minmax(0, 1fr);
+    }
     @media (max-width: 48rem) {
       .layout {
         grid-template-columns: 1fr;
@@ -95,6 +104,7 @@ import { ProblemBannerComponent } from './shared/ui/problem-banner.component';
 })
 export class App {
   protected readonly launch = inject(LaunchTokenService);
+  protected readonly presentation = inject(PresentationService);
   protected readonly lifecycle = inject(LifecycleStore);
   private readonly main = viewChild<ElementRef<HTMLElement>>('main');
 

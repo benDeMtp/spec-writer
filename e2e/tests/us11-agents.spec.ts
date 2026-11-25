@@ -12,6 +12,7 @@ import { McpClient } from '../mcp-client';
 import { expectNoA11yViolations } from './support/a11y';
 import { ensureCopilotConnected } from './support/copilot';
 import { baseURL, jiraURL, stateDir, storageStatePath } from './support/env';
+import { specAction, closeActions } from './support/spec-actions';
 
 const NEED =
   'Les assistantes doivent pouvoir réserver une salle de réunion pour un comité de direction, et voir les salles libres.';
@@ -100,13 +101,11 @@ test.describe.serial('US11 statut et agents', () => {
     await expect(page.locator('#locked-reason')).toContainText(
       'cette spécification est verrouillée',
     );
-    for (const name of [
-      "Discuter avec l'IA",
-      'Créer un ticket Jira',
-      'Supprimer cette version',
-    ]) {
-      await expect(page.getByRole('button', { name })).toBeDisabled();
+    await expect(page.getByRole('button', { name: "Discuter avec l'IA" })).toBeDisabled();
+    for (const name of ['Créer un ticket Jira', 'Supprimer cette version']) {
+      await expect(await specAction(page, name)).toBeDisabled();
     }
+    await closeActions(page);
     await expectNoA11yViolations(page);
 
     // l'API refuse aussi : génération, discussion (011), suppression de version

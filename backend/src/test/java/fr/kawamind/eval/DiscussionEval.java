@@ -20,7 +20,8 @@ class DiscussionEval {
     @ParameterizedTest
     @ValueSource(strings = {EvalBaseline.DISCUSSION_CITATION, EvalBaseline.DISCUSSION_INCONSISTENCY,
         EvalBaseline.REVISION_COMPLETENESS, EvalBaseline.REVISION_PRESERVATION, EvalBaseline.REVISION_STRUCTURE,
-        EvalBaseline.UNCHANGED_RECALL, EvalBaseline.CHANGES_RECALL, EvalBaseline.CHANGES_PRECISION})
+        EvalBaseline.UNCHANGED_RECALL, EvalBaseline.CHANGES_RECALL, EvalBaseline.CHANGES_PRECISION,
+        EvalBaseline.DECIDED_REMOVED})
     void scoreAuNiveauDeLaBase(String metric) {
         EvalRuns.Result r = EvalRuns.result();
         double score = r.conversation().get(metric);

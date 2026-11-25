@@ -90,6 +90,9 @@ import { RouterLink } from '@angular/router';
           @if (problem() && view()) {
             <div class="problem" role="alert" data-testid="discussion-problem">
               <p>{{ problem() }}</p>
+              @if (retryable() && canPropose()) {
+                <button mat-stroked-button type="button" (click)="retry()">Réessayer</button>
+              }
               @if (internal()) {
                 <p>Le détail technique est dans le <a routerLink="/journal">journal</a>.</p>
               }
@@ -234,6 +237,8 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   readonly proposed = output<Proposal>();
   /** Rédaction en cours : la page ne ferme pas le panneau et prévient avant de quitter. */
   readonly drafting = output<boolean>();
+  /** Rédaction lancée ailleurs, par la révision d'une séance (021) : le panneau la suit à l'ouverture. */
+  readonly turn = input<string | null>(null);
 
   private readonly api = inject(ConversationsApi);
   private readonly consent = inject(ConsentGate);
@@ -249,6 +254,10 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   protected readonly problem = signal('');
   /** Le dernier échec est une erreur inattendue de l'outil : son détail est au journal. */
   protected readonly internal = signal(false);
+  /** L'échec porte sur la rédaction : « Réessayer » la relance. */
+  protected readonly retryable = signal(false);
+  /** Changements de la dernière rédaction demandée ici ; nuls pour celle lancée par une séance. */
+  private lastChanges: string[] | null = null;
   protected readonly busy = signal(false);
   protected readonly proposing = signal(false);
   protected readonly proposingSince = signal<number | null>(null);
@@ -310,6 +319,7 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
       return;
     }
     this.problem.set('');
+    this.retryable.set(false);
     this.internal.set(false);
     this.unchanged.set(null);
     this.listing.set(true);
@@ -328,6 +338,16 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Relance la dernière rédaction : mêmes changements, ou nouveau relevé après une séance. */
+  protected async retry(): Promise<void> {
+    this.retryable.set(false);
+    if (this.lastChanges) {
+      await this.propose(this.lastChanges);
+    } else {
+      await this.pick();
+    }
+  }
+
   protected cancelPick(): void {
     this.candidates.set(null);
     setTimeout(() => this.proposeButton()?.nativeElement.focus());
@@ -341,7 +361,9 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
     }
     this.candidates.set(null);
     setTimeout(() => this.thread().focus());
+    this.lastChanges = changes;
     this.problem.set('');
+    this.retryable.set(false);
     this.unchanged.set(null);
     this.proposingReasoning.set('');
     this.proposingSince.set(Date.now());
@@ -357,11 +379,29 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
         ]);
         this.thread().scrollToEnd();
       }
-      this.stream = this.api.follow(view.conversationId, turnId, (e) => void this.onProposal(e));
+      this.follow(view.conversationId, turnId);
     } catch (e) {
       this.endProposal();
       this.problem.set(reason(e, 'La proposition n’a pas pu démarrer. Réessayez.'));
     }
+  }
+
+  private follow(conversationId: string, turnId: string): void {
+    this.stream = this.api.follow(conversationId, turnId, (e) => void this.onProposal(e));
+  }
+
+  /** Suit la rédaction lancée par la révision d'une séance, comme une proposition faite ici. */
+  private followStarted(conversationId: string, turnId: string): void {
+    this.lastChanges = null;
+    this.problem.set('');
+    this.retryable.set(false);
+    this.unchanged.set(null);
+    this.proposingReasoning.set('');
+    this.proposingSince.set(Date.now());
+    this.proposing.set(true);
+    this.drafting.emit(true);
+    this.thread().say('L’agent rédige la nouvelle version d’après la séance.');
+    this.follow(conversationId, turnId);
   }
 
   private async onProposal(event: TurnEvent): Promise<void> {
@@ -390,11 +430,14 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
         this.endProposal();
         this.internal.set(event.code === 'INTERNAL_ERROR');
         this.problem.set(`La nouvelle version n’a pas pu être rédigée. ${event.userMessage}`);
+        this.retryable.set(true);
         this.thread().say(this.problem());
         return;
       case 'gone':
         this.endProposal();
-        this.problem.set('Le suivi de la proposition a été interrompu. Réessayez.');
+        // l'issue d'un tour n'est gardée que quelques minutes : l'écran n'en sait plus rien
+        this.problem.set('Le suivi de la rédaction a été perdu : son résultat n’est pas connu.');
+        this.retryable.set(true);
         return;
       default:
         return;
@@ -417,7 +460,13 @@ export class DiscussionPanelComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
+    // lue avant l'ouverture : la page retire le paramètre de l'adresse dès que la rédaction est suivie
+    const turn = this.turn();
     await this.open(false);
+    const view = this.view();
+    if (turn && view) {
+      this.followStarted(view.conversationId, turn);
+    }
   }
 
   ngOnDestroy(): void {

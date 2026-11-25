@@ -141,6 +141,115 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(el.querySelector('#jira-missing a')?.getAttribute('href')).toBe('/configuration');
   });
 
+  it('« Relire » démarre une relecture ; une relecture en cours se reprend (021)', async () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    await open(SESSION, [{ number: 1 }]);
+    ctrl.expectOne('/api/sessions/s1/interviews').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    const points = SPEC.assumptions.length + (SPEC.sourceDeviations?.length ?? 0);
+    const button = () =>
+      Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent?.trim().startsWith('Relire'));
+    expect(button()?.textContent?.trim()).toBe(points ? `Relire (${points})` : 'Relire');
+    button()!.click();
+    const start = ctrl.expectOne('/api/sessions/s1/interviews');
+    expect(start.request.method).toBe('POST');
+    start.flush({ id: 'i9' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(navigate).toHaveBeenCalledWith(['/seances', 'i9']);
+  });
+
+  it('les séances passées et leur compte rendu (021, FR-012)', async () => {
+    await open(SESSION, [{ number: 1 }]);
+    ctrl.expectOne('/api/sessions/s1/interviews').flush([
+      {
+        id: 'i2',
+        state: 'FINISHED',
+        participants: ['Julie M.'],
+        createdAt: '2026-11-20T09:00:00Z',
+        startedAt: '2026-11-20T09:00:00Z',
+        finishedAt: '2026-11-20T10:00:00Z',
+        specifications: [],
+        points: 3,
+      },
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    const block = section('interviews-title');
+    expect(text(block)).toContain('avec Julie M.');
+    expect(text(block)).toContain('3 points');
+    expect(block.querySelector('a')?.getAttribute('href')).toBe('/seances/i2/recapitulatif');
+  });
+
+  it('sources à mettre à jour : état, surimpression dans les écarts, « Marquer comme reporté » (021, US6)', async () => {
+    fixture = TestBed.createComponent(SpecificationPage);
+    fixture.componentRef.setInput('id', 's1');
+    fixture.componentRef.setInput('n', '1');
+    el = fixture.nativeElement;
+    fixture.detectChanges();
+    const page = 'https://wiki/pages/viewpage.action?pageId=103';
+    ctrl.expectOne('/api/sessions/s1/versions/1').flush({
+      ...SPEC,
+      sourceDeviations: [
+        {
+          code: 'EC-01',
+          reference: { ref: page, origin: 'CONFLUENCE', title: 'Notes de frais', updatedAt: null },
+          interpretation: { ref: 'docs:x/Demande.docx', origin: 'DOCUMENTS', title: 'Demande', updatedAt: null },
+          difference: '500 contre 1 000 euros.',
+        },
+      ],
+    });
+    ctrl.expectOne('/api/sessions/s1').flush(SESSION);
+    ctrl.expectOne('/api/sessions/s1/versions').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    ctrl.expectOne('/api/sessions/s1/interviews').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    ctrl.expectOne('/api/sessions/s1/source-updates').flush([
+      {
+        id: 'u1',
+        source: { kind: 'DOC_PAGE', ref: page, title: 'Notes de frais', link: page },
+        text: 'Plafond à 1 000 euros.',
+        state: 'SOURCE_CHANGED',
+        interviewId: 'i1',
+        decidedAt: '2026-11-20T10:00:00Z',
+      },
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const block = section('source-updates-title');
+    expect(text(block)).toContain('Notes de frais');
+    expect(text(block)).toContain('Source modifiée, à vérifier');
+    expect(text(block)).toContain('Plafond à 1 000 euros.');
+    expect(text(section('source-deviations'))).toContain('Décision prise en séance, à reporter dans la source.');
+    const close = Array.from(block.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Marquer comme reporté',
+    )!;
+    expect(close.getAttribute('aria-label')).toBe('Marquer comme reporté dans « Notes de frais »');
+    close.click();
+    ctrl.expectOne({ method: 'POST', url: '/api/sessions/s1/source-updates/u1/close' }).flush(null);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    expect(section('source-updates-title')).toBeNull();
+  });
+
+  it('une relecture en cours : « Reprendre la relecture » (021)', async () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    await open(SESSION, [{ number: 1 }]);
+    ctrl.expectOne('/api/sessions/s1/interviews').flush([
+      { id: 'i3', state: 'IN_PROGRESS', participants: [], createdAt: '2026-11-20T09:00:00Z', startedAt: null, finishedAt: null, specifications: [], points: 0 },
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    const resume = Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Reprendre la relecture',
+    )!;
+    resume.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(navigate).toHaveBeenCalledWith(['/seances', 'i3']);
+  });
+
   it('une spécification d’un autre projet rend ce projet courant (012)', async () => {
     const follow = vi.spyOn(TestBed.inject(ProjectFollower), 'follow').mockResolvedValue();
     await open(SESSION, [{ number: 1 }]);
@@ -249,9 +358,89 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(section('deviations').compareDocumentPosition(deviations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('affiche les points ouverts après les hypothèses, avec responsable et échéance (021)', async () => {
+    fixture = TestBed.createComponent(SpecificationPage);
+    fixture.componentRef.setInput('id', 's1');
+    fixture.componentRef.setInput('n', '1');
+    el = fixture.nativeElement;
+    fixture.detectChanges();
+    ctrl.expectOne('/api/sessions/s1/versions/1').flush({
+      ...SPEC,
+      openQuestions: [
+        { code: 'Q-01', question: 'Qui valide en l’absence du manager ?', owner: 'Paul D.', due: '2026-11-27', anchor: null },
+        { code: 'Q-02', question: 'Quel plafond ?', owner: null, due: null, anchor: null },
+      ],
+    });
+    ctrl.expectOne('/api/sessions/s1').flush(SESSION);
+    ctrl.expectOne('/api/sessions/s1/versions').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const open = section('open-questions');
+    expect(open.querySelector('h2')?.textContent).toBe('Points ouverts');
+    const items = [...open.querySelectorAll('li')].map(text);
+    expect(items[0]).toContain('Q-01 Qui valide en l’absence du manager ? (responsable : Paul D., échéance : 27/11/2026)');
+    expect(items[1]).not.toContain('(');
+    expect(section('assumptions').compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('chaque point affiche son élément, avec un lien qui y mène (021, US4)', async () => {
+    fixture = TestBed.createComponent(SpecificationPage);
+    fixture.componentRef.setInput('id', 's1');
+    fixture.componentRef.setInput('n', '1');
+    el = fixture.nativeElement;
+    document.body.appendChild(el);
+    fixture.detectChanges();
+    ctrl.expectOne('/api/sessions/s1/versions/1').flush({
+      ...SPEC,
+      assumptions: [
+        {
+          code: 'H-01',
+          statement: 'Le montant est TTC.',
+          origin: 'TOOL_INFERENCE',
+          questionId: null,
+          anchor: { element: SPEC.useCases[0].code, step: 1, alternative: false },
+        },
+        { code: 'H-02', statement: 'Sans rattachement.', origin: 'TOOL_INFERENCE', questionId: null, anchor: null },
+      ],
+    });
+    ctrl.expectOne('/api/sessions/s1').flush(SESSION);
+    ctrl.expectOne('/api/sessions/s1/versions').flush([]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const items = section('assumptions').querySelectorAll('li');
+    const link = items[0].querySelector<HTMLAnchorElement>('a.element')!;
+    expect(link.textContent?.trim()).toBe(`${SPEC.useCases[0].code}, étape 1`);
+    expect(link.getAttribute('href')).toBe(`#${SPEC.useCases[0].code}-etape-1`);
+    expect(items[1].querySelector('a.element')).toBeNull();
+    link.click();
+    expect(document.activeElement?.id).toBe(`${SPEC.useCases[0].code}-etape-1`);
+    el.remove();
+  });
+
+  it('sans point ouvert, pas de rubrique (021)', async () => {
+    await open(SESSION, []);
+    expect(section('open-questions')).toBeNull();
+  });
+
   it('sans écart entre sources, pas de rubrique (016)', async () => {
     await open(SESSION, []);
     expect(section('source-deviations')).toBeNull();
+  });
+
+  it('en-tête compact : deux actions principales, le reste dans « Autres actions », crayon pour renommer', async () => {
+    await open(SESSION, []);
+    const actions = Array.from(el.querySelectorAll<HTMLElement>('.actions > button')).map((b) => b.textContent?.trim());
+    expect(actions).toEqual(["Discuter avec l'IA", 'Relire', 'Autres actions ▾']);
+    expect(document.querySelector('.cdk-overlay-container')?.textContent ?? '').not.toContain('Supprimer cette version');
+    const rename = el.querySelector<HTMLButtonElement>('button.rename-action')!;
+    expect(rename.getAttribute('aria-label')).toBe('Renommer la spécification ' + SESSION.name);
+    expect(rename.getAttribute('title')).toBe('Renommer');
+    expect(rename.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(button('Supprimer cette version').classList).toContain('danger');
   });
 
   it('renomme la spécification depuis son écran', async () => {
@@ -299,10 +488,25 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(text(efforts)).toContain('Avoirs → Comptabilité : traverse des infrastructures');
   });
 
+  /**
+   * Bouton par son texte, ou par le début de son nom accessible (bouton icône « Renommer ») ; les
+   * actions secondaires sont dans le menu « Autres actions », ouvert au besoin.
+   */
   function button(label: string): HTMLButtonElement {
-    return Array.from(document.querySelectorAll('button')).find(
-      (b) => b.textContent?.trim() === label,
-    )!;
+    const find = () =>
+      Array.from(document.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === label || b.getAttribute('aria-label')?.startsWith(label + ' '),
+      );
+    let found = find();
+    if (!found) {
+      const more = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+        b.textContent?.trim().startsWith('Autres actions'),
+      );
+      more?.click();
+      fixture.detectChanges();
+      found = find();
+    }
+    return found!;
   }
 
   /** Bouton de la boîte de confirmation ouverte : « Supprimer la spécification » existe aussi sur la page. */
@@ -338,7 +542,7 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     discuss.click();
     await settle();
     // le panneau ouvert est dans l'adresse : un rechargement le rouvre
-    expect(navigateTo.mock.calls[0][1]?.queryParams).toEqual({ discussion: 1, edit: null });
+    expect(navigateTo.mock.calls[0][1]?.queryParams).toEqual({ discussion: 1, edit: null, tour: null });
 
     ctrl
       .expectOne({ method: 'POST', url: '/api/sessions/s1/discussion' })
@@ -432,7 +636,7 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     await settle();
     expect(el.querySelector('sw-discussion-panel')).toBeNull();
     expect(document.activeElement).toBe(discuss);
-    expect(navigateTo.mock.calls.at(-1)![1]?.queryParams).toEqual({ discussion: null, edit: null });
+    expect(navigateTo.mock.calls.at(-1)![1]?.queryParams).toEqual({ discussion: null, edit: null, tour: null });
     el.remove();
   });
 

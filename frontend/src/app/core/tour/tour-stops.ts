@@ -58,6 +58,14 @@ export const TOUR_STOPS: TourStop[] = [
     fallback: 'Sur une spécification, « Discuter avec l’IA » propose une nouvelle version relue par différences.',
   },
   {
+    id: 'interview',
+    route: SPECIFICATION,
+    target: 'interview',
+    title: 'Relire une spécification',
+    text: 'La spécification lue comme un document, seul ou avec les sachants : hypothèses confirmées d’un clic, passages annotés par sélection, puis la révision.',
+    fallback: 'Sur une spécification, « Relire » ouvre une relecture, seul ou avec les sachants.',
+  },
+  {
     id: 'tasks',
     route: SPECIFICATION,
     target: 'tasks-panel',

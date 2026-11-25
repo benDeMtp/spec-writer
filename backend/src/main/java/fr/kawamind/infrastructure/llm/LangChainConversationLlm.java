@@ -39,13 +39,16 @@ public class LangChainConversationLlm implements ConversationLlm {
     private final ConversationAi conversation;
     private final SpecificationAi specification;
     private final Duration timeout;
+    /** Délai de la révision, qui réécrit la spécification entière. */
+    private final Duration drafting;
 
     public LangChainConversationLlm(AgentAi agent, ConversationAi conversation, SpecificationAi specification,
-            Duration timeout) {
+            Duration timeout, Duration drafting) {
         this.agent = agent;
         this.conversation = conversation;
         this.specification = specification;
         this.timeout = timeout;
+        this.drafting = drafting;
     }
 
     @Override
@@ -126,7 +129,7 @@ public class LangChainConversationLlm implements ConversationLlm {
 
     @Override
     public Revision revise(ReviseRequest request) {
-        return AiCalls.call(timeout, () -> specification.revise(UserMessages.revise(request),
+        return AiCalls.call(drafting, () -> specification.revise(UserMessages.revise(request),
                 LlmSchemas.params(LlmSchemas.REVISION)));
     }
 

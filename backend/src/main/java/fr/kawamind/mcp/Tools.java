@@ -90,7 +90,9 @@ final class Tools {
         tools.add(tool("next_task",
                 "Prochaine tâche d'une feature : votre tâche en cours, ou celle d'une conversation fermée à reprendre, sinon la "
                         + "première à faire dont les préalables sont terminés. Appelez-le en reprenant le travail sur une feature. "
-                        + "Réponse : outcome TASK (avec resume vrai si la tâche était déjà en cours), NONE_LEFT ou ALL_HELD."
+                        + "Réponse : outcome TASK (avec resume vrai si la tâche était déjà en cours), NONE_LEFT ou ALL_HELD. "
+                        + "La tâche porte son titre, son résultat attendu (outcome) et la description de la sous-tâche dans "
+                        + "Jira (description, en Markdown), relue à chaque appel : elle précise ce qu'il faut faire."
                         + DATA_NOTICE,
                 schema("featureId", "Identifiant de la feature.")));
         tools.add(tool("start_task",

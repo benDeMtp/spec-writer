@@ -110,7 +110,7 @@ class LangChainLlmClientTest {
                 .isSameAs(failure);
     }
 
-    /** Chaque appel a le délai configuré (180 s, specwriter.llm.timeout.interactive). */
+    /** La rédaction d'une spécification entière a le délai long (600 s, specwriter.llm.timeout.drafting). */
     @Test
     void delaiDUnAppel() {
         List<java.time.Duration> seen = new ArrayList<>();
@@ -123,6 +123,6 @@ class LangChainLlmClientTest {
         };
         assertThatThrownBy(() -> client(recording).generateSpecification(new GenerationRequest("b", Language.FR,
                 List.of()))).isInstanceOf(DomainException.class);
-        assertThat(seen).containsExactly(java.time.Duration.ofSeconds(180));
+        assertThat(seen).containsExactly(java.time.Duration.ofSeconds(600));
     }
 }
