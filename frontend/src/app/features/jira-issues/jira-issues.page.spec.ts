@@ -21,7 +21,25 @@ function issues(startAt: number, count: number, total: number, lastSync: IssuePa
       updatedAt: '2026-10-30T10:00:00Z',
       sync: startAt === 0 && i === 0 ? ('CONFLICT' as const) : ('UNLINKED' as const),
       sessionId: startAt === 0 && i === 0 ? 'session-1' : null,
+      parentKey: null,
+      subtasks: [],
     })),
+  };
+}
+
+/** Ticket de la vue (022) : une story, ses sous-tâches, ou une sous-tâche orpheline. */
+function ticket(key: string, extra: Partial<IssuePage['issues'][number]> = {}): IssuePage['issues'][number] {
+  return {
+    key,
+    title: `Titre ${key}`,
+    status: 'À faire',
+    statusCategory: 'new',
+    updatedAt: '2026-11-25T09:00:00Z',
+    sync: 'UNLINKED',
+    sessionId: null,
+    parentKey: null,
+    subtasks: [],
+    ...extra,
   };
 }
 
@@ -210,5 +228,68 @@ describe('JiraIssuesPage', () => {
     expect(Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Ouvrir la configuration'))?.getAttribute('href')).toBe(
       '/configuration',
     );
+  });
+
+  it('022 : sous-tâches repliées sous leur parent, dépliables, orpheline signalée', async () => {
+    await settle(fixture);
+    expectPage(0).flush({
+      jiraProjectKey: 'FACT',
+      lastSync: null,
+      startAt: 0,
+      total: 3,
+      issues: [
+        ticket('S-1', { subtasks: [ticket('S-2'), ticket('S-3'), ticket('S-10')] }),
+        ticket('A-1'),
+        ticket('O-5', { parentKey: 'P-9' }),
+      ],
+    });
+    await settle(fixture);
+
+    const toggle = el.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.getAttribute('aria-label')).toBe('Afficher les 3 sous-tâches de S-1');
+    expect(toggle.textContent).toContain('3');
+    expect(el.querySelectorAll('button[aria-expanded]')).toHaveLength(1);
+    expect(el.querySelectorAll('tr.subtask')).toHaveLength(0);
+    expect(el.querySelector('a[href="/jira/S-2"]')).toBeNull();
+    // replié, aucune ligne à désigner (axe aria-valid-attr-value)
+    expect(toggle.hasAttribute('aria-controls')).toBe(false);
+
+    toggle.click();
+    await settle(fixture);
+    const rows = Array.from(el.querySelectorAll<HTMLTableRowElement>('tr.subtask'));
+    expect(rows.map((r) => r.querySelector('a')?.getAttribute('href'))).toEqual(['/jira/S-2', '/jira/S-3', '/jira/S-10']);
+    expect(rows[0].textContent).toContain('Sous-tâche de S-1');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle.getAttribute('aria-label')).toBe('Masquer les 3 sous-tâches de S-1');
+    expect(rows.every((r) => toggle.getAttribute('aria-controls')!.split(' ').includes(r.id))).toBe(true);
+
+    toggle.click();
+    await settle(fixture);
+    expect(el.querySelectorAll('tr.subtask')).toHaveLength(0);
+
+    const orphan = Array.from(el.querySelectorAll('tbody tr')).find((r) => r.textContent?.includes('O-5'))!;
+    expect(orphan.textContent).toContain('Sous-tâche de P-9');
+  });
+
+  it('022 : changer de page replie tout', async () => {
+    await settle(fixture);
+    const page = (startAt: number): IssuePage => ({
+      jiraProjectKey: 'FACT',
+      lastSync: null,
+      startAt,
+      total: 60,
+      issues: [ticket(`S-${startAt + 1}`, { subtasks: [ticket(`T-${startAt + 1}`)] })],
+    });
+    expectPage(0).flush(page(0));
+    await settle(fixture);
+    el.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click();
+    await settle(fixture);
+    expect(el.querySelectorAll('tr.subtask')).toHaveLength(1);
+    await TestBed.inject(Router).navigate([], { queryParams: { page: 2 } });
+    await settle(fixture);
+    expectPage(50).flush(page(0));
+    await settle(fixture);
+    expect(el.querySelectorAll('tr.subtask')).toHaveLength(0);
   });
 });

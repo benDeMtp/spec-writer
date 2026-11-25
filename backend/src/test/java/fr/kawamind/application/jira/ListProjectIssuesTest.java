@@ -35,7 +35,8 @@ class ListProjectIssuesTest {
         public List<ListedIssue> page(UUID projectId, IssueSort sort, int offset, int limit) {
             calls.add(sort + " " + offset + " " + limit);
             return List.of(new ListedIssue("PROJ-1", "Avoir", "En cours", "indeterminate", T, ListedIssue.Sync.CONFLICT,
-                    UUID.randomUUID()));
+                    UUID.randomUUID()).withSubtasks(List.of(new ListedIssue("PROJ-2", "Remise", "À faire", "new", T,
+                            ListedIssue.Sync.UNLINKED, null))));
         }
 
         @Override
@@ -59,6 +60,8 @@ class ListProjectIssuesTest {
         assertThat(page.total()).isEqualTo(120);
         assertThat(page.startAt()).isEqualTo(50);
         assertThat(page.issues()).extracting(ListedIssue::key).containsExactly("PROJ-1");
+        // 022 : les sous-tâches arrivent avec leur parent
+        assertThat(page.issues().getFirst().subtasks()).extracting(ListedIssue::key).containsExactly("PROJ-2");
         assertThat(page.lastSync()).isNotNull();
         assertThat(page.lastSync().at()).isEqualTo(T);
         assertThat(calls).containsExactly("IssueSort[field=SYNC, direction=ASC] 50 50");
