@@ -74,7 +74,7 @@ describe('MainNavComponent', () => {
     );
     expect(labels(app)).toEqual(['Projets', 'Configuration', 'Journal']);
     // 018 : la visite guidée est une commande du bloc Application, pas une page
-    expect(Array.from(app.querySelectorAll('button')).map((b) => b.textContent?.trim())).toEqual(['Visite guidée']);
+    expect(Array.from(app.querySelectorAll('button')).map((b) => b.textContent?.trim())).toEqual(['Visite guidée', 'Quitter spec-writer']);
   });
 
   it('n’affiche pas de clé Jira sans clé effective', () => {

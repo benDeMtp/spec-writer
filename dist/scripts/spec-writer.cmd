@@ -25,4 +25,6 @@ if not exist "%JAR%" (
   exit /b 1
 )
 
+rem 019 : le code de sortie du lanceur est rendu (0 : onglet rouvert, 3 : instance qui ne répond pas)
 "%JAVA%" %* -jar "%JAR%"
+exit /b %ERRORLEVEL%

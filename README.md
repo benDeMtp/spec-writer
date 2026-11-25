@@ -90,6 +90,11 @@ unique dans l'adresse. Au tout premier lancement, l'**assistant de premier lance
 relais (voir [Premier lancement](#premier-lancement)). Laissez le terminal ouvert : fermer le
 terminal arrête l'outil.
 
+Pour arrêter l'outil, choisissez **Quitter spec-writer** dans le menu (bloc Application), ou faites
+Ctrl+C dans le terminal. Si vous avez fermé l'onglet, relancez simplement le script : l'outil déjà
+lancé ouvre un nouvel onglet et le second terminal rend la main aussitôt. Une seule instance tourne
+à la fois sur un même dossier de données.
+
 ### 4. Mettre à jour
 
 ```bash
@@ -116,6 +121,9 @@ ils sont gardés, et la base est mise à jour au démarrage.
   variable d'environnement impose un proxy à toutes les JVM du poste. Si ce proxy n'est pas
   nécessaire pour construire, lancez la commande avec `env -u JAVA_TOOL_OPTIONS ./mvnw …`.
 - **« Jar absent »** : la construction n'a pas abouti. Relancez-la et lisez la première erreur.
+- **« spec-writer est déjà lancé mais ne répond pas »** : une instance tourne sur le même dossier
+  de données mais ne répond plus. Arrêtez-la (Moniteur d'activité, Gestionnaire des tâches, ou
+  `pkill -f spec-writer`), puis relancez.
 - **Le navigateur ne s'ouvre pas** : relancez avec `dist/scripts/spec-writer.sh
   -Dspecwriter.print-launch-url=true` et ouvrez l'adresse affichée dans le terminal.
 - **L'étape Copilot de l'assistant dit que le Copilot CLI est introuvable ou trop ancien** :
@@ -143,8 +151,22 @@ Les installeurs ne sont pas encore signés. Le système vous avertira au premier
 - **Linux** : installez le paquet (`sudo apt install ./spec-writer_<version>_amd64.deb`), ou
   décompressez l'archive `.tar.gz` et lancez l'exécutable `spec-writer` qu'elle contient.
 
+### Lancer, rouvrir, quitter
+
+spec-writer n'a pas de fenêtre à lui : il s'ouvre dans votre navigateur et tourne en tâche de fond.
+Fermer l'onglet ne l'arrête pas.
+
+- **Rouvrir après avoir fermé l'onglet** : relancez spec-writer depuis son raccourci (Launchpad,
+  menu Démarrer, menu des applications), ou cliquez sur son icône dans le Dock sous macOS. L'outil
+  déjà lancé ouvre un nouvel onglet, sans démarrer de seconde instance.
+- **Arrêter** : menu › **Quitter spec-writer**. Si une indexation, une génération ou une réponse
+  de l'agent est en cours, l'outil la nomme et demande confirmation ; le texte déjà reçu d'une
+  réponse est gardé, marqué incomplet. Sous macOS, **Quitter** dans le Dock et ⌘Q arrêtent aussi
+  l'outil proprement. L'onglet affiche ensuite « spec-writer est arrêté ».
+
 ### Mise à jour
 
+Arrêtez spec-writer (**Quitter spec-writer**) avant d'installer la nouvelle version.
 Installez la nouvelle version par-dessus l'ancienne : vos données, vos réglages et le jeton Jira du
 trousseau sont gardés.
 
@@ -186,8 +208,9 @@ bulle désigne un élément de l'écran et explique son rôle. **Précédent**, 
 **Quitter la visite** (ou Échap) se pilotent au clavier ; la visite ne modifie rien et ramène à
 l'écran d'où vous l'avez lancée.
 
-Si l'outil est déjà lancé, rouvrez-le depuis son lanceur : l'adresse contient un jeton à usage
-unique qui ouvre votre session. Une fenêtre qui n'est plus reliée à l'outil (après un redémarrage,
+Si l'outil est déjà lancé, rouvrez-le depuis son raccourci (ou le Dock sous macOS) : il ouvre un
+nouvel onglet, avec un jeton à usage unique qui ouvre votre session, sans démarrer de seconde
+instance (voir [Lancer, rouvrir, quitter](#lancer-rouvrir-quitter)). Une fenêtre qui n'est plus reliée à l'outil (après un redémarrage,
 par exemple) n'affiche plus que « Relancez spec-writer depuis son raccourci ».
 
 ### Le menu
@@ -199,7 +222,7 @@ Le menu a deux blocs :
   sur le projet courant et le nomment dans leur titre.
 - **Application** : Projets, Configuration et Journal, qui valent pour tous les projets. Sous
   Configuration, l'état de Copilot et de Jira reste visible. **Visite guidée** relance la visite
-  de l'outil.
+  de l'outil, **Quitter spec-writer** l'arrête.
 
 Ouvrir une spécification, un questionnaire ou une conversation d'un autre projet (par un lien, la
 recherche ou l'historique) rend ce projet courant, et l'outil l'annonce. Une proposition en

@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { LifecycleStore } from '../lifecycle/lifecycle.store';
 import { ProjectsStore } from '../projects/projects.store';
 import { changeLabel } from '../projects/source-changes';
 import { PresentationService } from '../interviews/presentation';
@@ -50,6 +51,7 @@ export class AppEventsService {
   private readonly projects = inject(ProjectsStore);
   private readonly router = inject(Router);
   private readonly presentation = inject(PresentationService);
+  private readonly lifecycle = inject(LifecycleStore);
 
   /** Réglage de l'application, relu au démarrage et à chaque enregistrement de la carte. */
   readonly enabled = signal(false);
@@ -95,6 +97,8 @@ export class AppEventsService {
       }
     });
     source.onerror = () => {
+      // 019 : le flux se coupe dès que l'outil s'arrête ; la sonde dit s'il est arrêté
+      void this.lifecycle.probe();
       // une session pas encore ouverte ferme le flux : nouvelle tentative plus tard
       if (source.readyState === EventSource.CLOSED) {
         this.source = null;
