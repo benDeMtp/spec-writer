@@ -59,7 +59,7 @@
 
 - **Decision** : `get_feature` ajoute `jiraTicket` : `{key, issueType, parentKey}`, lus dans
   l'index (`knowledge_item` chunk 0 et lien `PARENT`). Hors de l'index, `issueType` et `parentKey`
-  sont nuls. Le champ `jiraKey` existant reste (FR-014).
+  sont nuls. Le champ `jiraIssueKey` existant reste (FR-014).
 - **Rationale** : une feature importée depuis une sous-tâche a son parent dans l'index, puisque
   l'import part de la vue Jira, donc d'un ticket indexé. Aucun appel à Jira de plus dans
   `get_feature`.

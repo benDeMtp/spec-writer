@@ -54,11 +54,11 @@ Champ ajouté à la réponse quand la tâche a un `parentKey` :
 
 ## Ticket d'une feature (`get_feature`)
 
-Champ ajouté, à côté de `jiraKey` (inchangé) :
+Champ ajouté, à côté de `jiraIssueKey` (inchangé) :
 
 ```json
 {
-  "jiraKey": "AURORA-182",
+  "jiraIssueKey": "AURORA-182",
   "jiraTicket": { "key": "AURORA-182", "issueType": "Sous-Tâche (AGILE)", "parentKey": "AURORA-24" }
 }
 ```

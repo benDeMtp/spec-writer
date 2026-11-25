@@ -59,4 +59,4 @@ Champs ajoutés :
 |---|---|---|
 | `jiraTicket` | objet, nul | `{key, issueType, parentKey}` du ticket lié à la feature, lus dans l'index (R5). Nul sans ticket lié. `issueType` et `parentKey` nuls si le ticket n'est pas indexé ; `parentKey` nul si ce n'est pas une sous-tâche. |
 
-Le champ `jiraKey` existant reste, identique à `jiraTicket.key` (FR-014).
+Le champ `jiraIssueKey` existant reste, identique à `jiraTicket.key` (FR-014).

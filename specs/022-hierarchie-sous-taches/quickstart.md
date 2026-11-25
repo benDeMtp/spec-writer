@@ -44,3 +44,16 @@ même story. Attendu : une seule branche, celle de la story, sans consigne dans 
 
 `./mvnw -B verify -DskipDependencyCheck` puis `npm --prefix e2e test` sur le jar construit
 (CLAUDE.md). `ci/check-eval.sh` reste vert : aucun prompt ni code LLM touché.
+
+## Résultats (2026-11-25, jar des gates)
+
+- Q1, Q2 : validés par `e2e/tests/us22-hierarchie.spec.ts` (story et trois sous-tâches repliées,
+  « 1 à 3 sur 3 », dépliage à la souris et au clavier, orpheline « Sous-tâche de AUTRE-9 », axe
+  sans violation, replié et déplié).
+- Q3 : validé par `us15-taches` (`parentKey` de chaque tâche, `jiraTicket` de la feature) et par
+  `AgentTasksTest.chaqueTacheDitSonTypeEtSonTicketParent` (type relu, Jira coupé : parent et type
+  gardés).
+- Q4 : validé par `us15-taches` (instructions d'`initialize`, `branch` de `next_task` et
+  `start_task`, `branch` nul après `complete_task`) et `McpBridgeTest`.
+- Q5 : laissé au mainteneur (agent réel).
+- Gates : `verify` 1 792 tests, E2E 146/146, `ci/check-eval.sh` vert sans nouvelle évaluation.

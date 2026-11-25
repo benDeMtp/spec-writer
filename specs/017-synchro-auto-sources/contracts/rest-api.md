@@ -8,6 +8,9 @@ de l'outil, comme le reste de l'API. Les erreurs suivent le format de problème 
 
 ### `GET /api/projects/{projectId}/jira-issues`
 
+La feature 022 limite la liste au premier niveau et y range les sous-tâches :
+`specs/022-hierarchie-sous-taches/contracts/rest-api.md`.
+
 Paramètres :
 - `sort` : `updated` (par défaut), `status` ou `sync` ;
 - `dir` : `desc` (par défaut) ou `asc` ;

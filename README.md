@@ -573,7 +573,12 @@ ouvert. Un clic mène à la connaissance du projet de la source.
 
 La vue **Tickets Jira** lit l'index local : elle se trie sur toute la liste par date de
 modification, statut ou état de synchronisation avec la spécification liée, sans appeler Jira, et
-dit de quand date la dernière synchronisation de Jira (« Resynchroniser Jira » la relance).
+dit de quand date la dernière synchronisation de Jira (« Resynchroniser Jira » la relance). Les
+sous-tâches sont repliées sous leur ticket parent : le bouton à gauche de la clé indique leur
+nombre et les déplie. Le tri, les pages et le total portent sur les tickets du premier niveau, si
+bien qu'une story et ses sous-tâches sont toujours sur la même page. Une sous-tâche dont le parent
+n'est pas indexé reste au premier niveau, avec la mention « Sous-tâche de » suivie de la clé de
+son parent.
 
 ## Sources du code et analyse de périmètre
 
@@ -652,8 +657,12 @@ Les agents de code lisent les features « prêtes » ou « en cours », leur con
 la connaissance du projet. Sur une feature découpée, ils suivent les tâches : `next_task` donne
 la tâche à faire (choisie par spec-writer, jamais déduite de la branche), `start_task` la prend
 pour la conversation en cours, `complete_task` la termine avec un compte rendu facultatif, ajouté
-en commentaire de la sous-tâche. Sans tâches, ils passent la feature à « en cours » puis à
-« implémentée ». Ils n'ont accès ni aux jetons ni à la configuration : c'est spec-writer qui
+en commentaire de la sous-tâche. Chaque tâche porte sa description Jira, son type et son ticket
+parent (`parentKey`, la story de la feature) ; `get_feature` donne aussi le type et le parent du
+ticket de la feature (`jiraTicket`). Pour une sous-tâche, spec-writer rappelle à l'agent de
+travailler sur la branche du ticket parent, jamais sur une branche par sous-tâche (`branch`, dans
+`next_task` et `start_task`, et dans les instructions du serveur) ; le nom de la branche reste
+libre. Sans tâches, ils passent la feature à « en cours » puis à « implémentée ». Ils n'ont accès ni aux jetons ni à la configuration : c'est spec-writer qui
 appelle Jira, avec votre compte, jamais la passerelle.
 
 1. Dans **Configuration › Accès des agents**, cliquez **Activer l'accès des agents**.
