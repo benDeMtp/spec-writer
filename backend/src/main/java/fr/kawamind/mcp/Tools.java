@@ -64,7 +64,8 @@ final class Tools {
                 schema("projectId", "Identifiant du projet (list_projects).")));
         tools.add(tool("get_feature",
                 "Contenu complet d'une feature : Markdown de la dernière version, identique à l'export, et connaissance du "
-                        + "projet (fiche générale, ADR cités, modules impactés et leurs relations)." + DATA_NOTICE,
+                        + "projet (fiche générale, ADR cités, modules impactés et leurs relations). jiraTicket donne la clé, "
+                        + "le type (issueType) et le ticket parent (parentKey) du ticket Jira de la feature." + DATA_NOTICE,
                 schema("featureId", "Identifiant de la feature (list_features).")));
         ObjectNode search = schema("projectId", "Identifiant du projet.");
         ((ObjectNode) search.get("properties")).putObject("query").put("type", "string").put("maxLength", 2000)
@@ -92,12 +93,16 @@ final class Tools {
                         + "première à faire dont les préalables sont terminés. Appelez-le en reprenant le travail sur une feature. "
                         + "Réponse : outcome TASK (avec resume vrai si la tâche était déjà en cours), NONE_LEFT ou ALL_HELD. "
                         + "La tâche porte son titre, son résultat attendu (outcome) et la description de la sous-tâche dans "
-                        + "Jira (description, en Markdown), relue à chaque appel : elle précise ce qu'il faut faire."
+                        + "Jira (description, en Markdown), relue à chaque appel : elle précise ce qu'il faut faire. "
+                        + "Elle porte aussi son type (issueType) et son ticket parent (parentKey) ; pour une sous-tâche, "
+                        + "branch dit sur quelle branche travailler."
                         + DATA_NOTICE,
                 schema("featureId", "Identifiant de la feature.")));
         tools.add(tool("start_task",
                 "Prend une tâche : elle passe « En cours » dans spec-writer et dans Jira, réservée à cette conversation. "
-                        + "jiraSync PENDING : Jira est injoignable, la transition sera envoyée plus tard ; à vous de continuer ou non."
+                        + "jiraSync PENDING : Jira est injoignable, la transition sera envoyée plus tard ; à vous de continuer ou non. "
+                        + "La tâche porte son type (issueType) et son ticket parent (parentKey) ; branch dit sur quelle "
+                        + "branche travailler : celle du parent."
                         + DATA_NOTICE,
                 taskSchema(false)));
         tools.add(tool("complete_task",

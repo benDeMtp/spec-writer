@@ -89,6 +89,22 @@ class TaskPersistenceIT {
         assertThat(tasks.descriptions(session.id())).isEmpty();
     }
 
+    /** V34 (022) : type de la sous-tâche relu dans Jira, gardé à part de l'état de la tâche. */
+    @Test
+    void leTypeRelluDansJiraEstGarde() {
+        SpecTask a = SpecTask.proposed(UUID.randomUUID(), session.id(), 0, "Accès Halo", "Installer sans erreur",
+                Basis.NONE, TaskOrigin.PROPOSED, List.of()).created("AURORA-182");
+        tasks.replaceAll(session.id(), List.of(a));
+        assertThat(tasks.issueTypes(session.id())).isEmpty();
+
+        tasks.type(a.id(), "Sous-Tâche (AGILE)");
+        tasks.update(a.started(new Holder("4242-1700000000000", "claude-code", T0), false));
+        assertThat(tasks.issueTypes(session.id())).containsExactly(java.util.Map.entry(a.id(), "Sous-Tâche (AGILE)"));
+
+        tasks.type(a.id(), null);
+        assertThat(tasks.issueTypes(session.id())).isEmpty();
+    }
+
     @Test
     void laPropositionEtLeSuiviSontGardes() {
         assertThat(tasks.proposal(session.id())).isEmpty();

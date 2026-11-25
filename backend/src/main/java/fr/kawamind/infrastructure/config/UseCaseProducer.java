@@ -727,8 +727,10 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     GetFeature getFeature(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
-            ProjectRepository projects, KnowledgeIndex index, AgentJournal journal, AgentTasks agentTasks) {
-        return new GetFeature(sessions, versions, tickets, new FeatureKnowledge(projects, index), journal, agentTasks);
+            ProjectRepository projects, KnowledgeIndex index, AgentJournal journal, AgentTasks agentTasks,
+            TicketLinkRepository ticketLinks) {
+        return new GetFeature(sessions, versions, tickets, new FeatureKnowledge(projects, index), journal, agentTasks,
+                index, ticketLinks);
     }
 
     @Produces

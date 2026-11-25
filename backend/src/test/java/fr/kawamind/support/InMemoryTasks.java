@@ -20,6 +20,7 @@ public class InMemoryTasks implements TaskRepository {
     private final Map<UUID, TaskProposal> proposals = new LinkedHashMap<>();
     private final Map<UUID, TaskTracking> tracking = new LinkedHashMap<>();
     private final Map<UUID, String> descriptions = new LinkedHashMap<>();
+    private final Map<UUID, String> types = new LinkedHashMap<>();
 
     @Override
     public List<SpecTask> tasks(UUID sessionId) {
@@ -61,6 +62,26 @@ public class InMemoryTasks implements TaskRepository {
             descriptions.remove(taskId);
         } else {
             descriptions.put(taskId, description);
+        }
+    }
+
+    @Override
+    public Map<UUID, String> issueTypes(UUID sessionId) {
+        Map<UUID, String> out = new LinkedHashMap<>();
+        for (SpecTask t : tasks(sessionId)) {
+            if (types.containsKey(t.id())) {
+                out.put(t.id(), types.get(t.id()));
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public void type(UUID taskId, String issueType) {
+        if (issueType == null) {
+            types.remove(taskId);
+        } else {
+            types.put(taskId, issueType);
         }
     }
 

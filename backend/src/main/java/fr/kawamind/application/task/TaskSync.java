@@ -112,11 +112,16 @@ public class TaskSync {
             return true;
         }
         Map<UUID, String> descriptions = desk.tasks.descriptions(sessionId);
+        Map<UUID, String> types = desk.tasks.issueTypes(sessionId);
         for (SpecTask task : created) {
             TrackedIssue issue = found.get(task.jiraKey());
             String description = issue == null ? descriptions.get(task.id()) : description(issue);
             if (!Objects.equals(description, descriptions.get(task.id()))) {
                 desk.tasks.describe(task.id(), description);
+            }
+            String type = issue == null ? types.get(task.id()) : issueType(issue);
+            if (!Objects.equals(type, types.get(task.id()))) {
+                desk.tasks.type(task.id(), type);
             }
             SpecTask read;
             if (issue == null) {
@@ -142,6 +147,15 @@ public class TaskSync {
         String cut = "\n\n[description tronquée]";
         return text.length() <= SpecTask.MAX_DESCRIPTION ? text
                 : text.substring(0, SpecTask.MAX_DESCRIPTION - cut.length()) + cut;
+    }
+
+    /** Libellé du type dans Jira (022), nul si vide, coupé à {@link SpecTask#MAX_ISSUE_TYPE}. */
+    static String issueType(TrackedIssue issue) {
+        String type = issue.issueType() == null ? "" : issue.issueType().strip();
+        if (type.isEmpty()) {
+            return null;
+        }
+        return type.length() <= SpecTask.MAX_ISSUE_TYPE ? type : type.substring(0, SpecTask.MAX_ISSUE_TYPE);
     }
 
     /** Le statut de la spécification suit les tâches, sauf suivi suspendu ou brouillon (R7). */

@@ -280,17 +280,19 @@ test.describe.serial('US15 tâches et avancement', () => {
   test.describe.serial('US2 et US3 : suivi par les agents et avancement', () => {
     let first: McpClient;
     let second: McpClient;
+    let instructions = '';
     const state: Record<string, Category> = { 'PROJ-301': 'new', 'PROJ-302': 'new', 'PROJ-303': 'new' };
 
     async function bridge(): Promise<McpClient> {
       const access = await (await page.request.get('/api/settings/agent-access')).json();
       const server = JSON.parse(access.mcpJson).mcpServers['spec-writer'];
       const client = new McpClient(server.command, server.args ?? []);
-      await client.request('initialize', {
+      const init = await client.request('initialize', {
         protocolVersion: '2025-06-18',
         capabilities: {},
         clientInfo: { name: 'Claude Code', version: 'e2e' },
       });
+      instructions = (init as { result?: { instructions?: string } }).result?.instructions ?? '';
       client.notify('notifications/initialized');
       return client;
     }
@@ -326,11 +328,19 @@ test.describe.serial('US15 tâches et avancement', () => {
       expect(next.json.outcome).toBe('TASK');
       expect(next.json.task.key).toBe('PROJ-301');
       expect((await call(first, 'next_task')).json).toEqual(next.json);
+      // 022 (US2, US3) : le ticket parent de la sous-tâche, et la branche sur laquelle travailler
+      expect(next.json.task.parentKey).toBe(STORY);
+      expect(next.json.branch).toContain(`sous-tâche de ${STORY}`);
+      expect(next.json.branch).toContain(`travaillez sur celle de ${STORY}`);
+      expect(feature.json.tasks.map((t: { parentKey: string }) => t.parentKey)).toEqual([STORY, STORY, STORY]);
+      expect(feature.json.jiraTicket.key).toBe(STORY);
+      expect(instructions).toContain('se fait sur la branche de son ticket parent');
 
       await jira.delete('/__admin/requests');
       const started = await call(first, 'start_task', { taskKey: 'PROJ-301' });
       expect(started.isError).toBe(false);
       expect(started.json.jiraSync).toBe('OK');
+      expect(started.json.branch).toContain(`travaillez sur celle de ${STORY}`);
       const moves = await sent('POST', '/rest/api/2/issue/PROJ-301/transitions');
       expect(moves.map((r) => JSON.parse(r.body).transition.id)).toEqual(['21']);
       state['PROJ-301'] = 'indeterminate';
@@ -352,6 +362,7 @@ test.describe.serial('US15 tâches et avancement', () => {
       await jira.delete('/__admin/requests');
       const done = await call(second, 'complete_task', { taskKey: 'PROJ-301', report: 'Réservation enregistrée, tests verts.' });
       expect(done.json.task.status).toBe('DONE');
+      expect(done.json.branch).toBeNull();
       expect((await sent('POST', '/rest/api/2/issue/PROJ-301/transitions')).map((r) => JSON.parse(r.body).transition.id))
         .toEqual(['31']);
       const comments = await sent('POST', '/rest/api/2/issue/PROJ-301/comment');

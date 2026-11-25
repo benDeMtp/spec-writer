@@ -115,6 +115,35 @@ class AgentFeaturesTest {
         });
     }
 
+    /** 022 (US2, research R5) : type et parent du ticket lié à la feature, lus dans l'index. */
+    @Test
+    void leTicketDeLaFeatureDitSonTypeEtSonParent() {
+        fr.kawamind.support.InMemoryTicketLinks links = new fr.kawamind.support.InMemoryTicketLinks();
+        GetFeature indexed = new GetFeature(w.sessions, w.versions, w.tickets, new FeatureKnowledge(w.projects, index),
+                journal, null, index, links);
+        // hors de l'index : la clé seule
+        GetFeature.JiraTicket unknown = indexed.run("Claude Code", ready.id()).jiraTicket();
+        assertThat(unknown).isEqualTo(new GetFeature.JiraTicket("PROJ-9", null, null));
+
+        index.save(KnowledgeItem.ticket(ready.projectId(), "PROJ-9", "Accès Halo", "", "À faire", "new",
+                "Sous-Tâche (AGILE)", T, T), null, null);
+        links.replace(ready.projectId(), "PROJ-9", List.of(fr.kawamind.domain.jira.TicketLink.parent("PROJ-1"),
+                fr.kawamind.domain.jira.TicketLink.link("Lier", fr.kawamind.domain.jira.TicketLink.Direction.OUTWARD,
+                        "lie", "PROJ-4")));
+        GetFeature.FeatureContent content = indexed.run("Claude Code", ready.id());
+        assertThat(content.jiraTicket()).isEqualTo(new GetFeature.JiraTicket("PROJ-9", "Sous-Tâche (AGILE)", "PROJ-1"));
+        assertThat(content.jiraIssueKey()).isEqualTo("PROJ-9");
+
+        // une story : pas de parent
+        links.replace(ready.projectId(), "PROJ-9", List.of());
+        assertThat(indexed.run("Claude Code", ready.id()).jiraTicket().parentKey()).isNull();
+
+        // sans ticket lié : pas de ticket
+        Session alone = w.generatedSession();
+        user.run(alone.id(), ImplementationStatus.READY, false);
+        assertThat(indexed.run("Claude Code", alone.id()).jiraTicket()).isNull();
+    }
+
     @Test
     void transitionsDeLAgentConsigneesEtFeatureImplementeeIntrouvable() {
         assertThat(status.run("Cursor", ready.id(), ImplementationStatus.IN_PROGRESS).status()).isEqualTo(ImplementationStatus.IN_PROGRESS);
