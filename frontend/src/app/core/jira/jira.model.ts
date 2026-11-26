@@ -94,4 +94,8 @@ export interface IssuePage {
   total: number;
   startAt: number;
   issues: ProjectIssue[];
+  /** 024 : label de reconnaissance du projet (`null` sans réglage) et filtres appliqués. */
+  label?: string | null;
+  labelled?: boolean;
+  done?: boolean;
 }

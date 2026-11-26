@@ -32,6 +32,9 @@ export interface CreateTicketDialogData {
           <a [href]="t.issueUrl" target="_blank" rel="noopener noreferrer">{{ t.issueKey }}<span class="sw-visually-hidden"> (nouvel onglet)</span></a>
           a été créé et la session lui est liée.
         </p>
+        @if (t.labelWarning) {
+          <p class="unsupported" role="alert">{{ t.labelWarning }}</p>
+        }
         @if (t.relatesTo) {
           @if (t.relatesToLink === 'FAILED') {
             <p class="unsupported" role="alert">

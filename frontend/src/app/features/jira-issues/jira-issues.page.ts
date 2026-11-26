@@ -26,6 +26,31 @@ export const SYNC_LABELS: Record<IssueSync, string> = {
   UNLINKED: 'Non liée',
 };
 
+/** Filtres de la vue (024, research R6) : gardés pour l'onglet, par projet, jusqu'à sa fermeture. */
+export interface IssueFiltersChoice {
+  labelled: boolean;
+  done: boolean;
+}
+
+export const DEFAULT_FILTERS: IssueFiltersChoice = { labelled: true, done: false };
+
+function filtersKey(projectId: string): string {
+  return `sw-jira-filtres:${projectId}`;
+}
+
+function storedFilters(projectId: string): IssueFiltersChoice {
+  try {
+    const raw = sessionStorage.getItem(filtersKey(projectId));
+    const parsed = raw ? (JSON.parse(raw) as Partial<IssueFiltersChoice>) : {};
+    return {
+      labelled: typeof parsed.labelled === 'boolean' ? parsed.labelled : DEFAULT_FILTERS.labelled,
+      done: typeof parsed.done === 'boolean' ? parsed.done : DEFAULT_FILTERS.done,
+    };
+  } catch {
+    return DEFAULT_FILTERS;
+  }
+}
+
 /** Message affiché au-dessus de la page conservée quand Jira ne la rend pas (FR-022 de 002). */
 function failure(error: unknown): string {
   if (error instanceof HttpErrorResponse && isProblem(error.error)) {
@@ -57,6 +82,19 @@ function failure(error: unknown): string {
           {{ syncing() ? 'Synchronisation de Jira…' : 'Resynchroniser Jira' }}
         </button>
       </div>
+      <fieldset class="filters">
+        <legend>Filtres</legend>
+        @if (page()?.label; as label) {
+          <label>
+            <input type="checkbox" [checked]="filters().labelled" (change)="setFilter('labelled', $any($event.target).checked)" />
+            Avec le label {{ label }}
+          </label>
+        }
+        <label>
+          <input type="checkbox" [checked]="filters().done" (change)="setFilter('done', $any($event.target).checked)" />
+          Afficher les tickets terminés
+        </label>
+      </fieldset>
       <p class="sw-visually-hidden" aria-live="polite">{{ announce() }}</p>
       @if (error(); as message) {
         <div class="notice" role="alert">
@@ -157,6 +195,11 @@ function failure(error: unknown): string {
             (previous)="goTo(pageNumber() - 1)"
             (next)="goTo(pageNumber() + 1)"
           />
+        } @else if (filtered()) {
+          <div class="notice">
+            <p>Aucun ticket ne correspond aux filtres.</p>
+            <button mat-stroked-button type="button" (click)="clearFilters()">Retirer les filtres</button>
+          </div>
         } @else {
           <p>Aucun ticket indexé pour ce projet.</p>
         }
@@ -192,6 +235,24 @@ function failure(error: unknown): string {
       text-align: left;
       padding: 0.5rem;
       border-bottom: 1px solid var(--sw-rule);
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 1.5rem;
+      margin: 0.75rem 0 0;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--sw-rule);
+      border-radius: var(--sw-radius-field);
+    }
+    .filters legend {
+      font-weight: 600;
+      padding: 0 0.25rem;
+    }
+    .filters label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
     .notice {
       display: flex;
@@ -304,6 +365,15 @@ export class JiraIssuesPage {
   protected readonly pageNumber = computed(() => Math.max(1, Number.parseInt(this.query().get('page') ?? '1', 10) || 1));
 
   protected readonly page = signal<IssuePage | null>(null);
+  /** 024 : filtres de la vue, relus pour chaque projet. */
+  protected readonly filters = signal<IssueFiltersChoice>(DEFAULT_FILTERS);
+  /** Le nombre de tickets n'est annoncé qu'après un changement de filtre. */
+  private filtersChanged = false;
+  /** Un filtre retient des tickets : le label appliqué, ou les terminés écartés. */
+  protected readonly filtered = computed(() => {
+    const p = this.page();
+    return !!p && (!!p.labelled || p.done === false);
+  });
   /** 022 : tickets dépliés ; tout se replie au changement de page ou de tri. */
   protected readonly open = signal<ReadonlySet<string>>(new Set());
   protected readonly error = signal<string | null>(null);
@@ -324,8 +394,15 @@ export class JiraIssuesPage {
   constructor() {
     void this.settings.ensureLoaded().catch(() => undefined);
     effect(() => {
-      // projet, tri ou page : la liste est relue
+      const id = this.projectId();
+      if (id) {
+        this.filters.set(storedFilters(id));
+      }
+    });
+    effect(() => {
+      // projet, tri, page ou filtres : la liste est relue
       if (this.projectKey() && this.projectId()) {
+        this.filters();
         this.sort();
         this.dir();
         this.pageNumber();
@@ -379,6 +456,31 @@ export class JiraIssuesPage {
     void this.router.navigate([], { relativeTo: this.route, queryParams: { tri: field, ordre: dir, page: null } });
   }
 
+  /** 024 : un filtre change, la liste repart de la première page ; le choix est gardé pour l'onglet. */
+  protected setFilter(name: keyof IssueFiltersChoice, value: boolean): void {
+    this.applyFilters({ ...this.filters(), [name]: value });
+  }
+
+  protected clearFilters(): void {
+    this.applyFilters({ labelled: false, done: true });
+  }
+
+  private applyFilters(next: IssueFiltersChoice): void {
+    const id = this.projectId();
+    if (id) {
+      try {
+        sessionStorage.setItem(filtersKey(id), JSON.stringify(next));
+      } catch {
+        // stockage indisponible : le choix vaut pour la page ouverte
+      }
+    }
+    this.filtersChanged = true;
+    this.filters.set(next);
+    if (this.pageNumber() > 1) {
+      void this.router.navigate([], { relativeTo: this.route, queryParams: { page: null }, queryParamsHandling: 'merge' });
+    }
+  }
+
   protected goTo(page: number): void {
     void this.router.navigate([], {
       relativeTo: this.route,
@@ -396,7 +498,19 @@ export class JiraIssuesPage {
     this.busy.set(true);
     this.open.set(new Set());
     try {
-      this.page.set(await this.api.issues(id, this.sort(), this.dir(), (this.pageNumber() - 1) * this.size, this.size));
+      const page = await this.api.issues(
+        id,
+        this.sort(),
+        this.dir(),
+        (this.pageNumber() - 1) * this.size,
+        this.size,
+        this.filters(),
+      );
+      this.page.set(page);
+      if (this.filtersChanged) {
+        this.filtersChanged = false;
+        this.announce.set(`${page.total} ticket${page.total > 1 ? 's' : ''} listé${page.total > 1 ? 's' : ''}.`);
+      }
       this.error.set(null);
     } catch (e) {
       this.error.set(failure(e));

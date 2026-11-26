@@ -141,6 +141,13 @@ describe('SpecificationPage, connaissance du projet (T116)', () => {
     expect(el.querySelector('#jira-missing a')?.getAttribute('href')).toBe('/configuration');
   });
 
+  it('dit que la story liée a été supprimée dans Jira (024)', async () => {
+    await open({ ...SESSION, lostJiraIssueKey: 'AUR-12' } as SessionDetail, [{ number: 1 }]);
+    const lost = el.querySelector('.ticket.lost')!;
+    expect(text(lost)).toContain('La story AUR-12 a été supprimée dans Jira');
+    expect(text(lost)).toContain('envoyer de nouveau vers Jira');
+  });
+
   it('« Relire » démarre une relecture ; une relecture en cours se reprend (021)', async () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     await open(SESSION, [{ number: 1 }]);

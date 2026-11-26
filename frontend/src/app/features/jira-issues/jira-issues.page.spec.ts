@@ -292,4 +292,70 @@ describe('JiraIssuesPage', () => {
     await settle(fixture);
     expect(el.querySelectorAll('tr.subtask')).toHaveLength(0);
   });
+
+  describe('024 : filtres du label et des terminés', () => {
+    beforeEach(() => sessionStorage.clear());
+
+    function labelled(total: number): IssuePage {
+      return { ...issues(0, total, total), label: 'spec-writer', labelled: true, done: false };
+    }
+
+    function box(text: string): HTMLInputElement | undefined {
+      return Array.from(el.querySelectorAll<HTMLLabelElement>('fieldset.filters label'))
+        .find((l) => l.textContent?.includes(text))
+        ?.querySelector('input') ?? undefined;
+    }
+
+    it('s’ouvre sur le label et sans les terminés, puis lève chaque filtre en revenant à la page 1', async () => {
+      fixture.detectChanges();
+      const first = expectPage(0);
+      expect(first.request.params.get('labelled')).toBe('true');
+      expect(first.request.params.get('done')).toBe('false');
+      first.flush(labelled(3));
+      await settle(fixture);
+      expect(el.querySelector('fieldset.filters legend')?.textContent).toContain('Filtres');
+      expect(box('Avec le label spec-writer')?.checked).toBe(true);
+      expect(box('Afficher les tickets terminés')?.checked).toBe(false);
+
+      box('Afficher les tickets terminés')!.click();
+      await settle(fixture);
+      const withDone = expectPage(0);
+      expect(withDone.request.params.get('done')).toBe('true');
+      withDone.flush({ ...labelled(4), done: true });
+      await settle(fixture);
+      expect(JSON.parse(sessionStorage.getItem('sw-jira-filtres:p1')!)).toEqual({ labelled: true, done: true });
+
+      box('Avec le label spec-writer')!.click();
+      await settle(fixture);
+      const all = expectPage(0);
+      expect(all.request.params.get('labelled')).toBe('false');
+      all.flush({ ...issues(0, 5, 5), label: 'spec-writer', labelled: false, done: true });
+      await settle(fixture);
+    });
+
+    it('sans label réglé, le filtre du label n’est pas proposé', async () => {
+      fixture.detectChanges();
+      expectPage(0).flush({ ...issues(0, 2, 2), label: null, labelled: false, done: false });
+      await settle(fixture);
+      expect(box('Avec le label')).toBeUndefined();
+      expect(box('Afficher les tickets terminés')).toBeDefined();
+    });
+
+    it('une liste vide sous les filtres propose de les retirer, et le choix gardé est relu', async () => {
+      sessionStorage.setItem('sw-jira-filtres:p1', JSON.stringify({ labelled: true, done: true }));
+      fixture.detectChanges();
+      const kept = expectPage(0);
+      expect(kept.request.params.get('done')).toBe('true');
+      kept.flush({ ...issues(0, 0, 0), label: 'spec-writer', labelled: true, done: true });
+      await settle(fixture);
+      expect(el.textContent).toContain('Aucun ticket ne correspond aux filtres.');
+      button('Retirer les filtres').click();
+      await settle(fixture);
+      const cleared = expectPage(0);
+      expect(cleared.request.params.get('labelled')).toBe('false');
+      expect(cleared.request.params.get('done')).toBe('true');
+      cleared.flush({ ...issues(0, 1, 1), label: 'spec-writer', labelled: false, done: true });
+      await settle(fixture);
+    });
+  });
 });

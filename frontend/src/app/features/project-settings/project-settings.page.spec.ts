@@ -82,6 +82,7 @@ describe('ProjectSettingsPage', () => {
     ctrl
       .match((r) => r.url.endsWith('/task-workflow'))
       .forEach((r) => r.flush({ arrivalStatus: null, finishedStatuses: [], known: [] }));
+    ctrl.match((r) => r.url.endsWith('/jira-label')).forEach((r) => r.flush({ label: null }));
     ctrl.verify();
   });
 
