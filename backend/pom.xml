@@ -30,7 +30,7 @@
     <java-diff-utils.version>4.15</java-diff-utils.version>
     <wiremock.version>4.0.0-beta.41</wiremock.version>
     <archunit.version>1.5.1</archunit.version>
-    <assertj.version>3.27.6</assertj.version>
+    <assertj.version>3.27.7</assertj.version>
 
     <jacoco.version>0.8.16</jacoco.version>
     <surefire.version>3.5.4</surefire.version>
