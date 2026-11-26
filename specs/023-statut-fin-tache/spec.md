@@ -211,7 +211,7 @@ passe « En Cours » ; il termine les trois : à la dernière, la story passe «
 - **FR-008**: Une sous-tâche déjà dans un statut fini NE DOIT recevoir aucune transition ; la tâche
   est terminée.
 - **FR-009**: La transition rejouée après une coupure de Jira (« à synchroniser ») DOIT viser le
-  même statut d'arrivée que la fin qui l'a créée.
+  statut d'arrivée du projet au moment du rejeu (research R5).
 - **FR-010**: Le compte rendu de l'agent DOIT toujours être ajouté en commentaire, comme
   aujourd'hui.
 
