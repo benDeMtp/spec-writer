@@ -558,7 +558,7 @@ documentation.
 - [X] T142 [P] Créer `dist/scripts/spec-writer.sh` et `dist/scripts/spec-writer.cmd` (lancement du jar avec un JDK 25 local, pour les développeurs) et `dist/assets/` (icônes de l'application pour les trois OS)
 - [X] T143 [P] Rédiger `README.md` (présentation, installation par OS, avertissements Gatekeeper et SmartScreen tant que la signature n'est pas en place, emplacement des données, recommandation de chiffrement du disque FileVault, BitLocker ou LUKS, désinstallation et suppression des données, prérequis Copilot : politique « Copilot CLI » activée par l'organisation) et `CONTRIBUTING.md` (commandes de [quickstart.md](quickstart.md), règles TDD et quality gates)
 - [ ] T144 Exécuter toutes les validations V1 à V16 de [quickstart.md](quickstart.md) sur un installeur produit par T140, puis consigner les résultats et les écarts dans `specs/001-local-spec-assistant/checklists/validation.md`
-- [ ] T145 Monter Quarkus de `4.0.0.Beta2` vers `4.0.0.Final` (prévu le 2026-11-25) et quarkus-langchain4j vers sa version finale 2.0 dans `backend/pom.xml`, puis relancer `ci/verify.sh`
+- [ ] T145 Monter Quarkus de `4.0.0.Beta2` vers `4.0.0.Final` (prévu le 2026-11-25) et quarkus-langchain4j vers sa version finale 2.0 dans `backend/pom.xml`, puis relancer `ci/verify.sh` — fait en partie le 2026-11-26 : Quarkus 4.0.1, quarkus-langchain4j 2.0.0.CR1 (la 2.0 finale n'est pas encore sortie)
 
 ---
 

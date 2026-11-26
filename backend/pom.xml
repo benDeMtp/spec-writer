@@ -14,9 +14,8 @@
   <name>Spec Writer - Backend</name>
 
   <properties>
-    <!-- Montée vers 4.0.0.Final prévue le 2026-11-25 (tâche T145) -->
-    <quarkus.version>4.0.0.Beta2</quarkus.version>
-    <quarkus-langchain4j.version>2.0.0.Beta1</quarkus-langchain4j.version>
+    <quarkus.version>4.0.1</quarkus.version>
+    <quarkus-langchain4j.version>2.0.0.CR1</quarkus-langchain4j.version>
     <copilot-sdk.version>1.0.28-preview.0</copilot-sdk.version>
     <sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>
     <credential-secure-storage.version>1.0.4</credential-secure-storage.version>
@@ -24,8 +23,8 @@
     <jsoup.version>1.23.2</jsoup.version>
     <!-- texte des PDF d'un dossier de documents (006, research.md R1) -->
     <pdfbox.version>3.0.8</pdfbox.version>
-    <!-- aligné sur langchain4j-core 1.21.0 de Quarkus LangChain4j (research.md R19) -->
-    <langchain4j-embeddings.version>1.21.0-beta31</langchain4j-embeddings.version>
+    <!-- aligné sur langchain4j-core 1.24.0 de Quarkus LangChain4j (research.md R19) -->
+    <langchain4j-embeddings.version>1.24.0-beta34</langchain4j-embeddings.version>
     <structurizr-dsl.version>6.2.4</structurizr-dsl.version>
     <java-diff-utils.version>4.15</java-diff-utils.version>
     <wiremock.version>4.0.0-beta.41</wiremock.version>
