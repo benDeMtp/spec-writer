@@ -25,7 +25,9 @@ public class ProjectIssuesResource {
     @GET
     public ListProjectIssues.IssuePage list(@PathParam("projectId") UUID projectId, @QueryParam("sort") String sort,
             @QueryParam("dir") String dir, @QueryParam("startAt") @DefaultValue("0") int startAt,
-            @QueryParam("size") @DefaultValue("50") int size) {
-        return listProjectIssues.run(projectId, IssueSort.parse(sort, dir), startAt, size);
+            @QueryParam("size") @DefaultValue("50") int size,
+            @QueryParam("labelled") @DefaultValue("true") boolean labelled,
+            @QueryParam("done") @DefaultValue("false") boolean done) {
+        return listProjectIssues.run(projectId, IssueSort.parse(sort, dir), labelled, done, startAt, size);
     }
 }

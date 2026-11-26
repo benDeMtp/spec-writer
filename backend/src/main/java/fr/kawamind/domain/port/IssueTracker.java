@@ -110,8 +110,17 @@ public interface IssueTracker {
     ParentIssue parentIssue(JiraEndpoint endpoint, String issueKey);
 
     /** Crée une sous-tâche de {@code parentKey} ({@code POST issue} avec {@code fields.parent.key}). */
+    default CreatedIssue createSubtask(JiraEndpoint endpoint, String projectKey, String parentKey, String issueTypeId,
+            String summary, String wikiDescription) {
+        return createSubtask(endpoint, projectKey, parentKey, issueTypeId, summary, wikiDescription, List.of());
+    }
+
+    /** Crée une sous-tâche avec ces labels ({@code fields.labels}, 024). */
     CreatedIssue createSubtask(JiraEndpoint endpoint, String projectKey, String parentKey, String issueTypeId,
-            String summary, String wikiDescription);
+            String summary, String wikiDescription, List<String> labels);
+
+    /** Ajoute un label sans toucher aux autres ({@code PUT issue/{key}}, {@code update.labels.add}, 024). */
+    void addLabel(JiraEndpoint endpoint, String issueKey, String label);
 
     /** Remplace le résumé d'un ticket, et rien d'autre. */
     void updateSummary(JiraEndpoint endpoint, String issueKey, String summary);
@@ -121,6 +130,9 @@ public interface IssueTracker {
 
     /** Applique une transition ({@code POST issue/{key}/transitions}). */
     void transition(JiraEndpoint endpoint, String issueKey, String transitionId);
+
+    /** Affecte le ticket à un utilisateur, désigné par son login ({@code PUT issue/{key}/assignee}, 023). */
+    void assign(JiraEndpoint endpoint, String issueKey, String login);
 
     /** Ajoute un commentaire en wiki markup ({@code POST issue/{key}/comment}). */
     void addComment(JiraEndpoint endpoint, String issueKey, String wikiBody);

@@ -44,6 +44,8 @@ public class FakeIssueTracker implements IssueTracker {
     public final Map<String, List<RequiredField>> required = new LinkedHashMap<>();
     public final List<Map<String, Object>> created = new ArrayList<>();
     public IssueTrackerException createFailure;
+    /** 024 : refuse une création qui porte des labels (champ absent de l'écran de création). */
+    public boolean rejectLabelsOnCreate;
     public long searchDelayMillis;
     /** Tickets de l'index de connaissance, par clé (research.md R20). */
     public final Map<String, TrackedIssue> tracked = new LinkedHashMap<>();
@@ -86,7 +88,7 @@ public class FakeIssueTracker implements IssueTracker {
     public String currentUser(JiraEndpoint endpoint) {
         calls.add("myself");
         fail();
-        return "ada";
+        return login;
     }
 
     @Override
@@ -160,6 +162,10 @@ public class FakeIssueTracker implements IssueTracker {
         fail();
         if (createFailure != null) {
             throw createFailure;
+        }
+        if (rejectLabelsOnCreate && extraFields.containsKey("labels")) {
+            throw new IssueTrackerException(Kind.REJECTED, "simulé", null,
+                    List.of("labels : Le champ n'est pas sur l'écran de création."));
         }
         Map<String, Object> fields = new LinkedHashMap<>(extraFields);
         fields.put("summary", summary);
@@ -238,7 +244,7 @@ public class FakeIssueTracker implements IssueTracker {
         if (issue == null) {
             throw new IssueTrackerException(Kind.NOT_FOUND, "simulé");
         }
-        return new IssueStatus(issueKey, issue.status(), issue.statusCategory(), issue.updated());
+        return new IssueStatus(issueKey, issue.status(), issue.statusCategory(), issue.updated(), assignees.get(issueKey));
     }
 
     @Override
@@ -289,9 +295,14 @@ public class FakeIssueTracker implements IssueTracker {
 
     /** Change le statut d'une sous-tâche comme le ferait l'équipe dans Jira. */
     public void moveTo(String key, String category) {
+        moveTo(key, category, statusName(category));
+    }
+
+    /** 023 : change le statut d'une sous-tâche vers un statut nommé du workflow (« Réalisée »). */
+    public void moveTo(String key, String category, String status) {
         TrackedIssue i = tracked.get(key);
-        tracked.put(key, new TrackedIssue(key, i.summary(), i.description(), statusName(category), category,
-                i.issueType(), i.updated().plusSeconds(1)));
+        tracked.put(key, new TrackedIssue(key, i.summary(), i.description(), status, category,
+                i.issueType(), i.updated().plusSeconds(1), i.links(), i.labels()));
     }
 
     public static String statusName(String category) {
@@ -325,7 +336,7 @@ public class FakeIssueTracker implements IssueTracker {
 
     @Override
     public CreatedIssue createSubtask(JiraEndpoint endpoint, String projectKey, String parentKey, String issueTypeId,
-            String summary, String wikiDescription) {
+            String summary, String wikiDescription, List<String> labels) {
         calls.add("createSubtask " + parentKey + " " + summary);
         fail();
         subtaskCount++;
@@ -339,6 +350,10 @@ public class FakeIssueTracker implements IssueTracker {
             key = projectKey + "-" + ++number;
         }
         addSubtask(parentKey, key, summary, "new");
+        if (labels != null && !labels.isEmpty()) {
+            tracked.put(key, tracked.get(key).withLabels(labels));
+            calls.add("labels " + key + " " + String.join(",", labels));
+        }
         writes.add(key);
         return new CreatedIssue(String.valueOf(30000 + number), key);
     }
@@ -351,6 +366,46 @@ public class FakeIssueTracker implements IssueTracker {
         tracked.put(issueKey, new TrackedIssue(issueKey, summary, i.description(), i.status(), i.statusCategory(),
                 i.issueType(), i.updated()));
         writes.add("summary " + issueKey);
+    }
+
+    // --- Labels (024) ---
+
+    /** Refus simulé de l'ajout d'un label, sans toucher aux autres appels. */
+    public Kind labelFailure;
+
+    @Override
+    public void addLabel(JiraEndpoint endpoint, String issueKey, String label) {
+        calls.add("label " + issueKey + " " + label);
+        fail();
+        if (labelFailure != null) {
+            throw new IssueTrackerException(labelFailure, "simulé", null, List.of("labels : Le champ n'est pas sur l'écran."));
+        }
+        TrackedIssue i = tracked.get(issueKey);
+        if (i != null && !i.labels().contains(label)) {
+            List<String> labels = new ArrayList<>(i.labels());
+            labels.add(label);
+            tracked.put(issueKey, i.withLabels(labels));
+        }
+        writes.add("label " + issueKey);
+    }
+
+    // --- Affectation (023, US5) ---
+
+    /** Login du propriétaire du jeton, rendu par {@code myself}. */
+    public String login = "ada";
+    /** Personne affectée à chaque ticket (login). */
+    public final Map<String, String> assignees = new LinkedHashMap<>();
+    /** Refus simulé de l'affectation (droit manquant…), sans toucher aux autres appels. */
+    public Kind assignFailure;
+
+    @Override
+    public void assign(JiraEndpoint endpoint, String issueKey, String login) {
+        calls.add("assign " + issueKey + " " + login);
+        fail();
+        if (assignFailure != null) {
+            throw new IssueTrackerException(assignFailure, "simulé", null, List.of("L'utilisateur ne peut pas être affecté."));
+        }
+        assignees.put(issueKey, login);
     }
 
     @Override
@@ -376,7 +431,7 @@ public class FakeIssueTracker implements IssueTracker {
         Transition t = transitions(endpoint, issueKey).stream().filter(x -> x.id().equals(transitionId)).findFirst()
                 .orElseThrow(() -> new IssueTrackerException(Kind.REJECTED, "simulé"));
         calls.remove(calls.size() - 1);
-        moveTo(issueKey, t.toCategory());
+        moveTo(issueKey, t.toCategory(), t.toStatus() == null ? statusName(t.toCategory()) : t.toStatus());
         writes.add("transition " + issueKey + " " + t.toCategory());
     }
 

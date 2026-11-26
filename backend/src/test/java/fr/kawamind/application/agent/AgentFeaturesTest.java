@@ -192,4 +192,66 @@ class AgentFeaturesTest {
         assertThat(access.endpointCalls).last().isEqualTo("publish");
         assertThat(manage.log(0).total()).isEqualTo(1);
     }
+
+    @Test
+    void uneFeatureSansTachesImplementeeFaitAvancerSaStory() {
+        // 023 (US4, FR-016) : sans tâches, la feature déclarée implémentée passe sa story au statut d'arrivée
+        fr.kawamind.support.TaskWorld tw = new fr.kawamind.support.TaskWorld();
+        AgentJournal j = new AgentJournal(access, tw.clock, tw.ids);
+        AgentChangeStatus follow = new AgentChangeStatus(tw.sessions, tw.clock, j, tw.tasks,
+                new fr.kawamind.application.task.StoryFollow(tw.desk, new fr.kawamind.application.task.TaskJira(tw.tracker)));
+        Session s = tw.linkedSession();
+        new ChangeStatus(tw.sessions, tw.clock).run(s.id(), ImplementationStatus.READY, false);
+        tw.tracker.tracked.put("FACT-120", new fr.kawamind.domain.jira.TrackedIssue("FACT-120", "Story", "", "En Cours",
+                "indeterminate", "Story", T, List.of()));
+        tw.tracker.workflows.put("FACT-120", List.of(
+                new fr.kawamind.domain.jira.Transition("31", "Réaliser", "indeterminate", "Réalisée"),
+                new fr.kawamind.domain.jira.Transition("61", "Fermer", "done", "Fermée")));
+
+        // sans réglage : la story n'est pas touchée
+        assertThat(follow.run("Claude Code", s.id(), ImplementationStatus.IN_PROGRESS).story()).isNull();
+        AgentChangeStatus.Changed skipped = follow.run("Claude Code", s.id(), ImplementationStatus.IMPLEMENTED);
+        assertThat(skipped.story().status()).isEqualTo(fr.kawamind.application.task.StoryMove.Outcome.SKIPPED);
+        assertThat(tw.tracker.calls).noneMatch(c -> c.startsWith("transition FACT-120"));
+
+        // avec réglage : la story passe à « Réalisée »
+        Session other = tw.linkedSession();
+        new ChangeStatus(tw.sessions, tw.clock).run(other.id(), ImplementationStatus.READY, false);
+        tw.workflows.save(other.projectId(),
+                fr.kawamind.domain.task.TaskWorkflow.of("Réalisée", List.of("En cours de test")), tw.clock.now());
+        follow.run("Claude Code", other.id(), ImplementationStatus.IN_PROGRESS);
+        AgentChangeStatus.Changed moved = follow.run("Claude Code", other.id(), ImplementationStatus.IMPLEMENTED);
+        assertThat(moved.story()).isEqualTo(new fr.kawamind.application.task.StoryMove("FACT-120",
+                fr.kawamind.application.task.StoryMove.Outcome.MOVED, "Réalisée", null));
+        assertThat(tw.tracker.tracked.get("FACT-120").status()).isEqualTo("Réalisée");
+    }
+
+    @Test
+    void uneFeatureDontLaStoryNAPasLeLabelNEstPasServie() {
+        // 024 (US3, FR-011) : sur un projet qui a un label, la story doit le porter
+        fr.kawamind.application.jira.JiraScope scope = new fr.kawamind.application.jira.JiraScope(w.jiraLabels,
+                w.ticketLabels, w.tickets, w.sessions);
+        ListFeatures scoped = new ListFeatures(w.projects, w.sessions, w.versions, journal, scope);
+        GetFeature scopedGet = new GetFeature(w.sessions, w.versions, w.tickets, new FeatureKnowledge(w.projects, index),
+                journal, null, null, null, scope);
+        AgentChangeStatus scopedStatus = new AgentChangeStatus(w.sessions, w.clock, journal, null, null, scope);
+        assertThat(scoped.run("Claude Code", Project.DEFAULT_ID)).extracting(ListFeatures.Feature::id)
+                .containsExactly(ready.id());
+
+        w.jiraLabels.save(Project.DEFAULT_ID, fr.kawamind.domain.jira.JiraLabel.of("spec-writer"), T);
+        assertThat(scoped.run("Claude Code", Project.DEFAULT_ID)).isEmpty();
+        assertThatThrownBy(() -> scopedGet.run("Claude Code", ready.id())).isInstanceOfSatisfying(DomainException.class,
+                e -> {
+                    assertThat(e.code()).isEqualTo(ErrorCode.NOT_IN_JIRA_SCOPE);
+                    assertThat(e.userMessage()).contains("PROJ-9").contains("label spec-writer");
+                });
+        assertThatThrownBy(() -> scopedStatus.run("Cursor", ready.id(), ImplementationStatus.IN_PROGRESS))
+                .isInstanceOfSatisfying(DomainException.class,
+                        e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_IN_JIRA_SCOPE));
+
+        w.ticketLabels.add(Project.DEFAULT_ID, "PROJ-9", "spec-writer");
+        assertThat(scoped.run("Claude Code", Project.DEFAULT_ID)).extracting(ListFeatures.Feature::id)
+                .containsExactly(ready.id());
+        assertThat(scopedGet.run("Claude Code", ready.id()).id()).isEqualTo(ready.id());
+    }
 }

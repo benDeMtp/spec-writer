@@ -60,7 +60,9 @@ final class Tools {
         ArrayNode tools = JsonRpc.JSON.createArrayNode();
         tools.add(tool("list_projects", "Liste les projets de spec-writer : id, nom, description, clé Jira.", schema()));
         tools.add(tool("list_features",
-                "Liste les features à implémenter d'un projet : spécifications « prêtes » ou « en cours », avec leur dernière version.",
+                "Liste les features à implémenter d'un projet : spécifications « prêtes » ou « en cours », avec leur dernière version. "
+                        + "Si le projet a un label Jira, seules les features suivies par spec-writer dans Jira (story qui porte "
+                        + "le label) sont listées ; les autres sont refusées (NOT_IN_JIRA_SCOPE).",
                 schema("projectId", "Identifiant du projet (list_projects).")));
         tools.add(tool("get_feature",
                 "Contenu complet d'une feature : Markdown de la dernière version, identique à l'export, et connaissance du "
@@ -86,7 +88,9 @@ final class Tools {
         ((ArrayNode) status.get("required")).add("status");
         tools.add(tool("set_feature_status",
                 "Passe une feature de « prête » à « en cours », ou de « en cours » à « implémentée ». Aucun autre changement n'est permis. "
-                        + "Refusé (STATUS_FOLLOWS_TASKS) pour une feature qui a des tâches : son statut suit leur avancement.",
+                        + "Refusé (STATUS_FOLLOWS_TASKS) pour une feature qui a des tâches : son statut suit leur avancement. "
+                        + "Vers IMPLEMENTED, le ticket Jira lié passe au statut d'arrivée réglé dans le projet ; story dit ce "
+                        + "qui lui est arrivé (MOVED, ALREADY, SKIPPED sans réglage, FAILED avec un message).",
                 status));
         tools.add(tool("next_task",
                 "Prochaine tâche d'une feature : votre tâche en cours, ou celle d'une conversation fermée à reprendre, sinon la "
@@ -95,18 +99,26 @@ final class Tools {
                         + "La tâche porte son titre, son résultat attendu (outcome) et la description de la sous-tâche dans "
                         + "Jira (description, en Markdown), relue à chaque appel : elle précise ce qu'il faut faire. "
                         + "Elle porte aussi son type (issueType) et son ticket parent (parentKey) ; pour une sous-tâche, "
-                        + "branch dit sur quelle branche travailler."
+                        + "branch dit sur quelle branche travailler. Une tâche dont la sous-tâche ne porte pas le label Jira du "
+                        + "projet (inScope faux) n'est jamais proposée."
                         + DATA_NOTICE,
                 schema("featureId", "Identifiant de la feature.")));
         tools.add(tool("start_task",
                 "Prend une tâche : elle passe « En cours » dans spec-writer et dans Jira, réservée à cette conversation. "
                         + "jiraSync PENDING : Jira est injoignable, la transition sera envoyée plus tard ; à vous de continuer ou non. "
                         + "La tâche porte son type (issueType) et son ticket parent (parentKey) ; branch dit sur quelle "
-                        + "branche travailler : celle du parent."
+                        + "branche travailler : celle du parent. "
+                        + "Si la story de la feature est encore « à faire », elle passe en cours ; story dit ce qui lui est arrivé. "
+                        + "Les tickets qui avancent sont affectés au propriétaire du jeton Jira ; un refus est dit dans message."
                         + DATA_NOTICE,
                 taskSchema(false)));
         tools.add(tool("complete_task",
-                "Termine une tâche prise par cette conversation : elle passe « Terminée » dans spec-writer et dans Jira. Le compte "
+                "Termine une tâche prise par cette conversation : elle passe « Terminée » dans spec-writer et, dans Jira, au "
+                        + "statut d'arrivée réglé dans le projet (par exemple « Réalisée »), sinon à « terminé ». jiraStatus donne le "
+                        + "vrai statut Jira. NO_TRANSITION : Jira n'offre pas de transition directe, rien ne change, dites-le à "
+                        + "l'utilisateur. À la dernière tâche, la story passe au statut d'arrivée ; story dit ce qui lui est arrivé "
+                        + "(MOVED, ALREADY, SKIPPED sans réglage, FAILED avec un message). Les tickets qui avancent sont "
+                        + "affectés au propriétaire du jeton Jira ; un refus est dit dans message. Le compte "
                         + "rendu facultatif (2 000 caractères au plus) est ajouté en commentaire sur la sous-tâche, visible par l'équipe."
                         + DATA_NOTICE,
                 taskSchema(true)));

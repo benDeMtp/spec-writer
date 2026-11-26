@@ -43,6 +43,10 @@ public class JiraWorld {
     public final InMemorySpecifications versions = new InMemorySpecifications();
     public final InMemoryLinkedTickets tickets = new InMemoryLinkedTickets();
     public final InMemoryTicketLinks ticketLinks = new InMemoryTicketLinks();
+    /** 024 : label du projet, labels des tickets, liens Jira perdus. */
+    public final InMemoryJiraLabels jiraLabels = new InMemoryJiraLabels();
+    public final InMemoryTicketLabels ticketLabels = new InMemoryTicketLabels();
+    public final InMemoryLostJiraLinks lostLinks = new InMemoryLostJiraLinks();
     public final InMemoryConsents consents = new InMemoryConsents();
     public final InMemorySettings settings = new InMemorySettings();
     public final InMemorySecrets secrets = new InMemorySecrets();

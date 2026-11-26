@@ -64,6 +64,8 @@ export interface LinkedTicket {
   /** Ticket fermé lié par « relates to » et état du lien (FR-035 de 002). */
   relatesTo?: string | null;
   relatesToLink?: 'PENDING' | 'LINKED' | 'FAILED' | null;
+  /** Label de reconnaissance non posé à la création (024) ; absent sinon. */
+  labelWarning?: string | null;
 }
 
 export interface SessionDetail extends SessionSummary {
@@ -80,6 +82,8 @@ export interface SessionDetail extends SessionSummary {
   /** Effet de la dernière réponse modifiée (FR-007). */
   revision?: { removed: string[]; added: string[] };
   implementation: Implementation;
+  /** 024 : ticket lié supprimé dans Jira, tant qu'aucun autre n'est lié. */
+  lostJiraIssueKey?: string | null;
 }
 
 export interface VersionSummary {

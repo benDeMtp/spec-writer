@@ -32,4 +32,9 @@ public class InMemoryLinkedTickets implements LinkedTicketRepository {
     public List<LinkedJiraTicket> all() {
         return new ArrayList<>(tickets.values());
     }
+
+    @Override
+    public void delete(UUID sessionId) {
+        tickets.remove(sessionId);
+    }
 }

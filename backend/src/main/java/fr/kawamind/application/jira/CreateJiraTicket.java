@@ -52,6 +52,12 @@ public class CreateJiraTicket {
     private final LinkedTicketRepository tickets;
     private final ClockPort clock;
     private final SessionRelationRepository relations;
+    /** Label de reconnaissance (024) ; sans lui (null), aucun label n'est posé. */
+    private final JiraLabelling labelling;
+
+    /** Ticket créé, et l'avertissement d'un label non posé (024), nul sinon. */
+    public record Created(LinkedJiraTicket ticket, String labelWarning) {
+    }
 
     public CreateJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SpecificationRepository versions,
             LinkedTicketRepository tickets, ClockPort clock) {
@@ -61,6 +67,13 @@ public class CreateJiraTicket {
     /** Avec le lien « relates to » vers un ticket fermé, créé après la story (FR-035 de 002). */
     public CreateJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SpecificationRepository versions,
             LinkedTicketRepository tickets, ClockPort clock, SessionRelationRepository relations) {
+        this(tracker, jira, markup, versions, tickets, clock, relations, null);
+    }
+
+    public CreateJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ClockPort clock, SessionRelationRepository relations,
+            JiraLabelling labelling) {
+        this.labelling = labelling;
         this.relations = relations;
         this.tracker = tracker;
         this.jira = jira;
@@ -72,6 +85,12 @@ public class CreateJiraTicket {
 
     /** @param extraFields saisies de l'utilisateur pour les champs obligatoires, par identifiant de champ */
     public LinkedJiraTicket run(UUID sessionId, int versionNumber, boolean confirm, String issueTypeId,
+            Map<String, String> extraFields) {
+        return create(sessionId, versionNumber, confirm, issueTypeId, extraFields).ticket();
+    }
+
+    /** Comme {@link #run}, avec l'avertissement d'un label non posé (024). */
+    public Created create(UUID sessionId, int versionNumber, boolean confirm, String issueTypeId,
             Map<String, String> extraFields) {
         if (!confirm) {
             throw new DomainException(ErrorCode.VALIDATION_FAILED, "La création du ticket doit être confirmée.");
@@ -89,12 +108,33 @@ public class CreateJiraTicket {
         }
 
         String wiki = markup.toWiki(version.markdown());
+        UUID projectId = labelling == null ? null : jira.projectOf(sessionId);
+        Map<String, Object> labelled = new LinkedHashMap<>(values);
+        boolean withLabel = projectId != null && labelling.label(projectId).isPresent();
+        if (withLabel) {
+            labelled.put("labels", labelling.forCreation(projectId,
+                    values.get("labels") instanceof java.util.Collection<?> c ? c : null));
+        }
         CreatedIssue created;
+        String labelWarning = null;
         try {
             created = tracker.createIssue(target.endpoint(), target.requireProject(), type.id(), version.content().title(), wiki,
-                    values);
+                    labelled);
+            if (withLabel) {
+                labelling.created(projectId, created.key());
+            }
         } catch (IssueTrackerException e) {
-            throw e.toDomain();
+            if (!withLabel || !JiraLabelling.refusedLabels(e)) {
+                throw e.toDomain();
+            }
+            // 024 (R3) : le champ des labels n'est pas sur l'écran de création ; le label est ajouté ensuite
+            try {
+                created = tracker.createIssue(target.endpoint(), target.requireProject(), type.id(),
+                        version.content().title(), wiki, values);
+            } catch (IssueTrackerException again) {
+                throw again.toDomain();
+            }
+            labelWarning = labelling.tag(projectId, target.endpoint(), created.key(), null);
         }
         Instant now = clock.now();
         JiraIssue written = reread(target, created.key());
@@ -103,9 +143,10 @@ public class CreateJiraTicket {
                 ConflictDetector.hash(written == null ? wiki : written.description()), now, now,
                 LinkedJiraTicket.SyncState.IN_SYNC);
         tickets.save(ticket);
+        String storyKey = created.key();
         relations.find(sessionId).filter(r -> r.link() != SessionRelation.Link.LINKED)
-                .ifPresent(r -> link(tracker, relations, target, created.key(), r));
-        return ticket;
+                .ifPresent(r -> link(tracker, relations, target, storyKey, r));
+        return new Created(ticket, labelWarning);
     }
 
     /**

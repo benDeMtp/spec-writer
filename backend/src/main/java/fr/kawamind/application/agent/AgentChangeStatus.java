@@ -1,5 +1,8 @@
 package fr.kawamind.application.agent;
 
+import fr.kawamind.application.jira.JiraScope;
+import fr.kawamind.application.task.StoryFollow;
+import fr.kawamind.application.task.StoryMove;
 import fr.kawamind.domain.agent.AgentOperation;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
@@ -19,13 +22,18 @@ import java.util.UUID;
  */
 public class AgentChangeStatus {
 
-    public record Changed(UUID id, ImplementationStatus status) {
+    /** {@code story} : ce qui est arrivé à la story d'une feature sans tâches implémentée (023) ; nul sinon. */
+    public record Changed(UUID id, ImplementationStatus status, StoryMove story) {
     }
 
     private final SessionRepository sessions;
     private final ClockPort clock;
     private final AgentJournal journal;
     private final TaskRepository tasks;
+    /** La story suit la feature (023, US4) ; sans lui (null), Jira n'est pas touché. */
+    private final StoryFollow story;
+    /** Périmètre des agents (024, US3). */
+    private final JiraScope scope;
 
     public AgentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal) {
         this(sessions, clock, journal, null);
@@ -33,6 +41,18 @@ public class AgentChangeStatus {
 
     /** {@code tasks} : une feature qui a des tâches suit leur avancement (015, R7). */
     public AgentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal, TaskRepository tasks) {
+        this(sessions, clock, journal, tasks, null);
+    }
+
+    public AgentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal, TaskRepository tasks,
+            StoryFollow story) {
+        this(sessions, clock, journal, tasks, story, JiraScope.OPEN);
+    }
+
+    public AgentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal, TaskRepository tasks,
+            StoryFollow story, JiraScope scope) {
+        this.scope = scope;
+        this.story = story;
         this.tasks = tasks;
         this.sessions = sessions;
         this.clock = clock;
@@ -44,6 +64,7 @@ public class AgentChangeStatus {
             throw new DomainException(ErrorCode.TRANSITION_NOT_ALLOWED);
         }
         Session session = sessions.find(featureId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        scope.requireFeature(featureId);
         if (tasks != null && TaskProgress.total(tasks.tasks(featureId)) > 0) {
             throw new DomainException(ErrorCode.STATUS_FOLLOWS_TASKS, "Cette feature a des tâches : son statut suit leur "
                     + "avancement. Utilisez next_task, start_task et complete_task.");
@@ -55,6 +76,9 @@ public class AgentChangeStatus {
             journal.record(agentName, AgentOperation.SET_STATUS, session.projectId(), featureId, current.status(),
                     next.status());
         }
-        return new Changed(featureId, next.status());
+        // 023 (US4, FR-016) : une feature sans tâches implémentée fait avancer son ticket lié
+        StoryMove moved = story != null && next.status() == ImplementationStatus.IMPLEMENTED
+                && current.status() != ImplementationStatus.IMPLEMENTED ? story.allDone(featureId) : null;
+        return new Changed(featureId, next.status(), moved);
     }
 }

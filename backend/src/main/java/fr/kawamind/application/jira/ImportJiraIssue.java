@@ -42,10 +42,15 @@ public class ImportJiraIssue {
 
     /** {@code existing} : le ticket était déjà lié ; c'est sa spécification, rien n'est importé (011, US4). */
     public record Imported(Session session, SpecificationVersion version, LinkedJiraTicket ticket, boolean truncated,
-            boolean existing) {
+            boolean existing, String labelWarning) {
 
         public Imported(Session session, SpecificationVersion version, LinkedJiraTicket ticket, boolean truncated) {
-            this(session, version, ticket, truncated, false);
+            this(session, version, ticket, truncated, false, null);
+        }
+
+        public Imported(Session session, SpecificationVersion version, LinkedJiraTicket ticket, boolean truncated,
+                boolean existing) {
+            this(session, version, ticket, truncated, existing, null);
         }
     }
 
@@ -61,6 +66,8 @@ public class ImportJiraIssue {
     private final ClockPort clock;
     private final IdGenerator ids;
     private final SessionKnowledge knowledge;
+    /** Label de reconnaissance (024) ; sans lui (null), le ticket repris n'est pas étiqueté. */
+    private final JiraLabelling labelling;
 
     public ImportJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
@@ -72,6 +79,14 @@ public class ImportJiraIssue {
     public ImportJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
             SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
             LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+        this(tracker, jira, markup, llm, consent, sessions, projects, versions, tickets, clock, ids, knowledge, null);
+    }
+
+    public ImportJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm, ConsentPolicy consent,
+            SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
+            LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
+            JiraLabelling labelling) {
+        this.labelling = labelling;
         this.knowledge = knowledge;
         this.tracker = tracker;
         this.jira = jira;
@@ -112,7 +127,10 @@ public class ImportJiraIssue {
         sessions.save(session, Questionnaire.empty());
         versions.save(version);
         tickets.save(ticket);
-        return new Imported(session, version, ticket, truncated);
+        // 024 (US1) : la story reprise reçoit le label de reconnaissance
+        String labelWarning = labelling == null ? null
+                : labelling.tag(project.id(), target.endpoint(), issue.key(), null);
+        return new Imported(session, version, ticket, truncated, false, labelWarning);
     }
 
     /** Ticket déjà lié : sa spécification et sa dernière version, pour en discuter (011, US4). */

@@ -230,6 +230,9 @@ test.describe.serial('US10 Jira paginé', () => {
     await page.getByRole('button', { name: 'Resynchroniser Jira' }).click();
     await expect(page.getByRole('button', { name: 'Resynchroniser Jira' })).toBeEnabled({ timeout: 120_000 });
     const pager = page.getByRole('navigation', { name: 'Pages de tickets' });
+    // 024 : les tickets terminés sont cachés par défaut ; ce parcours trie toute la liste, terminés compris
+    await page.getByRole('group', { name: 'Filtres' }).getByRole('checkbox', { name: 'Afficher les tickets terminés' })
+      .check();
     await expect(pager).toContainText('1 à 50 sur 120');
     await expect(page.locator('tbody tr')).toHaveCount(50);
     await expect(page.locator('tbody tr').first()).toContainText('PAGE-120');

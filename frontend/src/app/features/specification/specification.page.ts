@@ -202,6 +202,12 @@ export function perimeterSection(markdown: string | null | undefined): { title: 
                 }
               </p>
             }
+            @if (session()?.lostJiraIssueKey; as lost) {
+              <p class="ticket lost" role="status">
+                La story {{ lost }} a été supprimée dans Jira : la spécification n'y est plus liée. Vous pouvez l'envoyer
+                de nouveau vers Jira.
+              </p>
+            }
             @if (session()?.linkedTicket; as t) {
               <p class="ticket">
                 Liée au ticket

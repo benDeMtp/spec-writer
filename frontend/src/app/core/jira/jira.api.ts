@@ -32,10 +32,18 @@ export class JiraApi {
   }
 
   /** Page de la vue Jira, lue dans l'index local (017) ; l'appelant traite lui-même une erreur. */
-  issues(projectId: string, sort: IssueSortField, dir: SortDirection, startAt: number, size: number): Promise<IssuePage> {
+  /** 024 : `labelled` garde les tickets qui portent le label du projet ; `done` ajoute les terminés. */
+  issues(
+    projectId: string,
+    sort: IssueSortField,
+    dir: SortDirection,
+    startAt: number,
+    size: number,
+    filters: { labelled: boolean; done: boolean } = { labelled: true, done: false },
+  ): Promise<IssuePage> {
     return firstValueFrom(
       this.http.get<IssuePage>(`/api/projects/${encodeURIComponent(projectId)}/jira-issues`, {
-        params: { sort, dir, startAt, size },
+        params: { sort, dir, startAt, size, labelled: filters.labelled, done: filters.done },
         headers: new HttpHeaders({ 'X-Sw-Silent': '1' }),
       }),
     );

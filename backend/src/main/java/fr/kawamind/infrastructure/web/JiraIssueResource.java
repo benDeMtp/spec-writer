@@ -36,8 +36,11 @@ public class JiraIssueResource {
     @Path("/import")
     public Response importIssue(@PathParam("key") String key) {
         ImportJiraIssue.Imported imported = importJiraIssue.run(key);
-        SessionSnapshot snapshot = new SessionSnapshot(imported.session(), Questionnaire.empty(),
-                imported.truncated() ? List.of(TRUNCATED) : List.of());
+        List<String> warnings = new java.util.ArrayList<>(imported.truncated() ? List.of(TRUNCATED) : List.of());
+        if (imported.labelWarning() != null) {
+            warnings.add(imported.labelWarning());
+        }
+        SessionSnapshot snapshot = new SessionSnapshot(imported.session(), Questionnaire.empty(), List.copyOf(warnings));
         return Response.status(imported.existing() ? Response.Status.OK : Response.Status.CREATED)
                 .entity(SessionViews.detail(snapshot, imported.version().number(), imported.ticket())).build();
     }

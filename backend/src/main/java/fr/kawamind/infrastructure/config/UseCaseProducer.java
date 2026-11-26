@@ -94,6 +94,13 @@ import fr.kawamind.application.specification.GenerateSpecification;
 import fr.kawamind.application.interview.InterviewRevision;
 import fr.kawamind.application.interview.PrepareInterview;
 import fr.kawamind.application.interview.SourceUpdates;
+import fr.kawamind.application.task.ManageTaskWorkflow;
+import fr.kawamind.application.jira.JiraLabelling;
+import fr.kawamind.application.jira.JiraScope;
+import fr.kawamind.application.task.ForgetDeletedTickets;
+import fr.kawamind.domain.port.LostJiraLinks;
+import fr.kawamind.application.project.ManageJiraLabel;
+import fr.kawamind.domain.port.JiraLabelRepository;
 import fr.kawamind.domain.port.SourceUpdateRepository;
 import fr.kawamind.application.interview.RunInterview;
 import fr.kawamind.application.specification.OperationRegistry;
@@ -145,7 +152,9 @@ import fr.kawamind.domain.port.OnboardingRepository;
 import fr.kawamind.domain.port.SettingsRepository;
 import fr.kawamind.domain.port.SpecificationDiscussionRepository;
 import fr.kawamind.domain.port.SpecificationRepository;
+import fr.kawamind.domain.port.TaskWorkflowRepository;
 import fr.kawamind.domain.port.TextDiff;
+import fr.kawamind.domain.port.TicketLabels;
 import fr.kawamind.domain.port.TicketLinkRepository;
 import fr.kawamind.domain.port.WikiMarkup;
 import fr.kawamind.application.task.AgentTasks;
@@ -156,6 +165,7 @@ import fr.kawamind.application.task.TrackingActions;
 import fr.kawamind.application.task.EditTasks;
 import fr.kawamind.application.task.ProposeTasks;
 import fr.kawamind.application.task.ReadTasks;
+import fr.kawamind.application.task.StoryFollow;
 import fr.kawamind.application.task.TaskDesk;
 import fr.kawamind.application.task.TaskLocks;
 import fr.kawamind.application.task.ValidateTasks;
@@ -190,8 +200,29 @@ public class UseCaseProducer {
     @Produces
     @jakarta.inject.Singleton
     TaskDesk taskDesk(SessionRepository sessions, TaskRepository tasks, LinkedTicketRepository tickets, JiraAccess jira,
-            IssueTracker tracker, WikiMarkup markup, ClockPort clock, IdGenerator ids, TaskLocks locks) {
-        return new TaskDesk(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks);
+            IssueTracker tracker, WikiMarkup markup, ClockPort clock, IdGenerator ids, TaskLocks locks,
+            TaskWorkflowRepository workflows, JiraLabelling labelling, JiraScope scope) {
+        return new TaskDesk(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks, workflows, labelling,
+                scope);
+    }
+
+    @Produces
+    @ApplicationScoped
+    JiraScope jiraScope(JiraLabelRepository labels, TicketLabels tickets, LinkedTicketRepository linked,
+            SessionRepository sessions) {
+        return new JiraScope(labels, tickets, linked, sessions);
+    }
+
+    @Produces
+    @ApplicationScoped
+    JiraLabelling jiraLabelling(JiraLabelRepository labels, TicketLabels tickets, IssueTracker tracker) {
+        return new JiraLabelling(labels, tickets, tracker);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ManageJiraLabel manageJiraLabel(ProjectRepository projects, JiraLabelRepository labels, ClockPort clock) {
+        return new ManageJiraLabel(projects, labels, clock);
     }
 
     @Produces
@@ -720,17 +751,17 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     ListFeatures listFeatures(ProjectRepository projects, SessionRepository sessions, SpecificationRepository versions,
-            AgentJournal journal) {
-        return new ListFeatures(projects, sessions, versions, journal);
+            AgentJournal journal, JiraScope scope) {
+        return new ListFeatures(projects, sessions, versions, journal, scope);
     }
 
     @Produces
     @ApplicationScoped
     GetFeature getFeature(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             ProjectRepository projects, KnowledgeIndex index, AgentJournal journal, AgentTasks agentTasks,
-            TicketLinkRepository ticketLinks) {
+            TicketLinkRepository ticketLinks, JiraScope scope) {
         return new GetFeature(sessions, versions, tickets, new FeatureKnowledge(projects, index), journal, agentTasks,
-                index, ticketLinks);
+                index, ticketLinks, scope);
     }
 
     @Produces
@@ -742,8 +773,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     AgentChangeStatus agentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal,
-            TaskRepository tasks) {
-        return new AgentChangeStatus(sessions, clock, journal, tasks);
+            TaskRepository tasks, TaskDesk desk, TaskJira jira, JiraScope scope) {
+        return new AgentChangeStatus(sessions, clock, journal, tasks, new StoryFollow(desk, jira), scope);
     }
 
     @Produces
@@ -762,17 +793,18 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     ListProjectIssues listProjectIssues(ProjectRepository projects, JiraAccess jira, ListedIssues listed,
-            SourceSyncRepository syncs) {
-        return new ListProjectIssues(projects, jira, listed, syncs);
+            SourceSyncRepository syncs, JiraLabelRepository labels) {
+        return new ListProjectIssues(projects, jira, listed, syncs, labels);
     }
 
     @Produces
     @ApplicationScoped
     ImportJiraIssue importJiraIssue(IssueTracker tracker, JiraAccess jira, WikiMarkup markup, LlmClient llm,
             ConsentPolicy consent, SessionRepository sessions, ProjectRepository projects, SpecificationRepository versions,
-            LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge) {
+            LinkedTicketRepository tickets, ClockPort clock, IdGenerator ids, SessionKnowledge knowledge,
+            JiraLabelling labelling) {
         return new ImportJiraIssue(tracker, jira, markup, llm, consent, sessions, projects, versions, tickets, clock,
-                ids, knowledge);
+                ids, knowledge, labelling);
     }
 
     @Produces
@@ -796,8 +828,8 @@ public class UseCaseProducer {
     @ApplicationScoped
     CreateJiraTicket createJiraTicket(IssueTracker tracker, JiraAccess jira, WikiMarkup markup,
             SpecificationRepository versions, LinkedTicketRepository tickets, ClockPort clock,
-            SessionRelationRepository relations) {
-        return new CreateJiraTicket(tracker, jira, markup, versions, tickets, clock, relations);
+            SessionRelationRepository relations, JiraLabelling labelling) {
+        return new CreateJiraTicket(tracker, jira, markup, versions, tickets, clock, relations, labelling);
     }
 
     // ---------- Fiche générale et connaissance du projet (US2 de 002) ----------
@@ -811,6 +843,13 @@ public class UseCaseProducer {
     }
 
     // ---------- Confluence (016) ----------
+
+    @Produces
+    @ApplicationScoped
+    ManageTaskWorkflow manageTaskWorkflow(ProjectRepository projects, TaskWorkflowRepository workflows,
+            ClockPort clock) {
+        return new ManageTaskWorkflow(projects, workflows, clock);
+    }
 
     @Produces
     @ApplicationScoped
@@ -863,9 +902,15 @@ public class UseCaseProducer {
             DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
             DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
             TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock,
-            ConfluenceIndexation confluence) {
+            ConfluenceIndexation confluence, TicketLabels labels, ForgetDeletedTickets forget) {
         return new SynchronizeKnowledge(projects, sources, docSources, reader, folder, fileStates, architecture, jira,
-                tracker, links, index, embedding, clock, confluence);
+                tracker, links, index, embedding, clock, confluence, labels, forget::run);
+    }
+
+    @Produces
+    @ApplicationScoped
+    ForgetDeletedTickets forgetDeletedTickets(TaskDesk desk, TaskSync sync, LostJiraLinks lost) {
+        return new ForgetDeletedTickets(desk, sync, lost);
     }
 
     @Produces

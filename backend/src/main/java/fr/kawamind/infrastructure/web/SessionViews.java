@@ -58,14 +58,15 @@ final class SessionViews {
     }
 
     /** {@code relatesTo} et {@code relatesToLink} : ticket fermé lié par « relates to » et état du lien (FR-035 de 002). */
+    /** {@code labelWarning} : label de reconnaissance non posé à la création (024), nul sinon. */
     record LinkedTicketView(String issueKey, String issueUrl, String syncState, int linkedVersionNumber, String relatesTo,
-            String relatesToLink) {
+            String relatesToLink, String labelWarning) {
     }
 
     record SessionDetail(UUID id, UUID projectId, String name, String state, Instant updatedAt, Integer latestVersion,
             String jiraKey, LinkedTicketView linkedTicket, String origin, String need, String language, Progress progress, List<QuestionView> currentBatch,
             List<QuestionView> answeredQuestions, List<String> warnings, RevisionView revision,
-            ImplementationView implementation) {
+            ImplementationView implementation, String lostJiraIssueKey) {
     }
 
     /** {@code conversationId} : discussion d'une version {@code DISCUSSION}, tant qu'elle existe (011). */
@@ -129,8 +130,13 @@ final class SessionViews {
     }
 
     static LinkedTicketView ticket(LinkedJiraTicket t, SessionRelation relation) {
+        return ticket(t, relation, null);
+    }
+
+    static LinkedTicketView ticket(LinkedJiraTicket t, SessionRelation relation, String labelWarning) {
         return t == null ? null : new LinkedTicketView(t.issueKey(), t.issueUrl(), t.syncState().name(), t.linkedVersionNumber(),
-                relation == null ? null : relation.relatesTo(), relation == null ? null : relation.link().name());
+                relation == null ? null : relation.relatesTo(), relation == null ? null : relation.link().name(),
+                labelWarning);
     }
 
     static SessionDetail detail(SessionSnapshot snapshot, int latestVersion, LinkedJiraTicket ticket) {
@@ -139,6 +145,12 @@ final class SessionViews {
 
     static SessionDetail detail(SessionSnapshot snapshot, int latestVersion, LinkedJiraTicket ticket,
             Implementation implementation) {
+        return detail(snapshot, latestVersion, ticket, implementation, null);
+    }
+
+    /** {@code lostJiraIssueKey} : ticket lié supprimé dans Jira (024), montré tant qu'aucun autre n'est lié. */
+    static SessionDetail detail(SessionSnapshot snapshot, int latestVersion, LinkedJiraTicket ticket,
+            Implementation implementation, String lostJiraIssueKey) {
         Session s = snapshot.session();
         Questionnaire q = snapshot.questionnaire();
         List<String> warnings = new ArrayList<>(snapshot.warnings());
@@ -149,7 +161,7 @@ final class SessionViews {
                 q.currentBatch().stream().map(SessionViews::question).toList(),
                 q.treated().stream().map(SessionViews::question).toList(), warnings,
                 new RevisionView(snapshot.revision().removed(), snapshot.revision().added()),
-                ImplementationView.of(implementation));
+                ImplementationView.of(implementation), ticket == null ? lostJiraIssueKey : null);
     }
 
     static QuestionView question(Question q) {

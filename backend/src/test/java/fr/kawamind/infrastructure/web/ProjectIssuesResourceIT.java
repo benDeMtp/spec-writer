@@ -93,7 +93,11 @@ class ProjectIssuesResourceIT {
                 "token", "TEST-JIRA-PAT")).put("/api/settings/jira").then().statusCode(200);
         api().queryParam("sort", "sync").queryParam("dir", "asc").get("/api/projects/" + DEFAULT + "/jira-issues")
                 .then().statusCode(200).body("jiraProjectKey", equalTo("PROJ")).body("startAt", equalTo(0))
-                .body("total", notNullValue()).body("issues", notNullValue());
+                .body("total", notNullValue()).body("issues", notNullValue())
+                // 024 (contracts/rest-api.md) : filtres appliqués ; sans label réglé, pas de filtre du label
+                .body("label", nullValue()).body("labelled", equalTo(false)).body("done", equalTo(false));
+        api().queryParam("done", true).get("/api/projects/" + DEFAULT + "/jira-issues").then().statusCode(200)
+                .body("done", equalTo(true));
     }
 
     @Test

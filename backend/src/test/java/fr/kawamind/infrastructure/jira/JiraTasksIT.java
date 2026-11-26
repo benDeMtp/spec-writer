@@ -173,4 +173,65 @@ class JiraTasksIT {
                 .isInstanceOfSatisfying(IssueTrackerException.class,
                         e -> assertThat(e.kind()).isEqualTo(Kind.UNREACHABLE));
     }
+
+    @Test
+    void leTicketEstAffecteParLoginEtLAffecteEstLuAvecLeStatut() {
+        // 023 (US5, R9) : PUT issue/{key}/assignee, au format de Jira Server / Data Center
+        jira.stubFor(put("/rest/api/2/issue/FACT-124/assignee").willReturn(aResponse().withStatus(204)));
+        client.assign(endpoint(), "FACT-124", "jdupont");
+        jira.verify(putRequestedFor(urlPathEqualTo("/rest/api/2/issue/FACT-124/assignee"))
+                .withRequestBody(equalToJson("{\"name\":\"jdupont\"}")));
+
+        jira.stubFor(get(urlPathEqualTo("/rest/api/2/issue/FACT-124")).withQueryParam("fields", equalTo("status,updated,assignee"))
+                .willReturn(okJson("""
+                        {"key":"FACT-124","fields":{"status":{"name":"En Cours","statusCategory":{"key":"indeterminate"}},
+                         "updated":"2026-11-26T10:00:00.000+0000","assignee":{"name":"jdupont","displayName":"J. Dupont"}}}""")));
+        assertThat(client.issueStatus(endpoint(), "FACT-124").assignee()).isEqualTo("jdupont");
+        jira.stubFor(get(urlPathEqualTo("/rest/api/2/issue/FACT-125")).willReturn(okJson("""
+                {"key":"FACT-125","fields":{"status":{"name":"Créée","statusCategory":{"key":"new"}},
+                 "updated":"2026-11-26T10:00:00.000+0000","assignee":null}}""")));
+        assertThat(client.issueStatus(endpoint(), "FACT-125").assignee()).isNull();
+    }
+
+    @Test
+    void uneAffectationRefuseeDonneLesCausesDeJira() {
+        jira.stubFor(put("/rest/api/2/issue/FACT-124/assignee").willReturn(aResponse().withStatus(400)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"errorMessages\":[],\"errors\":{\"assignee\":\"L'utilisateur ne peut pas être affecté.\"}}")));
+        assertThatThrownBy(() -> client.assign(endpoint(), "FACT-124", "jdupont"))
+                .isInstanceOfSatisfying(IssueTrackerException.class, e -> {
+                    assertThat(e.kind()).isEqualTo(Kind.REJECTED);
+                    assertThat(String.join(" ", e.details())).contains("ne peut pas être affecté");
+                });
+    }
+
+    // 024 (research R2, R3) : labels lus, posés à la création, ajoutés à la reprise
+
+    @Test
+    void lesLabelsSontPosesALaCreationDUneSousTache() {
+        jira.stubFor(post("/rest/api/2/issue").willReturn(okJson("{\"id\":\"30125\",\"key\":\"FACT-125\"}")));
+        client.createSubtask(endpoint(), "FACT", "FACT-120", "10005", "Titre", "Fait", java.util.List.of("spec-writer"));
+        jira.verify(postRequestedFor(urlPathEqualTo("/rest/api/2/issue"))
+                .withRequestBody(matchingJsonPath("$.fields.labels[0]", equalTo("spec-writer"))));
+    }
+
+    @Test
+    void unLabelEstAjouteSansToucherAuxAutres() {
+        jira.stubFor(put("/rest/api/2/issue/FACT-120").willReturn(aResponse().withStatus(204)));
+        client.addLabel(endpoint(), "FACT-120", "spec-writer");
+        jira.verify(putRequestedFor(urlPathEqualTo("/rest/api/2/issue/FACT-120"))
+                .withRequestBody(equalToJson("{\"update\":{\"labels\":[{\"add\":\"spec-writer\"}]}}")));
+    }
+
+    @Test
+    void unLabelRefuseDonneLeChampEnCause() {
+        jira.stubFor(put("/rest/api/2/issue/FACT-120").willReturn(aResponse().withStatus(400)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"errorMessages\":[],\"errors\":{\"labels\":\"Le champ n'est pas sur l'écran.\"}}")));
+        assertThatThrownBy(() -> client.addLabel(endpoint(), "FACT-120", "spec-writer"))
+                .isInstanceOfSatisfying(IssueTrackerException.class, e -> {
+                    assertThat(e.kind()).isEqualTo(Kind.REJECTED);
+                    assertThat(e.details()).containsExactly("labels : Le champ n'est pas sur l'écran.");
+                });
+    }
 }

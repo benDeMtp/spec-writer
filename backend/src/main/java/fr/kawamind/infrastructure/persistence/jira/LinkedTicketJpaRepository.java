@@ -54,6 +54,15 @@ public class LinkedTicketJpaRepository implements LinkedTicketRepository {
                 .map(LinkedTicketJpaRepository::toDomain).toList();
     }
 
+    @Override
+    @Transactional
+    public void delete(UUID sessionId) {
+        LinkedTicketEntity e = em.find(LinkedTicketEntity.class, sessionId.toString());
+        if (e != null) {
+            em.remove(e);
+        }
+    }
+
     private static LinkedJiraTicket toDomain(LinkedTicketEntity e) {
         return new LinkedJiraTicket(UUID.fromString(e.sessionId), e.issueKey, e.issueUrl, e.issueType,
                 e.linkedVersionNumber, e.lastKnownUpdated, e.lastKnownDescriptionHash, e.createdOrImportedAt,

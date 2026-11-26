@@ -137,4 +137,86 @@ test.describe.serial('US22 hiérarchie des sous-tâches', () => {
     await page.keyboard.press('Enter');
     await expect(children).toHaveCount(0);
   });
+
+  test('024 : la vue s’ouvre sur le label et sans les terminés ; un ticket supprimé est retiré', async () => {
+    test.setTimeout(180_000);
+    // le label se règle dans les réglages du projet
+    await page.goto('/projet/reglages');
+    const section = page.getByRole('region', { name: 'Suivi des tâches dans Jira' });
+    await section.getByLabel('Label des tickets de spec-writer').fill('spec-writer');
+    await section.getByRole('button', { name: 'Enregistrer le label' }).click();
+    await expect(section.getByRole('button', { name: 'Retirer le label' })).toBeVisible();
+    await expectNoA11yViolations(page);
+
+    // Jira : HIER-1 et HIER-40 (fermée) portent le label ; HIER-3 a été supprimée
+    const now = Date.now();
+    const at = (minutes: number) => new Date(now - minutes * 60_000).toISOString().replace('Z', '+0000');
+    const labelled = (i: ReturnType<typeof issue>) => ({ ...i, fields: { ...i.fields, labels: ['spec-writer'] } });
+    const closed = labelled(issue('HIER-40', 'Story', at(5)));
+    closed.fields.status = { name: 'Fermée', statusCategory: { key: 'done' } };
+    const all = [
+      labelled(issue('HIER-1', 'Story', at(30))),
+      issue('HIER-2', 'Sous-tâche', at(1), 'HIER-1'),
+      issue('HIER-10', 'Sous-tâche', at(3), 'HIER-1'),
+      issue('HIER-20', 'Story', at(10)),
+      issue('HIER-30', 'Sous-tâche', at(40), 'AUTRE-9'),
+      closed,
+    ];
+    const created = await jira.post('/__admin/mappings', {
+      data: {
+        priority: 0,
+        request: {
+          method: 'GET',
+          urlPath: '/rest/api/2/search',
+          queryParameters: { jql: { matches: 'project = HIER( AND .*)? ORDER BY (updated|key) ASC' } },
+        },
+        response: {
+          status: 200,
+          headers: JSON_HEADERS,
+          jsonBody: { startAt: 0, maxResults: 200, total: all.length, issues: all },
+        },
+      },
+    });
+    expect(created.status()).toBe(201);
+
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Tickets Jira' }).click();
+    await expect(page.getByRole('button', { name: 'Resynchroniser Jira' })).toBeEnabled({ timeout: 120_000 });
+    await page.getByRole('button', { name: 'Resynchroniser Jira' }).click();
+    await expect(page.getByRole('button', { name: 'Resynchroniser Jira' })).toBeEnabled({ timeout: 120_000 });
+
+    const filters = page.getByRole('group', { name: 'Filtres' });
+    const byLabel = filters.getByRole('checkbox', { name: 'Avec le label spec-writer' });
+    const done = filters.getByRole('checkbox', { name: 'Afficher les tickets terminés' });
+    await expect(byLabel).toBeChecked();
+    await expect(done).not.toBeChecked();
+    const rows = page.locator('tbody tr:not(.subtask)');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('HIER-1');
+
+    // HIER-3 a disparu de la story ; les sous-tâches ne sont pas filtrées
+    await page.getByRole('button', { name: 'Afficher les 2 sous-tâches de HIER-1' }).click();
+    await expect(page.locator('tbody tr.subtask').getByRole('link', { name: /^HIER-\d+$/ })).toHaveText([
+      'HIER-2',
+      'HIER-10',
+    ]);
+    await expectNoA11yViolations(page);
+
+    // au clavier : les terminés, puis tous les tickets
+    await done.focus();
+    await page.keyboard.press('Space');
+    await expect(rows).toHaveCount(2);
+    await expect(page.getByRole('link', { name: 'HIER-40', exact: true })).toBeVisible();
+    await byLabel.focus();
+    await page.keyboard.press('Space');
+    await expect(rows).toHaveCount(4);
+
+    // le choix est gardé en revenant à la vue
+    await page.goto('/projet/reglages');
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Tickets Jira' }).click();
+    await expect(page.getByRole('group', { name: 'Filtres' }).getByRole('checkbox', { name: 'Avec le label spec-writer' }))
+      .not.toBeChecked();
+    await expect(page.locator('tbody tr:not(.subtask)')).toHaveCount(4);
+  });
 });

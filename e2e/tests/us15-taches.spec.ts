@@ -13,6 +13,14 @@ const json = { 'Content-Type': 'application/json' };
 const SUBTASKS = ['PROJ-301', 'PROJ-302', 'PROJ-303'];
 type Category = 'new' | 'indeterminate' | 'done';
 const NAMES: Record<Category, string> = { new: 'À faire', indeterminate: 'En cours', done: 'Terminé' };
+const DEFAULT_PROJECT = '00000000-0000-0000-0000-000000000001';
+/** 023 : workflow à la AURORA, où « Réalisée » et « En Cours » sont tous deux « en cours » pour Jira. */
+const AURORA_TRANSITIONS = [
+  { id: '21', name: 'Démarrer', to: { name: 'En Cours', statusCategory: { key: 'indeterminate' } } },
+  { id: '41', name: 'Réaliser', to: { name: 'Réalisée', statusCategory: { key: 'indeterminate' } } },
+  { id: '31', name: 'Fermer', to: { name: 'Fermée', statusCategory: { key: 'done' } } },
+  { id: '51', name: 'Annuler', to: { name: 'Annulée', statusCategory: { key: 'done' } } },
+];
 
 /** 015 : tâches d'une spécification, créées en sous-tâches Jira et suivies par les agents. */
 test.describe.serial('US15 tâches et avancement', () => {
@@ -22,6 +30,9 @@ test.describe.serial('US15 tâches et avancement', () => {
   let sessionId = '';
   let versionPath = '';
   const headers = { Origin: baseURL };
+  /** 023 : nom de statut Jira imposé à une sous-tâche, et sous-tâches au workflow à la AURORA. */
+  const named: Record<string, string> = {};
+  const aurora = new Set<string>();
 
   async function stub(mapping: object): Promise<void> {
     expect((await jira.post('/__admin/mappings', { data: { priority: 5, ...mapping } })).status()).toBe(201);
@@ -33,7 +44,7 @@ test.describe.serial('US15 tâches et avancement', () => {
     for (const m of mappings.filter((m) => m.metadata?.etat)) {
       await jira.delete(`/__admin/mappings/${m.id}`);
     }
-    const status = (c: Category) => ({ name: NAMES[c], statusCategory: { key: c } });
+    const status = (key: string, c: Category) => ({ name: named[key] ?? NAMES[c], statusCategory: { key: c } });
     const add = (mapping: object) => stub({ priority: 0, metadata: { etat: true }, ...mapping });
     if (down) {
       await add({ request: { urlPattern: '/rest/api/2/(search.*|issue/PROJ-30[1-3].*)' }, response: { status: 503 } });
@@ -49,7 +60,7 @@ test.describe.serial('US15 tâches et avancement', () => {
           total: Object.keys(state).length,
           issues: Object.entries(state).map(([key, c]) => ({
             key,
-            fields: { summary: key, status: status(c), issuetype: { name: 'Sous-tâche' }, updated: '2026-11-17T10:00:00.000+0000' },
+            fields: { summary: key, status: status(key, c), issuetype: { name: 'Sous-tâche' }, updated: '2026-11-17T10:00:00.000+0000' },
           })),
         },
       },
@@ -57,7 +68,7 @@ test.describe.serial('US15 tâches et avancement', () => {
     for (const [key, c] of Object.entries(state)) {
       await add({
         request: { method: 'GET', urlPath: `/rest/api/2/issue/${key}` },
-        response: { status: 200, headers: json, jsonBody: { key, fields: { status: status(c), updated: '2026-11-17T10:00:00.000+0000' } } },
+        response: { status: 200, headers: json, jsonBody: { key, fields: { status: status(key, c), updated: '2026-11-17T10:00:00.000+0000' } } },
       });
       await add({
         request: { method: 'GET', urlPath: `/rest/api/2/issue/${key}/transitions` },
@@ -65,16 +76,20 @@ test.describe.serial('US15 tâches et avancement', () => {
           status: 200,
           headers: json,
           jsonBody: {
-            transitions: [
-              { id: '11', name: 'Rouvrir', to: { statusCategory: { key: 'new' } } },
-              { id: '21', name: 'Démarrer', to: { statusCategory: { key: 'indeterminate' } } },
-              { id: '31', name: 'Terminer', to: { statusCategory: { key: 'done' } } },
-            ].filter((t) => t.to.statusCategory.key !== c),
+            transitions: aurora.has(key)
+              ? AURORA_TRANSITIONS.filter((t) => t.to.name !== named[key])
+              : [
+                  { id: '11', name: 'Rouvrir', to: { statusCategory: { key: 'new' } } },
+                  { id: '21', name: 'Démarrer', to: { statusCategory: { key: 'indeterminate' } } },
+                  { id: '31', name: 'Terminer', to: { statusCategory: { key: 'done' } } },
+                ].filter((t) => t.to.statusCategory.key !== c),
           },
         },
       });
       await add({ request: { method: 'POST', urlPath: `/rest/api/2/issue/${key}/transitions` }, response: { status: 204 } });
       await add({ request: { method: 'POST', urlPath: `/rest/api/2/issue/${key}/comment` }, response: { status: 201, headers: json, jsonBody: { id: '1' } } });
+      // 023 (US5) : le propriétaire du jeton est affecté avant chaque transition
+      await add({ request: { method: 'PUT', urlPath: `/rest/api/2/issue/${key}/assignee` }, response: { status: 204 } });
     }
   }
 
@@ -439,6 +454,84 @@ test.describe.serial('US15 tâches et avancement', () => {
       await expect(panel.getByText('à synchroniser')).toHaveCount(0);
       expect((await sent('POST', '/rest/api/2/issue/PROJ-302/transitions')).map((r) => JSON.parse(r.body).transition.id))
         .toEqual(['31']);
+    });
+    test('023 : la tâche implémentée passe à « Réalisée », pas à « Fermée », et la story suit', async () => {
+      // réglage du projet : « Réalisée » à l'arrivée, « En cours de test » fini aussi
+      const saved = await page.request.put(`/api/projects/${DEFAULT_PROJECT}/task-workflow`, {
+        headers,
+        data: { arrivalStatus: 'Réalisée', finishedStatuses: ['En cours de test'] },
+      });
+      expect(saved.status()).toBe(200);
+      try {
+        await page.goto('/projet/reglages');
+        const section = page.getByRole('region', { name: 'Suivi des tâches dans Jira' });
+        await expect(section.getByRole('radio', { name: /Réalisée/ })).toBeChecked();
+        await expect(section.getByRole('checkbox', { name: /En cours de test/ })).toBeChecked();
+        await expectNoA11yViolations(page);
+
+        // la story et ses transitions, au workflow à la AURORA
+        await stub({
+          priority: 1,
+          request: { method: 'GET', urlPath: `/rest/api/2/issue/${STORY}/transitions` },
+          response: { status: 200, headers: json, jsonBody: { transitions: AURORA_TRANSITIONS } },
+        });
+        await stub({
+          priority: 1,
+          request: { method: 'POST', urlPath: `/rest/api/2/issue/${STORY}/transitions` },
+          response: { status: 204 },
+        });
+        await stub({
+          priority: 1,
+          request: { method: 'PUT', urlPath: `/rest/api/2/issue/${STORY}/assignee` },
+          response: { status: 204 },
+        });
+        aurora.add('PROJ-303');
+        named['PROJ-303'] = 'Créée';
+        Object.assign(state, { 'PROJ-301': 'done', 'PROJ-302': 'done', 'PROJ-303': 'new' });
+        await jiraState(state);
+        await jira.delete('/__admin/requests');
+
+        // prise : la sous-tâche démarre, la story « à faire » passe en cours
+        const started = await call(second, 'start_task', { taskKey: 'PROJ-303' });
+        expect(started.isError).toBe(false);
+        expect(started.json.story).toEqual({ key: STORY, status: 'MOVED', to: 'En Cours', message: null });
+        expect((await sent('POST', '/rest/api/2/issue/PROJ-303/transitions')).map((r) => JSON.parse(r.body).transition.id))
+          .toEqual(['21']);
+        expect((await sent('POST', `/rest/api/2/issue/${STORY}/transitions`)).map((r) => JSON.parse(r.body).transition.id))
+          .toEqual(['21']);
+        // US5 : la sous-tâche et la story sont affectées au propriétaire du jeton
+        expect(started.json.message).toBeNull();
+        for (const key of ['PROJ-303', STORY]) {
+          expect((await sent('PUT', `/rest/api/2/issue/${key}/assignee`)).map((r) => JSON.parse(r.body))).toEqual([
+            { name: 'e2e-user' },
+          ]);
+        }
+
+        // fin de la dernière tâche : « Réaliser », jamais « Fermer » ; la story passe à « Réalisée »
+        named['PROJ-303'] = 'En Cours';
+        state['PROJ-303'] = 'indeterminate';
+        await jiraState(state);
+        await jira.delete('/__admin/requests');
+        const done = await call(second, 'complete_task', { taskKey: 'PROJ-303' });
+        expect(done.isError).toBe(false);
+        expect(done.json.task.status).toBe('DONE');
+        expect(done.json.story).toEqual({ key: STORY, status: 'MOVED', to: 'Réalisée', message: null });
+        expect((await sent('POST', '/rest/api/2/issue/PROJ-303/transitions')).map((r) => JSON.parse(r.body).transition.id))
+          .toEqual(['41']);
+        expect((await sent('POST', `/rest/api/2/issue/${STORY}/transitions`)).map((r) => JSON.parse(r.body).transition.id))
+          .toEqual(['41']);
+
+        // relecture : « Réalisée » est « en cours » pour Jira, mais la tâche reste terminée
+        named['PROJ-303'] = 'Réalisée';
+        await jiraState(state);
+        await page.goto(versionPath);
+        const panel = page.getByRole('region', { name: 'Tâches' });
+        await expect(panel.getByText('3 tâches sur 3 terminées')).toBeVisible();
+        // toutes finies : la spécification est implémentée, donc plus servie aux agents
+        await expect(page.getByRole('combobox', { name: "Statut d'implémentation" })).toContainText('Implémentée');
+      } finally {
+        await page.request.delete(`/api/projects/${DEFAULT_PROJECT}/task-workflow`, { headers });
+      }
     });
   });
 });

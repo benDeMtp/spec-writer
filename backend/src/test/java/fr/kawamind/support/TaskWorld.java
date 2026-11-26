@@ -18,7 +18,10 @@ public class TaskWorld extends JiraWorld {
     /** Connexions fermées ; toutes les autres sont vivantes. */
     public final Set<String> closed = new HashSet<>();
     public final AgentConnections connections = c -> c != null && !closed.contains(c);
-    public final TaskDesk desk = new TaskDesk(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks);
+    public final InMemoryTaskWorkflows workflows = new InMemoryTaskWorkflows();
+    public final TaskDesk desk = new TaskDesk(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks,
+            workflows, new fr.kawamind.application.jira.JiraLabelling(jiraLabels, ticketLabels, tracker),
+            new fr.kawamind.application.jira.JiraScope(jiraLabels, ticketLabels, tickets, sessions));
 
     public TaskWorld() {
         grant(ConsentService.JIRA);

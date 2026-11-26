@@ -122,4 +122,20 @@ describe('CreateTicketDialogComponent', () => {
     expect(el.textContent).toContain('La story est liée à PROJ-7 par « relates to ».');
     expect(el.querySelector('[role=alert]')).toBeNull();
   });
+
+  it('024 : dit que le label de reconnaissance n’a pas pu être posé', async () => {
+    preview.mockResolvedValueOnce({ ...PREVIEW, requiredFields: [] });
+    fixture.componentInstance['changeType']('10001');
+    await settle(fixture);
+    create.mockResolvedValueOnce({
+      issueKey: 'PROJ-42',
+      issueUrl: 'https://jira/browse/PROJ-42',
+      syncState: 'IN_SYNC',
+      linkedVersionNumber: 1,
+      labelWarning: 'Le label spec-writer n’a pas pu être posé sur PROJ-42 : Jira l’a refusé. Ajoutez-le dans Jira.',
+    } as never);
+    button(el, 'Créer le ticket').click();
+    await settle(fixture);
+    expect(el.querySelector('[role=alert]')?.textContent).toContain('Le label spec-writer n’a pas pu être posé sur PROJ-42');
+  });
 });

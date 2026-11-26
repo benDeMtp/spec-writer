@@ -112,6 +112,8 @@ public enum ErrorCode {
     JIRA_REFUSED(409, "Jira a refusé la transition : rien n'a changé.", ErrorAction.NONE),
     STATUS_FOLLOWS_TASKS(409, "Cette spécification a des tâches : « En cours » et « Implémentée » suivent leur "
             + "avancement.", ErrorAction.NONE),
+    NOT_IN_JIRA_SCOPE(409, "Ce ticket ne porte pas le label de spec-writer : il n'est pas suivi par spec-writer dans "
+            + "Jira.", ErrorAction.NONE),
     REPORT_TOO_LONG(422, "Le compte rendu fait 2 000 caractères au plus.", ErrorAction.EDIT_INPUT),
     BRIDGE_OUTDATED(422, "La passerelle de l'agent est trop ancienne : relancez l'agent après la mise à jour de "
             + "spec-writer.", ErrorAction.NONE),

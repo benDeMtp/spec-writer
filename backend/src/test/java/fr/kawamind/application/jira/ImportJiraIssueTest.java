@@ -139,4 +139,42 @@ class ImportJiraIssueTest {
         assertThat(again.version().number()).isEqualTo(1);
         assertThat(w.sessions.list()).hasSize(1);
     }
+
+    // 024 (US1) : la story reprise reçoit le label de reconnaissance
+
+    ImportJiraIssue labelled() {
+        w.llm.structures.add(JiraWorld.draft("Paiement"));
+        return new ImportJiraIssue(w.tracker, w.jira, w.markup, w.llm, w.policy, w.sessions, w.projects, w.versions,
+                w.tickets, w.clock, w.ids, fr.kawamind.application.knowledge.SessionKnowledge.sheetOnly(w.projects),
+                new JiraLabelling(w.jiraLabels, w.ticketLabels, w.tracker));
+    }
+
+    @Test
+    void laStoryRepriseRecoitLeLabelSIlManque() {
+        w.jiraLabels.save(fr.kawamind.domain.project.Project.DEFAULT_ID, fr.kawamind.domain.jira.JiraLabel.of("spec-writer"),
+                w.clock.now());
+        ImportJiraIssue.Imported imported = labelled().run("PAY-4");
+        assertThat(w.tracker.calls).contains("label PAY-4 spec-writer");
+        assertThat(imported.labelWarning()).isNull();
+        assertThat(w.ticketLabels.has(imported.session().projectId(), "PAY-4", "spec-writer")).isTrue();
+    }
+
+    @Test
+    void uneStoryDejaLabelliseeNEstPasTouchee() {
+        w.jiraLabels.save(fr.kawamind.domain.project.Project.DEFAULT_ID, fr.kawamind.domain.jira.JiraLabel.of("spec-writer"),
+                w.clock.now());
+        w.ticketLabels.add(fr.kawamind.domain.project.Project.DEFAULT_ID, "PAY-4", "spec-writer");
+        labelled().run("PAY-4");
+        assertThat(w.tracker.calls).noneMatch(c -> c.startsWith("label "));
+    }
+
+    @Test
+    void unLabelRefuseNEmpechePasLImport() {
+        w.jiraLabels.save(fr.kawamind.domain.project.Project.DEFAULT_ID, fr.kawamind.domain.jira.JiraLabel.of("spec-writer"),
+                w.clock.now());
+        w.tracker.labelFailure = fr.kawamind.domain.jira.IssueTrackerException.Kind.REJECTED;
+        ImportJiraIssue.Imported imported = labelled().run("PAY-4");
+        assertThat(imported.ticket().issueKey()).isEqualTo("PAY-4");
+        assertThat(imported.labelWarning()).startsWith("Le label spec-writer n'a pas pu être posé sur PAY-4");
+    }
 }

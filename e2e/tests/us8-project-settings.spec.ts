@@ -202,7 +202,7 @@ test.describe.serial('US8 connaissance du projet', () => {
     const failing = await jira.post('/__admin/mappings', {
       data: {
         priority: 0,
-        request: { method: 'GET', urlPath: '/rest/api/2/issue/FACT-9', queryParameters: { fields: { equalTo: 'status,updated' } } },
+        request: { method: 'GET', urlPath: '/rest/api/2/issue/FACT-9', queryParameters: { fields: { equalTo: 'status,updated,assignee' } } },
         response: { status: 500 },
       },
     });
@@ -421,7 +421,7 @@ test.describe.serial('US8 connaissance du projet', () => {
     });
     for (const i of added) {
       await stub({
-        request: { method: 'GET', urlPath: `/rest/api/2/issue/${i.key}`, queryParameters: { fields: { equalTo: 'status,updated' } } },
+        request: { method: 'GET', urlPath: `/rest/api/2/issue/${i.key}`, queryParameters: { fields: { equalTo: 'status,updated,assignee' } } },
         response: { status: 200, headers: { 'Content-Type': 'application/json' }, jsonBody: { key: i.key, fields: { status: i.fields.status, updated: i.fields.updated } } },
       });
     }

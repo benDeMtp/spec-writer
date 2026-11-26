@@ -15,4 +15,7 @@ public interface LinkedTicketRepository {
     Optional<LinkedJiraTicket> findByIssueKey(String issueKey);
 
     List<LinkedJiraTicket> all();
+
+    /** Retire le lien d'une session (024 : ticket supprimé dans Jira). */
+    void delete(UUID sessionId);
 }

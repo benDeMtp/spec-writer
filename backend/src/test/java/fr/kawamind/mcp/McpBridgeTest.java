@@ -210,6 +210,23 @@ class McpBridgeTest {
             if (name.equals("get_feature")) {
                 assertThat(text).contains("jiraTicket");
             }
+            // 023 : statut d'arrivée et story qui suit
+            if (name.equals("complete_task")) {
+                assertThat(text).contains("statut d'arrivée").contains("jiraStatus").contains("NO_TRANSITION").contains("story");
+            }
+            if (name.equals("start_task") || name.equals("set_feature_status")) {
+                assertThat(text).as(name).contains("story");
+            }
+            // 024 : périmètre du label
+            if (name.equals("list_features")) {
+                assertThat(text).contains("label Jira").contains("NOT_IN_JIRA_SCOPE");
+            }
+            if (name.equals("next_task")) {
+                assertThat(text).contains("inScope");
+            }
+            if (name.equals("start_task") || name.equals("complete_task")) {
+                assertThat(text).as(name).contains("affectés au propriétaire du jeton Jira");
+            }
         }
         assertThat(tools.get(1).path("inputSchema").path("required").get(0).asString()).isEqualTo("projectId");
 

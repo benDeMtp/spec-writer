@@ -265,12 +265,14 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
             Collection<KnowledgeKind> kinds, int limit) {
         Set<KnowledgeKind> wanted = kinds == null || kinds.isEmpty() ? Set.of(KnowledgeKind.values()) : Set.copyOf(kinds);
         Map<String, Double> scores = new LinkedHashMap<>();
+        // 024 (US4, research R7) : une sous-tâche est une référence, jamais un résultat de recherche
+        Set<String> subtasks = wanted.contains(KnowledgeKind.TICKET) ? subtasks(projectId) : Set.of();
         List<String> byTerms = byTerms(projectId, terms, wanted);
         for (int rank = 0; rank < byTerms.size(); rank++) {
             scores.merge(byTerms.get(rank), 1.0 / (RRF_K + rank + 1), Double::sum);
         }
         if (queryVector != null && embeddingModel != null) {
-            List<String> byMeaning = byMeaning(projectId, queryVector, embeddingModel, wanted);
+            List<String> byMeaning = byMeaning(projectId, queryVector, embeddingModel, wanted, subtasks);
             for (int rank = 0; rank < byMeaning.size(); rank++) {
                 scores.merge(byMeaning.get(rank), 1.0 / (RRF_K + rank + 1), Double::sum);
             }
@@ -412,6 +414,8 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
         List<Object> rows = em.createNativeQuery("""
                         select k.id from knowledge_fts f join knowledge_item k on k.id = f.item_id
                         where knowledge_fts match ?1 and k.project_id = ?2
+                          and not (k.kind = 'TICKET' and exists (select 1 from ticket_link p
+                                   where p.project_id = k.project_id and p.source_key = k.ref and p.kind = 'PARENT'))
                         order by bm25(knowledge_fts, 0.0, 3.0, 1.0) limit ?3""")
                 .setParameter(1, match).setParameter(2, projectId.toString()).setParameter(3, CANDIDATES * 4)
                 .getResultList();
@@ -423,14 +427,28 @@ public class SqliteKnowledgeIndex implements KnowledgeIndex {
                 && kinds.contains(items.get(id).kind())).limit(CANDIDATES).toList();
     }
 
-    private List<String> byMeaning(UUID projectId, float[] query, String model, Set<KnowledgeKind> kinds) {
+    private List<String> byMeaning(UUID projectId, float[] query, String model, Set<KnowledgeKind> kinds,
+            Set<String> subtasks) {
         record Scored(String id, double score) {
         }
         return vectors(projectId).stream()
                 .filter(v -> model.equals(v.model()) && kinds.contains(v.kind()) && v.values().length == query.length)
+                .filter(v -> !subtasks.contains(v.id()))
                 .map(v -> new Scored(v.id(), dot(query, v.values())))
                 .sorted(Comparator.comparingDouble(Scored::score).reversed()).limit(CANDIDATES)
                 .map(Scored::id).toList();
+    }
+
+    /** Identifiants des sous-tâches indexées : les tickets qui ont un parent (lien {@code PARENT}, 024). */
+    @SuppressWarnings("unchecked")
+    private Set<String> subtasks(UUID projectId) {
+        List<String> ids = em.createNativeQuery("""
+                select k.id from knowledge_item k
+                where k.project_id = ?1 and k.kind = 'TICKET'
+                  and exists (select 1 from ticket_link p where p.project_id = k.project_id
+                              and p.source_key = k.ref and p.kind = 'PARENT')""").setParameter(1, projectId.toString())
+                .getResultList();
+        return Set.copyOf(ids);
     }
 
     /** Lu en JDBC : le pilote SQLite ne sait pas extraire un BLOB par {@code getBlob}, que Hibernate appelle. */
