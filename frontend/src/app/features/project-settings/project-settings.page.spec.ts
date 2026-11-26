@@ -79,6 +79,9 @@ describe('ProjectSettingsPage', () => {
   afterEach(() => {
     ctrl.match((r) => r.url.endsWith('/reliability')).forEach((r) => r.flush(LEVELS));
     ctrl.match((r) => r.url.endsWith('/source-sync')).forEach((r) => r.flush([]));
+    ctrl
+      .match((r) => r.url.endsWith('/task-workflow'))
+      .forEach((r) => r.flush({ arrivalStatus: null, finishedStatuses: [], known: [] }));
     ctrl.verify();
   });
 
@@ -91,6 +94,7 @@ describe('ProjectSettingsPage', () => {
       'Fiche générale',
       'Sources de documentation',
       'Fiabilité des sources',
+      'Suivi des tâches dans Jira',
       'Synchronisation des sources',
       'Sources du code',
       "Modèle d'architecture",

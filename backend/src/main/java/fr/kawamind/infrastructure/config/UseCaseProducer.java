@@ -94,6 +94,7 @@ import fr.kawamind.application.specification.GenerateSpecification;
 import fr.kawamind.application.interview.InterviewRevision;
 import fr.kawamind.application.interview.PrepareInterview;
 import fr.kawamind.application.interview.SourceUpdates;
+import fr.kawamind.application.task.ManageTaskWorkflow;
 import fr.kawamind.domain.port.SourceUpdateRepository;
 import fr.kawamind.application.interview.RunInterview;
 import fr.kawamind.application.specification.OperationRegistry;
@@ -145,6 +146,7 @@ import fr.kawamind.domain.port.OnboardingRepository;
 import fr.kawamind.domain.port.SettingsRepository;
 import fr.kawamind.domain.port.SpecificationDiscussionRepository;
 import fr.kawamind.domain.port.SpecificationRepository;
+import fr.kawamind.domain.port.TaskWorkflowRepository;
 import fr.kawamind.domain.port.TextDiff;
 import fr.kawamind.domain.port.TicketLinkRepository;
 import fr.kawamind.domain.port.WikiMarkup;
@@ -156,6 +158,7 @@ import fr.kawamind.application.task.TrackingActions;
 import fr.kawamind.application.task.EditTasks;
 import fr.kawamind.application.task.ProposeTasks;
 import fr.kawamind.application.task.ReadTasks;
+import fr.kawamind.application.task.StoryFollow;
 import fr.kawamind.application.task.TaskDesk;
 import fr.kawamind.application.task.TaskLocks;
 import fr.kawamind.application.task.ValidateTasks;
@@ -190,8 +193,9 @@ public class UseCaseProducer {
     @Produces
     @jakarta.inject.Singleton
     TaskDesk taskDesk(SessionRepository sessions, TaskRepository tasks, LinkedTicketRepository tickets, JiraAccess jira,
-            IssueTracker tracker, WikiMarkup markup, ClockPort clock, IdGenerator ids, TaskLocks locks) {
-        return new TaskDesk(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks);
+            IssueTracker tracker, WikiMarkup markup, ClockPort clock, IdGenerator ids, TaskLocks locks,
+            TaskWorkflowRepository workflows) {
+        return new TaskDesk(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks, workflows);
     }
 
     @Produces
@@ -742,8 +746,8 @@ public class UseCaseProducer {
     @Produces
     @ApplicationScoped
     AgentChangeStatus agentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal,
-            TaskRepository tasks) {
-        return new AgentChangeStatus(sessions, clock, journal, tasks);
+            TaskRepository tasks, TaskDesk desk, TaskJira jira) {
+        return new AgentChangeStatus(sessions, clock, journal, tasks, new StoryFollow(desk, jira));
     }
 
     @Produces
@@ -811,6 +815,13 @@ public class UseCaseProducer {
     }
 
     // ---------- Confluence (016) ----------
+
+    @Produces
+    @ApplicationScoped
+    ManageTaskWorkflow manageTaskWorkflow(ProjectRepository projects, TaskWorkflowRepository workflows,
+            ClockPort clock) {
+        return new ManageTaskWorkflow(projects, workflows, clock);
+    }
 
     @Produces
     @ApplicationScoped

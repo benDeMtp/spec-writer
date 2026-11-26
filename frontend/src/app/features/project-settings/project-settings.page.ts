@@ -16,6 +16,7 @@ import { ArchitectureModelComponent } from './architecture-model.component';
 import { DocSourcesComponent } from './doc-sources.component';
 import { SheetEditorComponent } from './sheet-editor.component';
 import { ReliabilityComponent } from './reliability.component';
+import { TaskWorkflowComponent } from './task-workflow.component';
 import { SourceRootsComponent } from './source-roots.component';
 import { SourceSyncComponent } from './source-sync.component';
 
@@ -34,6 +35,7 @@ import { SourceSyncComponent } from './source-sync.component';
     ProjectHeadingComponent,
     ProjectIdentityFormComponent,
     ReliabilityComponent,
+    TaskWorkflowComponent,
     SheetEditorComponent,
     SourceRootsComponent,
     SourceSyncComponent,
@@ -73,6 +75,13 @@ import { SourceSyncComponent } from './source-sync.component';
         <h2 id="reliability-title">Fiabilité des sources</h2>
         <sw-reliability [projectId]="p.id" [origins]="origins()" />
       </section>
+
+      @if (p.effectiveJiraProjectKey) {
+        <section class="sheet" aria-labelledby="task-workflow-title">
+          <h2 id="task-workflow-title">Suivi des tâches dans Jira</h2>
+          <sw-task-workflow [projectId]="p.id" />
+        </section>
+      }
 
       <section class="sheet" aria-labelledby="source-sync-title">
         <h2 id="source-sync-title">Synchronisation des sources</h2>

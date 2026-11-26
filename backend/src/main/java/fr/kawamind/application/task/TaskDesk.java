@@ -15,10 +15,12 @@ import fr.kawamind.domain.port.IssueTracker;
 import fr.kawamind.domain.port.LinkedTicketRepository;
 import fr.kawamind.domain.port.SessionRepository;
 import fr.kawamind.domain.port.TaskRepository;
+import fr.kawamind.domain.port.TaskWorkflowRepository;
 import fr.kawamind.domain.port.WikiMarkup;
 import fr.kawamind.domain.task.SpecTask;
 import fr.kawamind.domain.task.StatusCategory;
 import fr.kawamind.domain.task.TaskStatus;
+import fr.kawamind.domain.task.TaskWorkflow;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -40,9 +42,18 @@ public class TaskDesk {
     final ClockPort clock;
     final IdGenerator ids;
     final TaskLocks locks;
+    /** Suivi des tâches de chaque projet dans Jira (023) ; sans lui (null), comportement de la 015. */
+    final TaskWorkflowRepository workflows;
 
     public TaskDesk(SessionRepository sessions, TaskRepository tasks, LinkedTicketRepository tickets, JiraAccess jira,
             IssueTracker tracker, WikiMarkup markup, ClockPort clock, IdGenerator ids, TaskLocks locks) {
+        this(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks, null);
+    }
+
+    public TaskDesk(SessionRepository sessions, TaskRepository tasks, LinkedTicketRepository tickets, JiraAccess jira,
+            IssueTracker tracker, WikiMarkup markup, ClockPort clock, IdGenerator ids, TaskLocks locks,
+            TaskWorkflowRepository workflows) {
+        this.workflows = workflows;
         this.sessions = sessions;
         this.tasks = tasks;
         this.tickets = tickets;
@@ -61,6 +72,14 @@ public class TaskDesk {
     /** Le ticket lié ; sans lui, aucune tâche (FR-001a). */
     LinkedJiraTicket ticket(UUID sessionId) {
         return tickets.findBySession(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NO_LINKED_TICKET));
+    }
+
+    /** Suivi des tâches du projet de la session (023) ; {@link TaskWorkflow#NONE} sans réglage. */
+    TaskWorkflow workflow(UUID sessionId) {
+        if (workflows == null) {
+            return TaskWorkflow.NONE;
+        }
+        return sessions.find(sessionId).flatMap(s -> workflows.find(s.projectId())).orElse(TaskWorkflow.NONE);
     }
 
     JiraEndpoint endpoint(UUID sessionId) {
