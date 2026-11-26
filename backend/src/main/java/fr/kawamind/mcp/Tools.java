@@ -86,7 +86,9 @@ final class Tools {
         ((ArrayNode) status.get("required")).add("status");
         tools.add(tool("set_feature_status",
                 "Passe une feature de « prête » à « en cours », ou de « en cours » à « implémentée ». Aucun autre changement n'est permis. "
-                        + "Refusé (STATUS_FOLLOWS_TASKS) pour une feature qui a des tâches : son statut suit leur avancement.",
+                        + "Refusé (STATUS_FOLLOWS_TASKS) pour une feature qui a des tâches : son statut suit leur avancement. "
+                        + "Vers IMPLEMENTED, le ticket Jira lié passe au statut d'arrivée réglé dans le projet ; story dit ce "
+                        + "qui lui est arrivé (MOVED, ALREADY, SKIPPED sans réglage, FAILED avec un message).",
                 status));
         tools.add(tool("next_task",
                 "Prochaine tâche d'une feature : votre tâche en cours, ou celle d'une conversation fermée à reprendre, sinon la "
@@ -102,11 +104,16 @@ final class Tools {
                 "Prend une tâche : elle passe « En cours » dans spec-writer et dans Jira, réservée à cette conversation. "
                         + "jiraSync PENDING : Jira est injoignable, la transition sera envoyée plus tard ; à vous de continuer ou non. "
                         + "La tâche porte son type (issueType) et son ticket parent (parentKey) ; branch dit sur quelle "
-                        + "branche travailler : celle du parent."
+                        + "branche travailler : celle du parent. "
+                        + "Si la story de la feature est encore « à faire », elle passe en cours ; story dit ce qui lui est arrivé."
                         + DATA_NOTICE,
                 taskSchema(false)));
         tools.add(tool("complete_task",
-                "Termine une tâche prise par cette conversation : elle passe « Terminée » dans spec-writer et dans Jira. Le compte "
+                "Termine une tâche prise par cette conversation : elle passe « Terminée » dans spec-writer et, dans Jira, au "
+                        + "statut d'arrivée réglé dans le projet (par exemple « Réalisée »), sinon à « terminé ». jiraStatus donne le "
+                        + "vrai statut Jira. NO_TRANSITION : Jira n'offre pas de transition directe, rien ne change, dites-le à "
+                        + "l'utilisateur. À la dernière tâche, la story passe au statut d'arrivée ; story dit ce qui lui est arrivé "
+                        + "(MOVED, ALREADY, SKIPPED sans réglage, FAILED avec un message). Le compte "
                         + "rendu facultatif (2 000 caractères au plus) est ajouté en commentaire sur la sous-tâche, visible par l'équipe."
                         + DATA_NOTICE,
                 taskSchema(true)));

@@ -257,6 +257,148 @@ class AgentTasksTest {
         assertThat(held.branch()).isNull();
     }
 
+    // 023 (US1) : une tâche terminée passe au statut d'arrivée du projet, pas à « Fermée »
+
+    static final fr.kawamind.domain.task.TaskWorkflow AURORA = fr.kawamind.domain.task.TaskWorkflow.of("Réalisée",
+            List.of("En cours de test"));
+
+    /** Workflow à la AURORA pour une sous-tâche : démarrer, réaliser, fermer, annuler. */
+    void aurora(String key) {
+        w.tracker.workflows.put(key, List.of(new Transition("21", "Démarrer", "indeterminate", "En Cours"),
+                new Transition("51", "Réaliser", "indeterminate", "Réalisée"),
+                new Transition("61", "Fermer", "done", "Fermée"), new Transition("81", "Annuler", "done", "Annulée")));
+    }
+
+    @Test
+    void terminerVaAuStatutDArriveePasALaFermeture() {
+        w.workflows.save(session.projectId(), AURORA, w.clock.now());
+        aurora("FACT-124");
+        agent.start("claude-code", ME, session.id(), "FACT-124");
+        AgentTasks.TaskAnswer done = agent.complete("claude-code", ME, session.id(), "FACT-124", "Tests verts");
+        assertThat(w.tracker.calls).contains("transition FACT-124 51").doesNotContain("transition FACT-124 61");
+        assertThat(done.task().status()).isEqualTo(TaskStatus.DONE);
+        assertThat(w.tracker.tracked.get("FACT-124").status()).isEqualTo("Réalisée");
+        assertThat(agent.forFeature(session.id(), ME).tasks().getFirst().jiraStatus()).isEqualTo("Réalisée");
+        assertThat(w.tracker.comments).containsExactly("FACT-124 : wiki:Compte rendu de claude-code : Tests verts");
+    }
+
+    @Test
+    void sansTransitionVersLeStatutDArriveeRienNeChange() {
+        w.workflows.save(session.projectId(), AURORA, w.clock.now());
+        w.tracker.workflows.put("FACT-124", List.of(new Transition("21", "Démarrer", "indeterminate", "En Cours"),
+                new Transition("61", "Fermer", "done", "Fermée")));
+        agent.start("claude-code", ME, session.id(), "FACT-124");
+        refused(() -> agent.complete("claude-code", ME, session.id(), "FACT-124", null), ErrorCode.NO_TRANSITION);
+        assertThat(w.tasks.tasks(session.id()).getFirst().status()).isEqualTo(TaskStatus.IN_PROGRESS);
+        assertThat(w.tracker.tracked.get("FACT-124").status()).isEqualTo("En Cours");
+    }
+
+    @Test
+    void leRejeuApresUneCoupureViseLeStatutDArrivee() {
+        w.workflows.save(session.projectId(), AURORA, w.clock.now());
+        aurora("FACT-124");
+        agent.start("claude-code", ME, session.id(), "FACT-124");
+        w.tracker.failure = Kind.UNREACHABLE;
+        assertThat(agent.complete("claude-code", ME, session.id(), "FACT-124", null).jiraSync()).isEqualTo("PENDING");
+        w.tracker.failure = null;
+        agent.next("claude-code", ME, session.id());
+        assertThat(w.tracker.tracked.get("FACT-124").status()).isEqualTo("Réalisée");
+        assertThat(w.tasks.tasks(session.id()).getFirst().status()).isEqualTo(TaskStatus.DONE);
+    }
+
+    @Test
+    void sansReglageLaCategorieTermineCommeAvant() {
+        agent.start("claude-code", ME, session.id(), "FACT-124");
+        agent.complete("claude-code", ME, session.id(), "FACT-124", null);
+        assertThat(w.tracker.tracked.get("FACT-124").statusCategory()).isEqualTo("done");
+    }
+
+    // 023 (US2) : une tâche dans un statut fini reste terminée à la relecture de Jira
+
+    @Test
+    void unStatutFiniResteTermineALaRelecture() {
+        w.workflows.save(session.projectId(), AURORA, w.clock.now());
+        w.tracker.moveTo("FACT-124", "indeterminate", "Réalisée");
+        AgentTasks.FeatureTasks read = agent.forFeature(session.id(), ME);
+        assertThat(read.tasks().getFirst().status()).isEqualTo(TaskStatus.DONE);
+        assertThat(read.tasks().getFirst().jiraStatus()).isEqualTo("Réalisée");
+
+        w.tracker.moveTo("FACT-124", "indeterminate", "En cours de test");
+        assertThat(agent.forFeature(session.id(), ME).tasks().getFirst().status()).isEqualTo(TaskStatus.DONE);
+        assertThat(agent.next("claude-code", ME, session.id()).task().key()).isEqualTo("FACT-125");
+
+        w.tracker.moveTo("FACT-124", "indeterminate", "En Cours");
+        assertThat(agent.forFeature(session.id(), ME).tasks().getFirst().status()).isEqualTo(TaskStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void toutesLesTachesFiniesLaSpecificationEstImplementee() {
+        w.workflows.save(session.projectId(), AURORA, w.clock.now());
+        for (String key : List.of("FACT-124", "FACT-125", "FACT-126")) {
+            w.tracker.moveTo(key, "indeterminate", key.equals("FACT-126") ? "A valider" : "Réalisée");
+        }
+        // « A valider » n'est pas coché : la feature n'est pas finie
+        agent.forFeature(session.id(), ME);
+        assertThat(status()).isNotEqualTo(ImplementationStatus.IMPLEMENTED);
+        w.tracker.moveTo("FACT-126", "indeterminate", "En cours de test");
+        assertThat(agent.next("claude-code", ME, session.id()).outcome()).isEqualTo("NONE_LEFT");
+        assertThat(status()).isEqualTo(ImplementationStatus.IMPLEMENTED);
+    }
+
+    @Test
+    void sansReglageRealiseeResteEnCours() {
+        w.tracker.moveTo("FACT-124", "indeterminate", "Réalisée");
+        assertThat(agent.forFeature(session.id(), ME).tasks().getFirst().status()).isEqualTo(TaskStatus.IN_PROGRESS);
+    }
+
+    // 023 (US4) : la story suit ses tâches
+
+    void story(String status, String category) {
+        w.tracker.tracked.put("FACT-120", new TrackedIssue("FACT-120", "Story", "", status, category, "Story",
+                java.time.Instant.parse("2026-11-26T09:00:00Z"), List.of()));
+        w.tracker.workflows.put("FACT-120", List.of(new Transition("21", "Démarrer", "indeterminate", "En Cours"),
+                new Transition("51", "Réaliser", "indeterminate", "Réalisée"), new Transition("61", "Fermer", "done", "Fermée")));
+    }
+
+    @Test
+    void laStorySuitLaPremierePriseEtLaDerniereFin() {
+        w.workflows.save(session.projectId(), AURORA, w.clock.now());
+        story("Prête", "new");
+        for (String key : List.of("FACT-124", "FACT-125", "FACT-126")) {
+            aurora(key);
+        }
+        AgentTasks.TaskAnswer first = agent.start("claude-code", ME, session.id(), "FACT-124");
+        assertThat(first.story()).isEqualTo(new StoryMove("FACT-120", StoryMove.Outcome.MOVED, "En Cours", null));
+        assertThat(agent.start("claude-code", ME, session.id(), "FACT-125").story()).isNull();
+
+        assertThat(agent.complete("claude-code", ME, session.id(), "FACT-124", null).story()).isNull();
+        assertThat(agent.complete("claude-code", ME, session.id(), "FACT-125", null).story()).isNull();
+        assertThat(w.tracker.tracked.get("FACT-120").status()).isEqualTo("En Cours");
+        agent.start("claude-code", ME, session.id(), "FACT-126");
+        AgentTasks.TaskAnswer last = agent.complete("claude-code", ME, session.id(), "FACT-126", null);
+        assertThat(last.story()).isEqualTo(new StoryMove("FACT-120", StoryMove.Outcome.MOVED, "Réalisée", null));
+        assertThat(w.tracker.tracked.get("FACT-120").status()).isEqualTo("Réalisée");
+    }
+
+    @Test
+    void unEchecDeLaStoryNEmpechePasLaTacheDeFinir() {
+        w.workflows.save(session.projectId(), AURORA, w.clock.now());
+        story("En Cours", "indeterminate");
+        w.tracker.workflows.put("FACT-120", List.of(new Transition("61", "Fermer", "done", "Fermée")));
+        for (String key : List.of("FACT-124", "FACT-125", "FACT-126")) {
+            aurora(key);
+        }
+        agent.start("claude-code", ME, session.id(), "FACT-124");
+        agent.start("claude-code", ME, session.id(), "FACT-125");
+        agent.complete("claude-code", ME, session.id(), "FACT-124", null);
+        agent.start("claude-code", ME, session.id(), "FACT-126");
+        agent.complete("claude-code", ME, session.id(), "FACT-125", null);
+        AgentTasks.TaskAnswer last = agent.complete("claude-code", ME, session.id(), "FACT-126", null);
+        assertThat(last.task().status()).isEqualTo(TaskStatus.DONE);
+        assertThat(last.story().status()).isEqualTo(StoryMove.Outcome.FAILED);
+        assertThat(status()).isEqualTo(ImplementationStatus.IMPLEMENTED);
+    }
+
     void enrich(String key, String description) {
         TrackedIssue t = w.tracker.tracked.get(key);
         w.tracker.tracked.put(key, new TrackedIssue(t.key(), t.summary(), description, t.status(), t.statusCategory(),

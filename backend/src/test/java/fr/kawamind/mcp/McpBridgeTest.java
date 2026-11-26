@@ -210,6 +210,13 @@ class McpBridgeTest {
             if (name.equals("get_feature")) {
                 assertThat(text).contains("jiraTicket");
             }
+            // 023 : statut d'arrivée et story qui suit
+            if (name.equals("complete_task")) {
+                assertThat(text).contains("statut d'arrivée").contains("jiraStatus").contains("NO_TRANSITION").contains("story");
+            }
+            if (name.equals("start_task") || name.equals("set_feature_status")) {
+                assertThat(text).as(name).contains("story");
+            }
         }
         assertThat(tools.get(1).path("inputSchema").path("required").get(0).asString()).isEqualTo("projectId");
 

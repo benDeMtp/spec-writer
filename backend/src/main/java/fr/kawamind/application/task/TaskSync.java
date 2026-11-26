@@ -9,9 +9,11 @@ import fr.kawamind.domain.session.Implementation;
 import fr.kawamind.domain.session.ImplementationStatus;
 import fr.kawamind.domain.task.SpecTask;
 import fr.kawamind.domain.task.StatusCategory;
+import fr.kawamind.domain.task.Target;
 import fr.kawamind.domain.task.TaskProgress;
 import fr.kawamind.domain.task.TaskStatus;
 import fr.kawamind.domain.task.TaskTracking;
+import fr.kawamind.domain.task.TaskWorkflow;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +69,10 @@ public class TaskSync {
             SpecTask current = task;
             if (current.pendingTarget() != null) {
                 try {
-                    if (jira.moveTo(endpoint, current.jiraKey(), StatusCategory.of(current.pendingTarget()))
+                    // 023 (research R5) : une fin rejouée vise le statut d'arrivée réglé au moment du rejeu
+                    Target target = current.pendingTarget() == TaskStatus.DONE ? desk.workflow(sessionId).completion()
+                            : new Target.Category(StatusCategory.of(current.pendingTarget()));
+                    if (jira.moveTo(endpoint, current.jiraKey(), target)
                             == TaskJira.Result.UNREACHABLE) {
                         return true;
                     }
@@ -113,6 +118,7 @@ public class TaskSync {
         }
         Map<UUID, String> descriptions = desk.tasks.descriptions(sessionId);
         Map<UUID, String> types = desk.tasks.issueTypes(sessionId);
+        TaskWorkflow workflow = desk.workflow(sessionId);
         for (SpecTask task : created) {
             TrackedIssue issue = found.get(task.jiraKey());
             String description = issue == null ? descriptions.get(task.id()) : description(issue);
@@ -127,8 +133,9 @@ public class TaskSync {
             if (issue == null) {
                 read = task.read(TaskStatus.MISSING, null, desk.clock.now());
             } else {
-                Optional<StatusCategory> category = StatusCategory.fromKey(issue.statusCategory());
-                read = task.read(category.map(StatusCategory::status).orElse(task.status()), issue.status(),
+                // 023 (US2) : un statut fini du projet compte comme terminé, quelle que soit sa catégorie
+                read = task.read(workflow.statusOf(issue.status(), issue.statusCategory()).orElse(task.status()),
+                        issue.status(),
                         desk.clock.now());
             }
             if (!read.equals(task)) {

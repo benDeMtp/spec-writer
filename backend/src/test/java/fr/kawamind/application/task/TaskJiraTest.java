@@ -10,6 +10,8 @@ import fr.kawamind.domain.jira.IssueTrackerException.Kind;
 import fr.kawamind.domain.jira.JiraEndpoint;
 import fr.kawamind.domain.jira.Transition;
 import fr.kawamind.domain.task.StatusCategory;
+import fr.kawamind.domain.task.Target;
+import fr.kawamind.domain.task.TaskWorkflow;
 import fr.kawamind.support.FakeIssueTracker;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -114,5 +116,63 @@ class TaskJiraTest {
     void leCommentaireEstEnvoye() {
         assertThat(jira.comment(JIRA, "FACT-124", "Fait")).isEqualTo(Result.SENT);
         assertThat(tracker.comments).containsExactly("FACT-124 : Fait");
+    }
+
+    // 023 (US1, research R4) : un statut nommé du workflow, par une transition directe
+
+    static final TaskWorkflow AURORA = TaskWorkflow.of("Réalisée", List.of("En cours de test"));
+    static final Target REALISEE = AURORA.completion();
+
+    void aurora(String status) {
+        tracker.moveTo("FACT-124", "indeterminate", status);
+        tracker.workflows.put("FACT-124", List.of(new Transition("41", "Annuler la réalisation", "indeterminate", "Réalisée"),
+                new Transition("61", "Fermer", "done", "Fermée"), new Transition("51", "Réaliser", "indeterminate", "Realisee"),
+                new Transition("81", "Annuler", "done", "Annulée")));
+    }
+
+    @Test
+    void laTransitionVersLeStatutDArriveeEstPrisePasLaFermeture() {
+        aurora("En Cours");
+        assertThat(jira.moveTo(JIRA, "FACT-124", REALISEE)).isEqualTo(Result.SENT);
+        assertThat(tracker.calls).contains("transition FACT-124 51").doesNotContain("transition FACT-124 61")
+                .doesNotContain("transition FACT-124 41");
+        assertThat(tracker.tracked.get("FACT-124").status()).isEqualTo("Realisee");
+    }
+
+    @Test
+    void uneSousTacheDejaFinieNeRecoitAucuneTransition() {
+        aurora("En cours de test");
+        assertThat(jira.moveTo(JIRA, "FACT-124", REALISEE)).isEqualTo(Result.ALREADY);
+        aurora("Réalisée");
+        assertThat(jira.moveTo(JIRA, "FACT-124", REALISEE)).isEqualTo(Result.ALREADY);
+        assertThat(tracker.calls).noneMatch(c -> c.startsWith("transition FACT-124 "));
+    }
+
+    @Test
+    void sansTransitionDirecteRienNeChange() {
+        tracker.moveTo("FACT-124", "indeterminate", "En Cours");
+        tracker.workflows.put("FACT-124", List.of(new Transition("61", "Fermer", "done", "Fermée")));
+        assertThatThrownBy(() -> jira.moveTo(JIRA, "FACT-124", REALISEE)).isInstanceOfSatisfying(DomainException.class,
+                e -> {
+                    assertThat(e.code()).isEqualTo(ErrorCode.NO_TRANSITION);
+                    assertThat(e.userMessage()).isEqualTo("Le workflow Jira de FACT-124 n'offre aucune transition directe"
+                            + " de « En Cours » vers « Réalisée ». Faites-la dans Jira.");
+                });
+        assertThat(tracker.calls).noneMatch(c -> c.startsWith("transition FACT-124 "));
+    }
+
+    @Test
+    void uneAnnulationVersLeStatutDArriveeNEstPasPrise() {
+        tracker.moveTo("FACT-124", "indeterminate", "En Cours");
+        tracker.workflows.put("FACT-124", List.of(new Transition("41", "Annuler la réalisation", "indeterminate",
+                "Réalisée")));
+        assertThatThrownBy(() -> jira.moveTo(JIRA, "FACT-124", REALISEE)).isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.code()).isEqualTo(ErrorCode.NO_TRANSITION));
+    }
+
+    @Test
+    void uneCibleCategorieGardeLeComportementDeLa015() {
+        assertThat(jira.moveTo(JIRA, "FACT-124", new Target.Category(StatusCategory.IN_PROGRESS))).isEqualTo(Result.SENT);
+        assertThat(tracker.tracked.get("FACT-124").statusCategory()).isEqualTo("indeterminate");
     }
 }

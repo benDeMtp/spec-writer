@@ -10,7 +10,6 @@ import fr.kawamind.domain.session.ImplementationStatus;
 import fr.kawamind.domain.session.Session;
 import fr.kawamind.domain.task.Holder;
 import fr.kawamind.domain.task.SpecTask;
-import fr.kawamind.domain.task.StatusCategory;
 import fr.kawamind.domain.task.TaskProgress;
 import fr.kawamind.domain.task.TaskStatus;
 import fr.kawamind.domain.task.TaskTracking;
@@ -35,10 +34,11 @@ public class AgentTasks {
      * Une tâche telle qu'un agent la voit. {@code dependsOn} : clés Jira des préalables ;
      * {@code description} : celle de la sous-tâche dans Jira, en Markdown, nulle si vide ;
      * {@code issueType} : libellé de son type dans Jira, nul tant qu'elle n'a pas été relue (022) ;
+     * {@code jiraStatus} : vrai nom de son statut Jira, « Réalisée » par exemple (023, FR-013) ;
      * {@code parentKey} : ticket lié à la feature, sous lequel elle est créée (022, research R4).
      */
     public record TaskInfo(String key, String title, String outcome, String description, String issueType,
-            String parentKey, int position, List<String> dependsOn,
+            String jiraStatus, String parentKey, int position, List<String> dependsOn,
             TaskStatus status, String heldBy, boolean heldByYou, String jiraSync, String report) {
     }
 
@@ -54,7 +54,9 @@ public class AgentTasks {
 
     /** Réponse de {@code start_task} et {@code complete_task}. */
     /** {@code branch} : consigne de branche, pour {@code start_task} seulement (022) ; nulle sinon. */
-    public record TaskAnswer(TaskInfo task, String jiraSync, String message, Boolean alreadyDone, String branch) {
+    /** {@code story} : ce qui est arrivé à la story de la feature (023) ; nul si elle n'est pas concernée. */
+    public record TaskAnswer(TaskInfo task, String jiraSync, String message, Boolean alreadyDone, String branch,
+            StoryMove story) {
     }
 
     private final TaskDesk desk;
@@ -62,8 +64,16 @@ public class AgentTasks {
     private final TaskJira jira;
     private final AgentConnections connections;
     private final AgentJournal journal;
+    /** La story suit ses tâches (023, US4). */
+    private final StoryFollow story;
 
     public AgentTasks(TaskDesk desk, TaskSync sync, TaskJira jira, AgentConnections connections, AgentJournal journal) {
+        this(desk, sync, jira, connections, journal, new StoryFollow(desk, jira));
+    }
+
+    public AgentTasks(TaskDesk desk, TaskSync sync, TaskJira jira, AgentConnections connections, AgentJournal journal,
+            StoryFollow story) {
+        this.story = story;
         this.desk = desk;
         this.sync = sync;
         this.jira = jira;
@@ -101,7 +111,7 @@ public class AgentTasks {
     public TaskAnswer start(String agentName, String connection, UUID featureId, String key) {
         Session session = feature(featureId, connection);
         Holder holder = new Holder(connection, agentName, desk.clock.now());
-        return withBranch(desk.locks.with(featureId, () -> {
+        TaskAnswer started = withBranch(desk.locks.with(featureId, () -> {
             sync.refresh(featureId);
             requireTracking(featureId);
             List<SpecTask> tasks = desk.tasks.tasks(featureId);
@@ -125,10 +135,13 @@ public class AgentTasks {
                         : task.status() == TaskStatus.MISSING ? "La sous-tâche " + key + " est introuvable dans Jira."
                         : "Les tâches préalables de " + key + " ne sont pas terminées.");
             }
-            TaskJira.Result result = jira.moveTo(desk.endpoint(featureId), key, StatusCategory.IN_PROGRESS);
+            // 023 : jamais un saut direct vers un statut fini du projet
+            TaskJira.Result result = jira.start(desk.endpoint(featureId), key, desk.workflow(featureId)).result();
             return save(agentName, session, AgentOperation.START_TASK,
                     task.started(holder, result == TaskJira.Result.UNREACHABLE), connection);
         }));
+        // 023 (US4) : la story encore « à faire » passe en cours
+        return withStory(started, story.started(featureId));
     }
 
     public TaskAnswer complete(String agentName, String connection, UUID featureId, String key, String report) {
@@ -136,21 +149,23 @@ public class AgentTasks {
         if (report != null && report.strip().length() > SpecTask.MAX_REPORT) {
             throw new DomainException(ErrorCode.REPORT_TOO_LONG);
         }
-        return desk.locks.with(featureId, () -> {
+        TaskAnswer finished = desk.locks.with(featureId, () -> {
             sync.refresh(featureId);
             requireTracking(featureId);
             List<SpecTask> tasks = desk.tasks.tasks(featureId);
             SpecTask task = byKey(tasks, key);
             if (task.status() == TaskStatus.DONE) {
                 TaskAnswer done = answer(task, tasks, connection, null);
-                return new TaskAnswer(done.task(), done.jiraSync(), "La tâche " + key + " est déjà terminée.", true, null);
+                return new TaskAnswer(done.task(), done.jiraSync(), "La tâche " + key + " est déjà terminée.", true, null,
+                        null);
             }
             if (task.status() != TaskStatus.IN_PROGRESS || task.holder() == null
                     || !task.holder().connection().equals(connection)) {
                 throw new DomainException(ErrorCode.TASK_NOT_READY,
                         "La tâche " + key + " n'est pas en cours pour cette conversation : prenez-la d'abord.");
             }
-            TaskJira.Result moved = jira.moveTo(desk.endpoint(featureId), key, StatusCategory.DONE);
+            // 023 : le statut d'arrivée réglé pour le projet, sinon la catégorie « terminé »
+            TaskJira.Result moved = jira.moveTo(desk.endpoint(featureId), key, desk.workflow(featureId).completion());
             SpecTask done;
             String message = null;
             if (moved == TaskJira.Result.UNREACHABLE) {
@@ -170,8 +185,24 @@ public class AgentTasks {
                 }
             }
             TaskAnswer answer = save(agentName, session, AgentOperation.COMPLETE_TASK, done, connection);
-            return message == null ? answer : new TaskAnswer(answer.task(), answer.jiraSync(), message, null, null);
+            return message == null ? answer
+                    : new TaskAnswer(answer.task(), answer.jiraSync(), message, null, null, answer.story());
         });
+        if (Boolean.TRUE.equals(finished.alreadyDone()) || !allDone(featureId)) {
+            return finished;
+        }
+        // 023 (US4) : la dernière tâche finie, la story passe au statut d'arrivée
+        return withStory(finished, story.allDone(featureId));
+    }
+
+    private boolean allDone(UUID featureId) {
+        List<SpecTask> created = desk.tasks.tasks(featureId).stream().filter(SpecTask::isCreated).toList();
+        return !created.isEmpty() && created.stream().allMatch(t -> t.status() == TaskStatus.DONE);
+    }
+
+    private static TaskAnswer withStory(TaskAnswer answer, StoryMove moved) {
+        return new TaskAnswer(answer.task(), answer.jiraSync(), answer.message(), answer.alreadyDone(), answer.branch(),
+                moved);
     }
 
     /** Réponse de {@code next_task} pour une tâche, avec la consigne de branche d'une sous-tâche (022). */
@@ -182,7 +213,7 @@ public class AgentTasks {
     /** Réponse de {@code start_task}, avec la consigne de branche d'une sous-tâche (022). */
     private static TaskAnswer withBranch(TaskAnswer answer) {
         return new TaskAnswer(answer.task(), answer.jiraSync(), answer.message(), answer.alreadyDone(),
-                branchRule(answer.task().key(), answer.task().parentKey()));
+                branchRule(answer.task().key(), answer.task().parentKey()), answer.story());
     }
 
     /**
@@ -208,7 +239,7 @@ public class AgentTasks {
 
     private TaskAnswer answer(SpecTask task, List<SpecTask> tasks, String connection, String message) {
         TaskInfo info = info(task, tasks, connection);
-        return new TaskAnswer(info, info.jiraSync(), message, null, null);
+        return new TaskAnswer(info, info.jiraSync(), message, null, null, null);
     }
 
     /** La feature est visible des outils de tâches hors brouillon ; la connexion est obligatoire (R4). */
@@ -261,7 +292,7 @@ public class AgentTasks {
                 .map(SpecTask::jiraKey).toList();
         boolean mine = t.holder() != null && t.holder().connection().equals(connection);
         return new TaskInfo(t.jiraKey(), t.title(), t.outcome(), read.descriptions().get(t.id()),
-                read.types().get(t.id()), read.parentKey(), t.position(), deps, t.status(),
+                read.types().get(t.id()), t.jiraStatusName(), read.parentKey(), t.position(), deps, t.status(),
                 t.holder() == null ? null : t.holder().agentName(), mine, t.isPending() ? "PENDING" : "OK", t.report());
     }
 }

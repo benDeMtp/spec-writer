@@ -192,4 +192,37 @@ class AgentFeaturesTest {
         assertThat(access.endpointCalls).last().isEqualTo("publish");
         assertThat(manage.log(0).total()).isEqualTo(1);
     }
+
+    @Test
+    void uneFeatureSansTachesImplementeeFaitAvancerSaStory() {
+        // 023 (US4, FR-016) : sans tâches, la feature déclarée implémentée passe sa story au statut d'arrivée
+        fr.kawamind.support.TaskWorld tw = new fr.kawamind.support.TaskWorld();
+        AgentJournal j = new AgentJournal(access, tw.clock, tw.ids);
+        AgentChangeStatus follow = new AgentChangeStatus(tw.sessions, tw.clock, j, tw.tasks,
+                new fr.kawamind.application.task.StoryFollow(tw.desk, new fr.kawamind.application.task.TaskJira(tw.tracker)));
+        Session s = tw.linkedSession();
+        new ChangeStatus(tw.sessions, tw.clock).run(s.id(), ImplementationStatus.READY, false);
+        tw.tracker.tracked.put("FACT-120", new fr.kawamind.domain.jira.TrackedIssue("FACT-120", "Story", "", "En Cours",
+                "indeterminate", "Story", T, List.of()));
+        tw.tracker.workflows.put("FACT-120", List.of(
+                new fr.kawamind.domain.jira.Transition("31", "Réaliser", "indeterminate", "Réalisée"),
+                new fr.kawamind.domain.jira.Transition("61", "Fermer", "done", "Fermée")));
+
+        // sans réglage : la story n'est pas touchée
+        assertThat(follow.run("Claude Code", s.id(), ImplementationStatus.IN_PROGRESS).story()).isNull();
+        AgentChangeStatus.Changed skipped = follow.run("Claude Code", s.id(), ImplementationStatus.IMPLEMENTED);
+        assertThat(skipped.story().status()).isEqualTo(fr.kawamind.application.task.StoryMove.Outcome.SKIPPED);
+        assertThat(tw.tracker.calls).noneMatch(c -> c.startsWith("transition FACT-120"));
+
+        // avec réglage : la story passe à « Réalisée »
+        Session other = tw.linkedSession();
+        new ChangeStatus(tw.sessions, tw.clock).run(other.id(), ImplementationStatus.READY, false);
+        tw.workflows.save(other.projectId(),
+                fr.kawamind.domain.task.TaskWorkflow.of("Réalisée", List.of("En cours de test")), tw.clock.now());
+        follow.run("Claude Code", other.id(), ImplementationStatus.IN_PROGRESS);
+        AgentChangeStatus.Changed moved = follow.run("Claude Code", other.id(), ImplementationStatus.IMPLEMENTED);
+        assertThat(moved.story()).isEqualTo(new fr.kawamind.application.task.StoryMove("FACT-120",
+                fr.kawamind.application.task.StoryMove.Outcome.MOVED, "Réalisée", null));
+        assertThat(tw.tracker.tracked.get("FACT-120").status()).isEqualTo("Réalisée");
+    }
 }

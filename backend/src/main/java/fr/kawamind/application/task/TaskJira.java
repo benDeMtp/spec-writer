@@ -8,6 +8,9 @@ import fr.kawamind.domain.jira.JiraEndpoint;
 import fr.kawamind.domain.jira.Transition;
 import fr.kawamind.domain.port.IssueTracker;
 import fr.kawamind.domain.task.StatusCategory;
+import fr.kawamind.domain.task.StatusName;
+import fr.kawamind.domain.task.Target;
+import fr.kawamind.domain.task.TaskWorkflow;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +29,70 @@ public class TaskJira {
 
     public TaskJira(IssueTracker tracker) {
         this.tracker = tracker;
+    }
+
+    /**
+     * Vers une cible (023, research R4) : une catégorie, comme dans la 015, ou un statut nommé du
+     * workflow, atteint par une transition directe qui n'est pas une annulation. Une sous-tâche déjà
+     * dans un statut fini ne reçoit rien ({@link Result#ALREADY}).
+     */
+    public Result moveTo(JiraEndpoint endpoint, String key, Target target) {
+        return switch (target) {
+            case Target.Category c -> moveTo(endpoint, key, c.category());
+            case Target.Status s -> moveTo(endpoint, key, s);
+        };
+    }
+
+    private Result moveTo(JiraEndpoint endpoint, String key, Target.Status target) {
+        try {
+            IssueStatus current = tracker.issueStatus(endpoint, key);
+            if (target.workflow().finished(current.status(), current.statusCategory())) {
+                return Result.ALREADY;
+            }
+            Optional<Transition> transition = tracker.transitions(endpoint, key).stream()
+                    .filter(t -> StatusName.same(t.toStatus(), target.name())).filter(t -> !t.cancellation())
+                    .findFirst();
+            if (transition.isEmpty()) {
+                throw new DomainException(ErrorCode.NO_TRANSITION, "Le workflow Jira de " + key
+                        + " n'offre aucune transition directe de « " + current.status() + " » vers « " + target.name()
+                        + " ». Faites-la dans Jira.");
+            }
+            tracker.transition(endpoint, key, transition.get().id());
+            return Result.SENT;
+        } catch (IssueTrackerException e) {
+            return unreachableOrRefused(e, "la transition de " + key);
+        }
+    }
+
+    /** Démarrage (023) : l'issue, et le statut atteint quand une transition a été envoyée. */
+    public record Started(Result result, String status) {
+    }
+
+    /**
+     * Démarre un ticket encore « à faire » (023, US4) : une transition directe vers la catégorie « en
+     * cours », jamais une annulation ni un saut vers un statut fini du projet (« Réalisée »). Un ticket
+     * déjà en cours ou plus loin n'est pas touché ({@link Result#ALREADY}).
+     */
+    public Started start(JiraEndpoint endpoint, String key, TaskWorkflow workflow) {
+        try {
+            IssueStatus current = tracker.issueStatus(endpoint, key);
+            if (!StatusCategory.NEW.key().equals(current.statusCategory())) {
+                return new Started(Result.ALREADY, current.status());
+            }
+            Optional<Transition> transition = tracker.transitions(endpoint, key).stream()
+                    .filter(t -> StatusCategory.IN_PROGRESS.key().equals(t.toCategory()))
+                    .filter(t -> !t.cancellation()).filter(t -> !workflow.finished(t.toStatus(), t.toCategory()))
+                    .findFirst();
+            if (transition.isEmpty()) {
+                throw new DomainException(ErrorCode.NO_TRANSITION, "Le workflow Jira de " + key
+                        + " n'offre aucune transition directe de « " + current.status() + " » vers « En cours ». "
+                        + "Faites-la dans Jira.");
+            }
+            tracker.transition(endpoint, key, transition.get().id());
+            return new Started(Result.SENT, transition.get().toStatus());
+        } catch (IssueTrackerException e) {
+            return new Started(unreachableOrRefused(e, "le démarrage de " + key), null);
+        }
     }
 
     public Result moveTo(JiraEndpoint endpoint, String key, StatusCategory goal) {

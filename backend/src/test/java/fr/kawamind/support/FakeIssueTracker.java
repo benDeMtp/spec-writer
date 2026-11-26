@@ -289,9 +289,14 @@ public class FakeIssueTracker implements IssueTracker {
 
     /** Change le statut d'une sous-tâche comme le ferait l'équipe dans Jira. */
     public void moveTo(String key, String category) {
+        moveTo(key, category, statusName(category));
+    }
+
+    /** 023 : change le statut d'une sous-tâche vers un statut nommé du workflow (« Réalisée »). */
+    public void moveTo(String key, String category, String status) {
         TrackedIssue i = tracked.get(key);
-        tracked.put(key, new TrackedIssue(key, i.summary(), i.description(), statusName(category), category,
-                i.issueType(), i.updated().plusSeconds(1)));
+        tracked.put(key, new TrackedIssue(key, i.summary(), i.description(), status, category,
+                i.issueType(), i.updated().plusSeconds(1), i.links()));
     }
 
     public static String statusName(String category) {
@@ -376,7 +381,7 @@ public class FakeIssueTracker implements IssueTracker {
         Transition t = transitions(endpoint, issueKey).stream().filter(x -> x.id().equals(transitionId)).findFirst()
                 .orElseThrow(() -> new IssueTrackerException(Kind.REJECTED, "simulé"));
         calls.remove(calls.size() - 1);
-        moveTo(issueKey, t.toCategory());
+        moveTo(issueKey, t.toCategory(), t.toStatus() == null ? statusName(t.toCategory()) : t.toStatus());
         writes.add("transition " + issueKey + " " + t.toCategory());
     }
 
