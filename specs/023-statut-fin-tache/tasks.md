@@ -266,15 +266,15 @@ la transition part quand même et le message le dit.
 
 ### Tests US5
 
-- [ ] T037 [P] [US5] Étendre `BT/application/task/TaskJiraTest.java` : affectation avant la transition (non affecté, affecté à un autre) ; aucune si déjà affecté au propriétaire, ni pour `ALREADY`, `NO_TRANSITION` ou la remise « à faire » ; refus rendu dans `Move.assignProblem` avec la transition envoyée et un `WARN` ; injoignable pendant l'affectation donne `UNREACHABLE` ; login relu par `JiraEndpoint` (un seul `myself` pour deux transitions). Étendre `BT/support/FakeIssueTracker.java` (`assign`, `assignees`, `currentUser`).
-- [ ] T038 [P] [US5] Étendre `BT/application/task/AgentTasksTest.java` et `StoryFollowTest.java` : le motif d'une affectation refusée est dans `message` (prise, fin) et `story.message` (story `MOVED`).
-- [ ] T039 [P] [US5] Étendre le test WireMock du client Jira (`BT/infrastructure/jira/JiraRestClient*IT.java`) : `PUT /rest/api/2/issue/{key}/assignee` avec `{"name": login}` ; `assignee` lu dans `issueStatus` (`fields=status,updated,assignee`), nul si absent.
+- [X] T037 [P] [US5] Étendre `BT/application/task/TaskJiraTest.java` : affectation avant la transition (non affecté, affecté à un autre) ; aucune si déjà affecté au propriétaire, ni pour `ALREADY`, `NO_TRANSITION` ou la remise « à faire » ; refus rendu dans `Move.assignProblem` avec la transition envoyée et un `WARN` ; injoignable pendant l'affectation donne `UNREACHABLE` ; login relu par `JiraEndpoint` (un seul `myself` pour deux transitions). Étendre `BT/support/FakeIssueTracker.java` (`assign`, `assignees`, `currentUser`).
+- [X] T038 [P] [US5] Étendre `BT/application/task/AgentTasksTest.java` et `StoryFollowTest.java` : le motif d'une affectation refusée est dans `message` (prise, fin) et `story.message` (story `MOVED`).
+- [X] T039 [P] [US5] Étendre le test WireMock du client Jira (`BT/infrastructure/jira/JiraRestClient*IT.java`) : `PUT /rest/api/2/issue/{key}/assignee` avec `{"name": login}` ; `assignee` lu dans `issueStatus` (`fields=status,updated,assignee`), nul si absent.
 
 ### Implémentation US5
 
-- [ ] T040 [US5] `BM/domain/jira/IssueStatus.java` : champ `assignee` (login, nul). `BM/domain/port/IssueTracker.java` : `void assign(JiraEndpoint, String issueKey, String login)`. `BM/infrastructure/jira/JiraApi.java` et `JiraRestClient.java` : `PUT issue/{key}/assignee`, champ `assignee.name` lu.
-- [ ] T041 [US5] `BM/application/task/TaskJira.java` : `record Move(Result result, String status, String assignProblem)` rendu par `moveTo` et `start` (`Started` retiré) ; affectation avant chaque `transition`, sauf vers « à faire » ; login mis en cache par `JiraEndpoint` ; `WARN` « Ticket %s non affecté à %s : %s ». Adapter `AgentTasks` (motif ajouté à `message`), `StoryFollow` (`story.message`), `TaskSync` et `TrackingActions` (`.result()`).
-- [ ] T042 [US5] E2E : dans le parcours 023 de `e2e/tests/us15-taches.spec.ts`, stub `myself` et `PUT …/assignee` ; vérifier l'affectation de PROJ-303 et de la story avant leurs transitions.
+- [X] T040 [US5] `BM/domain/jira/IssueStatus.java` : champ `assignee` (login, nul). `BM/domain/port/IssueTracker.java` : `void assign(JiraEndpoint, String issueKey, String login)`. `BM/infrastructure/jira/JiraApi.java` et `JiraRestClient.java` : `PUT issue/{key}/assignee`, champ `assignee.name` lu.
+- [X] T041 [US5] `BM/application/task/TaskJira.java` : `record Move(Result result, String assignProblem)` rendu par `move`, `assignProblem` ajouté à `Started` ; `moveTo` garde `Result` ; affectation avant chaque `transition`, sauf vers « à faire » ; login mis en cache par `JiraEndpoint` ; `WARN` « Ticket %s non affecté à %s : %s ». Adapter `AgentTasks` (motif ajouté à `message`), `StoryFollow` (`story.message`), `TaskSync` et `TrackingActions` (`.result()`).
+- [X] T042 [US5] E2E : dans le parcours 023 de `e2e/tests/us15-taches.spec.ts`, stub `myself` et `PUT …/assignee` ; vérifier l'affectation de PROJ-303 et de la story avant leurs transitions.
 
 **Checkpoint**: US5 testable seule ; les US1 à US4 inchangées.
 
@@ -293,8 +293,8 @@ la transition part quand même et le message le dit.
   - la story qui suit ses tâches ;
   - le comportement sans réglage.
 - [X] T034 [P] Renvois de contrats : `specs/015-taches-avancement/contracts/mcp-tools.md` vers `specs/023-statut-fin-tache/contracts/mcp-tools.md`. Dans `CLAUDE.md`, la feature en cours devient la 023, devant la 022.
-- [ ] T035 Dérouler `quickstart.md` Q1 à Q5 bis sur le jar des gates et noter les résultats ; Q6 (AURORA réel) revient au mainteneur.
-- [ ] T036 Gates complètes, `bash ci/check-eval.sh` vert. Cocher les tâches `[X]` ; commit `docs(023): README, contrats et quickstart`.
+- [X] T035 Dérouler `quickstart.md` Q1 à Q5 bis sur le jar des gates et noter les résultats ; Q6 (AURORA réel) revient au mainteneur.
+- [X] T036 Gates complètes, `bash ci/check-eval.sh` vert. Cocher les tâches `[X]` ; commit `docs(023): README, contrats et quickstart`.
 
 ---
 

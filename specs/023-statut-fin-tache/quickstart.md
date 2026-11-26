@@ -59,3 +59,18 @@ Attendu : la sous-tâche est « Réalisée » dans Jira, affectée au propriéta
 
 `./mvnw -B verify -DskipDependencyCheck`, puis `npm --prefix e2e test` sur le jar construit, puis
 `bash ci/check-eval.sh` (aucun prompt ni code LLM touché).
+
+## Résultats (26/11, jar des gates)
+
+- `verify` : 1 839 tests, 0 échec ; E2E : 147 sur 147 ; `ci/check-eval.sh` : évaluation à jour.
+- Q1 : réglage enregistré par l'API et affiché dans la rubrique, accessibilité sans violation
+  (`us15-taches`, parcours 023) ; refus d'un statut « à faire » couvert par `ManageTaskWorkflowTest`.
+- Q2 : « Réaliser » envoyé, jamais « Fermer » ; `NO_TRANSITION` couvert par `TaskJiraTest` et
+  `AgentTasksTest`.
+- Q3 : la tâche « Réalisée » reste terminée à la relecture, la spécification passe « Implémentée ».
+- Q4 : la story passe « En Cours » à la première prise, « Réalisée » à la dernière fin ; échec
+  `FAILED` et `WARN` couverts par `StoryFollowTest`.
+- Q5 : sans réglage, comportement de la 015 (`AgentTasksTest`, suite `us15-taches` inchangée).
+- Q5 bis : `PUT …/assignee` avec `e2e-user` avant les transitions de la sous-tâche et de la story ;
+  refus et cache du login couverts par `TaskJiraTest`.
+- Q6 : à faire par le mainteneur sur AURORA.

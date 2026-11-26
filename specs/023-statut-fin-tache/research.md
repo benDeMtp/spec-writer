@@ -115,8 +115,9 @@
     même. Le motif est rendu par `TaskJira` dans son résultat (`Move.assignProblem`), écrit en
     `WARN` au journal avec la clé, et repris dans le message de la réponse à l'agent (FR-021).
     Jira injoignable pendant l'affectation donne `UNREACHABLE`, comme la transition.
-  - `TaskJira.moveTo` et `start` rendent un `Move(Result result, String status, String
-    assignProblem)` ; `Started` disparaît.
+  - `TaskJira.move` rend un `Move(Result result, String assignProblem)`, et `Started` gagne
+    `assignProblem`. `moveTo` garde son `Result` pour les appelants qui n'ont rien à relayer
+    (rejeu, libération).
 - **Rationale** : un seul endroit envoie les transitions ; l'affectation y suit la même règle pour
   les sous-tâches, la story et le rejeu. Affecter avant la transition montre le bon responsable dès
   que le ticket change de colonne.

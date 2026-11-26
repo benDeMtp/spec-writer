@@ -89,11 +89,11 @@ Story (StoryFollow) :
 |---|---|---|
 | `assignee` | `String`, nul | Login Jira de la personne affectée, nul si personne. |
 
-### `TaskJira.Move` (`application/task`, US5)
+### `TaskJira.Move` et `TaskJira.Started` (`application/task`, US5)
 
-- `Move(Result result, String status, String assignProblem)` : l'issue d'un envoi, le statut
-  atteint au démarrage, et le motif d'une affectation refusée (nul si l'affectation a réussi ou
-  n'était pas nécessaire).
+- `Move(Result result, String assignProblem)` : l'issue d'un envoi et le motif d'une affectation
+  refusée (nul si l'affectation a réussi ou n'était pas nécessaire). `Started` porte le même
+  motif, avec le statut atteint au démarrage.
 
 Règle d'affectation : avant toute transition envoyée par spec-writer, sauf la remise « à faire »,
 le ticket est affecté au propriétaire du jeton s'il ne l'est pas déjà.

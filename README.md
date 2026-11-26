@@ -683,6 +683,12 @@ La story de la feature suit ses tâches :
 Un échec ne bloque pas la tâche. Il est dit à l'agent et écrit au journal. Sans réglage, la story
 n'est jamais déplacée à la fin.
 
+Avant chaque changement de statut, le ticket est affecté au propriétaire du jeton Jira configuré :
+c'est lui qui apparaît sur la sous-tâche ou la story qui avance, avec ou sans réglage. Un ticket
+qui lui est déjà affecté n'est pas touché. Une affectation refusée, par exemple faute du droit
+d'affecter les tickets, ne bloque pas le changement de statut. Elle est dite à l'agent et écrite
+au journal. La remise « à faire » d'une tâche libérée n'affecte personne.
+
 ## Agents de code (MCP)
 
 Les agents de code lisent les features « prêtes » ou « en cours », leur contenu, leurs tâches et
