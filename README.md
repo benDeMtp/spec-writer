@@ -580,6 +580,27 @@ bien qu'une story et ses sous-tâches sont toujours sur la même page. Une sous-
 n'est pas indexé reste au premier niveau, avec la mention « Sous-tâche de » suivie de la clé de
 son parent.
 
+Deux filtres s'appliquent au premier niveau, et se lèvent d'un clic :
+
+- **Avec le label …** : seulement les tickets qui portent le label de reconnaissance du projet. Il
+  n'est proposé que si un label est réglé (voir « Label de reconnaissance »).
+- **Afficher les tickets terminés** : sans lui, les tickets de premier niveau de la catégorie
+  « terminé » (Fermée, Annulée…) sont cachés.
+
+Les sous-tâches d'un ticket affiché sont toutes montrées. Le choix est gardé tant que l'onglet est
+ouvert, et les filtres reviennent aux valeurs par défaut au lancement suivant.
+
+Les sous-tâches sont gardées dans l'index comme référence : clé, titre, statut et parent. Elles
+servent à la vue, aux statuts du réglage de suivi et au suivi des tâches, mais ne sont plus
+cherchées : ni dans la connaissance du projet, ni parmi les tickets proches, ni dans les extraits
+transmis au modèle.
+
+Chaque synchronisation de Jira, automatique ou manuelle, retire les tickets supprimés dans Jira ou
+déplacés hors du projet. Une tâche dont la sous-tâche a été supprimée sort du suivi, et une
+spécification liée à une story supprimée perd son lien : sa page le dit, et elle peut être envoyée
+de nouveau. Si Jira ne rend plus aucun ticket alors que l'index en contient, rien n'est retiré et
+une erreur de synchronisation le signale : c'est souvent un jeton qui n'a plus accès au projet.
+
 ## Sources du code et analyse de périmètre
 
 Pour une évolution technique, l'agent peut recenser tous les modules du code qu'elle touche, sans
@@ -651,6 +672,20 @@ spécification, et le statut suit les tâches : « en cours » dès qu'une tâch
 enregistrée « à synchroniser » et envoyée par **Synchroniser** ou à la relecture suivante. Une
 tâche tenue par un agent peut être **libérée**.
 
+### Label de reconnaissance
+
+Dans **Projet › Réglages › Suivi des tâches dans Jira**, un label Jira, sans espace, marque les
+tickets de spec-writer. Il n'a pas de valeur par défaut : sans label, rien n'est étiqueté ni
+filtré.
+
+- Les stories et sous-tâches créées par spec-writer le portent, en plus des labels saisis.
+- Un ticket repris le reçoit à la reprise : une story importée ou liée à une spécification, ou une
+  sous-tâche déjà présente sous la story et reprise à la validation des tâches. Ses autres labels
+  sont gardés.
+- Si Jira refuse le label, par exemple parce que le champ n'est pas sur l'écran de création, le
+  ticket est créé quand même et un message le dit.
+- Changer de label ne réétiquette rien : les tickets qui portent l'ancien ne sont plus reconnus.
+
 ### Statut Jira d'une tâche implémentée
 
 Par défaut, une tâche terminée passe dans la catégorie « terminé » de Jira, c'est-à-dire souvent
@@ -700,7 +735,9 @@ parent (`parentKey`, la story de la feature) ; `get_feature` donne aussi le type
 ticket de la feature (`jiraTicket`). Pour une sous-tâche, spec-writer rappelle à l'agent de
 travailler sur la branche du ticket parent, jamais sur une branche par sous-tâche (`branch`, dans
 `next_task` et `start_task`, et dans les instructions du serveur) ; le nom de la branche reste
-libre. `complete_task` passe la sous-tâche au statut d'arrivée réglé dans le projet
+libre. Sur un projet qui a un label de reconnaissance, les agents ne voient que les features dont
+la story porte le label ; une sous-tâche sans le label (`inScope` faux) n'est jamais proposée ni
+prise (`NOT_IN_JIRA_SCOPE`). `complete_task` passe la sous-tâche au statut d'arrivée réglé dans le projet
 (`jiraStatus` donne le vrai statut Jira), et le champ `story` dit à l'agent ce qui est arrivé à
 la story (voir « Statut Jira d'une tâche implémentée »). Sans tâches, ils passent la feature à « en cours » puis à « implémentée ». Ils n'ont accès ni aux jetons ni à la configuration : c'est spec-writer qui
 appelle Jira, avec votre compte, jamais la passerelle.

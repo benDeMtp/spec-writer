@@ -12,7 +12,7 @@ Toutes les écritures exigent l'en-tête `Origin` de l'outil (403 sinon), comme 
 
 ## `PUT /api/projects/{id}/jira-label`
 
-Corps `{ "label": "spec-writer" }`. 200 avec le réglage. 400 `VALIDATION_FAILED` : « Un label Jira
+Corps `{ "label": "spec-writer" }`. 200 avec le réglage. 422 `VALIDATION_FAILED` : « Un label Jira
 ne contient pas d'espace et compte au plus 255 caractères. »
 
 ## `DELETE /api/projects/{id}/jira-label`

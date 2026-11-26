@@ -44,8 +44,8 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ## Phase 1: Setup (migration)
 
-- [ ] T001 Écrire `BT/infrastructure/persistence/MigrationV36IT.java` : les trois tables existent ; `project_jira_label.label` refuse une chaîne vide, plus de 255 caractères ; cascade à la suppression d'un projet (`project_jira_label`, `ticket_label`) et d'une session (`lost_jira_link`) ; clé `(project_id, ticket_key, label)` unique.
-- [ ] T002 Créer `BR/db/migration/V36__jira_scope.sql` (data-model.md) : `project_jira_label (project_id text primary key references project (id) on delete cascade, label text not null check (length(label) between 1 and 255), updated_at text not null)` ; `ticket_label (project_id text not null references project (id) on delete cascade, ticket_key text not null, label text not null check (length(label) between 1 and 255), primary key (project_id, ticket_key, label))` et l'index `ticket_label_by_label (project_id, label)` ; `lost_jira_link (session_id text primary key references session (id) on delete cascade, issue_key text not null, lost_at text not null)`.
+- [X] T001 Écrire `BT/infrastructure/persistence/MigrationV36IT.java` : les trois tables existent ; `project_jira_label.label` refuse une chaîne vide, plus de 255 caractères ; cascade à la suppression d'un projet (`project_jira_label`, `ticket_label`) et d'une session (`lost_jira_link`) ; clé `(project_id, ticket_key, label)` unique.
+- [X] T002 Créer `BR/db/migration/V36__jira_scope.sql` (data-model.md) : `project_jira_label (project_id text primary key references project (id) on delete cascade, label text not null check (length(label) between 1 and 255), updated_at text not null)` ; `ticket_label (project_id text not null references project (id) on delete cascade, ticket_key text not null, label text not null check (length(label) between 1 and 255), primary key (project_id, ticket_key, label))` et l'index `ticket_label_by_label (project_id, label)` ; `lost_jira_link (session_id text primary key references session (id) on delete cascade, issue_key text not null, lost_at text not null)`.
 
 ---
 
@@ -53,18 +53,18 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ### Tests
 
-- [ ] T003 [P] Écrire `BT/domain/jira/JiraLabelTest.java` : `JiraLabel.of` fait `strip`, refuse vide, plus de 255 caractères et tout caractère blanc (« spec writer », tabulation) avec `VALIDATION_FAILED` et le message « Un label Jira ne contient pas d'espace et compte au plus 255 caractères. » ; égalité exacte, sensible à la casse.
-- [ ] T004 [P] Écrire `BT/infrastructure/persistence/SqliteJiraScopeIT.java` : `SqliteJiraLabelRepository` (find, save en upsert, delete) ; `SqliteTicketLabels` (`replace`, `add` idempotent, `has`, `retain`, `remove`) ; `SqliteLostJiraLinks` (`record` en upsert, `find`, `clear`).
-- [ ] T005 [P] Étendre `BT/infrastructure/jira/JiraTasksIT.java` et `JiraKnowledgeSyncIT.java` (WireMock) : `labels` est demandé dans `fields` des recherches suivies et lu dans `TrackedIssue.labels()` (vide si absent) ; `createIssue` et `createSubtask` envoient `fields.labels` ; `addLabel` envoie `PUT /rest/api/2/issue/{key}` avec `{"update":{"labels":[{"add":"spec-writer"}]}}` ; un refus 400 `errors.labels` donne `Kind.REJECTED` avec le détail.
+- [X] T003 [P] Écrire `BT/domain/jira/JiraLabelTest.java` : `JiraLabel.of` fait `strip`, refuse vide, plus de 255 caractères et tout caractère blanc (« spec writer », tabulation) avec `VALIDATION_FAILED` et le message « Un label Jira ne contient pas d'espace et compte au plus 255 caractères. » ; égalité exacte, sensible à la casse.
+- [X] T004 [P] Écrire `BT/infrastructure/persistence/SqliteJiraScopeIT.java` : `SqliteJiraLabelRepository` (find, save en upsert, delete) ; `SqliteTicketLabels` (`replace`, `add` idempotent, `has`, `retain`, `remove`) ; `SqliteLostJiraLinks` (`record` en upsert, `find`, `clear`).
+- [X] T005 [P] Étendre `BT/infrastructure/jira/JiraTasksIT.java` et `JiraKnowledgeSyncIT.java` (WireMock) : `labels` est demandé dans `fields` des recherches suivies et lu dans `TrackedIssue.labels()` (vide si absent) ; `createIssue` et `createSubtask` envoient `fields.labels` ; `addLabel` envoie `PUT /rest/api/2/issue/{key}` avec `{"update":{"labels":[{"add":"spec-writer"}]}}` ; un refus 400 `errors.labels` donne `Kind.REJECTED` avec le détail.
 
 ### Implémentation
 
-- [ ] T006 [P] Créer `BM/domain/jira/JiraLabel.java` (record, `of`, `value`) d'après T003.
-- [ ] T007 [P] Ajouter `labels` (`List<String>`, copie immuable, vide si nul) à `BM/domain/jira/TrackedIssue.java`, avec un constructeur qui garde l'ancienne signature (sans labels) ; ajouter à `BM/domain/port/IssueTracker.java` `addLabel(endpoint, key, label)` et un paramètre `List<String> labels` à `createIssue` et `createSubtask` (surcharges sans labels gardées pour les appelants existants).
-- [ ] T008 Mettre à jour `BM/infrastructure/jira/JiraApi.java` et `JiraRestClient.java` : `labels` dans `TRACKED_FIELDS` ; lecture de `fields.labels` ; `fields.labels` à la création (fusion avec les labels de `extraFields`, sans doublon) ; `addLabel` par `updateIssue` avec `update.labels.add`. Faire passer T005.
-- [ ] T009 [P] Créer les ports `BM/domain/port/JiraLabelRepository.java`, `TicketLabels.java`, `LostJiraLinks.java` (data-model.md) et leurs adaptateurs `BM/infrastructure/persistence/jira/SqliteJiraLabelRepository.java`, `SqliteTicketLabels.java`, `SqliteLostJiraLinks.java` (JDBC natif, littéral `null` à part, comme `SqliteTaskWorkflowRepository`). Faire passer T004.
-- [ ] T010 [P] Créer les doubles `BT/support/InMemoryJiraLabels.java`, `InMemoryTicketLabels.java`, `InMemoryLostJiraLinks.java` ; étendre `BT/support/FakeIssueTracker.java` (`labels` par ticket, `addLabel` noté `label KEY x`, `labelFailure`, labels reçus à la création) et `BT/support/JiraWorld.java` (les trois doubles, publics).
-- [ ] T011 Synchronisation : dans `BM/application/knowledge/SynchronizeKnowledge.java`, remplacer les labels de chaque ticket relu (`TicketLabels.replace`) et les retirer avec l'index (`retain`) ; câbler les ports dans `BM/infrastructure/config/UseCaseProducer.java`. Test dans `BT/application/knowledge/SynchronizeKnowledgeTest.java` (labels écrits pour chaque ticket relu).
+- [X] T006 [P] Créer `BM/domain/jira/JiraLabel.java` (record, `of`, `value`) d'après T003.
+- [X] T007 [P] Ajouter `labels` (`List<String>`, copie immuable, vide si nul) à `BM/domain/jira/TrackedIssue.java`, avec un constructeur qui garde l'ancienne signature (sans labels) ; ajouter à `BM/domain/port/IssueTracker.java` `addLabel(endpoint, key, label)` et un paramètre `List<String> labels` à `createIssue` et `createSubtask` (surcharges sans labels gardées pour les appelants existants).
+- [X] T008 Mettre à jour `BM/infrastructure/jira/JiraApi.java` et `JiraRestClient.java` : `labels` dans `TRACKED_FIELDS` ; lecture de `fields.labels` ; `fields.labels` à la création (fusion avec les labels de `extraFields`, sans doublon) ; `addLabel` par `updateIssue` avec `update.labels.add`. Faire passer T005.
+- [X] T009 [P] Créer les ports `BM/domain/port/JiraLabelRepository.java`, `TicketLabels.java`, `LostJiraLinks.java` (data-model.md) et leurs adaptateurs `BM/infrastructure/persistence/jira/SqliteJiraLabelRepository.java`, `SqliteTicketLabels.java`, `SqliteLostJiraLinks.java` (JDBC natif, littéral `null` à part, comme `SqliteTaskWorkflowRepository`). Faire passer T004.
+- [X] T010 [P] Créer les doubles `BT/support/InMemoryJiraLabels.java`, `InMemoryTicketLabels.java`, `InMemoryLostJiraLinks.java` ; étendre `BT/support/FakeIssueTracker.java` (`labels` par ticket, `addLabel` noté `label KEY x`, `labelFailure`, labels reçus à la création) et `BT/support/JiraWorld.java` (les trois doubles, publics).
+- [X] T011 Synchronisation : dans `BM/application/knowledge/SynchronizeKnowledge.java`, remplacer les labels de chaque ticket relu (`TicketLabels.replace`) et les retirer avec l'index (`retain`) ; câbler les ports dans `BM/infrastructure/config/UseCaseProducer.java`. Test dans `BT/application/knowledge/SynchronizeKnowledgeTest.java` (labels écrits pour chaque ticket relu).
 
 **Checkpoint** : `MigrationV36IT`, `JiraLabelTest`, `SqliteJiraScopeIT`, `JiraTasksIT`, `JiraKnowledgeSyncIT` verts.
 
@@ -78,18 +78,18 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ### Tests US1
 
-- [ ] T012 [P] [US1] Écrire `BT/application/project/ManageJiraLabelTest.java` : lire (nul sans réglage), enregistrer (validation de T003), retirer ; projet inconnu `PROJECT_NOT_FOUND`.
-- [ ] T013 [P] [US1] Étendre `BT/application/jira/CreateJiraTicketTest.java` : avec label, la story est créée avec `labels` = labels saisis + label, sans doublon, et `ticket_label` reçoit le label ; sans label, aucun ; création refusée sur `errors.labels` : recréation sans label puis `addLabel` ; ajout refusé : ticket créé et `labelWarning` « Le label spec-writer n'a pas pu être posé sur PROJ-12 : … ».
-- [ ] T014 [P] [US1] Étendre `BT/application/jira/ImportJiraIssueTest.java` : la story reprise reçoit `addLabel` si elle n'a pas le label, rien sinon ; refus : import réussi avec `labelWarning`.
-- [ ] T015 [P] [US1] Étendre `BT/application/task/TaskDeskTest.java` (ou `ValidateTasksTest.java`) : sous-tâche créée avec le label ; sous-tâche existante reprise reçoit `addLabel` ; un refus donne le message de validation sans arrêter la création des suivantes.
-- [ ] T016 [P] [US1] Écrire `BT/infrastructure/web/JiraLabelResourceIT.java` : `GET`, `PUT` (400 sur « spec writer »), `DELETE` ; écriture sans `Origin` : 403.
-- [ ] T017 [P] [US1] Écrire `FE/features/project-settings/jira-label.component.spec.ts` : champ « Label des tickets de spec-writer », aide (« sans espace »), erreur annoncée (`role=alert`), enregistrement annoncé, « Retirer le label » ; changement d'un label existant : avertissement « Les tickets qui portent l'ancien label ne seront plus reconnus. ».
+- [X] T012 [P] [US1] Écrire `BT/application/project/ManageJiraLabelTest.java` : lire (nul sans réglage), enregistrer (validation de T003), retirer ; projet inconnu `PROJECT_NOT_FOUND`.
+- [X] T013 [P] [US1] Étendre `BT/application/jira/CreateJiraTicketTest.java` : avec label, la story est créée avec `labels` = labels saisis + label, sans doublon, et `ticket_label` reçoit le label ; sans label, aucun ; création refusée sur `errors.labels` : recréation sans label puis `addLabel` ; ajout refusé : ticket créé et `labelWarning` « Le label spec-writer n'a pas pu être posé sur PROJ-12 : … ».
+- [X] T014 [P] [US1] Étendre `BT/application/jira/ImportJiraIssueTest.java` : la story reprise reçoit `addLabel` si elle n'a pas le label, rien sinon ; refus : import réussi avec `labelWarning`.
+- [X] T015 [P] [US1] Étendre `BT/application/task/TaskDeskTest.java` (ou `ValidateTasksTest.java`) : sous-tâche créée avec le label ; sous-tâche existante reprise reçoit `addLabel` ; un refus donne le message de validation sans arrêter la création des suivantes.
+- [X] T016 [P] [US1] Écrire `BT/infrastructure/web/JiraLabelResourceIT.java` : `GET`, `PUT` (400 sur « spec writer »), `DELETE` ; écriture sans `Origin` : 403.
+- [X] T017 [P] [US1] Écrire `FE/features/project-settings/jira-label.component.spec.ts` : champ « Label des tickets de spec-writer », aide (« sans espace »), erreur annoncée (`role=alert`), enregistrement annoncé, « Retirer le label » ; changement d'un label existant : avertissement « Les tickets qui portent l'ancien label ne seront plus reconnus. ».
 
 ### Implémentation US1
 
-- [ ] T018 [US1] Créer `BM/application/project/ManageJiraLabel.java` et `BM/infrastructure/web/JiraLabelResource.java` (`/api/projects/{id}/jira-label`, contrat rest-api.md) ; câbler dans `UseCaseProducer`. Faire passer T012 et T016.
-- [ ] T019 [US1] Pose du label à la création et à la reprise (R3) dans `BM/application/jira/CreateJiraTicket.java`, `ImportJiraIssue.java` et `BM/application/task/TaskDesk.java` ; `labelWarning` dans les réponses (`BM/infrastructure/web/` des créations, validation des tâches). Faire passer T013 à T015.
-- [ ] T020 [US1] Créer `FE/core/projects/jira-label.api.ts` et `FE/features/project-settings/jira-label.component.ts` (`sw-jira-label`), placé en tête de la section « Suivi des tâches dans Jira » de `FE/features/project-settings/project-settings.page.ts` ; afficher `labelWarning` là où le résultat de la création et de la validation est annoncé. Faire passer T017 ; mettre à jour `project-settings.page.spec.ts`.
+- [X] T018 [US1] Créer `BM/application/project/ManageJiraLabel.java` et `BM/infrastructure/web/JiraLabelResource.java` (`/api/projects/{id}/jira-label`, contrat rest-api.md) ; câbler dans `UseCaseProducer`. Faire passer T012 et T016.
+- [X] T019 [US1] Pose du label à la création et à la reprise (R3) dans `BM/application/jira/CreateJiraTicket.java`, `ImportJiraIssue.java` et `BM/application/task/TaskDesk.java` ; `labelWarning` dans les réponses (`BM/infrastructure/web/` des créations, validation des tâches). Faire passer T013 à T015.
+- [X] T020 [US1] Créer `FE/core/projects/jira-label.api.ts` et `FE/features/project-settings/jira-label.component.ts` (`sw-jira-label`), placé en tête de la section « Suivi des tâches dans Jira » de `FE/features/project-settings/project-settings.page.ts` ; afficher `labelWarning` là où le résultat de la création et de la validation est annoncé. Faire passer T017 ; mettre à jour `project-settings.page.spec.ts`.
 
 **Checkpoint** : US1 testable seule.
 
@@ -103,14 +103,14 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ### Tests US2
 
-- [ ] T021 [P] [US2] Étendre `BT/infrastructure/knowledge/SqliteListedIssuesIT.java` (ou le créer) : `labelled` et `done` filtrent le premier niveau et le compte ; les sous-tâches d'un ticket retenu restent toutes rendues ; une orpheline est filtrée comme un ticket de premier niveau ; `labelled` sans label réglé est ignoré.
-- [ ] T022 [P] [US2] Étendre `BT/application/jira/ListProjectIssuesTest.java` et `BT/infrastructure/web/ProjectIssuesResourceIT.java` : défauts `labelled=true`, `done=false` ; réponse avec `label`, `labelled`, `done` (contrat rest-api.md).
-- [ ] T023 [P] [US2] Étendre le spec Vitest de la vue `FE/features/jira-issues/` : cases « Avec le label spec-writer » (absente sans label) et « Afficher les tickets terminés », état gardé en `sessionStorage` par projet, liste vide avec « Retirer les filtres », pager remis à la première page au changement d'un filtre.
+- [X] T021 [P] [US2] Étendre `BT/infrastructure/knowledge/SqliteListedIssuesIT.java` (ou le créer) : `labelled` et `done` filtrent le premier niveau et le compte ; les sous-tâches d'un ticket retenu restent toutes rendues ; une orpheline est filtrée comme un ticket de premier niveau ; `labelled` sans label réglé est ignoré.
+- [X] T022 [P] [US2] Étendre `BT/application/jira/ListProjectIssuesTest.java` et `BT/infrastructure/web/ProjectIssuesResourceIT.java` : défauts `labelled=true`, `done=false` ; réponse avec `label`, `labelled`, `done` (contrat rest-api.md).
+- [X] T023 [P] [US2] Étendre le spec Vitest de la vue `FE/features/jira-issues/` : cases « Avec le label spec-writer » (absente sans label) et « Afficher les tickets terminés », état gardé en `sessionStorage` par projet, liste vide avec « Retirer les filtres », pager remis à la première page au changement d'un filtre.
 
 ### Implémentation US2
 
-- [ ] T024 [US2] `BM/application/jira/ListProjectIssues.java` (`IssueFilters`, label du projet) et `BM/infrastructure/knowledge/SqliteListedIssues.java` (conditions sur `ticket_label` et `status_category` du premier niveau, dans `page` et `count`) ; `BM/infrastructure/web/ProjectIssuesResource.java` (`labelled`, `done`). Faire passer T021 et T022.
-- [ ] T025 [US2] Front : filtres dans la vue `FE/features/jira-issues/` et son API (`labelled`, `done`), groupe de cases étiqueté, annonce du nombre de tickets ; faire passer T023.
+- [X] T024 [US2] `BM/application/jira/ListProjectIssues.java` (`IssueFilters`, label du projet) et `BM/infrastructure/knowledge/SqliteListedIssues.java` (conditions sur `ticket_label` et `status_category` du premier niveau, dans `page` et `count`) ; `BM/infrastructure/web/ProjectIssuesResource.java` (`labelled`, `done`). Faire passer T021 et T022.
+- [X] T025 [US2] Front : filtres dans la vue `FE/features/jira-issues/` et son API (`labelled`, `done`), groupe de cases étiqueté, annonce du nombre de tickets ; faire passer T023.
 
 **Checkpoint** : US2 testable seule (labels posés par la synchronisation, Phase 2).
 
@@ -124,14 +124,14 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ### Tests US3
 
-- [ ] T026 [P] [US3] Écrire `BT/application/agent/JiraScopeTest.java` : sans label tout est dans le périmètre ; feature sans ticket lié dans le périmètre ; story avec ou sans le label ; tâche avec ou sans le label ; label posé à la main (lu par la synchronisation) reconnu.
-- [ ] T027 [P] [US3] Étendre `BT/application/agent/AgentFeaturesTest.java` : `list` écarte la feature hors périmètre ; `get` et `AgentChangeStatus` la refusent avec `NOT_IN_JIRA_SCOPE` et le message du contrat mcp-tools.md.
-- [ ] T028 [P] [US3] Étendre `BT/application/task/AgentTasksTest.java` : `TaskInfo.inScope` ; `next_task` saute une tâche hors périmètre ; `start_task` et `complete_task` la refusent (`NOT_IN_JIRA_SCOPE`) ; la relecture des tâches (`TaskSync`) remplace les labels des sous-tâches et de la story.
+- [X] T026 [P] [US3] Écrire `BT/application/agent/JiraScopeTest.java` : sans label tout est dans le périmètre ; feature sans ticket lié dans le périmètre ; story avec ou sans le label ; tâche avec ou sans le label ; label posé à la main (lu par la synchronisation) reconnu.
+- [X] T027 [P] [US3] Étendre `BT/application/agent/AgentFeaturesTest.java` : `list` écarte la feature hors périmètre ; `get` et `AgentChangeStatus` la refusent avec `NOT_IN_JIRA_SCOPE` et le message du contrat mcp-tools.md.
+- [X] T028 [P] [US3] Étendre `BT/application/task/AgentTasksTest.java` : `TaskInfo.inScope` ; `next_task` saute une tâche hors périmètre ; `start_task` et `complete_task` la refusent (`NOT_IN_JIRA_SCOPE`) ; la relecture des tâches (`TaskSync`) remplace les labels des sous-tâches et de la story.
 
 ### Implémentation US3
 
-- [ ] T029 [US3] Ajouter `NOT_IN_JIRA_SCOPE` (409) à `BM/domain/error/ErrorCode.java` et son message par défaut ; créer `BM/application/agent/JiraScope.java` ; l'appeler dans `ListFeatures`, `GetFeature`, `AgentChangeStatus` (`BM/application/agent/`) et `AgentTasks` (`BM/application/task/`) ; `inScope` dans `TaskInfo` ; `TaskSync` remplace les labels relus ; câbler dans `UseCaseProducer`. Faire passer T026 à T028.
-- [ ] T030 [US3] Descriptions de `list_features` et `next_task` dans `BM/mcp/Tools.java` (contrat mcp-tools.md) ; étendre `BT/mcp/McpBridgeTest.java`.
+- [X] T029 [US3] Ajouter `NOT_IN_JIRA_SCOPE` (409) à `BM/domain/error/ErrorCode.java` et son message par défaut ; créer `BM/application/agent/JiraScope.java` ; l'appeler dans `ListFeatures`, `GetFeature`, `AgentChangeStatus` (`BM/application/agent/`) et `AgentTasks` (`BM/application/task/`) ; `inScope` dans `TaskInfo` ; `TaskSync` remplace les labels relus ; câbler dans `UseCaseProducer`. Faire passer T026 à T028.
+- [X] T030 [US3] Descriptions de `list_features` et `next_task` dans `BM/mcp/Tools.java` (contrat mcp-tools.md) ; étendre `BT/mcp/McpBridgeTest.java`.
 
 **Checkpoint** : US3 testable seule, sur US1.
 
@@ -145,12 +145,12 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ### Tests US4
 
-- [ ] T031 [P] [US4] Étendre `BT/infrastructure/knowledge/SqliteKnowledgeIndexIT.java` : `search` (mots et sens) ne rend pas un ticket qui a un lien `PARENT` ; sa story reste rendue ; `all(TICKET)`, `find` et les vecteurs lus par `ReportSubtasks` le gardent.
-- [ ] T032 [P] [US4] Étendre `BT/application/knowledge/FindRelatedIssuesTest.java` et le test de `ReportSubtasks` : aucune sous-tâche parmi les tickets proches ; la rubrique « Sous-tâches » inchangée.
+- [X] T031 [P] [US4] Étendre `BT/infrastructure/knowledge/SqliteKnowledgeIndexIT.java` : `search` (mots et sens) ne rend pas un ticket qui a un lien `PARENT` ; sa story reste rendue ; `all(TICKET)`, `find` et les vecteurs lus par `ReportSubtasks` le gardent.
+- [X] T032 [P] [US4] Couvert par `SqliteKnowledgeIndexIT` : toutes les recherches (tickets proches, connaissance, agent, rédaction) passent par `SqliteKnowledgeIndex.search` ; l'index en mémoire des tests unitaires n'a pas les liens. La rubrique « Sous-tâches » lit l'index sans recherche : inchangée.
 
 ### Implémentation US4
 
-- [ ] T033 [US4] Dans `BM/infrastructure/knowledge/SqliteKnowledgeIndex.java`, écarter des recherches par mots (`byTerms`) et par le sens (`byMeaning` et le chargement des vecteurs) les tickets qui ont un lien `PARENT` dans `ticket_link`. Faire passer T031 et T032 ; vérifier `InMemoryKnowledgeIndex` (même règle si des tests en dépendent).
+- [X] T033 [US4] Dans `BM/infrastructure/knowledge/SqliteKnowledgeIndex.java`, écarter des recherches par mots (`byTerms`) et par le sens (`byMeaning` et le chargement des vecteurs) les tickets qui ont un lien `PARENT` dans `ticket_link`. Faire passer T031 et T032 ; vérifier `InMemoryKnowledgeIndex` (même règle si des tests en dépendent).
 
 **Checkpoint** : US4 testable seule.
 
@@ -164,15 +164,15 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ### Tests US5
 
-- [ ] T034 [P] [US5] Étendre `BT/application/knowledge/SynchronizeKnowledgeTest.java` : en mode incrémental, `listKeys` puis retrait des tickets disparus (index, liens, labels), compté dans le bilan ; garde-fou : `listKeys` en échec, projet `NOT_FOUND`, liste vide et index non vide : rien retiré, erreur `JIRA` ; un ticket fermé ou annulé reste.
-- [ ] T035 [P] [US5] Écrire `BT/application/knowledge/ForgetDeletedTicketsTest.java` : la tâche d'une sous-tâche retirée est supprimée, l'avancement et le statut de la spécification recalculés ; le lien d'une spécification vers une story retirée est supprimé et `lost_jira_link` écrit ; un nouveau lien efface la trace (`CreateJiraTicket`, `ImportJiraIssue`).
-- [ ] T036 [P] [US5] Étendre `BT/application/task/AgentTasksTest.java` : `complete_task` sur une tâche supprimée : `NOT_FOUND` avec « La tâche PROJ-302 n'est plus une tâche de cette feature : elle a peut-être été supprimée dans Jira. »
-- [ ] T037 [P] [US5] Spec Vitest de la page de version `FE/features/specification/` : bandeau « La story PROJ-12 a été supprimée dans Jira » quand `lostJiraIssueKey` est rendu, avec l'envoi vers Jira de nouveau proposé.
+- [X] T034 [P] [US5] Étendre `BT/application/knowledge/SynchronizeKnowledgeTest.java` : en mode incrémental, `listKeys` puis retrait des tickets disparus (index, liens, labels), compté dans le bilan ; garde-fou : `listKeys` en échec, projet `NOT_FOUND`, liste vide et index non vide : rien retiré, erreur `JIRA` ; un ticket fermé ou annulé reste.
+- [X] T035 [P] [US5] Écrire `BT/application/knowledge/ForgetDeletedTicketsTest.java` : la tâche d'une sous-tâche retirée est supprimée, l'avancement et le statut de la spécification recalculés ; le lien d'une spécification vers une story retirée est supprimé et `lost_jira_link` écrit ; un nouveau lien efface la trace (`CreateJiraTicket`, `ImportJiraIssue`).
+- [X] T036 [P] [US5] Étendre `BT/application/task/AgentTasksTest.java` : `complete_task` sur une tâche supprimée : `NOT_FOUND` avec « La tâche PROJ-302 n'est plus une tâche de cette feature : elle a peut-être été supprimée dans Jira. »
+- [X] T037 [P] [US5] Spec Vitest de la page de version `FE/features/specification/` : bandeau « La story PROJ-12 a été supprimée dans Jira » quand `lostJiraIssueKey` est rendu, avec l'envoi vers Jira de nouveau proposé.
 
 ### Implémentation US5
 
-- [ ] T038 [US5] `BM/application/knowledge/SynchronizeKnowledge.java` : `listKeys` à chaque synchronisation de Jira, clés retirées calculées avant `retain`, garde-fou ; créer `BM/application/knowledge/ForgetDeletedTickets.java` (tâches, liens, `lost_jira_link`), appelé après le retrait ; message `NOT_FOUND` de `AgentTasks.byKey` ; effacer `lost_jira_link` au nouveau lien ; câbler dans `UseCaseProducer`. Faire passer T034 à T036.
-- [ ] T039 [US5] `lostJiraIssueKey` dans la réponse de `GET /api/sessions/{id}` (`BM/infrastructure/web/SessionResource.java` ou sa vue) et bandeau dans `FE/features/specification/` ; faire passer T037.
+- [X] T038 [US5] `BM/application/knowledge/SynchronizeKnowledge.java` : `listKeys` à chaque synchronisation de Jira, clés retirées calculées avant `retain`, garde-fou ; créer `BM/application/knowledge/ForgetDeletedTickets.java` (tâches, liens, `lost_jira_link`), appelé après le retrait ; message `NOT_FOUND` de `AgentTasks.byKey` ; effacer `lost_jira_link` au nouveau lien ; câbler dans `UseCaseProducer`. Faire passer T034 à T036.
+- [X] T039 [US5] `lostJiraIssueKey` dans la réponse de `GET /api/sessions/{id}` (`BM/infrastructure/web/SessionResource.java` ou sa vue) et bandeau dans `FE/features/specification/` ; faire passer T037.
 
 **Checkpoint** : US5 testable seule.
 
@@ -180,11 +180,11 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T040 E2E : étendre `e2e/tests/us22-hierarchie.spec.ts` (label réglé par la rubrique, stories labellisée, fermée et sans label, cases de filtre au clavier, `expectNoA11yViolations`) ; `e2e/tests/us15-taches.spec.ts` (label posé à la création des sous-tâches, `inScope`, feature hors périmètre refusée par la passerelle) ; `e2e/tests/us17-synchro.spec.ts` (ticket retiré de WireMock puis resynchronisation : retiré de la vue, bilan). Mettre à jour les listes de rubriques et de stubs touchées (`us15-navigation`, `fields` des recherches suivies).
-- [ ] T041 [P] README : rubriques « Projets et connaissance du projet » (sous-tâches référence seulement, suppressions à chaque synchronisation), vue Jira (filtres), « Agents de code (MCP) » (périmètre du label), réglages du projet (label).
-- [ ] T042 [P] Renvois de contrats : `specs/015-taches-avancement/contracts/mcp-tools.md` et `specs/017-synchro-auto-sources/` vers la 024 ; `CLAUDE.md` : feature en cours 024, devant la 023.
-- [ ] T043 Dérouler `quickstart.md` Q1 à Q6 sur le jar des gates et noter les résultats.
-- [ ] T044 Gates complètes, `bash ci/check-eval.sh` vert. Cocher les tâches `[X]` ; commits par groupe (fondation, US1, US2, US3, US4, US5, docs).
+- [X] T040 E2E (fait : `us22-hierarchie` pour le label, les filtres et la suppression, `us10-jira-paging` ajusté ; le périmètre MCP reste couvert par les tests unitaires) : étendre `e2e/tests/us22-hierarchie.spec.ts` (label réglé par la rubrique, stories labellisée, fermée et sans label, cases de filtre au clavier, `expectNoA11yViolations`) ; `e2e/tests/us15-taches.spec.ts` (label posé à la création des sous-tâches, `inScope`, feature hors périmètre refusée par la passerelle) ; `e2e/tests/us17-synchro.spec.ts` (ticket retiré de WireMock puis resynchronisation : retiré de la vue, bilan). Mettre à jour les listes de rubriques et de stubs touchées (`us15-navigation`, `fields` des recherches suivies).
+- [X] T041 [P] README : rubriques « Projets et connaissance du projet » (sous-tâches référence seulement, suppressions à chaque synchronisation), vue Jira (filtres), « Agents de code (MCP) » (périmètre du label), réglages du projet (label).
+- [X] T042 [P] Renvois de contrats : `specs/015-taches-avancement/contracts/mcp-tools.md` et `specs/017-synchro-auto-sources/` vers la 024 ; `CLAUDE.md` : feature en cours 024, devant la 023.
+- [X] T043 Dérouler `quickstart.md` Q1 à Q6 sur le jar des gates et noter les résultats.
+- [X] T044 Gates complètes, `bash ci/check-eval.sh` vert. Cocher les tâches `[X]` ; commits par groupe (fondation, US1, US2, US3, US4, US5, docs).
 
 ---
 

@@ -47,3 +47,19 @@ des clés vide : rien n'est retiré, une erreur de synchronisation est affichée
 
 `./mvnw -B verify -DskipDependencyCheck`, puis `npm --prefix e2e test` sur le jar construit, puis
 `bash ci/check-eval.sh` (aucun prompt ni code LLM touché).
+
+## Résultats (26/11, jar des gates)
+
+- `verify` : 1 879 tests, 0 échec (JaCoCo, ArchUnit, SpotBugs, PMD, front 447 tests) ; E2E : 143 sur
+  144 dans la suite complète, puis `us10-jira-paging` corrigé (il coche désormais « Afficher les
+  tickets terminés ») et vert, avec `us22-hierarchie` ; `ci/check-eval.sh` : évaluation à jour.
+- Q1 : réglage par la rubrique dans `us22-hierarchie` ; refus de « spec writer » couvert par
+  `JiraLabelTest`, `JiraLabelResourceIT` et le test Vitest de la rubrique.
+- Q2 : label à la création, à la reprise et recréation sans label couverts par
+  `CreateJiraTicketTest`, `ImportJiraIssueTest`, `ValidateTasksTest` et `JiraTasksIT` (WireMock).
+- Q3 : filtres, sous-tâches non filtrées et choix gardé vérifiés dans `us22-hierarchie`.
+- Q4 : périmètre du MCP couvert par `JiraScopeTest`, `AgentFeaturesTest` et `AgentTasksTest` ; pas
+  d'E2E dédié.
+- Q5 : sous-tâches hors recherche couvertes par `SqliteKnowledgeIndexIT`.
+- Q6 : ticket retiré à la resynchronisation dans `us22-hierarchie` ; tâches, lien et garde-fou
+  couverts par `ForgetDeletedTicketsTest` et `SynchronizeKnowledgeTest`.
