@@ -99,3 +99,29 @@
   nul quand la story n'est pas concernée. `SKIPPED` couvre le projet sans réglage, à la fin.
 - **Rationale** : l'agent sait ce qui est arrivé à la story et peut le dire ; FR-014 de la 022
   (aucun champ retiré) reste tenu.
+
+## R9 — Affecter le propriétaire du jeton (US5)
+
+- **Decision** : `TaskJira` affecte le ticket juste avant chaque transition qu'il envoie, sauf la
+  remise « à faire » d'une tâche libérée par l'utilisateur.
+  - Le login vient de `IssueTracker.currentUser` (`myself`, champ `name` de Jira Server / Data
+    Center). Il est gardé en mémoire par `JiraEndpoint`, donc relu après un changement de jeton
+    (FR-022).
+  - `IssueStatus` gagne `assignee` (login, nul si non affecté), lu avec le statut (`fields=status,
+    updated,assignee`). Un ticket déjà affecté au propriétaire n'est pas réaffecté (FR-020).
+  - Un nouvel appel `IssueTracker.assign(endpoint, key, login)` envoie
+    `PUT /rest/api/2/issue/{key}/assignee` avec `{"name": login}`.
+  - Échec (droit manquant, utilisateur non affectable, refus) : la transition est envoyée quand
+    même. Le motif est rendu par `TaskJira` dans son résultat (`Move.assignProblem`), écrit en
+    `WARN` au journal avec la clé, et repris dans le message de la réponse à l'agent (FR-021).
+    Jira injoignable pendant l'affectation donne `UNREACHABLE`, comme la transition.
+  - `TaskJira.moveTo` et `start` rendent un `Move(Result result, String status, String
+    assignProblem)` ; `Started` disparaît.
+- **Rationale** : un seul endroit envoie les transitions ; l'affectation y suit la même règle pour
+  les sous-tâches, la story et le rejeu. Affecter avant la transition montre le bon responsable dès
+  que le ticket change de colonne.
+- **Alternatives considered** : affecter seulement à la prise (le ticket terminé garderait un autre
+  nom si quelqu'un l'a réaffecté entre-temps, écarté) ; l'affectation par le champ `assignee` de la
+  transition (exige que l'écran de transition porte le champ, ce qui varie selon les workflows,
+  écarté) ; `accountId` de Jira Cloud (hors périmètre : spec-writer vise Server / Data Center).
+

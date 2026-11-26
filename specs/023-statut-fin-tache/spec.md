@@ -162,6 +162,40 @@ passe « En Cours » ; il termine les trois : à la dernière, la story passe «
 
 ---
 
+### User Story 5 - Le propriétaire du jeton Jira est affecté au ticket qu'il fait avancer (Priority: P2)
+
+Le jeton d'accès Jira configuré dans spec-writer appartient à un utilisateur. Quand spec-writer
+change le statut d'un ticket, ce ticket est d'abord affecté à cet utilisateur : sur le tableau
+Jira, c'est lui qui apparaît sur la sous-tâche ou la story qui avance, et non le précédent
+responsable ou personne.
+
+**Why this priority**: le tableau Jira dit qui porte chaque ticket ; une sous-tâche « En Cours »
+sans responsable, ou avec un autre nom que celui de la personne dont l'agent utilise le compte,
+trompe l'équipe. Elle complète les stories 1 et 4 sans en dépendre.
+
+**Independent Test**: sous-tâche « Créée » non affectée ; l'agent la prend : elle est affectée au
+propriétaire du jeton, puis passe « En Cours ». Story affectée à une autre personne : quand elle
+passe en cours, elle est réaffectée au propriétaire du jeton.
+
+**Acceptance Scenarios**:
+
+1. **Given** une sous-tâche non affectée, ou affectée à une autre personne, **When** un agent la
+   prend ou la termine, **Then** spec-writer l'affecte au propriétaire du jeton, puis envoie la
+   transition.
+2. **Given** une sous-tâche déjà affectée au propriétaire du jeton, **When** son statut change,
+   **Then** l'affectation n'est pas renvoyée.
+3. **Given** la story de la feature, **When** spec-writer la fait avancer (story 4), **Then** elle
+   est affectée de même au propriétaire du jeton.
+4. **Given** une transition « à synchroniser » rejouée, **When** elle est envoyée, **Then** le
+   ticket est affecté de même.
+5. **Given** un utilisateur qui n'a pas le droit d'affecter les tickets du projet, ou une
+   affectation refusée par Jira, **When** le statut change, **Then** la transition est envoyée
+   quand même ; l'agent en est prévenu par un message et une entrée est écrite au journal.
+6. **Given** aucune transition envoyée (ticket déjà au bon statut, `ALREADY`, ou
+   `NO_TRANSITION`), **When** l'agent termine la tâche, **Then** le ticket n'est pas réaffecté.
+
+---
+
 ### Edge Cases
 
 - Un statut choisi qui n'existe plus dans le workflow (renommé dans Jira) : la tâche n'est pas
@@ -241,6 +275,17 @@ passe « En Cours » ; il termine les trois : à la dernière, la story passe «
   l'utilisateur DOIVENT en être prévenus ; le déplacement n'est pas rejoué.
 - **FR-018**: Sur un projet sans réglage, la story NE DOIT PAS être déplacée à la fin (jamais
   fermée par l'outil) ; le passage en cours au démarrage s'applique.
+- **FR-019**: Avant chaque transition qu'il envoie (prise et fin d'une tâche, rejeu « à
+  synchroniser », déplacement de la story), spec-writer DOIT affecter le ticket au propriétaire du
+  jeton Jira configuré, qu'il soit non affecté ou affecté à une autre personne. Ce comportement ne
+  dépend pas du réglage du projet.
+- **FR-020**: Un ticket déjà affecté au propriétaire du jeton NE DOIT PAS être réaffecté, et aucun
+  ticket n'est réaffecté quand aucune transition n'est envoyée.
+- **FR-021**: Une affectation refusée (droit manquant, utilisateur non affectable) NE DOIT PAS
+  empêcher la transition. Le motif est donné à l'agent dans la réponse et écrit au journal en
+  `WARN`, sans contenu. L'affectation n'est pas rejouée.
+- **FR-022**: Le propriétaire du jeton est lu dans Jira (utilisateur courant), jamais saisi ni
+  deviné ; il est relu après un changement de jeton.
 
 ### Key Entities
 
@@ -251,6 +296,8 @@ passe « En Cours » ; il termine les trois : à la dernière, la story passe «
 - **Tâche de feature** (015) : sous-tâche Jira suivie par spec-writer, avec son statut dans
   spec-writer (à faire, en cours, terminée, introuvable) et son statut Jira.
 - **Story de la feature** : le ticket Jira lié à la feature, parent de ses tâches.
+- **Propriétaire du jeton** : l'utilisateur Jira à qui appartient le jeton configuré ; il est
+  affecté aux tickets que spec-writer fait avancer.
 
 ## Success Criteria *(mandatory)*
 
@@ -267,6 +314,8 @@ passe « En Cours » ; il termine les trois : à la dernière, la story passe «
 - **SC-005**: Sur le tableau Jira, une story dont un agent a commencé les tâches n'est jamais
   « à faire », et une story dont toutes les tâches sont finies arrive au statut d'arrivée sans
   geste manuel.
+- **SC-006**: 100 % des tickets dont spec-writer change le statut sont affectés au propriétaire du
+  jeton, sauf refus de Jira, chaque refus étant signalé.
 
 ## Assumptions
 
@@ -283,3 +332,6 @@ passe « En Cours » ; il termine les trois : à la dernière, la story passe «
 - La story suit ses tâches (réponse du 26/11, option A, et ajout du passage en cours au
   démarrage) : c'est la pratique courante des règles d'automatisation de Jira. Une story déjà au
   bon statut n'est pas touchée, ce qui évite tout conflit avec des règles Jira existantes.
+- Affectation (demande du 26/11) : le jeton est personnel ; le ticket qui avance est affecté à son
+  propriétaire, même s'il était affecté à quelqu'un d'autre. Jira Server / Data Center désigne
+  l'utilisateur par son login (`name`), que donne l'utilisateur courant.

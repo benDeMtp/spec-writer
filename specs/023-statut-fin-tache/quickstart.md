@@ -43,10 +43,17 @@ WireMock : elle reste `DONE`. La renvoyer à « En Cours » : elle redevient `IN
 Retirer le réglage : `complete_task` vise la catégorie « terminé » (comportement de la 015), et la
 story n'est pas déplacée à la fin.
 
+## Q5 bis — Affectation (US5)
+
+Sous-tâche non affectée, puis affectée à une autre personne : à la prise et à la fin, WireMock
+reçoit `PUT /rest/api/2/issue/{clé}/assignee` avec le login du jeton, avant la transition. Déjà
+affectée au propriétaire : aucun `PUT`. Affectation refusée (400) : la transition part quand
+même, et `message` le dit.
+
 ## Q6 — Sur AURORA, à la main (mainteneur)
 
 Régler « Réalisée » et les statuts qui suivent, puis faire terminer une sous-tâche par l'agent.
-Attendu : la sous-tâche est « Réalisée » dans Jira.
+Attendu : la sous-tâche est « Réalisée » dans Jira, affectée au propriétaire du jeton.
 
 ## Gates
 

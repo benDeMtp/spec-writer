@@ -651,6 +651,38 @@ spécification, et le statut suit les tâches : « en cours » dès qu'une tâch
 enregistrée « à synchroniser » et envoyée par **Synchroniser** ou à la relecture suivante. Une
 tâche tenue par un agent peut être **libérée**.
 
+### Statut Jira d'une tâche implémentée
+
+Par défaut, une tâche terminée passe dans la catégorie « terminé » de Jira, c'est-à-dire souvent
+« Fermée ». Si le workflow de l'équipe va plus loin, réglez-le dans **Projet › Réglages ›
+Suivi des tâches dans Jira** :
+
+- **Statut d'arrivée** : le statut d'une tâche implémentée par un agent, par exemple
+  « Réalisée ». Les statuts proposés sont ceux des tickets de l'index du projet. Un statut « à
+  faire » est refusé.
+- **Statuts où une tâche est finie** : ceux qui suivent le statut d'arrivée, par exemple « En
+  cours de test », « Testée », « A accepter », « A valider » et « Déployable ». Le statut
+  d'arrivée et les statuts de la catégorie « terminé » comptent toujours comme finis.
+
+Pour le workflow d'AURORA (Créée, Prête, En Cours, Réalisée, En cours de test, Testée, A accepter,
+A valider, Déployable, Fermée / Annulée), choisissez « Réalisée », puis cochez les statuts qui la
+suivent jusqu'à « Déployable ».
+
+La fin d'une tâche passe la sous-tâche au statut d'arrivée par une transition directe de Jira.
+Ce n'est jamais une annulation ni une suite de transitions. Sans transition directe, rien ne
+change et l'agent est prévenu. Une transition « à synchroniser » vise le statut d'arrivée au
+moment où elle est rejouée. Une tâche dans un statut fini reste terminée : la relecture ne la
+remet pas en cours, et l'avancement la compte.
+
+La story de la feature suit ses tâches :
+
+- à la prise de la première tâche, une story « à faire » passe en cours ;
+- à la fin de la dernière, elle passe au statut d'arrivée ;
+- une feature sans tâches déclarée implémentée fait passer sa story au statut d'arrivée.
+
+Un échec ne bloque pas la tâche. Il est dit à l'agent et écrit au journal. Sans réglage, la story
+n'est jamais déplacée à la fin.
+
 ## Agents de code (MCP)
 
 Les agents de code lisent les features « prêtes » ou « en cours », leur contenu, leurs tâches et
@@ -662,7 +694,9 @@ parent (`parentKey`, la story de la feature) ; `get_feature` donne aussi le type
 ticket de la feature (`jiraTicket`). Pour une sous-tâche, spec-writer rappelle à l'agent de
 travailler sur la branche du ticket parent, jamais sur une branche par sous-tâche (`branch`, dans
 `next_task` et `start_task`, et dans les instructions du serveur) ; le nom de la branche reste
-libre. Sans tâches, ils passent la feature à « en cours » puis à « implémentée ». Ils n'ont accès ni aux jetons ni à la configuration : c'est spec-writer qui
+libre. `complete_task` passe la sous-tâche au statut d'arrivée réglé dans le projet
+(`jiraStatus` donne le vrai statut Jira), et le champ `story` dit à l'agent ce qui est arrivé à
+la story (voir « Statut Jira d'une tâche implémentée »). Sans tâches, ils passent la feature à « en cours » puis à « implémentée ». Ils n'ont accès ni aux jetons ni à la configuration : c'est spec-writer qui
 appelle Jira, avec votre compte, jamais la passerelle.
 
 1. Dans **Configuration › Accès des agents**, cliquez **Activer l'accès des agents**.

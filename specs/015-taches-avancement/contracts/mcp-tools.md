@@ -2,7 +2,9 @@
 
 Complète `specs/002-projets-contexte-mcp/contracts/mcp-tools.md`. La feature 022 y ajoute le type et
 le ticket parent de chaque tâche et la consigne de branche :
-`specs/022-hierarchie-sous-taches/contracts/mcp-tools.md`. Le protocole, le démarrage et le
+`specs/022-hierarchie-sous-taches/contracts/mcp-tools.md`. La feature 023 y ajoute le statut
+d'arrivée d'une tâche implémentée, `jiraStatus` et la story qui suit ses tâches (`story`) :
+`specs/023-statut-fin-tache/contracts/mcp-tools.md`. Le protocole, le démarrage et le
 secret sont inchangés.
 
 ## En-têtes envoyés par la passerelle

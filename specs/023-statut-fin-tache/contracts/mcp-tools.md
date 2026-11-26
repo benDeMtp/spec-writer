@@ -44,3 +44,12 @@ Vers `IMPLEMENTED`, sur un projet réglé et avec un ticket lié, la réponse ga
 - `complete_task` : la sous-tâche passe au statut d'arrivée réglé dans le projet (sinon à
   « terminé ») ; `story` dit ce qui est arrivé à la story.
 - `start_task` : la story « à faire » passe en cours.
+
+## Affectation au propriétaire du jeton (US5)
+
+Avant chaque transition, la sous-tâche ou la story est affectée au propriétaire du jeton Jira.
+Aucun champ n'est ajouté. Une affectation refusée ne bloque rien :
+- pour la sous-tâche, `message` de `start_task` ou `complete_task` dit « AURORA-185 n'a pas pu
+  être affectée à jdupont : … » ;
+- pour la story, `story.message` le dit, avec `story.status` à `MOVED`.
+

@@ -26,6 +26,8 @@
   - à la dernière tâche, ou pour une feature sans tâches déclarée implémentée, la story passe au
     statut d'arrivée.
 - Les réponses MCP gagnent `jiraStatus` et `story`.
+- Avant chaque transition qu'il envoie, `TaskJira` affecte le ticket au propriétaire du jeton
+  Jira (`myself`), sauf s'il l'est déjà ; un refus ne bloque pas la transition (R9, US5).
 
 **Sans réglage**, le comportement de la 015 est gardé pour la fin d'une tâche, et la story n'est
 jamais fermée.
@@ -111,6 +113,9 @@ backend/src/main/java/fr/kawamind/
 ├── application/task/StoryFollow.java       # la story suit ses tâches
 ├── application/task/AgentTasks.java        # jiraStatus, story ; fin et prise
 ├── application/agent/AgentChangeStatus.java  # feature sans tâches → story
+├── domain/jira/IssueStatus.java            # assignee (US5)
+├── domain/port/IssueTracker.java            # assign (US5)
+├── infrastructure/jira/{JiraApi,JiraRestClient}.java  # PUT issue/{key}/assignee
 ├── infrastructure/persistence/task/SqliteTaskWorkflowRepository.java
 ├── infrastructure/web/TaskWorkflowResource.java
 ├── infrastructure/config/UseCaseProducer.java

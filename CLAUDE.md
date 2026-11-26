@@ -1,7 +1,11 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/022-hierarchie-sous-taches/` (vue Jira par tickets du premier
+La feature en cours est `specs/023-statut-fin-tache/` (statut Jira d'arrivée d'une tâche
+implémentée réglé par projet, table V35 `project_task_workflow`, rubrique « Suivi des tâches dans
+Jira » ; statuts finis comptés terminés à la relecture ; transition directe vers un statut nommé,
+jamais une annulation ; la story suit ses tâches par `StoryFollow`, champ `story` des réponses
+MCP), après `specs/022-hierarchie-sous-taches/` (vue Jira par tickets du premier
 niveau, sous-tâches repliées sous leur parent d'après le lien `PARENT` de `ticket_link` ; type et
 ticket parent de chaque tâche dans le MCP, type relu en V34, consigne `branch` de travailler sur la
 branche du parent), après `specs/021-interview-specification/` (séance de relecture d'une ou

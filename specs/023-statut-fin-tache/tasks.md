@@ -43,13 +43,13 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ## Phase 1: Setup (migration)
 
-- [ ] T001 Écrire `BT/infrastructure/persistence/MigrationV35IT.java` (modèle : `MigrationV34IT`). Vérifier que la table `project_task_workflow` existe et que :
+- [X] T001 Écrire `BT/infrastructure/persistence/MigrationV35IT.java` (modèle : `MigrationV34IT`). Vérifier que la table `project_task_workflow` existe et que :
   - une ligne valide s'insère ;
   - `arrival_status` vide ou de 101 caractères est refusé ;
   - supprimer le projet supprime la ligne (cascade).
 
   Le voir échouer.
-- [ ] T002 Créer `BR/db/migration/V35__task_workflow.sql` :
+- [X] T002 Créer `BR/db/migration/V35__task_workflow.sql` :
   - `create table project_task_workflow (project_id text primary key references project (id) on delete cascade, arrival_status text not null check (length(arrival_status) between 1 and 100), finished_statuses text not null, updated_at text not null);`
   - un commentaire d'en-tête (023, research R1).
 
@@ -63,8 +63,8 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ### Tests
 
-- [ ] T003 [P] Écrire `BT/domain/task/StatusNameTest.java`. `same("En Cours", "en cours")`, `same("Réalisée", "Realisee")` et `same(" Fermée ", "fermée")` sont vrais ; `same("Réalisée", "Réalisé")` est faux ; `normalize(null)` donne `""`.
-- [ ] T004 [P] Écrire `BT/domain/task/TaskWorkflowTest.java`. Vérifier que :
+- [X] T003 [P] Écrire `BT/domain/task/StatusNameTest.java`. `same("En Cours", "en cours")`, `same("Réalisée", "Realisee")` et `same(" Fermée ", "fermée")` sont vrais ; `same("Réalisée", "Réalisé")` est faux ; `normalize(null)` donne `""`.
+- [X] T004 [P] Écrire `BT/domain/task/TaskWorkflowTest.java`. Vérifier que :
   - le statut d'arrivée est ajouté aux finis ;
   - les doublons au sens de `StatusName.same` sont refusés ;
   - un statut d'arrivée vide ou de plus de 100 caractères, ou plus de 50 statuts finis, est refusé (`VALIDATION_FAILED`) ;
@@ -74,7 +74,7 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
   - `completion()` rend `Target.Status("Réalisée")` ;
   - `TaskWorkflow.NONE.completion()` rend `Target.Category(DONE)` ;
   - `NONE.statusOf("Réalisée", "indeterminate")` rend `IN_PROGRESS` (comportement de la 015).
-- [ ] T005 [P] Écrire `BT/infrastructure/persistence/SqliteTaskWorkflowRepositoryIT.java`. Vérifier que :
+- [X] T005 [P] Écrire `BT/infrastructure/persistence/SqliteTaskWorkflowRepositoryIT.java`. Vérifier que :
   - `find` est vide sans réglage ;
   - `save` puis `find` rend le même `TaskWorkflow`, statuts finis dans l'ordre ;
   - `save` remplace ;
@@ -83,24 +83,24 @@ Commits en Conventional Commits, en français, fichiers stagés explicitement, s
 
 ### Implémentation
 
-- [ ] T006 [P] Créer `BM/domain/task/StatusName.java` (`normalize`, `same` : NFD, sans diacritiques, minuscules, `strip`). T003 passe.
-- [ ] T007 [P] Créer `BM/domain/task/Target.java`, interface scellée avec deux records :
+- [X] T006 [P] Créer `BM/domain/task/StatusName.java` (`normalize`, `same` : NFD, sans diacritiques, minuscules, `strip`). T003 passe.
+- [X] T007 [P] Créer `BM/domain/task/Target.java`, interface scellée avec deux records :
   - `Category(StatusCategory category)` ;
   - `Status(String name, TaskWorkflow workflow)`.
-- [ ] T008 Créer `BM/domain/task/TaskWorkflow.java` : record `(String arrivalStatus, List<String> finishedStatuses)`, avec `NONE`, `finished`, `statusOf` et `completion`.
+- [X] T008 Créer `BM/domain/task/TaskWorkflow.java` : record `(String arrivalStatus, List<String> finishedStatuses)`, avec `NONE`, `finished`, `statusOf` et `completion`.
   - Validation : « 1 à 100 caractères », « 50 statuts finis au plus », pas de doublon.
   - Le statut d'arrivée est ajouté en tête des finis s'il manque.
 
   T004 passe.
-- [ ] T009 [P] Créer `BM/domain/task/KnownStatus.java` (record `name`, `category`, `seen`).
-- [ ] T010 Créer `BM/domain/port/TaskWorkflowRepository.java` :
+- [X] T009 [P] Créer `BM/domain/task/KnownStatus.java` (record `name`, `category`, `seen`).
+- [X] T010 Créer `BM/domain/port/TaskWorkflowRepository.java` :
   - `Optional<TaskWorkflow> find(UUID projectId)` ;
   - `void save(UUID projectId, TaskWorkflow workflow, Instant at)` ;
   - `void delete(UUID projectId)` ;
   - `List<KnownStatus> knownStatuses(UUID projectId)`.
 
   L'implémenter dans `BM/infrastructure/persistence/task/SqliteTaskWorkflowRepository.java` (JSON par le `JsonMapper` du projet, `upsert` par `insert … on conflict(project_id) do update`). Le double est `BT/support/InMemoryTaskWorkflows.java`. T005 passe.
-- [ ] T011 Ajouter à `BT/support/TaskWorld.java` un champ `workflows` (`InMemoryTaskWorkflows`) et le passer à `TaskDesk`, ou à un nouvel argument de `TaskSync` et `AgentTasks`. Câbler `TaskWorkflowRepository` dans `BM/infrastructure/config/UseCaseProducer.java` (`TaskDesk` ou les cas d'usage concernés).
+- [X] T011 Ajouter à `BT/support/TaskWorld.java` un champ `workflows` (`InMemoryTaskWorkflows`) et le passer à `TaskDesk`, ou à un nouvel argument de `TaskSync` et `AgentTasks`. Câbler `TaskWorkflowRepository` dans `BM/infrastructure/config/UseCaseProducer.java` (`TaskDesk` ou les cas d'usage concernés).
 
 **Checkpoint** : domaine et dépôt verts. Commit `feat(taches): réglage du statut d'arrivée et des statuts finis d'un projet, domaine et base (023)`.
 
@@ -117,13 +117,13 @@ une annulation ; sans transition, rien ne change ; le rejeu « à synchroniser �
 
 ### Tests US1
 
-- [ ] T012 [P] [US1] Étendre `BT/application/task/TaskJiraTest.java` avec `moveTo(endpoint, key, Target.Status)`. Vérifier que :
+- [X] T012 [P] [US1] Étendre `BT/application/task/TaskJiraTest.java` avec `moveTo(endpoint, key, Target.Status)`. Vérifier que :
   - parmi « Réaliser » → Réalisée (indeterminate), « Fermer » → Fermée (done) et « Annuler la réalisation » → Réalisée, la transition « Réaliser » est prise ;
   - une sous-tâche déjà « Réalisée » ou « En cours de test » (finie) rend `ALREADY`, sans transition envoyée ;
   - sans transition vers « Réalisée », `NO_TRANSITION` est levé avec le message « Le workflow Jira de K-1 n'offre aucune transition directe de « En Cours » vers « Réalisée ». Faites-la dans Jira. » ;
   - la seule transition vers « Réalisée » qui est une annulation n'est pas prise, et `NO_TRANSITION` est levé ;
   - `Target.Category` garde le comportement existant (tests existants inchangés).
-- [ ] T013 [P] [US1] Étendre `BT/application/task/AgentTasksTest.java`. Projet de `TaskWorld` réglé sur « Réalisée », avec un `FakeIssueTracker` dont les transitions ont un `toStatus`. Vérifier que :
+- [X] T013 [P] [US1] Étendre `BT/application/task/AgentTasksTest.java`. Projet de `TaskWorld` réglé sur « Réalisée », avec un `FakeIssueTracker` dont les transitions ont un `toStatus`. Vérifier que :
   - `complete` envoie la transition vers « Réalisée » ;
   - la tâche est `DONE` et `TaskInfo.jiraStatus` vaut « Réalisée » ;
   - le compte rendu est en commentaire ;
@@ -133,14 +133,14 @@ une annulation ; sans transition, rien ne change ; le rejeu « à synchroniser �
 
 ### Implémentation US1
 
-- [ ] T014 [US1] Si besoin, étendre `BT/support/FakeIssueTracker.java` : des transitions configurables par clé, avec `toStatus`, et le statut courant mis à jour par `transition` d'après le `toStatus` de la transition prise. Garder le comportement par défaut pour les tests existants.
-- [ ] T015 [US1] Dans `BM/application/task/TaskJira.java` :
+- [X] T014 [US1] Si besoin, étendre `BT/support/FakeIssueTracker.java` : des transitions configurables par clé, avec `toStatus`, et le statut courant mis à jour par `transition` d'après le `toStatus` de la transition prise. Garder le comportement par défaut pour les tests existants.
+- [X] T015 [US1] Dans `BM/application/task/TaskJira.java` :
   - ajouter `moveTo(JiraEndpoint, String, Target)` ;
   - pour `Category`, déléguer à la méthode existante ;
   - pour `Status`, suivre research R4 : `ALREADY` si `workflow.finished(current.status(), current.statusCategory())` ; sinon les transitions avec `StatusName.same(t.toStatus(), name)` et sans `cancellation()`, la première ; sinon `NO_TRANSITION` avec le message de T012.
 
   T012 passe.
-- [ ] T016 [US1] Dans `BM/application/task/AgentTasks.complete`, viser `workflow(featureId).completion()`, où `workflow` lit le réglage du projet de la session ou rend `TaskWorkflow.NONE`. Dans `BM/application/task/TaskSync.replay`, une cible `DONE` devient `workflow.completion()` (research R5). Ajouter `jiraStatus` à `TaskInfo` (après `issueType`, depuis `SpecTask.jiraStatusName()`). T013 passe.
+- [X] T016 [US1] Dans `BM/application/task/AgentTasks.complete`, viser `workflow(featureId).completion()`, où `workflow` lit le réglage du projet de la session ou rend `TaskWorkflow.NONE`. Dans `BM/application/task/TaskSync.replay`, une cible `DONE` devient `workflow.completion()` (research R5). Ajouter `jiraStatus` à `TaskInfo` (après `issueType`, depuis `SpecTask.jiraStatusName()`). T013 passe.
 
 **Checkpoint** : commit `feat(taches): une tâche terminée par un agent passe au statut d'arrivée du projet (023, US1)`.
 
@@ -156,7 +156,7 @@ et le statut de la spécification suivent (FR-011 à FR-013).
 
 ### Tests US2
 
-- [ ] T017 [P] [US2] Étendre `BT/application/task/AgentTasksTest.java` (ou `TrackingActionsTest`, là où la relecture est testée). Projet réglé sur « Réalisée » et « En cours de test ». Vérifier que :
+- [X] T017 [P] [US2] Étendre `BT/application/task/AgentTasksTest.java` (ou `TrackingActionsTest`, là où la relecture est testée). Projet réglé sur « Réalisée » et « En cours de test ». Vérifier que :
   - une sous-tâche « Réalisée » (indeterminate) dans Jira est `DONE` après la relecture, avec `jiraStatus` « Réalisée » ;
   - passée à « En cours de test », elle reste `DONE` ;
   - renvoyée à « En Cours », elle redevient `IN_PROGRESS` ;
@@ -166,7 +166,7 @@ et le statut de la spécification suivent (FR-011 à FR-013).
 
 ### Implémentation US2
 
-- [ ] T018 [US2] Dans `BM/application/task/TaskSync.reread`, calculer le statut par `workflow.statusOf(issue.status(), issue.statusCategory())` au lieu de la seule catégorie. Le réglage est lu une fois par relecture. Garder `MISSING` pour une clé absente. T017 passe.
+- [X] T018 [US2] Dans `BM/application/task/TaskSync.reread`, calculer le statut par `workflow.statusOf(issue.status(), issue.statusCategory())` au lieu de la seule catégorie. Le réglage est lu une fois par relecture. Garder `MISSING` pour une clé absente. T017 passe.
 
 **Checkpoint** : commit `feat(taches): une tâche dans un statut fini reste terminée à la relecture de Jira (023, US2)`.
 
@@ -183,15 +183,15 @@ réglage (quickstart Q1).
 
 ### Tests US3
 
-- [ ] T019 [P] [US3] Écrire `BT/application/task/ManageTaskWorkflowTest.java`. Vérifier que :
+- [X] T019 [P] [US3] Écrire `BT/application/task/ManageTaskWorkflowTest.java`. Vérifier que :
   - `view(projectId)` rend le réglage et les statuts connus ;
   - un statut réglé absent de l'index est ajouté avec `seen=false` ;
   - `save` d'un statut d'arrivée connu dans la catégorie `new` est refusé (`VALIDATION_FAILED`, message de `contracts/rest-api.md`) ;
   - `save` d'un statut inconnu de l'index est accepté ;
   - `remove` retire le réglage ;
   - un projet inconnu donne `PROJECT_NOT_FOUND`.
-- [ ] T020 [P] [US3] Écrire `BT/infrastructure/web/TaskWorkflowResourceIT.java`. `GET`, `PUT` (200, 422 sur une valeur trop longue et sur plus de 50 statuts) et `DELETE` (204) suivent `contracts/rest-api.md`. Un `PUT` sans `Origin` est refusé comme les autres écritures, et un projet inconnu donne 404.
-- [ ] T021 [P] [US3] Écrire `FE/features/project-settings/task-workflow.component.spec.ts`. Vérifier que :
+- [X] T020 [P] [US3] Écrire `BT/infrastructure/web/TaskWorkflowResourceIT.java`. `GET`, `PUT` (200, 422 sur une valeur trop longue et sur plus de 50 statuts) et `DELETE` (204) suivent `contracts/rest-api.md`. Un `PUT` sans `Origin` est refusé comme les autres écritures, et un projet inconnu donne 404.
+- [X] T021 [P] [US3] Écrire `FE/features/project-settings/task-workflow.component.spec.ts`. Vérifier que :
   - les statuts connus s'affichent, groupés par catégorie (« À faire », « En cours », « Terminé ») ;
   - le statut d'arrivée se choisit par des boutons radio (seuls ceux « en cours » et « terminé » sont actifs) ;
   - les statuts finis se cochent ; le statut d'arrivée est coché et désactivé, et les statuts « terminé » sont cochés et désactivés avec la mention « toujours fini » ;
@@ -202,9 +202,9 @@ réglage (quickstart Q1).
 
 ### Implémentation US3
 
-- [ ] T022 [US3] Créer `BM/application/task/ManageTaskWorkflow.java` (`view`, `save`, `remove`) selon T019. Le câbler dans `UseCaseProducer`. T019 passe.
-- [ ] T023 [US3] Créer `BM/infrastructure/web/TaskWorkflowResource.java` (`/api/projects/{id}/task-workflow`, GET, PUT, DELETE), avec une entrée `record Input(String arrivalStatus, List<String> finishedStatuses)`. T020 passe.
-- [ ] T024 [US3] Créer `FE/core/projects/task-workflow.api.ts` et `FE/features/project-settings/task-workflow.component.ts` (formulaire de T021, fieldset et legend, sans saisie libre). L'intégrer à `FE/features/project-settings/project-settings.page.ts` dans une `section.sheet` « Suivi des tâches dans Jira », visible quand le projet a une clé Jira. T021 passe.
+- [X] T022 [US3] Créer `BM/application/task/ManageTaskWorkflow.java` (`view`, `save`, `remove`) selon T019. Le câbler dans `UseCaseProducer`. T019 passe.
+- [X] T023 [US3] Créer `BM/infrastructure/web/TaskWorkflowResource.java` (`/api/projects/{id}/task-workflow`, GET, PUT, DELETE), avec une entrée `record Input(String arrivalStatus, List<String> finishedStatuses)`. T020 passe.
+- [X] T024 [US3] Créer `FE/core/projects/task-workflow.api.ts` et `FE/features/project-settings/task-workflow.component.ts` (formulaire de T021, fieldset et legend, sans saisie libre). L'intégrer à `FE/features/project-settings/project-settings.page.ts` dans une `section.sheet` « Suivi des tâches dans Jira », visible quand le projet a une clé Jira. T021 passe.
 
 **Checkpoint** : commit `feat(projet): rubrique « Suivi des tâches dans Jira » des réglages du projet (023, US3)`.
 
@@ -222,7 +222,7 @@ story bloquée : tâche finie quand même, `story.status` à `FAILED`, `WARN` au
 
 ### Tests US4
 
-- [ ] T025 [P] [US4] Écrire `BT/application/task/StoryFollowTest.java` (`FakeIssueTracker`, `InMemoryTaskWorkflows`). Vérifier :
+- [X] T025 [P] [US4] Écrire `BT/application/task/StoryFollowTest.java` (`FakeIssueTracker`, `InMemoryTaskWorkflows`). Vérifier :
   - **`started`** :
     - une story « Prête » (new) passe en cours : `MOVED` ;
     - une story « En Cours » n'est pas touchée : `null` ;
@@ -233,42 +233,67 @@ story bloquée : tâche finie quand même, `story.status` à `FAILED`, `WARN` au
     - un projet sans réglage : `SKIPPED`, sans envoi ;
     - sans transition, ou si Jira refuse : `FAILED`, avec le message, une ligne `WARN` au journal (clé et motif seuls) et aucune exception ;
     - si Jira est injoignable : `FAILED`, sans rejeu.
-- [ ] T026 [P] [US4] Étendre `BT/application/task/AgentTasksTest.java`. Vérifier que :
+- [X] T026 [P] [US4] Étendre `BT/application/task/AgentTasksTest.java`. Vérifier que :
   - `start` de la première tâche porte `story` `MOVED` vers « en cours » ;
   - `complete` de la dernière tâche porte `story` `MOVED` vers « Réalisée » ;
   - les tâches précédentes ne déplacent pas la story ;
   - un échec de la story n'empêche pas la tâche d'être `DONE`.
-- [ ] T027 [P] [US4] Étendre `BT/application/agent/AgentFeaturesTest.java`. Une feature sans tâches liée à une story, dans un projet réglé, passée à `IMPLEMENTED` par `AgentChangeStatus`, déplace la story vers « Réalisée ». La réponse porte `story` ; sans réglage, `story` est `SKIPPED`.
+- [X] T027 [P] [US4] Étendre `BT/application/agent/AgentFeaturesTest.java`. Une feature sans tâches liée à une story, dans un projet réglé, passée à `IMPLEMENTED` par `AgentChangeStatus`, déplace la story vers « Réalisée ». La réponse porte `story` ; sans réglage, `story` est `SKIPPED`.
 
 ### Implémentation US4
 
-- [ ] T028 [US4] Créer `BM/application/task/StoryMove.java` (record `key`, `Outcome status`, `to`, `message` ; `Outcome` vaut `MOVED`, `ALREADY`, `SKIPPED` ou `FAILED`) et `BM/application/task/StoryFollow.java` (`started(featureId)`, `allDone(featureId)`), selon research R7. Utiliser `TaskJira.moveTo` et le journal (`Logger` WARN, sans contenu). T025 passe.
-- [ ] T029 [US4] Dans `BM/application/task/AgentTasks.java` :
+- [X] T028 [US4] Créer `BM/application/task/StoryMove.java` (record `key`, `Outcome status`, `to`, `message` ; `Outcome` vaut `MOVED`, `ALREADY`, `SKIPPED` ou `FAILED`) et `BM/application/task/StoryFollow.java` (`started(featureId)`, `allDone(featureId)`), selon research R7. Utiliser `TaskJira.moveTo` et le journal (`Logger` WARN, sans contenu). T025 passe.
+- [X] T029 [US4] Dans `BM/application/task/AgentTasks.java` :
   - ajouter `story` à `TaskAnswer` (dernier champ) ;
   - appeler `StoryFollow.started` après une prise réussie ;
   - après `complete`, si toutes les tâches créées sont `DONE`, appeler `StoryFollow.allDone`.
 
   T026 passe.
-- [ ] T030 [US4] Dans `BM/application/agent/AgentChangeStatus.java`, à `IMPLEMENTED` d'une feature sans tâches liée à un ticket, appeler `StoryFollow.allDone`, et ajouter `story` à `Changed`. Câbler dans `UseCaseProducer`. T027 passe.
+- [X] T030 [US4] Dans `BM/application/agent/AgentChangeStatus.java`, à `IMPLEMENTED` d'une feature sans tâches liée à un ticket, appeler `StoryFollow.allDone`, et ajouter `story` à `Changed`. Câbler dans `UseCaseProducer`. T027 passe.
 
 **Checkpoint** : commit `feat(taches): la story de la feature suit ses tâches dans Jira (023, US4)`.
 
 ---
 
+## Phase 6 bis: User Story 5 - Le propriétaire du jeton est affecté au ticket qu'il fait avancer (Priority: P2)
+
+**Goal**: avant chaque transition envoyée par spec-writer, le ticket est affecté au propriétaire du
+jeton Jira (research R9, FR-019 à FR-022).
+
+**Independent Test**: sous-tâche non affectée, prise puis terminée : `PUT …/assignee` avec le
+login du jeton avant chaque transition ; déjà affectée au propriétaire : aucun `PUT` ; refus :
+la transition part quand même et le message le dit.
+
+### Tests US5
+
+- [ ] T037 [P] [US5] Étendre `BT/application/task/TaskJiraTest.java` : affectation avant la transition (non affecté, affecté à un autre) ; aucune si déjà affecté au propriétaire, ni pour `ALREADY`, `NO_TRANSITION` ou la remise « à faire » ; refus rendu dans `Move.assignProblem` avec la transition envoyée et un `WARN` ; injoignable pendant l'affectation donne `UNREACHABLE` ; login relu par `JiraEndpoint` (un seul `myself` pour deux transitions). Étendre `BT/support/FakeIssueTracker.java` (`assign`, `assignees`, `currentUser`).
+- [ ] T038 [P] [US5] Étendre `BT/application/task/AgentTasksTest.java` et `StoryFollowTest.java` : le motif d'une affectation refusée est dans `message` (prise, fin) et `story.message` (story `MOVED`).
+- [ ] T039 [P] [US5] Étendre le test WireMock du client Jira (`BT/infrastructure/jira/JiraRestClient*IT.java`) : `PUT /rest/api/2/issue/{key}/assignee` avec `{"name": login}` ; `assignee` lu dans `issueStatus` (`fields=status,updated,assignee`), nul si absent.
+
+### Implémentation US5
+
+- [ ] T040 [US5] `BM/domain/jira/IssueStatus.java` : champ `assignee` (login, nul). `BM/domain/port/IssueTracker.java` : `void assign(JiraEndpoint, String issueKey, String login)`. `BM/infrastructure/jira/JiraApi.java` et `JiraRestClient.java` : `PUT issue/{key}/assignee`, champ `assignee.name` lu.
+- [ ] T041 [US5] `BM/application/task/TaskJira.java` : `record Move(Result result, String status, String assignProblem)` rendu par `moveTo` et `start` (`Started` retiré) ; affectation avant chaque `transition`, sauf vers « à faire » ; login mis en cache par `JiraEndpoint` ; `WARN` « Ticket %s non affecté à %s : %s ». Adapter `AgentTasks` (motif ajouté à `message`), `StoryFollow` (`story.message`), `TaskSync` et `TrackingActions` (`.result()`).
+- [ ] T042 [US5] E2E : dans le parcours 023 de `e2e/tests/us15-taches.spec.ts`, stub `myself` et `PUT …/assignee` ; vérifier l'affectation de PROJ-303 et de la story avant leurs transitions.
+
+**Checkpoint**: US5 testable seule ; les US1 à US4 inchangées.
+
+---
+
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T031 [P] Dans `BM/mcp/Tools.java`, compléter les descriptions de `complete_task` (statut d'arrivée réglé dans le projet, sinon « terminé » ; `story`), de `start_task` (la story « à faire » passe en cours) et de `set_feature_status` (`story`). Étendre `BT/mcp/McpBridgeTest.java` sur ces mentions.
-- [ ] T032 Écrire `e2e/tests/us23-statut-fin.spec.ts` (WireMock, modèle : `us15-taches`) :
+- [X] T031 [P] Dans `BM/mcp/Tools.java`, compléter les descriptions de `complete_task` (statut d'arrivée réglé dans le projet, sinon « terminé » ; `story`), de `start_task` (la story « à faire » passe en cours) et de `set_feature_status` (`story`). Étendre `BT/mcp/McpBridgeTest.java` sur ces mentions.
+- [X] T032 Étendre `e2e/tests/us15-taches.spec.ts` d'un parcours 023, sur sa feature déjà découpée (une session neuve rejouerait tout le parcours du modèle ; WireMock) :
   - **workflow simulé** : story « Prête » ; deux sous-tâches « Créée » ; transitions « Démarrer » vers « En Cours » (indeterminate), « Réaliser » vers « Réalisée » (indeterminate), « Fermer » vers « Fermée » (done) et « Annuler » vers « Annulée » (done) ;
   - **réglage** : régler le projet par la rubrique (« Réalisée », « En cours de test ») ;
   - **par la passerelle** : `start_task` déplace la story en cours ; `complete_task` envoie « Réaliser », pas « Fermer » ; la relecture garde la tâche `DONE` ; la dernière fin déplace la story vers « Réalisée » ;
   - **accessibilité** : `expectNoA11yViolations` sur la rubrique.
-- [ ] T033 [P] Mettre à jour `README.md`, rubrique « Agents de code (MCP) » et réglages du projet :
+- [X] T033 [P] Mettre à jour `README.md`, rubrique « Agents de code (MCP) » et réglages du projet :
   - le statut d'arrivée et les statuts finis, et l'exemple d'AURORA ;
   - la story qui suit ses tâches ;
   - le comportement sans réglage.
-- [ ] T034 [P] Renvois de contrats : `specs/015-taches-avancement/contracts/mcp-tools.md` vers `specs/023-statut-fin-tache/contracts/mcp-tools.md`. Dans `CLAUDE.md`, la feature en cours devient la 023, devant la 022.
-- [ ] T035 Dérouler `quickstart.md` Q1 à Q5 sur le jar des gates et noter les résultats ; Q6 (AURORA réel) revient au mainteneur.
+- [X] T034 [P] Renvois de contrats : `specs/015-taches-avancement/contracts/mcp-tools.md` vers `specs/023-statut-fin-tache/contracts/mcp-tools.md`. Dans `CLAUDE.md`, la feature en cours devient la 023, devant la 022.
+- [ ] T035 Dérouler `quickstart.md` Q1 à Q5 bis sur le jar des gates et noter les résultats ; Q6 (AURORA réel) revient au mainteneur.
 - [ ] T036 Gates complètes, `bash ci/check-eval.sh` vert. Cocher les tâches `[X]` ; commit `docs(023): README, contrats et quickstart`.
 
 ---
