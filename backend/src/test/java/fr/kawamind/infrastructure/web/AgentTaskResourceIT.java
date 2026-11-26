@@ -112,7 +112,10 @@ class AgentTaskResourceIT {
         String base = "/api/agent/features/" + id + "/tasks";
         AgentResourceIT.agent(secret).get(base + "/next").then().statusCode(422).body("code", equalTo("BRIDGE_OUTDATED"));
         AgentResourceIT.agent(secret).header("X-Agent-Connection", ME).get(base + "/next").then().statusCode(200)
-                .body("outcome", equalTo("TASK")).body("task.key", equalTo(key)).body("resume", equalTo(false));
+                .body("outcome", equalTo("TASK")).body("task.key", equalTo(key)).body("resume", equalTo(false))
+                // 022 : le type relu dans Jira et le ticket parent, sans retirer un champ existant
+                .body("task.parentKey", equalTo(story)).body("task.issueType", equalTo("Sous-tâche"))
+                .body("task.outcome", equalTo("POST renvoie 201"));
         AgentResourceIT.agent(secret).header("X-Agent-Connection", ME).post(base + "/" + key + "/start").then()
                 .statusCode(200).body("task.status", equalTo("IN_PROGRESS")).body("jiraSync", equalTo("OK"))
                 .body("task.heldByYou", equalTo(true));
@@ -132,6 +135,8 @@ class AgentTaskResourceIT {
 
         AgentResourceIT.agent(secret).header("X-Agent-Connection", other).get("/api/agent/features/" + id).then()
                 .statusCode(200).body("tasks", hasSize(1)).body("tasks[0].heldBy", equalTo("Claude Code"))
+                .body("tasks[0].parentKey", equalTo(story)).body("jiraIssueKey", equalTo(story))
+                .body("jiraTicket.key", equalTo(story))
                 .body("progress.total", equalTo(1)).body("tracking", equalTo("ACTIVE")).body("status", equalTo("IN_PROGRESS"));
         AgentResourceIT.agent(secret).body(Map.of("status", "IMPLEMENTED")).put("/api/agent/features/" + id + "/status")
                 .then().statusCode(409).body("code", equalTo("STATUS_FOLLOWS_TASKS"));

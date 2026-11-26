@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { isProblem } from '../../core/http/problem';
 import { JiraApi } from '../../core/jira/jira.api';
-import { IssuePage, IssueSortField, IssueSync, SortDirection } from '../../core/jira/jira.model';
+import { IssuePage, IssueSortField, IssueSync, ProjectIssue, SortDirection } from '../../core/jira/jira.model';
 import { KnowledgeApi } from '../../core/projects/knowledge.api';
 import { ProjectsStore } from '../../core/projects/projects.store';
 import { SettingsStore } from '../../core/settings/settings.store';
@@ -87,8 +87,31 @@ function failure(error: unknown): string {
               <tbody>
                 @for (i of p.issues; track i.key) {
                   <tr>
-                    <td><a [routerLink]="['/jira', i.key]">{{ i.key }}</a></td>
-                    <td>{{ i.title }}</td>
+                    <td>
+                      <span class="ticket">
+                        @if (i.subtasks.length) {
+                          <button
+                            mat-button
+                            type="button"
+                            class="toggle"
+                            [attr.aria-expanded]="isOpen(i.key)"
+                            [attr.aria-controls]="isOpen(i.key) ? childIds(i) : null"
+                            [attr.aria-label]="toggleLabel(i)"
+                            (click)="toggle(i.key)"
+                          >
+                            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class.open]="isOpen(i.key)"><path d="m9 6 6 6-6 6" /></svg>
+                            {{ i.subtasks.length }}
+                          </button>
+                        }
+                        <a [routerLink]="['/jira', i.key]">{{ i.key }}</a>
+                      </span>
+                    </td>
+                    <td>
+                      {{ i.title }}
+                      @if (i.parentKey) {
+                        <span class="parent">Sous-tâche de {{ i.parentKey }}</span>
+                      }
+                    </td>
                     <td>{{ i.updatedAt | swDate: 'd MMM y, HH:mm' }}</td>
                     <td>{{ i.status ?? '—' }}</td>
                     <td><span class="sync" [attr.data-sync]="i.sync">{{ syncLabels[i.sync] }}</span></td>
@@ -100,6 +123,27 @@ function failure(error: unknown): string {
                       }
                     </td>
                   </tr>
+                  @if (isOpen(i.key)) {
+                    @for (c of i.subtasks; track c.key) {
+                      <tr class="subtask" [id]="'sous-tache-' + c.key">
+                        <td>
+                          <span class="sw-visually-hidden">Sous-tâche de {{ i.key }} : </span>
+                          <a [routerLink]="['/jira', c.key]">{{ c.key }}</a>
+                        </td>
+                        <td>{{ c.title }}</td>
+                        <td>{{ c.updatedAt | swDate: 'd MMM y, HH:mm' }}</td>
+                        <td>{{ c.status ?? '—' }}</td>
+                        <td><span class="sync" [attr.data-sync]="c.sync">{{ syncLabels[c.sync] }}</span></td>
+                        <td>
+                          @if (c.sessionId) {
+                            <a [routerLink]="['/sessions', c.sessionId]">Ouvrir la session liée</a>
+                          } @else {
+                            <a [routerLink]="['/jira', c.key]">Voir et importer</a>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  }
                 }
               </tbody>
             </table>
@@ -189,6 +233,43 @@ function failure(error: unknown): string {
       margin: 0;
       flex: 1 1 20rem;
     }
+    .ticket {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      white-space: nowrap;
+    }
+    .toggle {
+      min-width: 0;
+      padding: 0 0.4rem;
+    }
+    .toggle svg {
+      vertical-align: middle;
+      transition: transform 120ms ease;
+    }
+    .toggle svg.open {
+      transform: rotate(90deg);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .toggle svg {
+        transition: none;
+      }
+    }
+    tr.subtask td:first-child {
+      padding-left: 2.25rem;
+      border-left: 3px solid var(--sw-rule);
+    }
+    tr.subtask td {
+      color: var(--sw-ink-soft);
+    }
+    tr.subtask a {
+      color: var(--sw-ink);
+    }
+    .parent {
+      display: block;
+      color: var(--sw-ink-soft);
+      font-size: var(--sw-step--1);
+    }
   `,
 })
 export class JiraIssuesPage {
@@ -223,6 +304,8 @@ export class JiraIssuesPage {
   protected readonly pageNumber = computed(() => Math.max(1, Number.parseInt(this.query().get('page') ?? '1', 10) || 1));
 
   protected readonly page = signal<IssuePage | null>(null);
+  /** 022 : tickets dépliés ; tout se replie au changement de page ou de tri. */
+  protected readonly open = signal<ReadonlySet<string>>(new Set());
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
   protected readonly syncing = signal(false);
@@ -249,6 +332,30 @@ export class JiraIssuesPage {
         untracked(() => void this.load());
       }
     });
+  }
+
+  protected isOpen(key: string): boolean {
+    return this.open().has(key);
+  }
+
+  protected toggle(key: string): void {
+    this.open.update((keys) => {
+      const next = new Set(keys);
+      if (!next.delete(key)) {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  protected toggleLabel(issue: ProjectIssue): string {
+    const n = issue.subtasks.length;
+    const what = n === 1 ? 'la sous-tâche' : `les ${n} sous-tâches`;
+    return `${this.isOpen(issue.key) ? 'Masquer' : 'Afficher'} ${what} de ${issue.key}`;
+  }
+
+  protected childIds(issue: ProjectIssue): string {
+    return issue.subtasks.map((c) => 'sous-tache-' + c.key).join(' ');
   }
 
   protected ariaSort(field: IssueSortField): string | null {
@@ -287,6 +394,7 @@ export class JiraIssuesPage {
       return;
     }
     this.busy.set(true);
+    this.open.set(new Set());
     try {
       this.page.set(await this.api.issues(id, this.sort(), this.dir(), (this.pageNumber() - 1) * this.size, this.size));
       this.error.set(null);

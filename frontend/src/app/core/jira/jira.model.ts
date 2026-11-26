@@ -70,6 +70,10 @@ export interface ProjectIssue {
   sync: IssueSync;
   /** Session liée à ce ticket, s'il y en a une. */
   sessionId: string | null;
+  /** 022 : parent d'une sous-tâche du premier niveau dont le parent n'est pas indexé ; nul sinon. */
+  parentKey: string | null;
+  /** 022 : sous-tâches indexées, classées par clé ; vides pour une sous-tâche. */
+  subtasks: ProjectIssue[];
 }
 
 /** Bilan de la dernière synchronisation d'une source (017). */

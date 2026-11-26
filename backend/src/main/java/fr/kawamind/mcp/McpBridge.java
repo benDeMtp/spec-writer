@@ -110,7 +110,10 @@ public final class McpBridge {
         server.put("name", "spec-writer");
         server.put("version", version());
         result.put("instructions", "Features à implémenter, leurs tâches et la connaissance du projet de spec-writer. "
-                + "En reprenant le travail sur une feature, appelez next_task." + Tools.DATA_NOTICE);
+                + "En reprenant le travail sur une feature, appelez next_task. "
+                + "Une tâche qui est une sous-tâche (champ parentKey) se fait sur la branche de son ticket parent : si "
+                + "une branche est nécessaire, reprenez ou créez celle du parent, jamais une branche par sous-tâche."
+                + Tools.DATA_NOTICE);
         rpc.result(id, result);
     }
 

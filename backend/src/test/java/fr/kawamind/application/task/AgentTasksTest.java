@@ -213,6 +213,50 @@ class AgentTasksTest {
                 .containsExactly("## Accès\n\nJeton en lecture seule, via le coffre.", null, null);
     }
 
+    /** 022 (US2) : chaque tâche porte le ticket lié à la feature comme parent, et son type relu dans Jira. */
+    @Test
+    void chaqueTacheDitSonTypeEtSonTicketParent() {
+        AgentTasks.NextAnswer next = agent.next("claude-code", ME, session.id());
+        assertThat(next.task().parentKey()).isEqualTo("FACT-120");
+        assertThat(next.task().issueType()).isEqualTo("Sous-tâche");
+        assertThat(agent.forFeature(session.id(), ME).tasks()).extracting(AgentTasks.TaskInfo::parentKey)
+                .containsOnly("FACT-120");
+        AgentTasks.TaskAnswer started = agent.start("claude-code", ME, session.id(), "FACT-124");
+        assertThat(started.task().parentKey()).isEqualTo("FACT-120");
+
+        TrackedIssue t = w.tracker.tracked.get("FACT-124");
+        w.tracker.tracked.put("FACT-124", new TrackedIssue(t.key(), t.summary(), t.description(), t.status(),
+                t.statusCategory(), "Sous-Tâche (AGILE)", t.updated(), t.links()));
+        assertThat(agent.complete("claude-code", ME, session.id(), "FACT-124", null).task().issueType())
+                .isEqualTo("Sous-Tâche (AGILE)");
+
+        // Jira injoignable : le parent et le dernier type lu restent
+        w.tracker.failure = Kind.UNREACHABLE;
+        AgentTasks.NextAnswer offline = agent.next("claude-code", ME, session.id());
+        assertThat(offline.task().parentKey()).isEqualTo("FACT-120");
+        assertThat(offline.task().issueType()).isEqualTo("Sous-tâche");
+        assertThat(agent.forFeature(session.id(), ME).tasks()).extracting(AgentTasks.TaskInfo::issueType)
+                .containsExactly("Sous-Tâche (AGILE)", "Sous-tâche", "Sous-tâche");
+    }
+
+    /** 022 (US3) : la consigne de branche, avec la clé du parent, quand l'agent reçoit ou prend une sous-tâche. */
+    @Test
+    void laConsigneDeBrancheCiteLeTicketParent() {
+        String rule = "FACT-124 est une sous-tâche de FACT-120 : si une branche est nécessaire, travaillez sur celle de"
+                + " FACT-120 (reprenez-la si elle existe). Toutes les sous-tâches de FACT-120 s'y font.";
+        assertThat(agent.next("claude-code", ME, session.id()).branch()).isEqualTo(rule);
+        assertThat(agent.start("claude-code", ME, session.id(), "FACT-124").branch()).isEqualTo(rule);
+        assertThat(agent.complete("claude-code", ME, session.id(), "FACT-124", null).branch()).isNull();
+        assertThat(AgentTasks.branchRule("FACT-124", null)).isNull();
+
+        // plus de tâche à faire, ou toutes tenues : pas de consigne
+        agent.start("claude-code", ME, session.id(), "FACT-125");
+        agent.start("claude-code", ME, session.id(), "FACT-126");
+        AgentTasks.NextAnswer held = agent.next("codex", OTHER, session.id());
+        assertThat(held.outcome()).isEqualTo("ALL_HELD");
+        assertThat(held.branch()).isNull();
+    }
+
     void enrich(String key, String description) {
         TrackedIssue t = w.tracker.tracked.get(key);
         w.tracker.tracked.put(key, new TrackedIssue(t.key(), t.summary(), description, t.status(), t.statusCategory(),

@@ -1,7 +1,10 @@
 # spec-writer
 
 Outil local de rédaction de spécifications : front Angular 22, backend Quarkus 4 (Java 25), SQLite.
-La feature en cours est `specs/021-interview-specification/` (séance de relecture d'une ou
+La feature en cours est `specs/022-hierarchie-sous-taches/` (vue Jira par tickets du premier
+niveau, sous-tâches repliées sous leur parent d'après le lien `PARENT` de `ticket_link` ; type et
+ticket parent de chaque tâche dans le MCP, type relu en V34, consigne `branch` de travailler sur la
+branche du parent), après `specs/021-interview-specification/` (séance de relecture d'une ou
 plusieurs spécifications avec les sachants, sur écran partagé : préparation depuis la page
 Spécifications, parcours élément par élément, points rattachés, compte rendu à copier, révision
 en une fois par la discussion de la 011, « à reporter » vers les sources de vérité ; tables V30),

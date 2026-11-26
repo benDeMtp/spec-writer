@@ -78,7 +78,7 @@ export const TOUR_STOPS: TourStop[] = [
     route: '/jira',
     target: 'jira-table',
     title: 'Tickets Jira',
-    text: 'Les tickets du projet, triés par date, statut ou état de synchronisation avec leur spécification.',
+    text: 'Les tickets du projet, triés par date, statut ou état de synchronisation avec leur spécification ; les sous-tâches se déplient sous leur ticket parent.',
     fallback: 'Les tickets du projet Jira s’afficheront ici une fois Jira connecté et synchronisé.',
   },
   {

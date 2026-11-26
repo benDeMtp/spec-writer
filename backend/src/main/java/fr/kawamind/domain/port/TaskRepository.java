@@ -27,6 +27,12 @@ public interface TaskRepository {
     /** Description relue dans Jira, en Markdown ; nulle si la sous-tâche n'en a pas. */
     void describe(UUID taskId, String description);
 
+    /** Types relus dans Jira des tâches de la session, par tâche ; absents s'ils sont inconnus (022, V34). */
+    Map<UUID, String> issueTypes(UUID sessionId);
+
+    /** Libellé du type de la sous-tâche dans Jira, relu avec le statut, 100 caractères au plus ; nul si inconnu. */
+    void type(UUID taskId, String issueType);
+
     Optional<TaskProposal> proposal(UUID sessionId);
 
     void saveProposal(UUID sessionId, TaskProposal proposal, Instant at);

@@ -198,6 +198,19 @@ class McpBridgeTest {
             assertThat(t.path("inputSchema").path("type").asString()).isEqualTo("object");
             assertThat(t.path("description").asString()).isNotBlank();
         });
+        // 022 : le parent d'une sous-tâche et la consigne de branche
+        assertThat(init.path("instructions").asString()).contains("se fait sur la branche de son ticket parent")
+                .contains("jamais une branche par sous-tâche");
+        for (JsonNode t : tools) {
+            String name = t.path("name").asString();
+            String text = t.path("description").asString();
+            if (name.equals("next_task") || name.equals("start_task")) {
+                assertThat(text).as(name).contains("parentKey").contains("issueType").contains("branch");
+            }
+            if (name.equals("get_feature")) {
+                assertThat(text).contains("jiraTicket");
+            }
+        }
         assertThat(tools.get(1).path("inputSchema").path("required").get(0).asString()).isEqualTo("projectId");
 
         assertThat(r.text(4)).contains("Facturation");
