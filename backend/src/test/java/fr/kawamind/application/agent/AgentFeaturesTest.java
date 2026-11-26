@@ -225,4 +225,33 @@ class AgentFeaturesTest {
                 fr.kawamind.application.task.StoryMove.Outcome.MOVED, "Réalisée", null));
         assertThat(tw.tracker.tracked.get("FACT-120").status()).isEqualTo("Réalisée");
     }
+
+    @Test
+    void uneFeatureDontLaStoryNAPasLeLabelNEstPasServie() {
+        // 024 (US3, FR-011) : sur un projet qui a un label, la story doit le porter
+        fr.kawamind.application.jira.JiraScope scope = new fr.kawamind.application.jira.JiraScope(w.jiraLabels,
+                w.ticketLabels, w.tickets, w.sessions);
+        ListFeatures scoped = new ListFeatures(w.projects, w.sessions, w.versions, journal, scope);
+        GetFeature scopedGet = new GetFeature(w.sessions, w.versions, w.tickets, new FeatureKnowledge(w.projects, index),
+                journal, null, null, null, scope);
+        AgentChangeStatus scopedStatus = new AgentChangeStatus(w.sessions, w.clock, journal, null, null, scope);
+        assertThat(scoped.run("Claude Code", Project.DEFAULT_ID)).extracting(ListFeatures.Feature::id)
+                .containsExactly(ready.id());
+
+        w.jiraLabels.save(Project.DEFAULT_ID, fr.kawamind.domain.jira.JiraLabel.of("spec-writer"), T);
+        assertThat(scoped.run("Claude Code", Project.DEFAULT_ID)).isEmpty();
+        assertThatThrownBy(() -> scopedGet.run("Claude Code", ready.id())).isInstanceOfSatisfying(DomainException.class,
+                e -> {
+                    assertThat(e.code()).isEqualTo(ErrorCode.NOT_IN_JIRA_SCOPE);
+                    assertThat(e.userMessage()).contains("PROJ-9").contains("label spec-writer");
+                });
+        assertThatThrownBy(() -> scopedStatus.run("Cursor", ready.id(), ImplementationStatus.IN_PROGRESS))
+                .isInstanceOfSatisfying(DomainException.class,
+                        e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_IN_JIRA_SCOPE));
+
+        w.ticketLabels.add(Project.DEFAULT_ID, "PROJ-9", "spec-writer");
+        assertThat(scoped.run("Claude Code", Project.DEFAULT_ID)).extracting(ListFeatures.Feature::id)
+                .containsExactly(ready.id());
+        assertThat(scopedGet.run("Claude Code", ready.id()).id()).isEqualTo(ready.id());
+    }
 }

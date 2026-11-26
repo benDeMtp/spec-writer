@@ -79,6 +79,11 @@ public class JiraAccess {
         return target.inProject(effectiveProject(session));
     }
 
+    /** Projet spec-writer d'une session ; {@code NOT_FOUND} si elle n'existe pas (024). */
+    public UUID projectOf(UUID sessionId) {
+        return sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND)).projectId();
+    }
+
     public Target require(Session session) {
         return require().inProject(effectiveProject(session));
     }

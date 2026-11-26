@@ -61,7 +61,7 @@ public class JiraRestClient implements IssueTracker {
     private static final DateTimeFormatter JIRA_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     static final String SEARCH_FIELDS = "summary,status,issuetype,updated";
     static final String ISSUE_FIELDS = "summary,description,updated";
-    static final String TRACKED_FIELDS = "summary,description,status,issuetype,updated,parent,subtasks,issuelinks";
+    static final String TRACKED_FIELDS = "summary,description,status,issuetype,updated,parent,subtasks,issuelinks,labels";
     static final String STATUS_FIELDS = "status,updated,assignee";
     static final String PARENT_FIELDS = "summary,status,issuetype,subtasks";
     private static final int KEYS_PAGE = 100;
@@ -165,11 +165,20 @@ public class JiraRestClient implements IssueTracker {
                     issues.add(new TrackedIssue(key, text(fields.get("summary")),
                             wiki == null ? "" : markup.toMarkdown(wiki, browse(endpoint, key)), text(status.get("name")),
                             text(map(status.get("statusCategory")).get("key")), name(fields.get("issuetype")),
-                            date(fields.get("updated")), links(fields)));
+                            date(fields.get("updated")), links(fields), labels(fields)));
                 }
             }
         }
         return new TrackedIssuePage(issues, number(body.get("startAt"), startAt), number(body.get("total"), issues.size()));
+    }
+
+    /** Labels d'un ticket (024) ; vide sans le champ. */
+    private static List<String> labels(Map<?, ?> fields) {
+        List<String> labels = new ArrayList<>();
+        if (fields.get("labels") instanceof List<?> list) {
+            list.stream().filter(java.util.Objects::nonNull).map(String::valueOf).forEach(labels::add);
+        }
+        return labels;
     }
 
     /** Parent, sous-tâches et liens explicites d'un ticket (research.md R29) ; un lien incomplet est ignoré. */
@@ -377,7 +386,7 @@ public class JiraRestClient implements IssueTracker {
 
     @Override
     public CreatedIssue createSubtask(JiraEndpoint endpoint, String projectKey, String parentKey, String issueTypeId,
-            String summary, String wikiDescription) {
+            String summary, String wikiDescription, List<String> labels) {
         requireKey(parentKey);
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("project", Map.of("key", projectKey));
@@ -385,9 +394,21 @@ public class JiraRestClient implements IssueTracker {
         fields.put("parent", Map.of("key", parentKey));
         fields.put("summary", summary);
         fields.put("description", wikiDescription);
+        if (labels != null && !labels.isEmpty()) {
+            fields.put("labels", List.copyOf(labels));
+        }
         Map<String, Object> created = call(endpoint,
                 api -> rejecting("la sous-tâche", () -> api.createIssue(Map.of("fields", fields))));
         return new CreatedIssue(String.valueOf(created.get("id")), String.valueOf(created.get("key")));
+    }
+
+    @Override
+    public void addLabel(JiraEndpoint endpoint, String issueKey, String label) {
+        requireKey(issueKey);
+        call(endpoint, api -> rejecting("le label", () -> {
+            api.updateIssue(issueKey, Map.of("update", Map.of("labels", List.of(Map.of("add", label)))));
+            return null;
+        }));
     }
 
     @Override

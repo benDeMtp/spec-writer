@@ -1,5 +1,6 @@
 package fr.kawamind.application.agent;
 
+import fr.kawamind.application.jira.JiraScope;
 import fr.kawamind.application.task.StoryFollow;
 import fr.kawamind.application.task.StoryMove;
 import fr.kawamind.domain.agent.AgentOperation;
@@ -31,6 +32,8 @@ public class AgentChangeStatus {
     private final TaskRepository tasks;
     /** La story suit la feature (023, US4) ; sans lui (null), Jira n'est pas touché. */
     private final StoryFollow story;
+    /** Périmètre des agents (024, US3). */
+    private final JiraScope scope;
 
     public AgentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal) {
         this(sessions, clock, journal, null);
@@ -43,6 +46,12 @@ public class AgentChangeStatus {
 
     public AgentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal, TaskRepository tasks,
             StoryFollow story) {
+        this(sessions, clock, journal, tasks, story, JiraScope.OPEN);
+    }
+
+    public AgentChangeStatus(SessionRepository sessions, ClockPort clock, AgentJournal journal, TaskRepository tasks,
+            StoryFollow story, JiraScope scope) {
+        this.scope = scope;
         this.story = story;
         this.tasks = tasks;
         this.sessions = sessions;
@@ -55,6 +64,7 @@ public class AgentChangeStatus {
             throw new DomainException(ErrorCode.TRANSITION_NOT_ALLOWED);
         }
         Session session = sessions.find(featureId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        scope.requireFeature(featureId);
         if (tasks != null && TaskProgress.total(tasks.tasks(featureId)) > 0) {
             throw new DomainException(ErrorCode.STATUS_FOLLOWS_TASKS, "Cette feature a des tâches : son statut suit leur "
                     + "avancement. Utilisez next_task, start_task et complete_task.");

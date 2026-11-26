@@ -165,8 +165,27 @@ class SynchronizeKnowledgeTest {
         sources.save(sources.find(P).withArchitecture(workspace.toString(), "facturation"));
         architecture.set(model("h1"));
         sync = new SynchronizeKnowledge(world.projects, sources, world.docSources, world.docs, world.folder, world.fileStates, architectureReader,
-                world.jira, world.tracker, world.ticketLinks, index, embedding, world.clock);
+                world.jira, world.tracker, world.ticketLinks, index, embedding, world.clock, null, world.ticketLabels);
         progress = new Recorder();
+    }
+
+    /** T011 (024, research R2) : les labels de chaque ticket relu sont gardés, et suivent les retraits. */
+    @Test
+    void lesLabelsDesTicketsSontGardesALaSynchronisation() {
+        world.tracker.tracked.put("PROJ-9", world.tracker.tracked.get("PROJ-9").withLabels(List.of("spec-writer", "facturation")));
+        sync.run(P, Mode.FULL, progress);
+        assertThat(world.ticketLabels.has(P, "PROJ-9", "spec-writer")).isTrue();
+        assertThat(world.ticketLabels.has(P, "PROJ-7", "spec-writer")).isFalse();
+
+        world.tracker.tracked.put("PROJ-9", world.tracker.tracked.get("PROJ-9").withLabels(List.of("facturation")));
+        world.tracker.moveTo("PROJ-9", "new");
+        sync.run(P, Mode.INCREMENTAL, new Recorder());
+        assertThat(world.ticketLabels.has(P, "PROJ-9", "spec-writer")).isFalse();
+        assertThat(world.ticketLabels.has(P, "PROJ-9", "facturation")).isTrue();
+
+        world.tracker.tracked.remove("PROJ-9");
+        sync.run(P, Mode.FULL, new Recorder());
+        assertThat(world.ticketLabels.has(P, "PROJ-9", "facturation")).isFalse();
     }
 
     @Test
@@ -192,7 +211,8 @@ class SynchronizeKnowledgeTest {
 
         world.tracker.calls.clear();
         sync.run(P, Mode.INCREMENTAL, new Recorder());
-        assertThat(world.tracker.calls).containsExactly("updatedSince PROJ 2026-10-28T08:30:00Z 0");
+        // 024 : la liste des clés suit chaque synchronisation, pour retirer les tickets supprimés
+        assertThat(world.tracker.calls).containsExactly("updatedSince PROJ 2026-10-28T08:30:00Z 0", "keys PROJ");
     }
 
     /**
@@ -262,14 +282,39 @@ class SynchronizeKnowledgeTest {
         assertThat(embedding.passages).isEmpty();
     }
 
+    /** 024 (US5, FR-018) : chaque synchronisation, incrémentale comprise, retire les tickets supprimés. */
     @Test
-    void synchronisationCompleteRetireLesTicketsSupprimes() {
-        sync.run(P, Mode.FULL, progress);
+    void chaqueSynchronisationRetireLesTicketsSupprimes() {
+        List<String> forgotten = new ArrayList<>();
+        SynchronizeKnowledge following = new SynchronizeKnowledge(world.projects, sources, world.docSources, world.docs,
+                world.folder, world.fileStates, architectureReader, world.jira, world.tracker, world.ticketLinks, index,
+                embedding, world.clock, null, world.ticketLabels, (project, keys) -> forgotten.addAll(keys));
+        following.run(P, Mode.FULL, progress);
         world.tracker.tracked.remove("PROJ-7");
-        sync.run(P, Mode.INCREMENTAL, new Recorder());
-        assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(2);
-        sync.run(P, Mode.FULL, new Recorder());
+        Recorder incremental = new Recorder();
+        following.run(P, Mode.INCREMENTAL, incremental);
         assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-7", 0))).isEmpty();
+        assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(1);
+        assertThat(forgotten).containsExactly("PROJ-7");
+        assertThat(incremental.errors).isEmpty();
+    }
+
+    /** 024 (FR-021) : une liste de tickets vide face à un index rempli ne retire rien, et le dit. */
+    @Test
+    void uneListeVideNeRetireRien() {
+        sync.run(P, Mode.FULL, progress);
+        world.tracker.tracked.clear();
+        Recorder empty = new Recorder();
+        sync.run(P, Mode.INCREMENTAL, empty);
+        assertThat(index.count(P, KnowledgeKind.TICKET)).isEqualTo(2);
+        assertThat(empty.errors).extracting(e -> e.reason()).contains(SynchronizeKnowledge.EMPTY_KEYS);
+
+        // Jira injoignable pendant la liste : rien non plus
+        world.tracker.tracked.put("PROJ-9", issue("PROJ-9", "Émettre un avoir partiel", "new", Instant.parse("2026-10-28T08:30:00Z")));
+        world.tracker.failingCall = "keys";
+        sync.run(P, Mode.INCREMENTAL, new Recorder());
+        world.tracker.failingCall = null;
+        assertThat(index.find(P, new Key(KnowledgeKind.TICKET, "PROJ-7", 0))).isPresent();
     }
 
     @Test
@@ -1026,7 +1071,7 @@ class SynchronizeKnowledgeTest {
         executor.runAll();
         assertThat(indexations.current(P)).get().extracting(Indexations.Snapshot::status)
                 .isEqualTo(Indexations.Status.SUCCEEDED);
-        assertThat(world.tracker.calls).containsExactly("updatedSince PROJ 2026-10-28T08:30:00Z 0");
+        assertThat(world.tracker.calls).containsExactly("updatedSince PROJ 2026-10-28T08:30:00Z 0", "keys PROJ");
         assertThat(world.docs.reads).isEmpty();
         assertThat(architectureReads).isEmpty();
     }

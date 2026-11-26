@@ -204,4 +204,34 @@ class JiraTasksIT {
                     assertThat(String.join(" ", e.details())).contains("ne peut pas être affecté");
                 });
     }
+
+    // 024 (research R2, R3) : labels lus, posés à la création, ajoutés à la reprise
+
+    @Test
+    void lesLabelsSontPosesALaCreationDUneSousTache() {
+        jira.stubFor(post("/rest/api/2/issue").willReturn(okJson("{\"id\":\"30125\",\"key\":\"FACT-125\"}")));
+        client.createSubtask(endpoint(), "FACT", "FACT-120", "10005", "Titre", "Fait", java.util.List.of("spec-writer"));
+        jira.verify(postRequestedFor(urlPathEqualTo("/rest/api/2/issue"))
+                .withRequestBody(matchingJsonPath("$.fields.labels[0]", equalTo("spec-writer"))));
+    }
+
+    @Test
+    void unLabelEstAjouteSansToucherAuxAutres() {
+        jira.stubFor(put("/rest/api/2/issue/FACT-120").willReturn(aResponse().withStatus(204)));
+        client.addLabel(endpoint(), "FACT-120", "spec-writer");
+        jira.verify(putRequestedFor(urlPathEqualTo("/rest/api/2/issue/FACT-120"))
+                .withRequestBody(equalToJson("{\"update\":{\"labels\":[{\"add\":\"spec-writer\"}]}}")));
+    }
+
+    @Test
+    void unLabelRefuseDonneLeChampEnCause() {
+        jira.stubFor(put("/rest/api/2/issue/FACT-120").willReturn(aResponse().withStatus(400)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"errorMessages\":[],\"errors\":{\"labels\":\"Le champ n'est pas sur l'écran.\"}}")));
+        assertThatThrownBy(() -> client.addLabel(endpoint(), "FACT-120", "spec-writer"))
+                .isInstanceOfSatisfying(IssueTrackerException.class, e -> {
+                    assertThat(e.kind()).isEqualTo(Kind.REJECTED);
+                    assertThat(e.details()).containsExactly("labels : Le champ n'est pas sur l'écran.");
+                });
+    }
 }

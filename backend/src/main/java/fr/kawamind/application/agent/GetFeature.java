@@ -1,5 +1,6 @@
 package fr.kawamind.application.agent;
 
+import fr.kawamind.application.jira.JiraScope;
 import fr.kawamind.domain.agent.AgentOperation;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
@@ -56,6 +57,8 @@ public class GetFeature {
     /** Index et liens des tickets (022) ; sans eux (null), le ticket lié n'a que sa clé. */
     private final KnowledgeIndex index;
     private final TicketLinkRepository links;
+    /** Périmètre des agents (024, US3). */
+    private final JiraScope scope;
 
     public GetFeature(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             FeatureKnowledge knowledge, AgentJournal journal) {
@@ -70,6 +73,13 @@ public class GetFeature {
     public GetFeature(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
             FeatureKnowledge knowledge, AgentJournal journal, AgentTasks tasks, KnowledgeIndex index,
             TicketLinkRepository links) {
+        this(sessions, versions, tickets, knowledge, journal, tasks, index, links, JiraScope.OPEN);
+    }
+
+    public GetFeature(SessionRepository sessions, SpecificationRepository versions, LinkedTicketRepository tickets,
+            FeatureKnowledge knowledge, AgentJournal journal, AgentTasks tasks, KnowledgeIndex index,
+            TicketLinkRepository links, JiraScope scope) {
+        this.scope = scope;
         this.index = index;
         this.links = links;
         this.tasks = tasks;
@@ -89,6 +99,7 @@ public class GetFeature {
         Implementation implementation = sessions.implementation(featureId)
                 .filter(i -> i.status().toImplement()).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         Session session = sessions.find(featureId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        scope.requireFeature(featureId);
         SpecificationVersion latest = versions.find(featureId, versions.lastNumber(featureId))
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         journal.record(agentName, AgentOperation.GET_FEATURE, session.projectId(), featureId);

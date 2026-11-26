@@ -429,6 +429,42 @@ class AgentTasksTest {
         assertThat(done.message()).contains("FACT-124 n'a pas pu être affecté à ada");
     }
 
+    // 024 (US3) : périmètre du label
+
+    @Test
+    void uneTacheSansLabelNEstNiProposeeNiPrise() {
+        w.jiraLabels.save(session.projectId(), fr.kawamind.domain.jira.JiraLabel.of("spec-writer"), w.clock.now());
+        w.ticketLabels.add(session.projectId(), "FACT-120", "spec-writer");
+        w.tracker.tracked.put("FACT-125", w.tracker.tracked.get("FACT-125").withLabels(List.of("spec-writer")));
+        // la relecture des tâches lit les labels : FACT-124 n'a pas le label, FACT-125 l'a
+        AgentTasks.FeatureTasks tasks = agent.forFeature(session.id(), ME);
+        assertThat(tasks.tasks()).extracting(AgentTasks.TaskInfo::key, AgentTasks.TaskInfo::inScope)
+                .contains(org.assertj.core.groups.Tuple.tuple("FACT-124", false),
+                        org.assertj.core.groups.Tuple.tuple("FACT-125", true));
+        AgentTasks.NextAnswer next = agent.next("claude-code", ME, session.id());
+        assertThat(next.task() == null ? null : next.task().key()).isNotEqualTo("FACT-124");
+        refused(() -> agent.start("claude-code", ME, session.id(), "FACT-124"), ErrorCode.NOT_IN_JIRA_SCOPE);
+    }
+
+    @Test
+    void uneFeatureHorsPerimetreEstRefuseeAuxOutilsDesTaches() {
+        w.jiraLabels.save(session.projectId(), fr.kawamind.domain.jira.JiraLabel.of("spec-writer"), w.clock.now());
+        refused(() -> agent.next("claude-code", ME, session.id()), ErrorCode.NOT_IN_JIRA_SCOPE);
+        refused(() -> agent.start("claude-code", ME, session.id(), "FACT-124"), ErrorCode.NOT_IN_JIRA_SCOPE);
+    }
+
+    @Test
+    void uneTacheSupprimeeDansJiraEstDiteAinsi() {
+        // 024 (US5, FR-019) : après la synchronisation, la tâche n'existe plus pour l'agent
+        new ForgetDeletedTickets(w.desk, sync, w.lostLinks).run(session.projectId(), java.util.Set.of("FACT-125"));
+        assertThatThrownBy(() -> agent.complete("claude-code", ME, session.id(), "FACT-125", null))
+                .isInstanceOfSatisfying(DomainException.class, e -> {
+                    assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND);
+                    assertThat(e.userMessage()).isEqualTo("La tâche FACT-125 n'est plus une tâche de cette feature : "
+                            + "elle a peut-être été supprimée dans Jira.");
+                });
+    }
+
     void enrich(String key, String description) {
         TrackedIssue t = w.tracker.tracked.get(key);
         w.tracker.tracked.put(key, new TrackedIssue(t.key(), t.summary(), description, t.status(), t.statusCategory(),

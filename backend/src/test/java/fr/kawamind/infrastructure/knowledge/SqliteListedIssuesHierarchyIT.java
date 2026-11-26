@@ -2,6 +2,7 @@ package fr.kawamind.infrastructure.knowledge;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import fr.kawamind.domain.jira.IssueFilters;
 import fr.kawamind.domain.jira.IssueSort;
 import fr.kawamind.domain.jira.ListedIssue;
 import fr.kawamind.domain.jira.TicketLink;
@@ -42,6 +43,8 @@ class SqliteListedIssuesHierarchyIT {
     TicketLinkRepository links;
     @Inject
     ProjectRepository projects;
+    @Inject
+    fr.kawamind.domain.port.TicketLabels labels;
 
     UUID project;
 
@@ -127,5 +130,31 @@ class SqliteListedIssuesHierarchyIT {
     @Test
     void unePageVideNeLitAucuneSousTache() {
         assertThat(listed.page(project, IssueSort.DEFAULT, 10, 50)).isEmpty();
+    }
+
+    /** T021 (024, US2, research R6) : filtres du label et des terminés, sur le premier niveau seulement. */
+    @Test
+    void lesFiltresPortentSurLePremierNiveau() {
+        labels.replace(project, "S-1", List.of("spec-writer"));
+        labels.replace(project, "A-2", List.of("spec-writer"));
+        labels.replace(project, "O-5", List.of("autre"));
+        IssueFilters labelled = new IssueFilters("spec-writer", false);
+        List<ListedIssue> page = listed.page(project, IssueSort.DEFAULT, labelled, 0, 50);
+        // A-2 est terminé, A-1 et O-5 n'ont pas le label
+        assertThat(page).extracting(ListedIssue::key).containsExactly("S-1");
+        assertThat(listed.count(project, labelled)).isEqualTo(1);
+        // les sous-tâches d'un ticket retenu restent toutes là, terminées ou non
+        assertThat(page.getFirst().subtasks()).extracting(ListedIssue::key).containsExactly("S-2", "S-3", "S-10");
+
+        IssueFilters withDone = new IssueFilters("spec-writer", true);
+        assertThat(listed.page(project, IssueSort.DEFAULT, withDone, 0, 50)).extracting(ListedIssue::key)
+                .containsExactly("A-2", "S-1");
+        IssueFilters open = new IssueFilters(null, false);
+        assertThat(listed.page(project, IssueSort.DEFAULT, open, 0, 50)).extracting(ListedIssue::key)
+                .containsExactly("A-1", "S-1", "O-5");
+        assertThat(listed.count(project, open)).isEqualTo(3);
+        assertThat(listed.count(project, IssueFilters.ALL)).isEqualTo(4);
+        // un label avec une apostrophe reste un paramètre
+        assertThat(listed.count(project, new IssueFilters("x' or '1'='1", true))).isZero();
     }
 }

@@ -80,11 +80,12 @@ class JiraKnowledgeSyncIT {
         assertThat(issue.issueType()).isEqualTo("Story");
         assertThat(issue.updated()).isEqualTo(Instant.parse("2026-09-12T10:00:00Z"));
         assertThat(issue.links()).isEmpty();
+        assertThat(issue.labels()).isEmpty();
         // marge d'un jour : la date JQL est lue dans le fuseau de l'utilisateur Jira
         jira.verify(getRequestedFor(urlPathEqualTo("/rest/api/2/search"))
                 .withQueryParam("jql", equalTo("project = FACT AND updated >= \"2026/10/19 08:30\" ORDER BY updated ASC"))
                 .withQueryParam("startAt", equalTo("0")).withQueryParam("maxResults", equalTo("50"))
-                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated,parent,subtasks,issuelinks")));
+                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated,parent,subtasks,issuelinks,labels")));
     }
 
     /** T121 : parent, sous-tâches et liens explicites lus avec le ticket (FR-044, research.md R29). */
@@ -99,7 +100,7 @@ class JiraKnowledgeSyncIT {
                   "issuelinks":[
                    {"type":{"name":"Blocks","inward":"is blocked by","outward":"blocks"},"outwardIssue":{"key":"FACT-30"}},
                    {"type":{"name":"Relates","inward":"relates to","outward":"relates to"},"inwardIssue":{"key":"COMPTA-4"}},
-                   {"type":{"name":"Cloners"}}]}},
+                   {"type":{"name":"Cloners"}}],"labels":["spec-writer","backend"]}},
                  {"key":"FACT-21","fields":{"summary":"API","status":{"name":"À faire","statusCategory":{"key":"new"}},
                   "issuetype":{"name":"Sous-tâche"},"updated":"2026-10-01T10:00:00.000+0000",
                   "parent":{"key":"FACT-20","fields":{"summary":"Payer en ligne"}},"subtasks":[],"issuelinks":[]}}]}""")));
@@ -108,6 +109,9 @@ class JiraKnowledgeSyncIT {
                 TicketLink.link("Blocks", TicketLink.Direction.OUTWARD, "blocks", "FACT-30"),
                 TicketLink.link("Relates", TicketLink.Direction.INWARD, "relates to", "COMPTA-4"));
         assertThat(issues.get(1).links()).containsExactly(TicketLink.parent("FACT-20"));
+        // 024 : labels lus avec le ticket
+        assertThat(issues.get(0).labels()).containsExactly("spec-writer", "backend");
+        assertThat(issues.get(1).labels()).isEmpty();
     }
 
     /** 003, FR-002 : indexation complète, tickets ouverts ou modifiés depuis le repère. */
@@ -125,7 +129,7 @@ class JiraKnowledgeSyncIT {
         jira.verify(getRequestedFor(urlPathEqualTo("/rest/api/2/search"))
                 .withQueryParam("jql", equalTo("project = FACT AND (statusCategory != Done OR updated >= "
                         + "\"2026/10/19 08:30\") ORDER BY updated ASC"))
-                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated,parent,subtasks,issuelinks")));
+                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated,parent,subtasks,issuelinks,labels")));
     }
 
     /** 003, FR-002 : tickets absents de l'index lus par clé ; une clé supprimée n'est qu'un avertissement. */
@@ -142,7 +146,7 @@ class JiraKnowledgeSyncIT {
         jira.verify(getRequestedFor(urlPathEqualTo("/rest/api/2/search"))
                 .withQueryParam("jql", equalTo("project = FACT AND key in (FACT-7, FACT-99) ORDER BY key ASC"))
                 .withQueryParam("validateQuery", equalTo("warn")).withQueryParam("maxResults", equalTo("50"))
-                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated,parent,subtasks,issuelinks")));
+                .withQueryParam("fields", equalTo("summary,description,status,issuetype,updated,parent,subtasks,issuelinks,labels")));
         assertThatThrownBy(() -> client.issuesByKeys(endpoint(), "FACT", List.of("FACT-1) OR (1=1")))
                 .isInstanceOf(IllegalArgumentException.class);
     }

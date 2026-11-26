@@ -25,6 +25,7 @@ import fr.kawamind.domain.port.KnowledgeIndex;
 import fr.kawamind.domain.port.KnowledgeIndex.Key;
 import fr.kawamind.domain.port.KnowledgeSourceRepository;
 import fr.kawamind.domain.port.ProjectRepository;
+import fr.kawamind.domain.port.TicketLabels;
 import fr.kawamind.domain.port.TicketLinkRepository;
 import fr.kawamind.domain.project.DocSource;
 import fr.kawamind.domain.project.Project;
@@ -80,12 +81,39 @@ public class SynchronizeKnowledge {
     private final ClockPort clock;
     /** Racines Confluence (016) ; sans elle, leurs pages indexées sont gardées sans relecture. */
     private final ConfluenceIndexation confluence;
+    /** Labels des tickets (024, research R2) ; sans lui (null), ils ne sont pas gardés. */
+    private final TicketLabels labels;
+    /** Suites d'un ticket supprimé dans Jira (024, R8 : tâches, liens) ; sans lui (null), l'index seul. */
+    private final java.util.function.BiConsumer<UUID, Set<String>> deleted;
+    /** Raison d'une liste de tickets vide face à un index rempli (024, FR-021). */
+    static final String EMPTY_KEYS = "EMPTY_KEYS";
 
     public SynchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
             DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
             DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
             TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock,
             ConfluenceIndexation confluence) {
+        this(projects, sources, docSources, reader, folder, fileStates, architecture, jira, tracker, links, index,
+                embedding, clock, confluence, null);
+    }
+
+    public SynchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
+            DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
+            DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
+            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock,
+            ConfluenceIndexation confluence, TicketLabels labels) {
+        this(projects, sources, docSources, reader, folder, fileStates, architecture, jira, tracker, links, index,
+                embedding, clock, confluence, labels, null);
+    }
+
+    public SynchronizeKnowledge(ProjectRepository projects, KnowledgeSourceRepository sources,
+            DocSourceRepository docSources, DocumentationReader reader, DocumentFolder folder,
+            DocumentFileStates fileStates, ArchitectureReader architecture, JiraAccess jira, IssueTracker tracker,
+            TicketLinkRepository links, KnowledgeIndex index, EmbeddingPort embedding, ClockPort clock,
+            ConfluenceIndexation confluence, TicketLabels labels,
+            java.util.function.BiConsumer<UUID, Set<String>> deleted) {
+        this.deleted = deleted;
+        this.labels = labels;
         this.projects = projects;
         this.sources = sources;
         this.docSources = docSources;
@@ -338,20 +366,40 @@ public class SynchronizeKnowledge {
                 }
                 startAt = page.startAt() + page.issues().size();
             }
-            if (mode == Mode.FULL) {
-                checkCancelled(progress);
-                Set<String> keys = new LinkedHashSet<>(tracker.listKeys(endpoint, projectKey));
-                Set<String> closed = index.closedTickets(project.id());
+            // 024 (US5, research R8) : à chaque synchronisation, les tickets supprimés dans Jira sont retirés
+            checkCancelled(progress);
+            Set<String> keys = new LinkedHashSet<>(tracker.listKeys(endpoint, projectKey));
+            Set<String> indexed = index.hashes(project.id(), KnowledgeKind.TICKET).keySet().stream().map(Key::ref)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (keys.isEmpty() && !indexed.isEmpty()) {
+                // garde-fou (FR-021) : une liste vide face à un index rempli est une perte d'accès, pas une purge
+                LOG.warnf("Connaissance : Jira ne rend aucun ticket pour %s, rien n'est retiré de l'index", projectKey);
+                progress.error(new IndexationError(IndexationError.Kind.JIRA, projectKey, EMPTY_KEYS, null,
+                        "Jira ne rend aucun ticket pour ce projet : rien n'a été retiré de l'index. Vérifiez les droits "
+                                + "du jeton sur le projet."));
+            } else {
+                Set<String> closed = mode == Mode.FULL ? index.closedTickets(project.id()) : Set.of();
                 if (keepClosed) {
                     readMissing(endpoint, projectKey, keys, closed, reading);
                 }
+                Set<String> gone = indexed.stream().filter(k -> !keys.contains(k))
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
                 Set<Key> keep = keys.stream().map(k -> new Key(KnowledgeKind.TICKET, k, 0)).collect(Collectors.toSet());
                 removed = index.retain(project.id(), KnowledgeKind.TICKET, keep);
                 links.retain(project.id(), keys);
+                if (labels != null) {
+                    labels.retain(project.id(), keys);
+                }
                 if (removed > 0) {
                     LOG.infof("Connaissance : %d ticket(s) supprimé(s) de Jira retiré(s) de l'index", removed);
                 }
-                keptClosed = (int) closed.stream().filter(keys::contains).filter(k -> !reading.keys.contains(k)).count();
+                if (deleted != null && !gone.isEmpty()) {
+                    deleted.accept(project.id(), gone);
+                }
+                if (mode == Mode.FULL) {
+                    keptClosed = (int) closed.stream().filter(keys::contains).filter(k -> !reading.keys.contains(k))
+                            .count();
+                }
             }
         } catch (IssueTrackerException e) {
             LOG.warnf("Connaissance : Jira non synchronisé (%s)", e.kind());
@@ -409,6 +457,9 @@ public class SynchronizeKnowledge {
             index.save(ticket(projectId, issue), null, null);
             // réécrits à chaque relecture : un lien ne change pas le texte indexé (research.md R29)
             links.replace(projectId, issue.key(), issue.links());
+            if (labels != null) {
+                labels.replace(projectId, issue.key(), issue.labels());
+            }
             if (advancesMark && issue.updated() != null && (mark == null || issue.updated().isAfter(mark))) {
                 mark = issue.updated();
             }

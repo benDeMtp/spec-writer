@@ -20,7 +20,8 @@ public class TaskWorld extends JiraWorld {
     public final AgentConnections connections = c -> c != null && !closed.contains(c);
     public final InMemoryTaskWorkflows workflows = new InMemoryTaskWorkflows();
     public final TaskDesk desk = new TaskDesk(sessions, tasks, tickets, jira, tracker, markup, clock, ids, locks,
-            workflows);
+            workflows, new fr.kawamind.application.jira.JiraLabelling(jiraLabels, ticketLabels, tracker),
+            new fr.kawamind.application.jira.JiraScope(jiraLabels, ticketLabels, tickets, sessions));
 
     public TaskWorld() {
         grant(ConsentService.JIRA);

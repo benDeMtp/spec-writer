@@ -104,4 +104,40 @@ class ValidateTasksTest {
         assertThat(view.creationProblem()).contains("Le serveur Jira ne répond pas");
         assertThat(w.tracker.writes).isEmpty();
     }
+
+    // 024 (US1, research R3) : le label du projet sur chaque sous-tâche, créée ou reprise
+
+    void label() {
+        w.jiraLabels.save(session.projectId(), fr.kawamind.domain.jira.JiraLabel.of("spec-writer"), w.clock.now());
+    }
+
+    @Test
+    void lesSousTachesCreeesPortentLeLabel() {
+        label();
+        TasksView view = validate.run(session.id());
+        assertThat(view.tasks()).allSatisfy(t -> {
+            assertThat(w.tracker.tracked.get(t.jiraKey()).labels()).containsExactly("spec-writer");
+            assertThat(w.ticketLabels.has(session.projectId(), t.jiraKey(), "spec-writer")).isTrue();
+        });
+        assertThat(view.creationProblem()).isNull();
+    }
+
+    @Test
+    void uneSousTacheRepriseRecoitLeLabel() {
+        label();
+        w.tracker.addSubtask("FACT-120", "FACT-130", "Exposer l'endpoint", "new");
+        validate.run(session.id());
+        assertThat(w.tracker.calls).contains("label FACT-130 spec-writer");
+        assertThat(w.tracker.tracked.get("FACT-130").labels()).containsExactly("spec-writer");
+    }
+
+    @Test
+    void unLabelRefuseEstDitSansArreterLaCreation() {
+        label();
+        w.tracker.addSubtask("FACT-120", "FACT-130", "Exposer l'endpoint", "new");
+        w.tracker.labelFailure = fr.kawamind.domain.jira.IssueTrackerException.Kind.REJECTED;
+        TasksView view = validate.run(session.id());
+        assertThat(view.tasks()).extracting(SpecTask::jiraKey).doesNotContainNull();
+        assertThat(view.creationProblem()).startsWith("Le label spec-writer n'a pas pu être posé sur FACT-130");
+    }
 }

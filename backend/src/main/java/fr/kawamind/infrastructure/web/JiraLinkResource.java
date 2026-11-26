@@ -4,7 +4,6 @@ import fr.kawamind.application.jira.CreateJiraTicket;
 import fr.kawamind.application.jira.PreviewJiraTicket;
 import fr.kawamind.application.jira.PushToJira;
 import fr.kawamind.application.jira.RetryRelatedLink;
-import fr.kawamind.domain.jira.LinkedJiraTicket;
 import fr.kawamind.domain.port.LinkedTicketRepository;
 import fr.kawamind.domain.port.SessionRelationRepository;
 import fr.kawamind.domain.session.SessionRelation;
@@ -84,10 +83,10 @@ public class JiraLinkResource {
             request.extraFields().forEach((field, value) -> extra.put(field, value == null ? null : String.valueOf(value)));
         }
         UUID sessionId = Ids.parse(id);
-        LinkedJiraTicket created = createJiraTicket.run(sessionId, request.versionNumber(),
+        CreateJiraTicket.Created created = createJiraTicket.create(sessionId, request.versionNumber(),
                 Boolean.TRUE.equals(request.confirm()), request.issueTypeId(), extra);
-        return Response.status(Response.Status.CREATED)
-                .entity(SessionViews.ticket(created, relations.find(sessionId).orElse(null))).build();
+        return Response.status(Response.Status.CREATED).entity(SessionViews.ticket(created.ticket(),
+                relations.find(sessionId).orElse(null), created.labelWarning())).build();
     }
 
     /** Réessaie le lien « relates to » de la story créée vers le ticket fermé (FR-035 de 002). */

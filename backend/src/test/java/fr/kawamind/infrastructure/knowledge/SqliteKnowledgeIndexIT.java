@@ -49,6 +49,8 @@ class SqliteKnowledgeIndexIT {
     KnowledgeIndex index;
     @Inject
     ProjectRepository projects;
+    @Inject
+    fr.kawamind.domain.port.TicketLinkRepository links;
     @ConfigProperty(name = "specwriter.data-dir.resolved")
     String dataDir;
 
@@ -398,5 +400,21 @@ class SqliteKnowledgeIndexIT {
         if (Files.exists(journal)) {
             assertThat(Files.readString(journal)).doesNotContain(marker);
         }
+    }
+
+    /** T031 (024, US4, research R7) : une sous-tâche n'est trouvée ni par les mots ni par le sens. */
+    @Test
+    void uneSousTacheNEstJamaisUnResultatDeRecherche() {
+        index.save(ticket("FACT-20", "Payer en ligne", "Story du paiement."), vector(5), MODEL);
+        index.save(ticket("FACT-21", "Avoir sur le paiement", "Avoir sur une ligne."), vector(6), MODEL);
+        links.replace(project, "FACT-21", List.of(fr.kawamind.domain.jira.TicketLink.parent("FACT-20")));
+        assertThat(index.search(project, "avoir paiement", null, MODEL, List.of(), 10))
+                .extracting(h -> h.item().ref()).contains("FACT-20").doesNotContain("FACT-21");
+        assertThat(index.search(project, "aucun terme", vector(6), MODEL, EnumSet.of(KnowledgeKind.TICKET), 10))
+                .extracting(h -> h.item().ref()).containsExactly("FACT-20");
+        // elle reste une référence de l'index
+        assertThat(index.find(project, new fr.kawamind.domain.port.KnowledgeIndex.Key(KnowledgeKind.TICKET, "FACT-21", 0)))
+                .isPresent();
+        assertThat(index.all(project, KnowledgeKind.TICKET)).extracting(KnowledgeItem::ref).contains("FACT-21");
     }
 }

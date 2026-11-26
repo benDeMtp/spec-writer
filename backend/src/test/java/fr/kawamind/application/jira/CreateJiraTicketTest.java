@@ -203,4 +203,43 @@ class CreateJiraTicketTest {
         assertThatThrownBy(() -> create.run(session.id(), 4, true, "10001", Map.of())).isInstanceOfSatisfying(
                 DomainException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
     }
+
+    // 024 (US1, research R3) : le label de reconnaissance est posé sur la story créée
+
+    CreateJiraTicket labelled() {
+        return new CreateJiraTicket(w.tracker, w.jira, w.markup, w.versions, w.tickets, w.clock,
+                CreateJiraTicket.NO_RELATIONS, new JiraLabelling(w.jiraLabels, w.ticketLabels, w.tracker));
+    }
+
+    @Test
+    void laStoryCreeePorteLeLabelDuProjet() {
+        w.jiraLabels.save(session.projectId(), fr.kawamind.domain.jira.JiraLabel.of("spec-writer"), w.clock.now());
+        CreateJiraTicket.Created c = labelled().create(session.id(), 1, true, "10001", Map.of("customfield_1", "2"));
+        assertThat(w.tracker.created.getLast().get("labels")).isEqualTo(List.of("spec-writer"));
+        assertThat(c.labelWarning()).isNull();
+        assertThat(w.ticketLabels.has(session.projectId(), c.ticket().issueKey(), "spec-writer")).isTrue();
+    }
+
+    @Test
+    void sansLabelRegleAucunLabel() {
+        labelled().create(session.id(), 1, true, "10001", Map.of("customfield_1", "2"));
+        assertThat(w.tracker.created.getLast()).doesNotContainKey("labels");
+    }
+
+    @Test
+    void unChampDesLabelsAbsentDeLEcranDonneUneCreationPuisUnAjout() {
+        w.jiraLabels.save(session.projectId(), fr.kawamind.domain.jira.JiraLabel.of("spec-writer"), w.clock.now());
+        w.tracker.rejectLabelsOnCreate = true;
+        CreateJiraTicket.Created c = labelled().create(session.id(), 1, true, "10001", Map.of("customfield_1", "2"));
+        assertThat(w.tracker.calls).containsSubsequence("create PROJ 10001", "create PROJ 10001",
+                "label " + c.ticket().issueKey() + " spec-writer");
+        assertThat(c.labelWarning()).isNull();
+
+        w.tickets.delete(session.id());
+        w.tracker.labelFailure = IssueTrackerException.Kind.REJECTED;
+        CreateJiraTicket.Created refused = labelled().create(session.id(), 1, true, "10001", Map.of("customfield_1", "2"));
+        assertThat(refused.ticket()).isNotNull();
+        assertThat(refused.labelWarning()).startsWith("Le label spec-writer n'a pas pu être posé sur "
+                + refused.ticket().issueKey() + " : labels : Le champ n'est pas sur l'écran.");
+    }
 }

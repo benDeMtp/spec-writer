@@ -119,8 +119,14 @@ public class TaskSync {
         Map<UUID, String> descriptions = desk.tasks.descriptions(sessionId);
         Map<UUID, String> types = desk.tasks.issueTypes(sessionId);
         TaskWorkflow workflow = desk.workflow(sessionId);
+        UUID projectId = desk.labelling == null ? null
+                : desk.sessions.find(sessionId).map(s -> s.projectId()).orElse(null);
         for (SpecTask task : created) {
             TrackedIssue issue = found.get(task.jiraKey());
+            if (issue != null && projectId != null) {
+                // 024 (FR-013) : un label posé ou retiré à la main dans Jira est vu dès la relecture
+                desk.labelling.read(projectId, issue.key(), issue.labels());
+            }
             String description = issue == null ? descriptions.get(task.id()) : description(issue);
             if (!Objects.equals(description, descriptions.get(task.id()))) {
                 desk.tasks.describe(task.id(), description);

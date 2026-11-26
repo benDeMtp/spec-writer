@@ -217,6 +217,13 @@ class McpBridgeTest {
             if (name.equals("start_task") || name.equals("set_feature_status")) {
                 assertThat(text).as(name).contains("story");
             }
+            // 024 : périmètre du label
+            if (name.equals("list_features")) {
+                assertThat(text).contains("label Jira").contains("NOT_IN_JIRA_SCOPE");
+            }
+            if (name.equals("next_task")) {
+                assertThat(text).contains("inScope");
+            }
             if (name.equals("start_task") || name.equals("complete_task")) {
                 assertThat(text).as(name).contains("affectés au propriétaire du jeton Jira");
             }

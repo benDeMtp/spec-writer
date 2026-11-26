@@ -35,11 +35,12 @@ public class AgentTasks {
      * {@code description} : celle de la sous-tâche dans Jira, en Markdown, nulle si vide ;
      * {@code issueType} : libellé de son type dans Jira, nul tant qu'elle n'a pas été relue (022) ;
      * {@code jiraStatus} : vrai nom de son statut Jira, « Réalisée » par exemple (023, FR-013) ;
-     * {@code parentKey} : ticket lié à la feature, sous lequel elle est créée (022, research R4).
+     * {@code parentKey} : ticket lié à la feature, sous lequel elle est créée (022, research R4) ;
+     * {@code inScope} : faux si le projet a un label et que la sous-tâche ne le porte pas (024).
      */
     public record TaskInfo(String key, String title, String outcome, String description, String issueType,
             String jiraStatus, String parentKey, int position, List<String> dependsOn,
-            TaskStatus status, String heldBy, boolean heldByYou, String jiraSync, String report) {
+            TaskStatus status, String heldBy, boolean heldByYou, String jiraSync, String report, boolean inScope) {
     }
 
     /** Tâches d'une feature, pour {@code get_feature}. */
@@ -95,7 +96,9 @@ public class AgentTasks {
             boolean problem = sync.refresh(featureId);
             requireTracking(featureId);
             List<SpecTask> tasks = desk.tasks.tasks(featureId);
-            TaskProgress.Next next = TaskProgress.next(tasks, connection, connections::alive);
+            // 024 (US3) : une tâche hors périmètre n'est jamais proposée ; elle compte pour les préalables
+            List<SpecTask> served = tasks.stream().filter(t -> desk.scope.task(featureId, t.jiraKey())).toList();
+            TaskProgress.Next next = TaskProgress.next(served, connection, connections::alive);
             String read = problem ? "JIRA_UNREACHABLE" : null;
             NextAnswer answer = switch (next) {
                 case TaskProgress.Next.Task t -> task(info(t.task(), tasks, connection), t.resume(), read);
@@ -116,6 +119,7 @@ public class AgentTasks {
             requireTracking(featureId);
             List<SpecTask> tasks = desk.tasks.tasks(featureId);
             SpecTask task = byKey(tasks, key);
+            desk.scope.requireTask(featureId, key);
             if (task.status() == TaskStatus.IN_PROGRESS) {
                 if (task.holder() != null && task.holder().connection().equals(connection)) {
                     return answer(task, tasks, connection, null);
@@ -156,6 +160,7 @@ public class AgentTasks {
             requireTracking(featureId);
             List<SpecTask> tasks = desk.tasks.tasks(featureId);
             SpecTask task = byKey(tasks, key);
+            desk.scope.requireTask(featureId, key);
             if (task.status() == TaskStatus.DONE) {
                 TaskAnswer done = answer(task, tasks, connection, null);
                 return new TaskAnswer(done.task(), done.jiraSync(), "La tâche " + key + " est déjà terminée.", true, null,
@@ -259,7 +264,9 @@ public class AgentTasks {
         }
         desk.sessions.implementation(featureId).filter(i -> i.status() != ImplementationStatus.DRAFT)
                 .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
-        return desk.sessions.find(featureId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        Session session = desk.sessions.find(featureId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        desk.scope.requireFeature(featureId);
+        return session;
     }
 
     private void requireTracking(UUID featureId) {
@@ -271,7 +278,8 @@ public class AgentTasks {
 
     private static SpecTask byKey(List<SpecTask> tasks, String key) {
         return tasks.stream().filter(t -> t.isCreated() && t.jiraKey().equals(key)).findFirst()
-                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "Aucune tâche " + key + " dans cette feature."));
+                .orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND, "La tâche " + key + " n'est plus une tâche de "
+                        + "cette feature : elle a peut-être été supprimée dans Jira."));
     }
 
     private List<TaskInfo> infos(List<SpecTask> tasks, String connection) {
@@ -303,6 +311,7 @@ public class AgentTasks {
         boolean mine = t.holder() != null && t.holder().connection().equals(connection);
         return new TaskInfo(t.jiraKey(), t.title(), t.outcome(), read.descriptions().get(t.id()),
                 read.types().get(t.id()), t.jiraStatusName(), read.parentKey(), t.position(), deps, t.status(),
-                t.holder() == null ? null : t.holder().agentName(), mine, t.isPending() ? "PENDING" : "OK", t.report());
+                t.holder() == null ? null : t.holder().agentName(), mine, t.isPending() ? "PENDING" : "OK", t.report(),
+                desk.scope.task(t.sessionId(), t.jiraKey()));
     }
 }

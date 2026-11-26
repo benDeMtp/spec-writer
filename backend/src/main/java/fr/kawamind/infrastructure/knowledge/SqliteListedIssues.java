@@ -1,5 +1,6 @@
 package fr.kawamind.infrastructure.knowledge;
 
+import fr.kawamind.domain.jira.IssueFilters;
 import fr.kawamind.domain.jira.IssueSort;
 import fr.kawamind.domain.jira.LinkedJiraTicket;
 import fr.kawamind.domain.jira.ListedIssue;
@@ -52,9 +53,20 @@ public class SqliteListedIssues implements ListedIssues {
     @Transactional
     @SuppressWarnings("unchecked")
     public List<ListedIssue> page(UUID projectId, IssueSort sort, int offset, int limit) {
-        List<Object[]> rows = em.createNativeQuery("select " + COLUMNS + ", op.target_key " + FROM + " order by "
-                + order(sort) + " limit ?2 offset ?3").setParameter(1, projectId.toString()).setParameter(2, limit)
-                .setParameter(3, offset).getResultList();
+        return page(projectId, sort, IssueFilters.ALL, offset, limit);
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<ListedIssue> page(UUID projectId, IssueSort sort, IssueFilters filters, int offset, int limit) {
+        var query = em.createNativeQuery("select " + COLUMNS + ", op.target_key " + FROM + filtered(filters, 4)
+                + " order by " + order(sort) + " limit ?2 offset ?3").setParameter(1, projectId.toString())
+                .setParameter(2, limit).setParameter(3, offset);
+        if (filters.label() != null) {
+            query.setParameter(4, filters.label());
+        }
+        List<Object[]> rows = query.getResultList();
         List<ListedIssue> top = rows.stream().map(r -> issue(r, (String) r[7])).toList();
         if (top.isEmpty()) {
             return top;
@@ -96,8 +108,34 @@ public class SqliteListedIssues implements ListedIssues {
     @Override
     @Transactional
     public int count(UUID projectId) {
-        return ((Number) em.createNativeQuery("select count(*) " + FROM).setParameter(1, projectId.toString())
-                .getSingleResult()).intValue();
+        return count(projectId, IssueFilters.ALL);
+    }
+
+    @Override
+    @Transactional
+    public int count(UUID projectId, IssueFilters filters) {
+        var query = em.createNativeQuery("select count(*) " + FROM + filtered(filters, 2))
+                .setParameter(1, projectId.toString());
+        if (filters.label() != null) {
+            query.setParameter(2, filters.label());
+        }
+        return ((Number) query.getSingleResult()).intValue();
+    }
+
+    /**
+     * Filtres du premier niveau (024, research R6) : le label, en paramètre {@code ?labelIndex}, jamais
+     * dans le texte de la requête ; les tickets terminés écartés sauf demande.
+     */
+    static String filtered(IssueFilters filters, int labelIndex) {
+        StringBuilder sql = new StringBuilder();
+        if (filters.label() != null) {
+            sql.append(" and exists (select 1 from ticket_label tl where tl.project_id = k.project_id")
+                    .append(" and tl.ticket_key = k.ref and tl.label = ?").append(labelIndex).append(')');
+        }
+        if (!filters.done()) {
+            sql.append(" and coalesce(k.status_category, '') <> 'done'");
+        }
+        return sql.toString();
     }
 
     static String order(IssueSort sort) {

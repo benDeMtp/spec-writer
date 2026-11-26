@@ -64,6 +64,8 @@ public class SessionResource {
     @Inject
     LinkedTicketRepository tickets;
     @Inject
+    fr.kawamind.domain.port.LostJiraLinks lostLinks;
+    @Inject
     StartSession startSession;
     @Inject
     AnswerQuestion answerQuestion;
@@ -140,7 +142,8 @@ public class SessionResource {
         UUID sessionId = Ids.parse(id);
         Session session = sessions.find(sessionId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         return SessionViews.detail(new SessionSnapshot(session, sessions.questionnaire(sessionId).orElseThrow(), List.of()),
-                versions.lastNumber(sessionId), ticket(sessionId), implementation(sessionId));
+                versions.lastNumber(sessionId), ticket(sessionId), implementation(sessionId),
+                lostLinks.find(sessionId).orElse(null));
     }
 
     @PUT

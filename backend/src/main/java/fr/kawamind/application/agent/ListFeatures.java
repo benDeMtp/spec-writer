@@ -1,5 +1,6 @@
 package fr.kawamind.application.agent;
 
+import fr.kawamind.application.jira.JiraScope;
 import fr.kawamind.domain.agent.AgentOperation;
 import fr.kawamind.domain.error.DomainException;
 import fr.kawamind.domain.error.ErrorCode;
@@ -27,9 +28,17 @@ public class ListFeatures {
     private final SessionRepository sessions;
     private final SpecificationRepository versions;
     private final AgentJournal journal;
+    /** Périmètre des agents (024, US3). */
+    private final JiraScope scope;
 
     public ListFeatures(ProjectRepository projects, SessionRepository sessions, SpecificationRepository versions,
             AgentJournal journal) {
+        this(projects, sessions, versions, journal, JiraScope.OPEN);
+    }
+
+    public ListFeatures(ProjectRepository projects, SessionRepository sessions, SpecificationRepository versions,
+            AgentJournal journal, JiraScope scope) {
+        this.scope = scope;
         this.projects = projects;
         this.sessions = sessions;
         this.versions = versions;
@@ -43,6 +52,7 @@ public class ListFeatures {
         journal.record(agentName, AgentOperation.LIST_FEATURES, projectId, null);
         return sessions.list().stream()
                 .filter(s -> s.readable() && projectId.equals(s.projectId()) && s.implementationStatus().toImplement())
+                .filter(s -> scope.feature(s.id()))
                 .map(this::feature).flatMap(Optional::stream).toList();
     }
 

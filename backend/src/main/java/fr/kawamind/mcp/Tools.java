@@ -60,7 +60,9 @@ final class Tools {
         ArrayNode tools = JsonRpc.JSON.createArrayNode();
         tools.add(tool("list_projects", "Liste les projets de spec-writer : id, nom, description, clé Jira.", schema()));
         tools.add(tool("list_features",
-                "Liste les features à implémenter d'un projet : spécifications « prêtes » ou « en cours », avec leur dernière version.",
+                "Liste les features à implémenter d'un projet : spécifications « prêtes » ou « en cours », avec leur dernière version. "
+                        + "Si le projet a un label Jira, seules les features suivies par spec-writer dans Jira (story qui porte "
+                        + "le label) sont listées ; les autres sont refusées (NOT_IN_JIRA_SCOPE).",
                 schema("projectId", "Identifiant du projet (list_projects).")));
         tools.add(tool("get_feature",
                 "Contenu complet d'une feature : Markdown de la dernière version, identique à l'export, et connaissance du "
@@ -97,7 +99,8 @@ final class Tools {
                         + "La tâche porte son titre, son résultat attendu (outcome) et la description de la sous-tâche dans "
                         + "Jira (description, en Markdown), relue à chaque appel : elle précise ce qu'il faut faire. "
                         + "Elle porte aussi son type (issueType) et son ticket parent (parentKey) ; pour une sous-tâche, "
-                        + "branch dit sur quelle branche travailler."
+                        + "branch dit sur quelle branche travailler. Une tâche dont la sous-tâche ne porte pas le label Jira du "
+                        + "projet (inScope faux) n'est jamais proposée."
                         + DATA_NOTICE,
                 schema("featureId", "Identifiant de la feature.")));
         tools.add(tool("start_task",

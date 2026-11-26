@@ -91,4 +91,50 @@ class ListProjectIssuesTest {
                 .isInstanceOf(DomainException.class).extracting(e -> ((DomainException) e).code())
                 .isEqualTo(ErrorCode.PROJECT_NOT_FOUND);
     }
+
+    /** T022 (024, US2) : filtres de la vue, par défaut le label et sans les terminés. */
+    @Test
+    void lesFiltresSuiventLeLabelDuProjet() {
+        w.configureJira();
+        List<fr.kawamind.domain.jira.IssueFilters> seen = new ArrayList<>();
+        ListedIssues filtered = new ListedIssues() {
+            @Override
+            public List<ListedIssue> page(UUID projectId, IssueSort sort, int offset, int limit) {
+                return List.of();
+            }
+
+            @Override
+            public int count(UUID projectId) {
+                return 0;
+            }
+
+            @Override
+            public List<ListedIssue> page(UUID projectId, IssueSort sort, fr.kawamind.domain.jira.IssueFilters filters,
+                    int offset, int limit) {
+                seen.add(filters);
+                return List.of();
+            }
+
+            @Override
+            public int count(UUID projectId, fr.kawamind.domain.jira.IssueFilters filters) {
+                return 7;
+            }
+        };
+        ListProjectIssues byLabel = new ListProjectIssues(w.projects, w.jira, filtered, syncs, w.jiraLabels);
+        // sans label réglé : le filtre du label est ignoré
+        ListProjectIssues.IssuePage none = byLabel.run(P, IssueSort.DEFAULT, true, false, 0, 50);
+        assertThat(none.label()).isNull();
+        assertThat(none.labelled()).isFalse();
+        assertThat(none.done()).isFalse();
+        assertThat(seen.getLast()).isEqualTo(new fr.kawamind.domain.jira.IssueFilters(null, false));
+
+        w.jiraLabels.save(P, fr.kawamind.domain.jira.JiraLabel.of("spec-writer"), T);
+        ListProjectIssues.IssuePage page = byLabel.run(P, IssueSort.DEFAULT, true, false, 0, 50);
+        assertThat(page.label()).isEqualTo("spec-writer");
+        assertThat(page.labelled()).isTrue();
+        assertThat(page.total()).isEqualTo(7);
+        assertThat(seen.getLast()).isEqualTo(new fr.kawamind.domain.jira.IssueFilters("spec-writer", false));
+        byLabel.run(P, IssueSort.DEFAULT, false, true, 0, 50);
+        assertThat(seen.getLast()).isEqualTo(fr.kawamind.domain.jira.IssueFilters.ALL);
+    }
 }
