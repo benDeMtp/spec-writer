@@ -180,7 +180,7 @@
         "urlPath": "/rest/api/2/issue/FACT-7",
         "queryParameters": {
           "fields": {
-            "equalTo": "status,updated"
+            "equalTo": "status,updated,assignee"
           }
         }
       },
@@ -210,7 +210,7 @@
         "urlPath": "/rest/api/2/issue/FACT-9",
         "queryParameters": {
           "fields": {
-            "equalTo": "status,updated"
+            "equalTo": "status,updated,assignee"
           }
         }
       },
@@ -240,7 +240,7 @@
         "urlPath": "/rest/api/2/issue/FACT-11",
         "queryParameters": {
           "fields": {
-            "equalTo": "status,updated"
+            "equalTo": "status,updated,assignee"
           }
         }
       },
@@ -270,7 +270,7 @@
         "urlPath": "/rest/api/2/issue/FACT-12",
         "queryParameters": {
           "fields": {
-            "equalTo": "status,updated"
+            "equalTo": "status,updated,assignee"
           }
         }
       },
@@ -300,7 +300,7 @@
         "urlPath": "/rest/api/2/issue/FACT-14",
         "queryParameters": {
           "fields": {
-            "equalTo": "status,updated"
+            "equalTo": "status,updated,assignee"
           }
         }
       },
@@ -330,7 +330,7 @@
         "urlPath": "/rest/api/2/issue/FACT-15",
         "queryParameters": {
           "fields": {
-            "equalTo": "status,updated"
+            "equalTo": "status,updated,assignee"
           }
         }
       },

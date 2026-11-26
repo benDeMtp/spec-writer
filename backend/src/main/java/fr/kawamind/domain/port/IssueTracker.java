@@ -122,6 +122,9 @@ public interface IssueTracker {
     /** Applique une transition ({@code POST issue/{key}/transitions}). */
     void transition(JiraEndpoint endpoint, String issueKey, String transitionId);
 
+    /** Affecte le ticket à un utilisateur, désigné par son login ({@code PUT issue/{key}/assignee}, 023). */
+    void assign(JiraEndpoint endpoint, String issueKey, String login);
+
     /** Ajoute un commentaire en wiki markup ({@code POST issue/{key}/comment}). */
     void addComment(JiraEndpoint endpoint, String issueKey, String wikiBody);
 }

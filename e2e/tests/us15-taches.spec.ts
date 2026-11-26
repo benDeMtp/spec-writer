@@ -88,6 +88,8 @@ test.describe.serial('US15 tâches et avancement', () => {
       });
       await add({ request: { method: 'POST', urlPath: `/rest/api/2/issue/${key}/transitions` }, response: { status: 204 } });
       await add({ request: { method: 'POST', urlPath: `/rest/api/2/issue/${key}/comment` }, response: { status: 201, headers: json, jsonBody: { id: '1' } } });
+      // 023 (US5) : le propriétaire du jeton est affecté avant chaque transition
+      await add({ request: { method: 'PUT', urlPath: `/rest/api/2/issue/${key}/assignee` }, response: { status: 204 } });
     }
   }
 
@@ -478,6 +480,11 @@ test.describe.serial('US15 tâches et avancement', () => {
           request: { method: 'POST', urlPath: `/rest/api/2/issue/${STORY}/transitions` },
           response: { status: 204 },
         });
+        await stub({
+          priority: 1,
+          request: { method: 'PUT', urlPath: `/rest/api/2/issue/${STORY}/assignee` },
+          response: { status: 204 },
+        });
         aurora.add('PROJ-303');
         named['PROJ-303'] = 'Créée';
         Object.assign(state, { 'PROJ-301': 'done', 'PROJ-302': 'done', 'PROJ-303': 'new' });
@@ -492,6 +499,13 @@ test.describe.serial('US15 tâches et avancement', () => {
           .toEqual(['21']);
         expect((await sent('POST', `/rest/api/2/issue/${STORY}/transitions`)).map((r) => JSON.parse(r.body).transition.id))
           .toEqual(['21']);
+        // US5 : la sous-tâche et la story sont affectées au propriétaire du jeton
+        expect(started.json.message).toBeNull();
+        for (const key of ['PROJ-303', STORY]) {
+          expect((await sent('PUT', `/rest/api/2/issue/${key}/assignee`)).map((r) => JSON.parse(r.body))).toEqual([
+            { name: 'e2e-user' },
+          ]);
+        }
 
         // fin de la dernière tâche : « Réaliser », jamais « Fermer » ; la story passe à « Réalisée »
         named['PROJ-303'] = 'En Cours';

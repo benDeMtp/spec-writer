@@ -399,6 +399,36 @@ class AgentTasksTest {
         assertThat(status()).isEqualTo(ImplementationStatus.IMPLEMENTED);
     }
 
+    // 023 (US5) : le propriétaire du jeton est affecté aux tickets qui avancent
+
+    @Test
+    void laSousTacheEtLaStorySontAffecteesAuProprietaireDuJeton() {
+        w.workflows.save(session.projectId(), AURORA, w.clock.now());
+        story("Prête", "new");
+        w.tracker.assignees.put("FACT-120", "bob");
+        aurora("FACT-124");
+        AgentTasks.TaskAnswer started = agent.start("claude-code", ME, session.id(), "FACT-124");
+        assertThat(started.message()).isNull();
+        assertThat(w.tracker.assignees).containsEntry("FACT-124", "ada").containsEntry("FACT-120", "ada");
+        assertThat(w.tracker.calls).containsSubsequence("assign FACT-124 ada", "transition FACT-124 21");
+    }
+
+    @Test
+    void uneAffectationRefuseeEstDiteSansBloquer() {
+        w.workflows.save(session.projectId(), AURORA, w.clock.now());
+        story("Prête", "new");
+        aurora("FACT-124");
+        w.tracker.assignFailure = fr.kawamind.domain.jira.IssueTrackerException.Kind.REJECTED;
+        AgentTasks.TaskAnswer started = agent.start("claude-code", ME, session.id(), "FACT-124");
+        assertThat(started.task().status()).isEqualTo(TaskStatus.IN_PROGRESS);
+        assertThat(started.message()).contains("FACT-124 n'a pas pu être affecté à ada");
+        assertThat(started.story().status()).isEqualTo(StoryMove.Outcome.MOVED);
+        assertThat(started.story().message()).contains("FACT-120 n'a pas pu être affecté à ada");
+        AgentTasks.TaskAnswer done = agent.complete("claude-code", ME, session.id(), "FACT-124", null);
+        assertThat(done.task().status()).isEqualTo(TaskStatus.DONE);
+        assertThat(done.message()).contains("FACT-124 n'a pas pu être affecté à ada");
+    }
+
     void enrich(String key, String description) {
         TrackedIssue t = w.tracker.tracked.get(key);
         w.tracker.tracked.put(key, new TrackedIssue(t.key(), t.summary(), description, t.status(), t.statusCategory(),

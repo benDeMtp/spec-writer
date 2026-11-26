@@ -105,7 +105,8 @@ final class Tools {
                         + "jiraSync PENDING : Jira est injoignable, la transition sera envoyée plus tard ; à vous de continuer ou non. "
                         + "La tâche porte son type (issueType) et son ticket parent (parentKey) ; branch dit sur quelle "
                         + "branche travailler : celle du parent. "
-                        + "Si la story de la feature est encore « à faire », elle passe en cours ; story dit ce qui lui est arrivé."
+                        + "Si la story de la feature est encore « à faire », elle passe en cours ; story dit ce qui lui est arrivé. "
+                        + "Les tickets qui avancent sont affectés au propriétaire du jeton Jira ; un refus est dit dans message."
                         + DATA_NOTICE,
                 taskSchema(false)));
         tools.add(tool("complete_task",
@@ -113,7 +114,8 @@ final class Tools {
                         + "statut d'arrivée réglé dans le projet (par exemple « Réalisée »), sinon à « terminé ». jiraStatus donne le "
                         + "vrai statut Jira. NO_TRANSITION : Jira n'offre pas de transition directe, rien ne change, dites-le à "
                         + "l'utilisateur. À la dernière tâche, la story passe au statut d'arrivée ; story dit ce qui lui est arrivé "
-                        + "(MOVED, ALREADY, SKIPPED sans réglage, FAILED avec un message). Le compte "
+                        + "(MOVED, ALREADY, SKIPPED sans réglage, FAILED avec un message). Les tickets qui avancent sont "
+                        + "affectés au propriétaire du jeton Jira ; un refus est dit dans message. Le compte "
                         + "rendu facultatif (2 000 caractères au plus) est ajouté en commentaire sur la sous-tâche, visible par l'équipe."
                         + DATA_NOTICE,
                 taskSchema(true)));

@@ -136,9 +136,11 @@ public class AgentTasks {
                         : "Les tâches préalables de " + key + " ne sont pas terminées.");
             }
             // 023 : jamais un saut direct vers un statut fini du projet
-            TaskJira.Result result = jira.start(desk.endpoint(featureId), key, desk.workflow(featureId)).result();
-            return save(agentName, session, AgentOperation.START_TASK,
-                    task.started(holder, result == TaskJira.Result.UNREACHABLE), connection);
+            TaskJira.Started sent = jira.start(desk.endpoint(featureId), key, desk.workflow(featureId));
+            TaskAnswer saved = save(agentName, session, AgentOperation.START_TASK,
+                    task.started(holder, sent.result() == TaskJira.Result.UNREACHABLE), connection);
+            // 023 (US5) : une affectation refusée est dite à l'agent, sans bloquer
+            return withMessage(saved, sent.assignProblem());
         }));
         // 023 (US4) : la story encore « à faire » passe en cours
         return withStory(started, story.started(featureId));
@@ -165,10 +167,10 @@ public class AgentTasks {
                         "La tâche " + key + " n'est pas en cours pour cette conversation : prenez-la d'abord.");
             }
             // 023 : le statut d'arrivée réglé pour le projet, sinon la catégorie « terminé »
-            TaskJira.Result moved = jira.moveTo(desk.endpoint(featureId), key, desk.workflow(featureId).completion());
+            TaskJira.Move moved = jira.move(desk.endpoint(featureId), key, desk.workflow(featureId).completion());
             SpecTask done;
             String message = null;
-            if (moved == TaskJira.Result.UNREACHABLE) {
+            if (moved.result() == TaskJira.Result.UNREACHABLE) {
                 done = task.completed(report, true);
             } else {
                 done = task.completed(report, false);
@@ -185,8 +187,7 @@ public class AgentTasks {
                 }
             }
             TaskAnswer answer = save(agentName, session, AgentOperation.COMPLETE_TASK, done, connection);
-            return message == null ? answer
-                    : new TaskAnswer(answer.task(), answer.jiraSync(), message, null, null, answer.story());
+            return withMessage(withMessage(answer, message), moved.assignProblem());
         });
         if (Boolean.TRUE.equals(finished.alreadyDone()) || !allDone(featureId)) {
             return finished;
@@ -198,6 +199,15 @@ public class AgentTasks {
     private boolean allDone(UUID featureId) {
         List<SpecTask> created = desk.tasks.tasks(featureId).stream().filter(SpecTask::isCreated).toList();
         return !created.isEmpty() && created.stream().allMatch(t -> t.status() == TaskStatus.DONE);
+    }
+
+    /** Ajoute un message à la réponse, après celui qu'elle porte déjà ; inchangée sans message. */
+    private static TaskAnswer withMessage(TaskAnswer answer, String message) {
+        if (message == null) {
+            return answer;
+        }
+        String all = answer.message() == null ? message : answer.message() + " " + message;
+        return new TaskAnswer(answer.task(), answer.jiraSync(), all, answer.alreadyDone(), answer.branch(), answer.story());
     }
 
     private static TaskAnswer withStory(TaskAnswer answer, StoryMove moved) {

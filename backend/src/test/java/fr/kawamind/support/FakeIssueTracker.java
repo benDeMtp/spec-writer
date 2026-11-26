@@ -86,7 +86,7 @@ public class FakeIssueTracker implements IssueTracker {
     public String currentUser(JiraEndpoint endpoint) {
         calls.add("myself");
         fail();
-        return "ada";
+        return login;
     }
 
     @Override
@@ -238,7 +238,7 @@ public class FakeIssueTracker implements IssueTracker {
         if (issue == null) {
             throw new IssueTrackerException(Kind.NOT_FOUND, "simulé");
         }
-        return new IssueStatus(issueKey, issue.status(), issue.statusCategory(), issue.updated());
+        return new IssueStatus(issueKey, issue.status(), issue.statusCategory(), issue.updated(), assignees.get(issueKey));
     }
 
     @Override
@@ -356,6 +356,25 @@ public class FakeIssueTracker implements IssueTracker {
         tracked.put(issueKey, new TrackedIssue(issueKey, summary, i.description(), i.status(), i.statusCategory(),
                 i.issueType(), i.updated()));
         writes.add("summary " + issueKey);
+    }
+
+    // --- Affectation (023, US5) ---
+
+    /** Login du propriétaire du jeton, rendu par {@code myself}. */
+    public String login = "ada";
+    /** Personne affectée à chaque ticket (login). */
+    public final Map<String, String> assignees = new LinkedHashMap<>();
+    /** Refus simulé de l'affectation (droit manquant…), sans toucher aux autres appels. */
+    public Kind assignFailure;
+
+    @Override
+    public void assign(JiraEndpoint endpoint, String issueKey, String login) {
+        calls.add("assign " + issueKey + " " + login);
+        fail();
+        if (assignFailure != null) {
+            throw new IssueTrackerException(assignFailure, "simulé", null, List.of("L'utilisateur ne peut pas être affecté."));
+        }
+        assignees.put(issueKey, login);
     }
 
     @Override

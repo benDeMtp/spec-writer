@@ -171,7 +171,7 @@ class JiraKnowledgeSyncIT {
 
     @Test
     void statutRelueEtTicketSupprime() {
-        jira.stubFor(get(urlPathEqualTo("/rest/api/2/issue/FACT-9")).withQueryParam("fields", equalTo("status,updated"))
+        jira.stubFor(get(urlPathEqualTo("/rest/api/2/issue/FACT-9")).withQueryParam("fields", equalTo("status,updated,assignee"))
                 .willReturn(okJson("""
                         {"key":"FACT-9","fields":{"status":{"name":"En cours","statusCategory":{"key":"indeterminate"}},
                          "updated":"2026-11-03T10:00:00.000+0000"}}""")));

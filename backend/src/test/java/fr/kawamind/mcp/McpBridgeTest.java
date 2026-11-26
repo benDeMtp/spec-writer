@@ -217,6 +217,9 @@ class McpBridgeTest {
             if (name.equals("start_task") || name.equals("set_feature_status")) {
                 assertThat(text).as(name).contains("story");
             }
+            if (name.equals("start_task") || name.equals("complete_task")) {
+                assertThat(text).as(name).contains("affectés au propriétaire du jeton Jira");
+            }
         }
         assertThat(tools.get(1).path("inputSchema").path("required").get(0).asString()).isEqualTo("projectId");
 

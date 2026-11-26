@@ -62,7 +62,7 @@ public class JiraRestClient implements IssueTracker {
     static final String SEARCH_FIELDS = "summary,status,issuetype,updated";
     static final String ISSUE_FIELDS = "summary,description,updated";
     static final String TRACKED_FIELDS = "summary,description,status,issuetype,updated,parent,subtasks,issuelinks";
-    static final String STATUS_FIELDS = "status,updated";
+    static final String STATUS_FIELDS = "status,updated,assignee";
     static final String PARENT_FIELDS = "summary,status,issuetype,subtasks";
     private static final int KEYS_PAGE = 100;
     private static final int MAX_KEYS = 50_000;
@@ -234,7 +234,8 @@ public class JiraRestClient implements IssueTracker {
         Map<?, ?> fields = map(body.get("fields"));
         Map<?, ?> status = map(fields.get("status"));
         return new IssueStatus(String.valueOf(body.get("key")), text(status.get("name")),
-                text(map(status.get("statusCategory")).get("key")), date(fields.get("updated")));
+                text(map(status.get("statusCategory")).get("key")), date(fields.get("updated")),
+                text(map(fields.get("assignee")).get("name")));
     }
 
     @Override
@@ -419,6 +420,15 @@ public class JiraRestClient implements IssueTracker {
         requireKey(issueKey);
         call(endpoint, api -> rejecting("la transition", () -> {
             api.transition(issueKey, Map.of("transition", Map.of("id", transitionId)));
+            return null;
+        }));
+    }
+
+    @Override
+    public void assign(JiraEndpoint endpoint, String issueKey, String login) {
+        requireKey(issueKey);
+        call(endpoint, api -> rejecting("l'affectation", () -> {
+            api.assign(issueKey, Map.of("name", login));
             return null;
         }));
     }

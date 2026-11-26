@@ -175,4 +175,81 @@ class TaskJiraTest {
         assertThat(jira.moveTo(JIRA, "FACT-124", new Target.Category(StatusCategory.IN_PROGRESS))).isEqualTo(Result.SENT);
         assertThat(tracker.tracked.get("FACT-124").statusCategory()).isEqualTo("indeterminate");
     }
+
+    // 023 (US5, research R9) : le propriétaire du jeton est affecté avant chaque transition
+
+    @Test
+    void leTicketEstAffecteAuProprietaireDuJetonAvantLaTransition() {
+        aurora("En Cours");
+        tracker.assignees.put("FACT-124", "bob");
+        TaskJira.Move move = jira.move(JIRA, "FACT-124", REALISEE);
+        assertThat(move).isEqualTo(new TaskJira.Move(Result.SENT, null));
+        assertThat(tracker.calls).containsSubsequence("myself", "assign FACT-124 ada", "transition FACT-124 51");
+        assertThat(tracker.assignees).containsEntry("FACT-124", "ada");
+    }
+
+    @Test
+    void unTicketDejaAffecteAuProprietaireNEstPasReaffecte() {
+        tracker.assignees.put("FACT-124", "ada");
+        assertThat(jira.moveTo(JIRA, "FACT-124", StatusCategory.IN_PROGRESS)).isEqualTo(Result.SENT);
+        assertThat(tracker.calls).noneMatch(c -> c.startsWith("assign"));
+    }
+
+    @Test
+    void sansTransitionEnvoyeeAucuneAffectation() {
+        aurora("Réalisée");
+        assertThat(jira.moveTo(JIRA, "FACT-124", REALISEE)).isEqualTo(Result.ALREADY);
+        tracker.moveTo("FACT-124", "indeterminate", "En Cours");
+        tracker.workflows.put("FACT-124", List.of(new Transition("61", "Fermer", "done", "Fermée")));
+        assertThatThrownBy(() -> jira.moveTo(JIRA, "FACT-124", REALISEE)).isInstanceOf(DomainException.class);
+        assertThat(tracker.calls).noneMatch(c -> c.startsWith("assign"));
+    }
+
+    @Test
+    void laRemiseAFaireNAffectePas() {
+        tracker.moveTo("FACT-124", "indeterminate", "En cours");
+        assertThat(jira.moveTo(JIRA, "FACT-124", StatusCategory.NEW)).isEqualTo(Result.SENT);
+        assertThat(tracker.calls).noneMatch(c -> c.startsWith("assign"));
+    }
+
+    @Test
+    void leDemarrageAffecteAussi() {
+        TaskJira.Started started = jira.start(JIRA, "FACT-124", TaskWorkflow.NONE);
+        assertThat(started.result()).isEqualTo(Result.SENT);
+        assertThat(started.assignProblem()).isNull();
+        assertThat(tracker.calls).containsSubsequence("assign FACT-124 ada", "transition FACT-124 21");
+    }
+
+    @Test
+    void uneAffectationRefuseeNEmpechePasLaTransition() {
+        tracker.assignFailure = Kind.REJECTED;
+        TaskJira.Move move = jira.move(JIRA, "FACT-124", new Target.Category(StatusCategory.IN_PROGRESS));
+        assertThat(move.result()).isEqualTo(Result.SENT);
+        assertThat(move.assignProblem()).isEqualTo("FACT-124 n'a pas pu être affecté à ada : "
+                + "L'utilisateur ne peut pas être affecté.");
+        assertThat(tracker.calls).contains("transition FACT-124 21");
+        tracker.assignFailure = Kind.UNAUTHORIZED;
+        tracker.moveTo("FACT-124", "new", "À faire");
+        assertThat(jira.move(JIRA, "FACT-124", new Target.Category(StatusCategory.IN_PROGRESS)).assignProblem())
+                .contains("FACT-124 n'a pas pu être affecté à ada");
+    }
+
+    @Test
+    void jiraInjoignablePendantLAffectationEstInjoignable() {
+        tracker.assignFailure = Kind.UNREACHABLE;
+        assertThat(jira.moveTo(JIRA, "FACT-124", StatusCategory.IN_PROGRESS)).isEqualTo(Result.UNREACHABLE);
+        assertThat(tracker.calls).noneMatch(c -> c.startsWith("transition FACT-124"));
+    }
+
+    @Test
+    void leProprietaireEstLuUneFoisParJeton() {
+        jira.moveTo(JIRA, "FACT-124", StatusCategory.IN_PROGRESS);
+        tracker.assignees.remove("FACT-124");
+        jira.moveTo(JIRA, "FACT-124", StatusCategory.DONE);
+        assertThat(tracker.calls.stream().filter("myself"::equals)).hasSize(1);
+        // un autre jeton : relu
+        tracker.moveTo("FACT-124", "new", "À faire");
+        jira.moveTo(new JiraEndpoint("https://jira.example", "autre", null), "FACT-124", StatusCategory.IN_PROGRESS);
+        assertThat(tracker.calls.stream().filter("myself"::equals)).hasSize(2);
+    }
 }

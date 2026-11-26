@@ -38,7 +38,7 @@ public class StoryFollow {
             JiraEndpoint endpoint = desk.endpoint(featureId);
             TaskJira.Started started = jira.start(endpoint, key.get(), desk.workflow(featureId));
             return switch (started.result()) {
-                case SENT -> new StoryMove(key.get(), StoryMove.Outcome.MOVED, started.status(), null);
+                case SENT -> new StoryMove(key.get(), StoryMove.Outcome.MOVED, started.status(), started.assignProblem());
                 case ALREADY -> null;
                 case UNREACHABLE -> failed(key.get(), to, UNREACHABLE.formatted(key.get(), to));
             };
@@ -60,9 +60,10 @@ public class StoryFollow {
         }
         String to = workflow.arrivalStatus();
         try {
-            TaskJira.Result result = jira.moveTo(desk.endpoint(featureId), key.get(), workflow.completion());
-            return switch (result) {
-                case SENT -> new StoryMove(key.get(), StoryMove.Outcome.MOVED, to, null);
+            TaskJira.Move moved = jira.move(desk.endpoint(featureId), key.get(), workflow.completion());
+            return switch (moved.result()) {
+                // 023 (US5) : une affectation refusée est dite dans le message, la story a bougé
+                case SENT -> new StoryMove(key.get(), StoryMove.Outcome.MOVED, to, moved.assignProblem());
                 case ALREADY -> new StoryMove(key.get(), StoryMove.Outcome.ALREADY, to, null);
                 case UNREACHABLE -> failed(key.get(), to, UNREACHABLE.formatted(key.get(), to));
             };
